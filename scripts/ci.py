@@ -62,6 +62,7 @@ def main():
             ("rust-tests", ["cargo", "test", "--locked", "--workspace"]),
             ("dotnet-build", ["dotnet", "build", "Pivot.slnx", "-c", "Release", "--disable-build-servers", "-warnaserror"]),
             ("decimal-parity", [sys.executable, "tests/decimal-parity/verify.py", "--configuration", "Release", "--output-dir", str(output / "decimal-parity")]),
+            ("protocol-parity", [sys.executable, "tests/protocol-parity/verify.py", "--output-dir", str(output / "protocol-parity")]),
         ]
         for name, command in commands:
             steps.append(run_step(name, command, output))

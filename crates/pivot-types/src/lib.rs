@@ -3,6 +3,30 @@
 use rust_decimal::{Decimal, RoundingStrategy};
 use std::{fmt, str::FromStr};
 
+/// Extensible value boundary. Additional numeric types require explicit coercion rules.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueType {
+    Decimal,
+}
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PivotValue {
+    Decimal(PivotDecimal),
+}
+impl PivotValue {
+    pub fn value_type(&self) -> ValueType {
+        match self {
+            Self::Decimal(_) => ValueType::Decimal,
+        }
+    }
+}
+impl From<PivotDecimal> for PivotValue {
+    fn from(value: PivotDecimal) -> Self {
+        Self::Decimal(value)
+    }
+}
+
 /// Decimal arithmetic errors, independent of the backing implementation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DecimalError {

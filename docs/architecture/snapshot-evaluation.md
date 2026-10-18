@@ -84,5 +84,4 @@ failures during execution; partial validation remains a future option.
 No configurable calculation policy, cancellation,
 global resource budgets, persistence, or published version identity is added.
 Results hold snapshots in memory and may be expensive to retain in large numbers.
-Stable-ID references across working-model renames remain an architectural
-requirement for future editing work; snapshot-time name rebinding is provisional.
+Stable-ID references now survive working-model renames; see ADR-0003.

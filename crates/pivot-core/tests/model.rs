@@ -45,7 +45,7 @@ fn financial_model_binds_and_snapshots_inputs_and_definitions() {
     model.remove(costs).unwrap();
     assert!(matches!(
         model.snapshot(),
-        Err(SnapshotError::UnknownName { .. })
+        Err(SnapshotError::MissingReference { .. })
     ));
     assert!(first.node(costs).is_some());
     drop(model);
@@ -60,6 +60,8 @@ fn incomplete_edits_forward_references_and_cycles() {
         matches!(model.snapshot(), Err(SnapshotError::UnknownName { node, name }) if node == a && name == "B")
     );
     let b = model.add_input("B", d("1")).unwrap();
+    // Resolve text at the command boundary; snapshot capture never rebinds.
+    model.set_expression(a, "B + B").unwrap();
     let valid = model.snapshot().unwrap();
     assert_eq!(valid.node(a).unwrap().dependencies(), &[b]);
     assert_eq!(valid.node(b).unwrap().dependents(), &[a]);

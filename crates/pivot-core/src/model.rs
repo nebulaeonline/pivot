@@ -1,6 +1,9 @@
 //! Editable definitions and validated immutable snapshots. No evaluation cache
 //! lives in either type. Storage and synchronization are implementation details.
 use crate::expression::{self, BinaryOp, Expr, ParseError, UnaryOp};
+use crate::interface::{
+    InputPort, InputRequirement, InterfaceError, ModelInterface, OutputPort, PortId,
+};
 use pivot_types::PivotDecimal;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -29,6 +32,7 @@ pub struct Revision {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelError {
+    Interface(InterfaceError),
     InvalidName(String),
     DuplicateName(String),
     UnknownNode(NodeId),
@@ -44,6 +48,7 @@ impl std::error::Error for ModelError {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SnapshotError {
+    Interface(InterfaceError),
     Parse {
         node: NodeId,
         error: ParseError,
@@ -51,6 +56,10 @@ pub enum SnapshotError {
     UnknownName {
         node: NodeId,
         name: String,
+    },
+    MissingReference {
+        node: NodeId,
+        target: NodeId,
     },
     /// These nodes cannot be ordered: cycle members and nodes depending on them.
     Unorderable {
@@ -67,7 +76,10 @@ impl std::error::Error for SnapshotError {}
 #[derive(Debug, Clone)]
 enum Definition {
     Input(PivotDecimal),
-    Computed(String),
+    Computed {
+        source: String,
+        binding: Result<(Vec<BoundToken>, Vec<NodeId>), SnapshotError>,
+    },
 }
 #[derive(Debug, Clone)]
 struct WorkingNode {
@@ -84,6 +96,8 @@ pub struct WorkingModel {
     nodes: BTreeMap<NodeId, WorkingNode>,
     names: BTreeMap<String, NodeId>,
     next_node: u64,
+    next_port: u64,
+    interface: ModelInterface,
 }
 impl WorkingModel {
     pub fn new(name: impl Into<String>) -> Result<Self, ModelError> {
@@ -106,6 +120,8 @@ impl WorkingModel {
             nodes: BTreeMap::new(),
             names: BTreeMap::new(),
             next_node: 0,
+            next_port: 0,
+            interface: ModelInterface::default(),
         })
     }
     pub fn name(&self) -> &str {
@@ -116,6 +132,143 @@ impl WorkingModel {
     }
     pub fn node_id(&self, name: &str) -> Option<NodeId> {
         self.names.get(name).copied()
+    }
+    pub fn interface(&self) -> &ModelInterface {
+        &self.interface
+    }
+    fn port_name(&self, name: &str) -> Result<(), ModelError> {
+        let mut bytes = name.bytes();
+        if !bytes
+            .next()
+            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
+            || !bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err(ModelError::Interface(InterfaceError::InvalidName(
+                name.into(),
+            )));
+        }
+        if self.interface.inputs.contains_key(name) || self.interface.outputs.contains_key(name) {
+            return Err(ModelError::Interface(InterfaceError::DuplicateName(
+                name.into(),
+            )));
+        }
+        Ok(())
+    }
+    fn allocate_port(&mut self) -> Result<PortId, ModelError> {
+        let sequence = self
+            .next_port
+            .checked_add(1)
+            .ok_or(ModelError::IdentityExhausted)?;
+        self.advance()?;
+        self.next_port = sequence;
+        Ok(PortId {
+            model: self.revision.model,
+            sequence,
+        })
+    }
+    pub fn add_input_port(
+        &mut self,
+        name: impl Into<String>,
+        node: NodeId,
+        requirement: InputRequirement,
+    ) -> Result<PortId, ModelError> {
+        let name = name.into();
+        self.port_name(&name)?;
+        let target = self.nodes.get(&node).ok_or(ModelError::UnknownNode(node))?;
+        if !matches!(target.definition, Definition::Input(_)) {
+            return Err(ModelError::NotInput(node));
+        }
+        if self.interface.inputs.values().any(|p| p.node == node) {
+            return Err(ModelError::Interface(InterfaceError::DuplicateInputTarget(
+                node,
+            )));
+        }
+        if let InputRequirement::Optional { default } = &requirement
+            && default.value_type() != pivot_types::ValueType::Decimal
+        {
+            return Err(ModelError::Interface(InterfaceError::TypeMismatch {
+                name: name.clone(),
+                expected: pivot_types::ValueType::Decimal,
+                actual: default.value_type(),
+            }));
+        }
+        let id = self.allocate_port()?;
+        self.interface.inputs.insert(
+            name.clone(),
+            InputPort {
+                id,
+                name,
+                node,
+                requirement,
+            },
+        );
+        Ok(id)
+    }
+    pub fn add_output_port(
+        &mut self,
+        name: impl Into<String>,
+        node: NodeId,
+    ) -> Result<PortId, ModelError> {
+        let name = name.into();
+        self.port_name(&name)?;
+        if !self.nodes.contains_key(&node) {
+            return Err(ModelError::UnknownNode(node));
+        }
+        let id = self.allocate_port()?;
+        self.interface
+            .outputs
+            .insert(name.clone(), OutputPort { id, name, node });
+        Ok(id)
+    }
+    pub fn rename_port(&mut self, id: PortId, name: impl Into<String>) -> Result<(), ModelError> {
+        let old = self
+            .interface
+            .inputs
+            .values()
+            .find(|p| p.id == id)
+            .map(|p| p.name.clone())
+            .or_else(|| {
+                self.interface
+                    .outputs
+                    .values()
+                    .find(|p| p.id == id)
+                    .map(|p| p.name.clone())
+            })
+            .ok_or(ModelError::Interface(InterfaceError::UnknownPort(id)))?;
+        let name = name.into();
+        if old == name {
+            return Ok(());
+        }
+        self.port_name(&name)?;
+        self.advance()?;
+        if let Some(mut port) = self.interface.inputs.remove(&old) {
+            port.name = name.clone();
+            self.interface.inputs.insert(name, port);
+        } else if let Some(mut port) = self.interface.outputs.remove(&old) {
+            port.name = name.clone();
+            self.interface.outputs.insert(name, port);
+        }
+        Ok(())
+    }
+    pub fn remove_port(&mut self, id: PortId) -> Result<(), ModelError> {
+        let name = self
+            .interface
+            .inputs
+            .values()
+            .find(|p| p.id == id)
+            .map(|p| p.name.clone())
+            .or_else(|| {
+                self.interface
+                    .outputs
+                    .values()
+                    .find(|p| p.id == id)
+                    .map(|p| p.name.clone())
+            })
+            .ok_or(ModelError::Interface(InterfaceError::UnknownPort(id)))?;
+        self.advance()?;
+        self.interface.inputs.remove(&name);
+        self.interface.outputs.remove(&name);
+        Ok(())
     }
     fn advance(&mut self) -> Result<(), ModelError> {
         self.revision.version = self
@@ -167,8 +320,22 @@ impl WorkingModel {
         name: impl Into<String>,
         source: impl Into<String>,
     ) -> Result<NodeId, ModelError> {
-        self.add(name.into(), Definition::Computed(source.into()))
+        let name = name.into();
+        let source = source.into();
+        self.validate_name(&name)?;
+        let id = NodeId {
+            model: self.revision.model,
+            node: self.next_node,
+        };
+        // Include self for self-reference binding, then use normal insertion.
+        let mut directory = self.names.clone();
+        directory.insert(name.clone(), id);
+        let binding = expression::parse(&source)
+            .map_err(|error| SnapshotError::Parse { node: id, error })
+            .and_then(|expr| bind(id, &expr, &directory));
+        self.add(name, Definition::Computed { source, binding })
     }
+
     pub fn set_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
         let node = self.nodes.get(&id).ok_or(ModelError::UnknownNode(id))?;
         if !matches!(node.definition, Definition::Input(_)) {
@@ -189,8 +356,14 @@ impl WorkingModel {
         }
         let source = source.into();
         self.advance()?;
-        self.nodes.get_mut(&id).unwrap().definition = Definition::Computed(source);
+        self.compile(id, source);
         Ok(())
+    }
+    fn compile(&mut self, id: NodeId, source: String) {
+        let binding = expression::parse(&source)
+            .map_err(|error| SnapshotError::Parse { node: id, error })
+            .and_then(|expr| bind(id, &expr, &self.names));
+        self.nodes.get_mut(&id).unwrap().definition = Definition::Computed { source, binding };
     }
     pub fn rename(&mut self, id: NodeId, name: impl Into<String>) -> Result<(), ModelError> {
         let old = self
@@ -227,10 +400,13 @@ impl WorkingModel {
         for (&id, node) in &self.nodes {
             let (definition, dependencies) = match &node.definition {
                 Definition::Input(value) => (SnapshotDefinition::Input(*value), Vec::new()),
-                Definition::Computed(source) => {
-                    let expr = expression::parse(source)
-                        .map_err(|error| SnapshotError::Parse { node: id, error })?;
-                    let (tokens, dependencies) = bind(id, &expr, &self.names)?;
+                Definition::Computed { source, binding } => {
+                    let (tokens, dependencies) = binding.clone()?;
+                    for &target in &dependencies {
+                        if !self.nodes.contains_key(&target) {
+                            return Err(SnapshotError::MissingReference { node: id, target });
+                        }
+                    }
                     (
                         SnapshotDefinition::Computed {
                             source: source.clone(),
@@ -283,13 +459,19 @@ impl WorkingModel {
                     .collect(),
             });
         }
-        Ok(ModelSnapshot(Arc::new(SnapshotData {
+        let snapshot = ModelSnapshot(Arc::new(SnapshotData {
             name: self.name.clone(),
             revision: self.revision,
             nodes,
             names: self.names.clone(),
             order,
-        })))
+            interface: self.interface.clone(),
+        }));
+        snapshot
+            .interface()
+            .validate(&snapshot)
+            .map_err(SnapshotError::Interface)?;
+        Ok(snapshot)
     }
 }
 
@@ -332,6 +514,7 @@ impl SnapshotNode {
 }
 #[derive(Debug)]
 struct SnapshotData {
+    interface: ModelInterface,
     name: String,
     revision: Revision,
     nodes: BTreeMap<NodeId, SnapshotNode>,
@@ -342,6 +525,9 @@ struct SnapshotData {
 #[derive(Debug, Clone)]
 pub struct ModelSnapshot(Arc<SnapshotData>);
 impl ModelSnapshot {
+    pub fn interface(&self) -> &ModelInterface {
+        &self.0.interface
+    }
     pub fn name(&self) -> &str {
         &self.0.name
     }

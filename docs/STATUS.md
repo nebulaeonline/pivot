@@ -23,7 +23,7 @@ and unresolved. The AST has no evaluation or I/O behavior.
 
 Editable models now support stable node IDs, named decimal inputs, computed nodes,
 and immutable snapshots with captured inputs and model-scoped revisions. Snapshot
-validation binds names, extracts forward/reverse dependencies, orders nodes, and
+validation checks bound IDs, extracts forward/reverse dependencies, orders nodes, and
 rejects cycles. See ADR-0002 and the model/snapshot architecture note.
 
 Snapshot evaluation now supports selected outputs or all nodes, bound decimal
@@ -32,8 +32,11 @@ immutable results retaining their snapshot revision. Isolated invocation accepts
 temporary input overrides keyed by NodeId, with captured defaults and typed binding
 validation. Independent invocations share only immutable snapshot definitions.
 Independent arithmetic failures do not prevent other outputs from being computed.
-Nineteen Rust tests pass.
+Twenty-two Rust tests pass. Public model ports now support named invocation,
+required inputs, explicit optional defaults, and stable port identities. Formula
+names bind only at edit submission; snapshots reuse stable-ID references.
+Public values have extensible tagged value/type boundaries (Decimal-only today).
 
-Invalidation, named model interface declarations, typed non-numeric
+Invalidation, IEEE-754 and other non-decimal
 values, daemon behavior, and protocol implementation remain deferred.
 M0 is not fully complete: CI and broader project documentation remain outstanding.

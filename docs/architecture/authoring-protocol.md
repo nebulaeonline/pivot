@@ -1,33 +1,23 @@
 # Authoring protocol proposal
 
-Status: Proposed — ADR-0007. Design only. Production schema, generated codecs,
-capabilities, daemon and REPL remain unchanged.
+Status: Accepted — ADR-0007. Schema/codecs, opt-in negotiation and bounded validation
+are implemented. Live authoring dispatch and adapters remain deferred. See
+[foundation implementation](authoring-protocol-foundation.md).
 
 ## Versioning and envelope integration
 
-Propose v1.1 with optional capability `working-models-v1` (requires `decimal96`).
-A server supports exact offered versions, selecting the highest mutually supported
-one. Existing v1.0 clients continue negotiating 1.0 and use unchanged invocation
-operations. New clients may offer 1.1 and 1.0; requiring authoring against an old
-server fails negotiation, while optional authoring allows invocation-only fallback.
-Never advertise authoring solely because new codecs are installed.
+The foundation supports v1.1 and `working-models-v1`, including `decimal96`.
+Production daemon negotiation remains v1.0/invocation-only until adapter approval.
+Existing v1.0 clients retain their original contract. Foundation negotiation is an
+explicit opt-in API; codec installation does not advertise authoring automatically.
 
-The review-only package `pivot.authoring.v1` imports existing `pivot.v1.Value`,
-ValueType and ModelRef. Its standalone draft imports the current protocol.proto
-as a type provider. Before integrating the envelope, extract shared Decimal128,
-Value, ValueType, ModelRef and CalculationErrorCode into `pivot/v1/types.proto`,
-retaining their exact package/type names and all tags/enum values. Both production
-protocol.proto and authoring.proto then import types.proto; protocol.proto imports
-authoring.proto. Do not have authoring.proto import the envelope file in that final
-layout: that would create a circular import. Generated file/descriptor organization
-changes need Rust/C# checks, even though existing wire names/bytes remain unchanged.
-This extraction is proposed only; the production file is untouched.
-
-On acceptance, propose adding `AuthoringRequest authoring`
-and `AuthoringResponse authoring` to existing Request.operation/Response.outcome
-using currently unused tags (suggest 20 in both, **not reserved or frozen**).
-Existing tags 1–14 and all invocation types remain unchanged. Responses echo the
-request ID and negotiated version. No new wire message is currently compiled.
+Shared Decimal128, Value, ValueType, ModelRef and CalculationErrorCode now live in
+`pivot/v1/types.proto`, preserving fully qualified names and wire layouts. The
+authoring schema imports types; the envelope imports both, without an import cycle.
+Request.operation.authoring and Response.outcome.authoring use tag 20. Authoring
+request operation tags 1–12 and response outcome tags 1–13 are production allocations.
+See the production schema and compatibility evidence in the foundation document.
+The earlier docs/proposals schema is historical and no longer authoritative.
 
 An unnegotiated authoring request fails with existing envelope errors; a negotiated
 authoring request returns either its typed result or AuthoringFailure. A frame that
@@ -45,7 +35,7 @@ Future additions must preserve this capability/version discipline.
 | OpenWorking | Instance, working ID | Connection-bound attachment and observed revision; Open |
 | CloseAttachment | Instance, attachment ID | Closed acknowledgement; owner/context plus Close |
 | ReadDraft | Exact revision, section, page | Nodes or ports at that head; Inspect |
-| ReadDiagnostics | Working revision or mutation operation ID, page | Portable diagnostics; working Inspect/Validate/Evaluate or recorded mutation permission |
+| ReadDiagnostics | Working revision, page | Portable diagnostics; Inspect/Validate/Evaluate; receipt detail paging deferred |
 | ApplyEdits | Instance, working ID, expected revision, operation ID, ordered edits | New revision, surviving temporary mappings, diagnostic summary; Edit |
 | ValidateWorking | Exact revision | Valid flag and diagnostic summary; Validate |
 | EvaluateWorking | Exact revision, selected node IDs, overrides | Provenance, effective inputs, per-output values/errors; Evaluate |
@@ -103,15 +93,13 @@ is included. A reconnect may use a fresh request ID with identical operation int
 Compare decoded typed intent, not encoded bytes or a raw Protobuf hash. Field order
 and equivalent valid wire encodings must not change intent.
 
-Propose schema-aware preflight validation for mutations: reject unknown fields,
-duplicate singular fields, repeated/conflicting oneof alternatives, unknown enums,
-missing alternatives and invalid values before receipt admission. Repeated edit
-fields remain ordered and valid. This prevents generated decoder last-one-wins or
-unknown-field discard behavior from hiding mutation intent. New mutation extensions
-need an explicit negotiated version/capability; read-only response additions can
-retain normal Protobuf unknown-field compatibility. Existing invocation validation
-is unchanged. Strict preflight is a required future implementation, not provided
-by today's generated codecs.
+Use schema-aware preflight validation for mutations: reject unknown fields,
+duplicate singulars, conflicting/missing oneofs, unknown enums and invalid values
+before receipt admission. Preserve legitimate ordered repetition and permitted
+wire representations with identical typed intent. The foundation implements this
+boundary; the future adapter must route raw frames through it before generated
+decoding. Read-only response additions retain normal unknown-field compatibility.
+Existing invocation validation is unchanged. Codecs alone are not preflight.
 
 After authorization and shape checks, receipt reconciliation precedes expected-head
 checks. Identical replay returns its original typed success/rejection; changed intent
@@ -225,17 +213,18 @@ then-authorized resources; concurrent creation can appear or fall behind the cur
 It is not a frozen catalog. Return exact per-entry revisions; clients must still use
 revision checks. Do not claim a cross-page atomic catalog view.
 
-Mutation responses carry bounded diagnostic counts and exact provenance, not an
-unbounded inline diagnostic list. ReadDiagnostics(operation_id) pages the retained
-edit/publication receipt's original diagnostics, even if the current head advances.
-This is covered by existing retained receipt data, not current-head recomputation.
-Validation/draft diagnostic reads instead pin the current working head and may expire.
-Working diagnostic access requires at least one of Inspect, Validate or Evaluate,
-matching existing authoring validation/capture diagnostic visibility; it grants no
-raw-definition read right and ordinary published Invoke never qualifies.
-Cursor transport metadata is excluded from receipt intent; receipt outcomes remain
-stable and serializable without retaining a cursor. Count summaries are complete;
-details are explicitly paged, never silently omitted.
+Mutation outcomes carry diagnostic summaries and exact original provenance.
+Detailed receipt diagnostic paging is deferred: the production ReadDiagnostics
+supports only a current working revision and reserves field 3. Never recreate an
+old outcome's details from a newer model head. Existing in-process receipts retain
+full diagnostics, but lack a dedicated byte-accounted retention/admission policy.
+A future extension must retain revision, complete ordered diagnostics (IDs, offsets,
+categories and text), original typed intent and outcome, with reserved storage and
+retained-byte limits before commit. Exhaustion must reject admission, not truncate
+or evict guaranteed details. No receipt-detail capability is currently advertised.
+
+Working diagnostic reads require Inspect, Validate or Evaluate, grant no raw-source
+right, and can expire if the head advances. Ordinary published Invoke never qualifies.
 
 ## Durability and storage providers
 
@@ -264,13 +253,20 @@ and service/store ownership. None of those providers is implemented in this slic
 
 ## Review gates and implementation gaps
 
-Review ADR/schema before assigning live field numbers. The proposal requires future
-minor-version negotiation, generated Rust/C# codecs, mutation preflight, error mapping,
-byte-aware paging and signed cursors, connection attachment cleanup, paged receipt
-diagnostics, Info authorization and a unified daemon registry bootstrap path. Current
-in-process views remain whole objects and current errors may lack edit indexes.
-No part of this proposal enables dispatch or implements those adapter features.
+Production schema allocation and codec/validation foundation are complete.
+Error mapping, byte-aware paging/signed cursors, attachment cleanup, Info authorization,
+unified daemon registry bootstrap and staged partial-port patch adaptation remain
+future adapter work. Current Rust SetInputPort accepts both target and requirement;
+omitted wire patch fields must resolve from the staged candidate inside a transaction,
+not a client-side read/resubmit sequence. No live authoring dispatch is implemented.
 
-See [Rust/C# verification plan](authoring-protocol-tests.md). After approval, implement
-codecs/validation first, then adapter/daemon integration, then client/REPL authoring.
-Keep persistence/provider recovery design near-term and separate from this contract review.
+Port update semantics: omitted means unchanged, supplied means replacement, and at
+least one update field is required. Present-but-empty formula source is valid draft
+content; missing definition oneof is invalid. Working edit sequence zero is valid.
+Model-size ceilings are configurable advertised policy, not permanent wire maxima.
+The initial transport ceiling remains 1 MiB; future bulk mechanisms need independent
+negotiation rather than raising model limits by changing protocol major version.
+
+See [verification plan](authoring-protocol-tests.md) and
+[foundation evidence](authoring-protocol-foundation.md). Persistence/provider recovery
+design remains separate and near-term.

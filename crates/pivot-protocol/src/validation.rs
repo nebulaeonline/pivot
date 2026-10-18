@@ -171,6 +171,9 @@ pub fn validate_request(request: &Request) -> Result<(), ValidationError> {
                     return Err(err(ErrorCode::UnsupportedCapability, "result-lookup"));
                 }
                 request::Operation::Handshake(_) => unreachable!(),
+                request::Operation::Authoring(_) => {
+                    return Err(err(ErrorCode::UnsupportedCapability, "working-models-v1"));
+                }
             }
         }
         None => return Err(invalid("operation")),

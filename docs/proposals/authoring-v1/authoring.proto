@@ -1,3 +1,5 @@
+// HISTORICAL DRAFT: superseded by the production authoring schema in crates/pivot-protocol.
+// Detailed receipt paging in this draft is deferred in the accepted contract.
 // REVIEW ONLY: no production build imports this file. All tags and enum values
 // below are illustrative allocations, NOT frozen or enabled protocol fields.
 // Review integration: add authoring at provisional tag 20 in v1 Request/Response.

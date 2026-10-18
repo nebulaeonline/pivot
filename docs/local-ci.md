@@ -30,7 +30,8 @@ enforced, so the pipeline is not a hermetic build.
 4. Run all Rust workspace tests, including documentation tests.
 5. Build the full .NET solution in Release with warnings treated as errors.
 6. Run all 10,099 Rust/C# decimal compatibility cases using the Release C# harness.
-7. Generate and exchange Rust/C# Protobuf protocol fixtures.
+7. Generate and exchange Rust/C# invocation and authoring fixtures, including
+   frozen-v1.0 codec/current-host and descriptor compatibility checks.
 8. Start a temporary demo daemon and test IPC/CLI/REPL round trips, extended idleness,
    malformed-client survival, and explicit reconnect without ambiguous invocation replay.
 

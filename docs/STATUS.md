@@ -73,7 +73,7 @@ final-directory binding for submitted formulas, and retained edit receipts.
 Slice C adds exact-revision structural validation, detached immutable evaluation
 captures with temporary overrides, and replay-safe publication into a coordinated
 immutable invocation registry. Published revisions and working revisions remain
-distinct. Authoring Protobuf/IPC/REPL operations remain deferred. See
+distinct. Live authoring dispatch/IPC/REPL operations remain deferred. See
 `docs/architecture/working-model-management.md` for the in-process API and limits.
 Transactional editing details are in `docs/architecture/working-model-editing.md`.
 Calculation/publication details are in
@@ -82,9 +82,12 @@ compaction and richer edit diagnostics remain follow-ups; memory-only commits do
 not survive service shutdown. Latest REPL macOS validation and Native AOT remain
 on the verification backlog.
 
-ADR-0007 and `docs/architecture/authoring-protocol.md` now propose the versioned
-authoring contract, with an isolated review-only Protobuf draft and Rust/C# test
-plan. No production tags are frozen, capability enabled or live dispatch added.
+ADR-0007 is Accepted. Production authoring schemas and shared types, Rust/C# codecs,
+bounded recursive mutation preflight, typed intent and opt-in v1.1 negotiation are
+implemented and compatibility-tested. The daemon remains invocation-only; authoring
+capabilities and dispatch are disabled. Paging/attachment adapters and detailed
+receipt diagnostic retention remain deferred. See
+`docs/architecture/authoring-protocol-foundation.md`.
 Persistence direction is a common transactional contract with configurable
 providers: SQLite first/default locally with a filesystem path, and planned
 PostgreSQL/MySQL adapters. Storage choice is independent of local/network service

@@ -33,3 +33,25 @@ File.WriteAllBytes(Path.Combine(directory, "csharp-result.bin"), result.ToByteAr
 var future = Value.Parser.ParseFrom(new byte[] { 0x1a, 0 });
 if (future.KindCase != Value.KindOneofCase.None) throw new Exception("Unknown value incorrectly accepted");
 Console.WriteLine("C# protocol fixtures: PASS (58 decimal layouts, requests, values, errors)");
+var descriptors = new Dictionary<string, Google.Protobuf.Reflection.MessageDescriptor>();
+var visited = new HashSet<string>();
+void Load(Google.Protobuf.Reflection.FileDescriptor file)
+{
+    if (!visited.Add(file.Name)) return;
+    foreach (var type in file.MessageTypes) descriptors[type.FullName] = type;
+    foreach (var dependency in file.Dependencies) Load(dependency);
+}
+Load(Pivot.Protocol.Authoring.V1.AuthoringReflection.Descriptor);
+foreach (var line in File.ReadAllLines(Path.Combine(directory, "authoring-manifest.txt")))
+{
+    var fields = line.Split('|');
+    var parsed = descriptors[fields[0].TrimStart('.')].Parser.ParseFrom(File.ReadAllBytes(Path.Combine(directory, fields[1])));
+    File.WriteAllBytes(Path.Combine(directory, "csharp-" + fields[1]), parsed.ToByteArray());
+}
+var patch = new Pivot.Protocol.Authoring.V1.SetInputPort {
+    Port = new Pivot.Protocol.Authoring.V1.PortReference { PortId = "01234567-89ab-4cde-8fab-0123456789ab" },
+    Requirement = new Pivot.Protocol.Authoring.V1.Requirement { Required = new Pivot.Protocol.Authoring.V1.Required() }
+};
+if (patch.Node != null || Pivot.Protocol.Authoring.V1.SetInputPort.Parser.ParseFrom(patch.ToByteArray()).Node != null)
+    throw new Exception("Absent port update lost presence");
+File.WriteAllBytes(Path.Combine(directory, "csharp-patch.bin"), patch.ToByteArray());

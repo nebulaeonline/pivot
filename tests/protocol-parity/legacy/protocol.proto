@@ -1,0 +1,123 @@
+syntax = "proto3";
+package pivot.v1;
+option csharp_namespace = "Pivot.Protocol.V1";
+
+// PROPOSED: field numbers are not a released compatibility promise yet.
+message Version { uint32 major = 1; uint32 minor = 2; }
+message Decimal128 {
+  // 96-bit unsigned significand; not IEEE-754 decimal128 or native memory layout.
+  fixed32 lo = 1;
+  fixed32 mid = 2;
+  fixed32 hi = 3;
+  uint32 scale = 4;
+  bool negative = 5;
+}
+message Value {
+  oneof kind {
+    Decimal128 decimal = 1;
+    // Reserved for future capability negotiation; not executable in v1.0.
+    double float64 = 2;
+  }
+}
+enum ValueType { VALUE_TYPE_UNSPECIFIED = 0; DECIMAL = 1; FLOAT64 = 2; }
+message ModelRef { string model_id = 1; string revision_id = 2; }
+message InputPort {
+  string port_id = 1;
+  string name = 2;
+  ValueType value_type = 3;
+  oneof requirement { bool required = 4; Value default_value = 5; }
+}
+message OutputPort { string port_id = 1; string name = 2; ValueType value_type = 3; }
+message ModelDescription {
+  ModelRef model = 1;
+  string name = 2;
+  repeated InputPort inputs = 3;
+  repeated OutputPort outputs = 4;
+}
+message Handshake {
+  repeated Version supported_versions = 1;
+  repeated string required_capabilities = 2;
+  repeated string optional_capabilities = 3;
+}
+message HandshakeAccepted {
+  Version selected_version = 1;
+  repeated string capabilities = 2;
+  uint32 max_message_bytes = 3;
+  uint32 max_inputs = 4;
+  uint32 max_outputs = 5;
+}
+message ListModels { uint32 page_size = 1; string continuation_token = 2; }
+message ModelSummary { ModelRef model = 1; string name = 2; }
+message ModelList { repeated ModelSummary models = 1; string continuation_token = 2; }
+message DescribeModel { ModelRef model = 1; }
+enum InputSource { INPUT_SOURCE_UNSPECIFIED = 0; SUBMITTED = 1; DEFAULTED = 2; }
+message InputBinding {
+  string port_id = 1;
+  Value value = 2;
+  // Unspecified in requests; mandatory Submitted/Defaulted in effective results.
+  InputSource source = 3;
+}
+message InvokeModel {
+  ModelRef model = 1;
+  repeated InputBinding inputs = 2;
+  repeated string output_port_ids = 3;
+}
+message GetInvocationResult { string invocation_id = 1; }
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  INVALID_ARGUMENT = 1;
+  UNSUPPORTED_VERSION = 2;
+  UNSUPPORTED_CAPABILITY = 3;
+  UNSUPPORTED_VALUE_TYPE = 4;
+  NOT_FOUND = 5;
+  REVISION_UNAVAILABLE = 6;
+  UNKNOWN_PORT = 7;
+  MISSING_INPUT = 8;
+  DUPLICATE_BINDING = 9;
+  TYPE_MISMATCH = 10;
+  RESOURCE_EXHAUSTED = 11;
+  UNAUTHORIZED = 12;
+  INTERNAL = 13;
+  HANDSHAKE_REQUIRED = 14;
+}
+message ProtocolError { ErrorCode code = 1; string message = 2; string port_id = 3; }
+enum CalculationErrorCode {
+  CALCULATION_ERROR_CODE_UNSPECIFIED = 0;
+  OVERFLOW = 1;
+  DIVISION_BY_ZERO = 2;
+  DEPENDENCY_FAILED = 3;
+  INVALID_EXPRESSION = 4;
+}
+message CalculationError { CalculationErrorCode code = 1; string message = 2; }
+message OutputResult {
+  string port_id = 1;
+  oneof outcome { Value value = 2; CalculationError error = 3; }
+}
+message InvocationResult {
+  string invocation_id = 1;
+  ModelRef model = 2;
+  repeated InputBinding effective_inputs = 3;
+  repeated OutputResult outputs = 4;
+}
+message Request {
+  string request_id = 1;
+  Version version = 2;
+  oneof operation {
+    Handshake handshake = 10;
+    ListModels list_models = 11;
+    DescribeModel describe_model = 12;
+    InvokeModel invoke_model = 13;
+    GetInvocationResult get_invocation_result = 14;
+  }
+}
+message Response {
+  string request_id = 1;
+  Version version = 2;
+  oneof outcome {
+    ProtocolError error = 10;
+    HandshakeAccepted handshake = 11;
+    ModelList models = 12;
+    ModelDescription description = 13;
+    InvocationResult invocation = 14;
+  }
+}

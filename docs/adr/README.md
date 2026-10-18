@@ -15,7 +15,7 @@ decisions, not implementation suggestions.
 - [ADR-0004: Portable Protobuf protocol](0004-portable-protobuf-protocol.md) — Accepted
 - [ADR-0005: Local IPC and endpoint security](0005-local-ipc-and-endpoint-security.md) — Accepted
 - [ADR-0006: Working-model lifecycle and transactions](0006-working-model-lifecycle-and-transactions.md) — Accepted
-- [ADR-0007: Versioned working-model authoring protocol](0007-versioned-authoring-protocol.md) — Proposed
+- [ADR-0007: Versioned working-model authoring protocol](0007-versioned-authoring-protocol.md) — Accepted
 
 Authoring protocol review, final numeric policy, persistence and broader resource
 scheduling remain open. Persistence will use a common transactional provider

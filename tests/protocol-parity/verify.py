@@ -17,10 +17,17 @@ def main():
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     run("cargo", "run", "--locked", "--quiet", "-p", "pivot-protocol", "--example", "protocol_parity", "--", "write", str(output))
+    run("cargo", "run", "--locked", "--quiet", "-p", "pivot-protocol", "--example", "authoring_parity", "--", "write", str(output))
+    run("dotnet", "build", "tests/protocol-parity/legacy/LegacyProtocol.csproj", "-c", "Release", "--disable-build-servers", "-warnaserror")
+    run("dotnet", "tests/protocol-parity/legacy/bin/Release/net10.0/LegacyProtocol.dll", str(output))
+    run("cargo", "run", "--locked", "--quiet", "-p", "pivot-host", "--example", "legacy_probe", "--", str(output))
+    run("dotnet", "tests/protocol-parity/legacy/bin/Release/net10.0/LegacyProtocol.dll", str(output))
     run("dotnet", "build", "tests/protocol-parity/ProtocolParity.csproj", "-c", "Release", "--disable-build-servers", "-warnaserror")
     run("dotnet", "tests/protocol-parity/bin/Release/net10.0/ProtocolParity.dll", str(output))
     run("cargo", "run", "--locked", "--quiet", "-p", "pivot-protocol", "--example", "protocol_parity", "--", "read", str(output))
-    (output / "results.txt").write_text("PASS: generated Rust/C# protobuf fixtures and 58 decimal layouts\n", encoding="utf-8")
+    run("cargo", "run", "--locked", "--quiet", "-p", "pivot-protocol", "--example", "authoring_parity", "--", "read", str(output))
+    count = len((output / "authoring-manifest.txt").read_text(encoding="utf-8").splitlines())
+    (output / "results.txt").write_text(f"PASS: Rust/C# codecs, 58 decimal layouts, {count} authoring fixtures, frozen v1.0 codec/current host and descriptors\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,12 @@
 # Authoring protocol verification plan
 
-Status: Proposed tests for ADR-0007; not implemented or executed in this slice.
-Use the existing Rust/C# fixture harness after contract review. The review-only
-[schema](../proposals/authoring-v1/authoring.proto) is not in production generation.
+Status: Foundation codec/preflight/compatibility cases implemented and executed;
+adapter, paging, attachment and live authoring integration cases below remain a
+future plan. See [foundation evidence](authoring-protocol-foundation.md). The
+production schema is generated in Rust/C#; the historical review draft is excluded.
+
+Detailed receipt diagnostic paging is deferred pending byte-budgeted retention.
+Tests below referring to receipt detail pages apply only to that future extension.
 
 ## Codecs and typed intent
 

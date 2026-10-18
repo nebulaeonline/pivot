@@ -1,6 +1,6 @@
 # ADR-0007: Versioned working-model authoring protocol
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-18
 
 ## Context
@@ -10,12 +10,14 @@ calculation and immutable publication. External clients currently invoke only
 published models. They need one portable contract without exposing Rust handles,
 moving evaluation into clients, or weakening revision/replay guarantees.
 
-## Decision proposal
+## Decision
 
 Extend the existing envelope additively in a negotiated v1.1 minor version, gated
 by `working-models-v1`. Preserve v1.0 published invocation messages and behavior.
-Do not enable capabilities or freeze new tags before this proposal is reviewed.
-Use an isolated review-only schema, not the production code-generation inputs.
+Reviewed production envelopes assign tag 20 to authoring requests/responses.
+Shared types are extracted without changing wire names or layouts. Foundation
+negotiation/codecs are implemented; live daemon capability advertisement and
+dispatch remain disabled pending separate adapter authorization.
 
 Expose service info, create/list/open/close, revision-pinned draft reads, typed
 edit batches, validation, synchronous unpublished evaluation, publication and
@@ -38,8 +40,10 @@ and arithmetic output errors. Bindings are portable node identities, not formula
 source reparsed at read or calculation time. Numeric execution stays Decimal-only.
 
 Use bounded pages for raw definitions and diagnostics. Draft pages require the
-same exact current head; fail explicitly if it advances. Operation diagnostic
-pages derive from retained receipts. Discovery is explicitly best effort, not an
+same exact current head; fail explicitly if it advances. Detailed receipt diagnostic
+paging is deferred until complete retained data and byte-budget admission are
+specified; never reconstruct historical diagnostics from a newer head. Receipt
+outcomes and diagnostic summaries remain available. Discovery is best effort, not an
 atomic catalog snapshot. No unbounded hidden read-view retention is introduced.
 
 The future daemon must expose one coherent publication registry for built-in and
@@ -71,19 +75,27 @@ remains separate; no provider implementation or bespoke native format is introdu
 
 ## Consequences
 
-Adapters need strict mutation validation, portable error mapping, byte-aware
-pagination, principal-bound cursor verification and budgeted off-lock calculation.
-These are future implementation tasks, not capabilities of this documentation.
-Wire receipt diagnostics must remain available without depending on a newer head.
-Existing Rust/C# generated invocation codecs remain unchanged in this slice.
+The foundation implements bounded recursive structural preflight before generated
+decoding, identity/value validation and typed mutation intent. Port patches use
+presence: omitted means unchanged, supplied means replacement; at least one update
+is required. Future adaptation must apply patches inside staged state; current
+in-process SetInputPort accepts both replacement fields. Empty formula source is
+a present invalid draft, and edit sequence zero is valid. Model limits are
+configurable metadata, not permanent protocol maxima. Initial transport remains
+1 MiB; future bulk mechanisms require separate negotiation. Existing invocation
+wire layouts are preserved, while generated source/descriptor organization changes.
+
+Adapters still need authorization, receipt accounting, portable error mapping,
+byte-aware paging, signed cursors, attachment cleanup and off-lock calculation.
 
 See [protocol architecture](../architecture/authoring-protocol.md),
-[review-only schema](../proposals/authoring-v1/authoring.proto), and
+[production schema](../../crates/pivot-protocol/proto/pivot/authoring/v1/authoring.proto), and
 [interop test plan](../architecture/authoring-protocol-tests.md).
 
 ## Verification / reconsideration trigger
 
-Review schema placement/tags, v1.1 negotiation, strict mutation validation,
+Accepted after the 2026-10-18 review refinements and project-owner authorization.
+Verify schema placement/tags, v1.1 negotiation, strict mutation validation,
 attachment lifecycle, cursor consistency, receipt diagnostics and shared daemon
 registry ownership before implementing dispatch. Require the Rust/C# positive and
 negative compatibility matrix before enabling the capability. Revisit restart and

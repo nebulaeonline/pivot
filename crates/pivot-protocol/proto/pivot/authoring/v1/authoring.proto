@@ -1,0 +1,225 @@
+syntax = "proto3";
+package pivot.authoring.v1;
+option csharp_namespace = "Pivot.Protocol.Authoring.V1";
+import "pivot/v1/types.proto";
+
+message WorkingRevision {
+  string service_instance_id = 1;
+  string working_model_id = 2;
+  uint64 sequence = 3; // zero is valid
+}
+message Provenance { WorkingRevision working = 1; string snapshot_id = 2; }
+message Page { uint32 page_size = 1; string continuation_token = 2; }
+message MutationContext {
+  string service_instance_id = 1;
+  string working_model_id = 2;
+  WorkingRevision expected_revision = 3;
+  string operation_id = 4;
+}
+enum Durability { DURABILITY_UNSPECIFIED = 0; MEMORY_ONLY = 1; reserved 2; }
+enum ReceiptScope { RECEIPT_SCOPE_UNSPECIFIED = 0; SERVICE_INSTANCE = 1; }
+message ResourceLimits {
+  uint64 working_resources = 1;
+  uint64 attachments = 2;
+  uint64 receipts = 3;
+  uint64 edits_per_batch = 4;
+  uint64 batch_accounting_bytes = 5;
+  uint64 live_nodes = 6;
+  uint64 live_ports = 7;
+  uint64 stored_source_bytes = 8;
+  uint64 cumulative_node_ids = 9;
+  uint64 cumulative_port_ids = 10;
+  uint64 live_captures = 11;
+  uint64 evaluation_inputs = 12;
+  uint64 evaluation_outputs = 13;
+  uint64 snapshot_work = 14;
+  uint64 published_revisions = 15;
+  uint64 page_entries = 16;
+  uint64 page_target_bytes = 17;
+  uint64 message_bytes = 18;
+  uint64 cursor_bytes = 19;
+  uint64 cursor_lifetime_seconds = 20;
+  uint64 name_bytes = 21;
+  uint64 formula_bytes = 22;
+  uint64 temporary_id_bytes = 23;
+  uint64 closed_attachment_ids_per_connection = 24;
+}
+message ServiceInfo {
+  // Storage provider selection/configuration is service-side. Report guarantees,
+  // not database paths, credentials or assumptions based on local/network mode.
+  string service_instance_id = 1;
+  Durability durability = 2;
+  ReceiptScope receipt_scope = 3;
+  ResourceLimits limits = 4;
+  // Current implementation: receipts never silently evicted before instance ends.
+  bool receipts_retained_without_eviction = 5;
+  bool attachments_bound_to_connection = 6;
+}
+message GetServiceInfo {}
+message CreateWorking { string service_instance_id = 1; string operation_id = 2; string name = 3; }
+message Created { string working_model_id = 1; WorkingRevision revision = 2; }
+message ListWorking { string service_instance_id = 1; Page page = 2; }
+message WorkingSummary { string working_model_id = 1; string name = 2; WorkingRevision revision = 3; uint64 nodes = 4; uint64 inputs = 5; uint64 outputs = 6; }
+message WorkingList { repeated WorkingSummary models = 1; string continuation_token = 2; }
+message OpenWorking { string service_instance_id = 1; string working_model_id = 2; }
+message Opened { string attachment_id = 1; WorkingRevision revision = 2; }
+message CloseAttachment { string service_instance_id = 1; string attachment_id = 2; }
+message Closed {}
+
+message NodeDefinition {
+  oneof kind { pivot.v1.Value input = 1; string formula_source = 2; }
+}
+message Requirement {
+  oneof kind { Required required = 1; pivot.v1.Value optional_default = 2; }
+}
+message Required {}
+message NodeReference { oneof kind { string node_id = 1; string temporary_id = 2; } }
+message PortReference { oneof kind { string port_id = 1; string temporary_id = 2; } }
+message AddNode { string temporary_id = 1; string name = 2; NodeDefinition definition = 3; }
+message RemoveNode { NodeReference node = 1; }
+message RenameNode { NodeReference node = 1; string name = 2; }
+message SetNode { NodeReference node = 1; NodeDefinition definition = 2; }
+message AddInputPort { string temporary_id = 1; string name = 2; NodeReference node = 3; Requirement requirement = 4; }
+message AddOutputPort { string temporary_id = 1; string name = 2; NodeReference node = 3; }
+message RemovePort { PortReference port = 1; }
+message RenamePort { PortReference port = 1; string name = 2; }
+// Omitted node/requirement mean unchanged; require at least one.
+message SetInputPort { PortReference port = 1; NodeReference node = 2; Requirement requirement = 3; }
+// Omitted fields retain existing values; at least one replacement required.
+message SetOutputPort { PortReference port = 1; NodeReference node = 2; }
+message Edit {
+  oneof kind {
+    AddNode add_node = 1;
+    RemoveNode remove_node = 2;
+    RenameNode rename_node = 3;
+    SetNode set_node = 4;
+    AddInputPort add_input_port = 5;
+    AddOutputPort add_output_port = 6;
+    RemovePort remove_port = 7;
+    RenamePort rename_port = 8;
+    SetInputPort set_input_port = 9;
+    SetOutputPort set_output_port = 10;
+  }
+}
+message ApplyEdits { MutationContext mutation = 1; repeated Edit edits = 2; }
+message NodeMapping { string temporary_id = 1; string node_id = 2; }
+message PortMapping { string temporary_id = 1; string port_id = 2; }
+message EditCommitted {
+  WorkingRevision revision = 1;
+  repeated NodeMapping nodes = 2;
+  repeated PortMapping ports = 3;
+  DiagnosticSummary diagnostics = 4;
+}
+
+enum DraftSection { DRAFT_SECTION_UNSPECIFIED = 0; NODES = 1; PORTS = 2; }
+message ReadDraft { WorkingRevision revision = 1; DraftSection section = 2; Page page = 3; }
+message RawNode { string node_id = 1; string name = 2; NodeDefinition definition = 3; repeated string bound_dependency_ids = 4; }
+message RawInputPort { string node_id = 1; Requirement requirement = 2; }
+message RawOutputPort { string node_id = 1; }
+message RawPort { string port_id = 1; string name = 2; oneof kind { RawInputPort input = 3; RawOutputPort output = 4; } }
+message DraftPage { WorkingRevision revision = 1; DraftSection section = 2; repeated RawNode nodes = 3; repeated RawPort ports = 4; string continuation_token = 5; }
+enum DiagnosticCode {
+  DIAGNOSTIC_UNSPECIFIED = 0;
+  PARSE = 1;
+  UNRESOLVED_NAME = 2;
+  MISSING_REFERENCE = 3;
+  UNORDERABLE = 4;
+  INVALID_PORT_BINDING = 5;
+}
+message Location {
+  string node_id = 1;
+  string port_id = 2;
+  optional uint32 expression_byte_offset = 3;
+  optional uint32 edit_index = 4;
+}
+message Diagnostic {
+  DiagnosticCode code = 1;
+  Location location = 2;
+  string message = 3;
+  string unresolved_name = 4;
+  string missing_node_id = 5;
+}
+message DiagnosticCount { DiagnosticCode code = 1; uint64 count = 2; }
+message DiagnosticSummary { WorkingRevision revision = 1; uint64 total = 2; repeated DiagnosticCount counts = 3; }
+message ReadDiagnostics {
+  string service_instance_id = 1;
+  WorkingRevision working_revision = 2;
+  // Detailed receipt paging deferred until retained-byte admission is specified.
+  reserved 3;
+  Page page = 4;
+}
+message DiagnosticsPage { DiagnosticSummary summary = 1; repeated Diagnostic diagnostics = 2; string continuation_token = 3; }
+message ValidateWorking { WorkingRevision revision = 1; }
+message ValidationReport { WorkingRevision revision = 1; bool valid = 2; DiagnosticSummary diagnostics = 3; }
+
+message Override { string node_id = 1; pivot.v1.Value value = 2; }
+message EvaluateWorking { WorkingRevision revision = 1; repeated Override inputs = 2; repeated string output_node_ids = 3; }
+enum WorkingInputSource { WORKING_INPUT_SOURCE_UNSPECIFIED = 0; SUBMITTED = 1; CAPTURED = 2; }
+message EffectiveInput { string node_id = 1; pivot.v1.Value value = 2; WorkingInputSource source = 3; }
+message CalculationFailure { pivot.v1.CalculationErrorCode code = 1; string dependency_node_id = 2; string origin_node_id = 3; }
+message NodeResult { string node_id = 1; oneof outcome { pivot.v1.Value value = 2; CalculationFailure error = 3; } }
+message EvaluationResult { Provenance provenance = 1; repeated EffectiveInput effective_inputs = 2; repeated NodeResult outputs = 3; }
+message PublishWorking { MutationContext mutation = 1; }
+message Published { Provenance provenance = 1; pivot.v1.ModelRef published = 2; }
+message GetOperationOutcome { string service_instance_id = 1; string operation_id = 2; }
+message UnknownOperation {}
+message OperationOutcome {
+  oneof outcome { UnknownOperation unknown = 1; Created created = 2; EditCommitted edited = 3; Published published = 4; AuthoringFailure rejected = 5; }
+}
+enum AuthoringErrorCode {
+  AUTHORING_ERROR_UNSPECIFIED = 0;
+  INVALID_ARGUMENT = 1;
+  INVALID_REFERENCE = 2;
+  UNAUTHORIZED = 3;
+  STALE_INSTANCE = 4;
+  REVISION_CONFLICT = 5;
+  NOT_FOUND = 6;
+  VIEW_EXPIRED = 7;
+  OPERATION_ID_CONFLICT = 8;
+  RESOURCE_EXHAUSTED = 9;
+  UNSUPPORTED_VALUE_TYPE = 10;
+  VALIDATION_FAILED = 11;
+  REGISTRY_REJECTED = 12;
+  INTERNAL = 13;
+}
+message AuthoringFailure {
+  AuthoringErrorCode code = 1;
+  string message = 2;
+  Location location = 3;
+  WorkingRevision current_revision = 4; // only with separate Inspect permission
+  string limit_category = 5;
+  DiagnosticSummary validation_diagnostics = 6;
+}
+message AuthoringRequest {
+  oneof operation {
+    GetServiceInfo get_service_info = 1;
+    CreateWorking create_working = 2;
+    ListWorking list_working = 3;
+    OpenWorking open_working = 4;
+    CloseAttachment close_attachment = 5;
+    ReadDraft read_draft = 6;
+    ReadDiagnostics read_diagnostics = 7;
+    ApplyEdits apply_edits = 8;
+    ValidateWorking validate_working = 9;
+    EvaluateWorking evaluate_working = 10;
+    PublishWorking publish_working = 11;
+    GetOperationOutcome get_operation_outcome = 12;
+  }
+}
+message AuthoringResponse {
+  oneof outcome {
+    AuthoringFailure error = 1;
+    ServiceInfo service_info = 2;
+    Created created = 3;
+    WorkingList working_models = 4;
+    Opened opened = 5;
+    Closed closed = 6;
+    DraftPage draft = 7;
+    DiagnosticsPage diagnostics = 8;
+    EditCommitted edited = 9;
+    ValidationReport validation = 10;
+    EvaluationResult evaluation = 11;
+    Published published = 12;
+    OperationOutcome operation_outcome = 13;
+  }
+}

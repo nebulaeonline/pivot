@@ -1,26 +1,11 @@
 syntax = "proto3";
 package pivot.v1;
 option csharp_namespace = "Pivot.Protocol.V1";
+import "pivot/v1/types.proto";
+import "pivot/authoring/v1/authoring.proto";
 
-// PROPOSED: field numbers are not a released compatibility promise yet.
+// ADR-0007: existing v1.0 tags preserved; authoring envelope tag 20 allocated.
 message Version { uint32 major = 1; uint32 minor = 2; }
-message Decimal128 {
-  // 96-bit unsigned significand; not IEEE-754 decimal128 or native memory layout.
-  fixed32 lo = 1;
-  fixed32 mid = 2;
-  fixed32 hi = 3;
-  uint32 scale = 4;
-  bool negative = 5;
-}
-message Value {
-  oneof kind {
-    Decimal128 decimal = 1;
-    // Reserved for future capability negotiation; not executable in v1.0.
-    double float64 = 2;
-  }
-}
-enum ValueType { VALUE_TYPE_UNSPECIFIED = 0; DECIMAL = 1; FLOAT64 = 2; }
-message ModelRef { string model_id = 1; string revision_id = 2; }
 message InputPort {
   string port_id = 1;
   string name = 2;
@@ -81,13 +66,7 @@ enum ErrorCode {
   HANDSHAKE_REQUIRED = 14;
 }
 message ProtocolError { ErrorCode code = 1; string message = 2; string port_id = 3; }
-enum CalculationErrorCode {
-  CALCULATION_ERROR_CODE_UNSPECIFIED = 0;
-  OVERFLOW = 1;
-  DIVISION_BY_ZERO = 2;
-  DEPENDENCY_FAILED = 3;
-  INVALID_EXPRESSION = 4;
-}
+
 message CalculationError { CalculationErrorCode code = 1; string message = 2; }
 message OutputResult {
   string port_id = 1;
@@ -103,6 +82,7 @@ message Request {
   string request_id = 1;
   Version version = 2;
   oneof operation {
+    pivot.authoring.v1.AuthoringRequest authoring = 20;
     Handshake handshake = 10;
     ListModels list_models = 11;
     DescribeModel describe_model = 12;
@@ -114,6 +94,7 @@ message Response {
   string request_id = 1;
   Version version = 2;
   oneof outcome {
+    pivot.authoring.v1.AuthoringResponse authoring = 20;
     ProtocolError error = 10;
     HandshakeAccepted handshake = 11;
     ModelList models = 12;

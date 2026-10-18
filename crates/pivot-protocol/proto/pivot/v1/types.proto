@@ -1,0 +1,31 @@
+syntax = "proto3";
+package pivot.v1;
+option csharp_namespace = "Pivot.Protocol.V1";
+message Decimal128 {
+  // 96-bit unsigned significand; not IEEE-754 decimal128 or native memory layout.
+  fixed32 lo = 1;
+  fixed32 mid = 2;
+  fixed32 hi = 3;
+  uint32 scale = 4;
+  bool negative = 5;
+}
+
+message Value {
+  oneof kind {
+    Decimal128 decimal = 1;
+    // Reserved for future capability negotiation; not executable in v1.0.
+    double float64 = 2;
+  }
+}
+
+enum ValueType { VALUE_TYPE_UNSPECIFIED = 0; DECIMAL = 1; FLOAT64 = 2; }
+
+message ModelRef { string model_id = 1; string revision_id = 2; }
+
+enum CalculationErrorCode {
+  CALCULATION_ERROR_CODE_UNSPECIFIED = 0;
+  OVERFLOW = 1;
+  DIVISION_BY_ZERO = 2;
+  DEPENDENCY_FAILED = 3;
+  INVALID_EXPRESSION = 4;
+}

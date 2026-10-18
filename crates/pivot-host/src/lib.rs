@@ -381,6 +381,10 @@ impl ModelHost {
                 session.negotiated = true;
                 Ok(Outcome::Handshake(accepted))
             }
+            Operation::Authoring(_) => Err(error(
+                wire::ErrorCode::UnsupportedCapability,
+                "working-models-v1",
+            )),
             Operation::ListModels(page) => {
                 // Live registry is immutable while dispatch borrows it. Cursor
                 // stability across registry edits is deliberately not promised.

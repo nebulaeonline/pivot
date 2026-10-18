@@ -32,3 +32,9 @@ See [implementation status](docs/STATUS.md) and
 ## License
 
 Pivot is licensed under the [Apache License 2.0](LICENSE).
+
+## Local CI
+
+Run `python scripts/ci.py` to check Rust formatting, linting, tests, the .NET
+Release build, and cross-language decimal compatibility. Logs and a JSON summary
+are saved under `artifacts/ci/`. See [local CI setup](docs/local-ci.md).

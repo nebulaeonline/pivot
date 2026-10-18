@@ -4,6 +4,7 @@ Run from repository root: python tests/decimal-parity/verify.py
 Only the Python standard library is required. No float conversions.
 """
 import decimal
+import argparse
 import pathlib
 import random
 import subprocess
@@ -13,7 +14,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 def run(*args):
-    return subprocess.run(args, cwd=ROOT, text=True, capture_output=True, check=True).stdout
+    result = subprocess.run(args, cwd=ROOT, text=True, capture_output=True)
+    if result.returncode:
+        print(result.stdout)
+        print(result.stderr)
+        result.check_returncode()
+    return result.stdout
 
 
 def vectors():
@@ -78,19 +84,25 @@ def parse(output):
 
 
 def main():
-    run("cargo", "build", "-p", "pivot-types", "--example", "decimal_parity")
-    run("dotnet", "build", "tests/decimal-parity/DecimalParity.csproj", "--disable-build-servers", "-v:q")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-dir", type=pathlib.Path, default=ROOT / "tests/decimal-parity")
+    parser.add_argument("--configuration", choices=["Debug", "Release"], default="Debug")
+    args = parser.parse_args()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    run("cargo", "build", "--locked", "-p", "pivot-types", "--example", "decimal_parity")
+    run("dotnet", "build", "tests/decimal-parity/DecimalParity.csproj", "--disable-build-servers", "-v:q", "-c", args.configuration)
+    dotnet_harness = f"tests/decimal-parity/bin/{args.configuration}/net10.0/DecimalParity.dll"
     rows, expected = vectors()
     with tempfile.TemporaryDirectory() as tmp:
         path = pathlib.Path(tmp) / "vectors.tsv"
         path.write_text("\n".join(rows), encoding="utf-8")
         rust = parse(run("cargo", "run", "--quiet", "-p", "pivot-types", "--example", "decimal_parity", "--", str(path)))
-        csharp = parse(run("dotnet", "tests/decimal-parity/bin/Debug/net10.0/DecimalParity.dll", str(path)))
+        csharp = parse(run("dotnet", dotnet_harness, str(path)))
         raw_rust = parse(run("cargo", "run", "--quiet", "-p", "pivot-types", "--example", "decimal_parity", "--", str(path), "--native"))
-        raw_csharp = parse(run("dotnet", "tests/decimal-parity/bin/Debug/net10.0/DecimalParity.dll", str(path), "--native"))
+        raw_csharp = parse(run("dotnet", dotnet_harness, str(path), "--native"))
     raw_differences = [f"{row}: Rust={raw_rust[key]}, .NET={raw_csharp[key]}"
                        for row in rows if (key := row.split("\t")[0]) and raw_rust[key] != raw_csharp[key]]
-    (ROOT / "tests/decimal-parity/backend-baseline.txt").write_text(
+    (args.output_dir / "backend-baseline.txt").write_text(
         f"Native backend representation differences across {len(rows)} vectors: {len(raw_differences)}\n"
         + "\n".join(raw_differences) + "\n", encoding="utf-8")
     failures, scales = [], []
@@ -112,7 +124,7 @@ def main():
                     failures.append(f"{row}: {label}={result}, expected={want}")
     report = [f"Vectors: {len(rows)}", f"Value/error failures: {len(failures)}",
               f"Scale differences: {len(scales)}", *failures, *scales]
-    (ROOT / "tests/decimal-parity/results.txt").write_text("\n".join(report) + "\n", encoding="utf-8")
+    (args.output_dir / "results.txt").write_text("\n".join(report) + "\n", encoding="utf-8")
     print("\n".join(report[:40]))
     if failures or scales:
         raise SystemExit(1)

@@ -39,4 +39,6 @@ Public values have extensible tagged value/type boundaries (Decimal-only today).
 
 Invalidation, IEEE-754 and other non-decimal
 values, daemon behavior, and protocol implementation remain deferred.
-M0 is not fully complete: CI and broader project documentation remain outstanding.
+Local CI is available through `python scripts/ci.py`, covering Rust formatting,
+lint/tests, .NET Release builds, and cross-language decimal compatibility. See
+`docs/local-ci.md` for prerequisites and current platform/reproducibility limits.

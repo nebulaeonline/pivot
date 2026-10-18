@@ -1,8 +1,9 @@
 # Working-model management foundation
 
 Implemented Slices A–C of [ADR-0006](../adr/0006-working-model-lifecycle-and-transactions.md)
-in `pivot_host::management`. This is an in-process API; the daemon, Protobuf,
-REPL and C# clients do not expose it yet.
+in `pivot_host::management`. The [Stage A adapter](serialized-authoring-adapter.md)
+now exposes serialized Protobuf authoring in process. The daemon, REPL and C#
+clients do not expose authoring yet.
 
 ## Service and identity
 
@@ -43,7 +44,7 @@ to core handles; see [transactional editing](working-model-editing.md).
 
 Create does not implicitly open an attachment. Multiple principals can attach
 when policy permits. Attachment closure is the disconnect-equivalent lifecycle
-action; a future adapter must release its tracked attachments on disconnect.
+action; the Stage A adapter releases its tracked attachments on close or Drop.
 There is no idle deletion, resource eviction, or connection ownership. Resources
 and receipts currently live for the entire service lifetime. Explicit resource
 deletion is deferred; this slice has no delete API. Dropping/restarting the service
@@ -58,7 +59,7 @@ counts reflect committed graph edits. Invalid formulas remain inspectable.
 The embedder supplies a trusted, nonempty principal string (maximum 256 UTF-8
 bytes). This API does not authenticate strings from an untrusted client.
 `management::Authorizer` is independent of invocation `pivot_host::Authorizer`.
-Actions are Create, List, Inspect, Open, Close, Edit, Recover, Validate, Evaluate
+Actions are Info, Create, List, Inspect, Open, Close, Edit, Recover, Validate, Evaluate
 and Publish. Global checks use no model ID;
 resource checks supply its portable ID. Listing requires List and filters entries
 with Inspect. Open does not grant Inspect implicitly. Closing checks both

@@ -1,8 +1,9 @@
 # Authoring protocol proposal
 
 Status: Accepted — ADR-0007. Schema/codecs, opt-in negotiation and bounded validation
-are implemented. Live authoring dispatch and adapters remain deferred. See
-[foundation implementation](authoring-protocol-foundation.md).
+are implemented. Stage A serialized in-process dispatch is implemented; daemon
+authoring remains deferred. See [adapter implementation](serialized-authoring-adapter.md)
+and [foundation implementation](authoring-protocol-foundation.md).
 
 ## Versioning and envelope integration
 
@@ -49,7 +50,7 @@ admission. There is no delete, fork/import, destination-lineage, standalone capt
 remote prepare/commit or result-retrieval operation in the initial contract.
 
 Service info must be separately authorized rather than borrowing Create or exposing
-resource metadata. Adding an Info action is a future adapter/service change.
+resource metadata. The service and adapter now implement the separate Info action.
 The connection's authenticated identity supplies every principal; no principal,
 user or owner claim is accepted from the request. Rights remain independent from
 published invocation Discover/Describe/Invoke authorization.
@@ -97,7 +98,7 @@ Use schema-aware preflight validation for mutations: reject unknown fields,
 duplicate singulars, conflicting/missing oneofs, unknown enums and invalid values
 before receipt admission. Preserve legitimate ordered repetition and permitted
 wire representations with identical typed intent. The foundation implements this
-boundary; the future adapter must route raw frames through it before generated
+boundary; the in-process adapter routes raw frames through it before generated
 decoding. Read-only response additions retain normal unknown-field compatibility.
 Existing invocation validation is unchanged. Codecs alone are not preflight.
 
@@ -127,8 +128,8 @@ Close for an attachment already closed by that same connection returns success
 using a bounded connection-local closed-ID set; unknown/foreign IDs fail without
 revealing another principal's attachment. If that set fills, refuse further Opens
 on the connection until reconnect. Disconnect drops this set and closes live
-attachments; working models and receipts remain. These lifecycle adapter features
-extend today's principal-owned in-process attachment API and must be tested.
+attachments; working models and receipts remain. The Stage A adapter implements
+and tests this lifecycle over the principal-owned service attachment API.
 
 ## Validation, calculation and publication
 
@@ -254,11 +255,11 @@ and service/store ownership. None of those providers is implemented in this slic
 ## Review gates and implementation gaps
 
 Production schema allocation and codec/validation foundation are complete.
-Error mapping, byte-aware paging/signed cursors, attachment cleanup, Info authorization,
-unified daemon registry bootstrap and staged partial-port patch adaptation remain
-future adapter work. Current Rust SetInputPort accepts both target and requirement;
-omitted wire patch fields must resolve from the staged candidate inside a transaction,
-not a client-side read/resubmit sequence. No live authoring dispatch is implemented.
+Stage A implements error mapping, byte-aware paging/signed cursors, attachment
+cleanup, Info authorization and staged partial-port patches. Original decoded
+wire intent is retained in the existing edit receipt. Omitted fields resolve
+against the staged transaction candidate. Unified daemon registry bootstrap and
+live authoring IPC remain deferred; the daemon still advertises invocation only.
 
 Port update semantics: omitted means unchanged, supplied means replacement, and at
 least one update field is required. Present-but-empty formula source is valid draft

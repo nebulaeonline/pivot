@@ -73,7 +73,8 @@ final-directory binding for submitted formulas, and retained edit receipts.
 Slice C adds exact-revision structural validation, detached immutable evaluation
 captures with temporary overrides, and replay-safe publication into a coordinated
 immutable invocation registry. Published revisions and working revisions remain
-distinct. Live authoring dispatch/IPC/REPL operations remain deferred. See
+distinct. Serialized in-process authoring is implemented; live IPC/REPL authoring
+operations remain deferred. See
 `docs/architecture/working-model-management.md` for the in-process API and limits.
 Transactional editing details are in `docs/architecture/working-model-editing.md`.
 Calculation/publication details are in
@@ -85,9 +86,14 @@ on the verification backlog.
 ADR-0007 is Accepted. Production authoring schemas and shared types, Rust/C# codecs,
 bounded recursive mutation preflight, typed intent and opt-in v1.1 negotiation are
 implemented and compatibility-tested. The daemon remains invocation-only; authoring
-capabilities and dispatch are disabled. Paging/attachment adapters and detailed
-receipt diagnostic retention remain deferred. See
-`docs/architecture/authoring-protocol-foundation.md`.
+capabilities and dispatch are disabled there. Stage A now implements all twelve
+serialized authoring operations in process, signed bounded paging, session-owned
+attachment cleanup, staged partial-port patches and exact wire-intent replay.
+Evaluation runs outside the service lock and delivery rechecks authorization.
+Detailed receipt diagnostic retention remains deferred. See
+`docs/architecture/serialized-authoring-adapter.md` and
+`docs/architecture/authoring-protocol-foundation.md`. Windows CI passes with
+124 Rust tests, including 22 adapter tests; this slice has not been rerun on Unix.
 Persistence direction is a common transactional contract with configurable
 providers: SQLite first/default locally with a filesystem path, and planned
 PostgreSQL/MySQL adapters. Storage choice is independent of local/network service

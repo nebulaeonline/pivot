@@ -161,7 +161,9 @@ collection, resource deletion and persistence remain future lifecycle work.
 
 ## Deferred
 
-No public authoring Protobuf, IPC/REPL/C# editing, new numeric types, persistence,
+The subsequent [Stage A adapter](serialized-authoring-adapter.md) adds public
+authoring Protobuf in process, native staged partial input-port patches and
+original wire intent in service receipts. Still deferred: IPC/REPL/C# editing, new numeric types, persistence,
 workbook coordinates or GUI integration. Slice C separately implements validation,
 capture, unpublished evaluation and publication; it does not strengthen the
 validation required to save a draft. Immutable model hosting remains independent

@@ -150,6 +150,11 @@ pub enum Edit {
         port: PortRef,
         node: NodeRef,
     },
+    PatchInputPort {
+        port: PortRef,
+        node: Option<NodeRef>,
+        requirement: Option<Requirement>,
+    },
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApplyEdits {
@@ -221,6 +226,7 @@ pub(super) struct EditReceipt {
     pub principal: String,
     pub request: ApplyEdits,
     pub result: Result<EditResult, Error>,
+    pub original_wire: Option<pivot_protocol::authoring::v1::ApplyEdits>,
 }
 impl WorkingModelService {
     pub fn read_draft(
@@ -249,6 +255,14 @@ impl WorkingModelService {
         principal: &str,
         request: ApplyEdits,
     ) -> Result<EditResult, Error> {
+        self.apply_edits_intent(principal, request, None)
+    }
+    pub(super) fn apply_edits_intent(
+        &mut self,
+        principal: &str,
+        request: ApplyEdits,
+        original_wire: Option<pivot_protocol::authoring::v1::ApplyEdits>,
+    ) -> Result<EditResult, Error> {
         self.check(
             request.instance,
             principal,
@@ -273,7 +287,7 @@ impl WorkingModelService {
             .iter()
             .find(|r| r.principal == principal && r.request.operation_id == request.operation_id)
         {
-            return if r.request == request {
+            return if r.request == request && r.original_wire == original_wire {
                 r.result.clone()
             } else {
                 Err(Error::OperationIdConflict)
@@ -334,6 +348,7 @@ impl WorkingModelService {
             principal: principal_owned,
             request,
             result: result.clone(),
+            original_wire,
         };
         if let Ok((index, resource, _)) = candidate {
             self.resources[index] = resource;
@@ -387,6 +402,16 @@ fn validate_request(request: &ApplyEdits, limits: EditLimits) -> Result<(), Erro
             bytes = bytes.checked_add(source.len()).ok_or(Error::BatchLimit)?;
         }
         let (node, port) = match edit {
+            Edit::PatchInputPort {
+                node,
+                port,
+                requirement,
+            } => {
+                if node.is_none() && requirement.is_none() {
+                    return Err(Error::InvalidEdit);
+                }
+                (node.as_ref(), Some(port))
+            }
             Edit::RemoveNode(n)
             | Edit::RenameNode { node: n, .. }
             | Edit::SetNode { node: n, .. }
@@ -460,6 +485,17 @@ fn stage(r: &mut Resource, edits: &[Edit], limits: EditLimits) -> Result<EditRes
     let mut used = BTreeSet::new();
     for edit in edits {
         match edit {
+            Edit::PatchInputPort {
+                port: reference,
+                node: target,
+                requirement,
+            } => {
+                let id = port(r, reference, &ports)?;
+                let target = target.as_ref().map(|n| node(r, n, &nodes)).transpose()?;
+                r.graph
+                    .patch_input_port(id, target, requirement.as_ref().map(Requirement::core))
+                    .map_err(|_| Error::InvalidEdit)?;
+            }
             Edit::AddNode {
                 temporary,
                 name,

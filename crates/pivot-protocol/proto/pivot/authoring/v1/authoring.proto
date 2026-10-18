@@ -43,6 +43,7 @@ message ResourceLimits {
   uint64 formula_bytes = 22;
   uint64 temporary_id_bytes = 23;
   uint64 closed_attachment_ids_per_connection = 24;
+  uint64 authoring_sessions = 25;
 }
 message ServiceInfo {
   // Storage provider selection/configuration is service-side. Report guarantees,

@@ -427,6 +427,22 @@ pub fn decode_envelope(bytes: &[u8], limits: Limits) -> Result<v1::Request, Vali
     decode_authoring(&a.encode_to_vec(), limits)?;
     Ok(request)
 }
+/// Bounded handshake preflight used by opt-in simulated authoring sessions.
+pub fn decode_handshake(bytes: &[u8], limits: Limits) -> Result<v1::Request, ValidationError> {
+    if bytes.len() > limits.bytes {
+        return Err(exhausted());
+    }
+    let mut remaining = limits.fields;
+    walk(".pivot.v1.Request", bytes, limits, 0, &mut remaining)?;
+    let request = v1::Request::decode(bytes).map_err(|_| bad("handshake"))?;
+    if !matches!(
+        request.operation,
+        Some(v1::request::Operation::Handshake(_))
+    ) {
+        return Err(bad("handshake required"));
+    }
+    Ok(request)
+}
 /// Read-only response decoding tolerates additive unknown fields, while checking
 /// correlation, result alternative and exact snapshot provenance.
 pub fn decode_response(

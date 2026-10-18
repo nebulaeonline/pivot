@@ -39,6 +39,7 @@ mod editing;
 pub use editing::*;
 mod calculation;
 pub use calculation::*;
+pub mod adapter;
 
 /// Distinct from core revisions, calculation snapshots and published revisions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,6 +87,7 @@ pub enum Action {
     Validate,
     Evaluate,
     Publish,
+    Info,
 }
 /// Separate from invocation authorization. Identity/attachment IDs confer no
 /// permission. Policy must support checks at request and commit boundaries.
@@ -235,6 +237,38 @@ impl WorkingModelService {
     }
     pub fn info(&self) -> ServiceInfo {
         self.info
+    }
+    fn diagnostic_permission(
+        &self,
+        instance: ServiceInstanceId,
+        principal: &str,
+        model: WorkingModelId,
+    ) -> Result<(), Error> {
+        self.context(instance, principal)?;
+        if [Action::Inspect, Action::Validate, Action::Evaluate]
+            .iter()
+            .any(|&a| self.policy.allowed(principal, a, Some(model)))
+        {
+            Ok(())
+        } else {
+            Err(Error::Denied)
+        }
+    }
+    pub fn read_diagnostics(
+        &self,
+        principal: &str,
+        expected: WorkingRevision,
+    ) -> Result<Vec<Diagnostic>, Error> {
+        self.diagnostic_permission(expected.instance, principal, expected.model)?;
+        let r = self
+            .resources
+            .iter()
+            .find(|r| r.id == expected.model)
+            .ok_or(Error::UnknownModel)?;
+        if r.revision != expected {
+            return Err(Error::RevisionConflict);
+        }
+        Ok(editing::draft(r).diagnostics)
     }
     fn context(&self, instance: ServiceInstanceId, principal: &str) -> Result<(), Error> {
         if instance != self.info.instance {

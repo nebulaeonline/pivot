@@ -152,6 +152,43 @@ impl WorkingModel {
         Ok(())
     }
     /// Update an input port in place, preserving its core and public identity.
+    /// Omitted fields stay unchanged, including an already-invalid saved target.
+    pub fn patch_input_port(
+        &mut self,
+        id: PortId,
+        node: Option<NodeId>,
+        requirement: Option<InputRequirement>,
+    ) -> Result<(), ModelError> {
+        let old = self
+            .interface
+            .inputs
+            .values()
+            .find(|p| p.id == id)
+            .ok_or(ModelError::Interface(InterfaceError::UnknownPort(id)))?;
+        if let Some(node) = node {
+            return self.update_input_port(
+                id,
+                node,
+                requirement.unwrap_or_else(|| old.requirement.clone()),
+            );
+        }
+        let name = old.name.clone();
+        if let Some(requirement) = requirement {
+            if let InputRequirement::Optional { default } = &requirement
+                && default.value_type() != pivot_types::ValueType::Decimal
+            {
+                return Err(ModelError::Interface(InterfaceError::TypeMismatch {
+                    name,
+                    expected: pivot_types::ValueType::Decimal,
+                    actual: default.value_type(),
+                }));
+            }
+            self.advance()?;
+            self.interface.inputs.get_mut(&name).unwrap().requirement = requirement;
+        }
+        Ok(())
+    }
+    /// Complete replacement, retained for existing in-process callers.
     pub fn update_input_port(
         &mut self,
         id: PortId,

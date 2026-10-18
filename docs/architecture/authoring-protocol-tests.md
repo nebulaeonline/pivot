@@ -1,8 +1,10 @@
 # Authoring protocol verification plan
 
 Status: Foundation codec/preflight/compatibility cases implemented and executed;
-adapter, paging, attachment and live authoring integration cases below remain a
-future plan. See [foundation evidence](authoring-protocol-foundation.md). The
+22 serialized in-process adapter tests now cover paging, attachments, edits,
+evaluation, publication and authorization. Live authoring IPC cases remain a
+future plan. See [adapter evidence](serialized-authoring-adapter.md) and
+[foundation evidence](authoring-protocol-foundation.md). The
 production schema is generated in Rust/C#; the historical review draft is excluded.
 
 Detailed receipt diagnostic paging is deferred pending byte-budgeted retention.

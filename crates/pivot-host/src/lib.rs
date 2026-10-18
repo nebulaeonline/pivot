@@ -99,6 +99,7 @@ pub struct ModelHost {
     entries: BTreeMap<(String, String), HostedModel>,
     invocation_namespace: String,
     next_invocation: AtomicU64,
+    work_budget: usize,
 }
 impl ModelHost {
     /// Namespace must be unique for this host lifetime if IDs leave its scope.
@@ -117,7 +118,35 @@ impl ModelHost {
             entries: BTreeMap::new(),
             invocation_namespace: namespace,
             next_invocation: AtomicU64::new(0),
+            work_budget: 100_000,
         })
+    }
+    /// Conservative full-snapshot bound: nodes, edges, and bound expression tokens.
+    /// This is independent of message size and intentionally not a wall-clock limit.
+    pub fn set_work_budget(&mut self, maximum: usize) -> Result<(), ValidationError> {
+        if maximum == 0 {
+            return Err(error(wire::ErrorCode::InvalidArgument, "work budget"));
+        }
+        self.work_budget = maximum;
+        Ok(())
+    }
+    fn check_work(&self, snapshot: &ModelSnapshot) -> Result<(), ValidationError> {
+        let mut remaining = self.work_budget;
+        for &id in snapshot.dependency_order() {
+            let node = snapshot.node(id).expect("validated snapshot");
+            let tokens = match node.definition() {
+                pivot_core::model::SnapshotDefinition::Input(_) => 0,
+                pivot_core::model::SnapshotDefinition::Computed { tokens, .. } => tokens.len(),
+            };
+            let cost = 1usize
+                .checked_add(node.dependencies().len())
+                .and_then(|c| c.checked_add(tokens))
+                .ok_or_else(|| error(wire::ErrorCode::ResourceExhausted, "work budget"))?;
+            remaining = remaining
+                .checked_sub(cost)
+                .ok_or_else(|| error(wire::ErrorCode::ResourceExhausted, "work budget"))?;
+        }
+        Ok(())
     }
     /// Map every public label to a caller-assigned portable port ID. No NodeIds
     /// or process-local PortIds are used to derive external identities.
@@ -398,6 +427,7 @@ impl ModelHost {
                 }
                 let hosted = self.lookup(reference)?;
                 validation::validate_invocation(&call, &hosted.description)?;
+                self.check_work(&hosted.snapshot)?;
                 if hosted.description.inputs.len() > session.limits.inputs {
                     return Err(error(
                         wire::ErrorCode::ResourceExhausted,

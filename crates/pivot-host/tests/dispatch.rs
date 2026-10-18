@@ -408,3 +408,24 @@ fn registry_rejects_replacement_and_bad_port_mappings() {
         Some(output_result::Outcome::Value(val(75, 0)))
     );
 }
+
+#[test]
+fn calculation_work_budget_rejects_before_execution() {
+    let (mut host, _, _) = fixture();
+    host.set_work_budget(1).unwrap();
+    let mut s = session();
+    hello(&host, &mut s);
+    assert_eq!(
+        code(send(
+            &host,
+            &mut s,
+            request::Operation::InvokeModel(call("r1", 100))
+        )),
+        ErrorCode::ResourceExhausted
+    );
+    host.set_work_budget(100_000).unwrap();
+    assert_eq!(
+        invoke(&host, &mut s, call("r1", 100)).outputs[0].outcome,
+        Some(output_result::Outcome::Value(val(75, 0)))
+    );
+}

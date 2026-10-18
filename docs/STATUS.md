@@ -32,16 +32,25 @@ immutable results retaining their snapshot revision. Isolated invocation accepts
 temporary input overrides keyed by NodeId, with captured defaults and typed binding
 validation. Independent invocations share only immutable snapshot definitions.
 Independent arithmetic failures do not prevent other outputs from being computed.
-Thirty-seven Rust tests pass. Public model ports now support named invocation,
+Forty-one Rust tests pass on Windows, Ubuntu WSL2 Linux, and macOS ARM64. Public model ports now support named invocation,
 required inputs, explicit optional defaults, and stable port identities. Formula
 names bind only at edit submission; snapshots reuse stable-ID references.
 Public values have extensible tagged value/type boundaries (Decimal-only today).
 
 Invalidation, IEEE-754 and other non-decimal
-values and daemon networking remain deferred. ADR-0004 is accepted after the review
+values remain deferred. A demo daemon and minimal CLI now use named pipes on
+Windows and Unix-domain sockets on Unix (Linux WSL2 and macOS ARM64 verified). ADR-0004 is accepted after the review
 refinements. The portable contract has generated Rust/C# codecs, numeric provenance
 validation, explicit input sources, negotiated limits, and an in-process pivot-host
-registry/dispatcher with mandatory handshake sessions. No socket/pipe service exists.
+registry/dispatcher with mandatory handshake sessions. ADR-0005 is Proposed;
+local IPC includes current-user peer checks, bounded framing, connection limits,
+and a conservative calculation work budget. The full REPL remains deferred.
 Local CI is available through `python scripts/ci.py`, covering Rust formatting,
 lint/tests, .NET Release builds, and cross-language decimal compatibility. See
 `docs/local-ci.md` for prerequisites and current platform/reproducibility limits.
+The complete CI pipeline now passes in Ubuntu WSL2 with .NET SDK 10.0.112,
+including both cross-language suites and the .NET Release solution build.
+The complete CI pipeline also passes on macOS 27.0.1 ARM64 with .NET SDK
+10.0.402 using an isolated local APFS source/build copy. See
+`docs/platform-validation.md` for reports and the SMB build limitation.
+Native AOT, GUI execution, and actual cross-user endpoint denial remain unverified.

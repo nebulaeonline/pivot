@@ -31,6 +31,7 @@ enforced, so the pipeline is not a hermetic build.
 5. Build the full .NET solution in Release with warnings treated as errors.
 6. Run all 10,099 Rust/C# decimal compatibility cases using the Release C# harness.
 7. Generate and exchange Rust/C# Protobuf protocol fixtures.
+8. Start a temporary demo daemon and test real local IPC/CLI round trips and malformed-client survival.
 
 The runner stops at the first failed command and returns a nonzero exit status.
 It streams output to the console and preserves each command's output in a log.
@@ -70,7 +71,11 @@ reports in `tests/decimal-parity/`.
 
 ## Current coverage limits
 
-Verified on Windows with .NET 10.0.402 and the installed Rust nightly. The Python
-runner uses portable commands, but Linux/macOS execution has not been verified.
+The full pipeline is verified on Windows with .NET 10.0.402 and Ubuntu WSL2 Linux
+with .NET 10.0.112, and macOS 27.0.1 ARM64 with .NET 10.0.402, using installed
+Rust nightly toolchains. Linux and macOS used isolated source/build outputs.
+On macOS, use local APFS storage: the SMB-mounted source copy failed with a
+.NET file-sharing error; the local APFS copy passed all gates. See
+[platform validation](platform-validation.md) for reproducible commands.
 GUI execution and Native AOT publishing are not gates yet. There is no automatic
 trigger: run the command before handoff or wire it into future CI hosting.

@@ -23,11 +23,13 @@ Pivot is in early development. The repository contains the Rust and .NET project
 skeletons, a decimal numeric foundation with cross-language tests, and a basic
 expression parser, editable models with immutable snapshots, and headless decimal
 evaluation with isolated input overrides and named public model interfaces.
-The daemon protocol, REPL, and spreadsheet
-UI are still ahead.
+A demo daemon and CLI now support discovery and invocation over local IPC.
+The full REPL and spreadsheet UI are still ahead.
 
 The transport-independent Protobuf protocol has Rust/C# serialization tests and an
-in-process host adapter for discovery and invocation. No daemon networking is implemented yet.
+in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)
+to run the demo daemon and CLI. Windows, Linux under WSL2, and macOS ARM64 are verified; see
+[platform validation](docs/platform-validation.md) for coverage and build constraints.
 
 See [implementation status](docs/STATUS.md) and
 [architecture decisions](docs/adr/README.md) for more detail.

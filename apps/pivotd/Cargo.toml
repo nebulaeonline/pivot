@@ -5,3 +5,9 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+pivot-host = { path = "../../crates/pivot-host" }
+pivot-core = { path = "../../crates/pivot-core" }
+pivot-types = { path = "../../crates/pivot-types" }
+pivot-protocol = { path = "../../crates/pivot-protocol" }
+pivot-transport = { path = "../../crates/pivot-transport" }
+uuid = { version = "1.28.0", features = ["v4"] }

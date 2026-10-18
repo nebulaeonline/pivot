@@ -5,3 +5,7 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+pivot-protocol = { path = "../../crates/pivot-protocol" }
+pivot-types = { path = "../../crates/pivot-types" }
+pivot-transport = { path = "../../crates/pivot-transport" }
+prost = "0.14.4"

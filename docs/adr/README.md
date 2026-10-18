@@ -12,6 +12,7 @@ decisions, not implementation suggestions.
 - [ADR-0001: Graph-first computation core](0001-graph-first-core.md) — Accepted
 - [ADR-0002: Editable models with immutable calculation snapshots](0002-editable-model-calculation-snapshots.md) — Accepted
 - [ADR-0003: Stable references and public interfaces](0003-stable-references-and-public-interfaces.md) — Accepted
-- [ADR-0004: Portable Protobuf protocol](0004-portable-protobuf-protocol.md) — Proposed
+- [ADR-0004: Portable Protobuf protocol](0004-portable-protobuf-protocol.md) — Accepted
+- [ADR-0005: Local IPC and endpoint security](0005-local-ipc-and-endpoint-security.md) — Proposed
 
-Numeric policy, protocol, persistence, and transaction semantics remain open.
+Final numeric policy, IPC security/framing, persistence, and transaction semantics remain open.

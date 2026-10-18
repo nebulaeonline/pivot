@@ -32,8 +32,13 @@ portable_id!(WorkingModelId);
 portable_id!(AttachmentId);
 portable_id!(AuthoringNodeId);
 portable_id!(AuthoringPortId);
+portable_id!(CalculationSnapshotId);
+portable_id!(PublishedModelId);
+portable_id!(PublishedRevisionId);
 mod editing;
 pub use editing::*;
+mod calculation;
+pub use calculation::*;
 
 /// Distinct from core revisions, calculation snapshots and published revisions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,6 +72,7 @@ pub struct ServiceInfo {
     pub durability: Durability,
     pub limits: Limits,
     pub edit_limits: EditLimits,
+    pub calculation_limits: CalculationLimits,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
@@ -77,6 +83,9 @@ pub enum Action {
     Close,
     Edit,
     Recover,
+    Validate,
+    Evaluate,
+    Publish,
 }
 /// Separate from invocation authorization. Identity/attachment IDs confer no
 /// permission. Policy must support checks at request and commit boundaries.
@@ -101,6 +110,11 @@ pub enum Error {
     ModelLimit,
     BatchLimit,
     IdentityExhausted,
+    CaptureLimit,
+    WorkLimit,
+    PublishedLimit,
+    InvalidInput,
+    InvalidOutput,
 }
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -135,6 +149,8 @@ pub enum OperationOutcome {
     Committed(Created),
     Rejected(Error),
     Edited(EditResult),
+    Published(PublicationResult),
+    PublicationRejected(PublicationError),
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Attachment {
@@ -147,6 +163,7 @@ struct Resource {
     graph: WorkingModel,
     revision: WorkingRevision,
     identities: editing::Identities,
+    lineage: PublishedModelId,
 }
 struct Receipt {
     principal: String,
@@ -161,11 +178,14 @@ struct HeldAttachment {
 
 pub struct WorkingModelService {
     info: ServiceInfo,
-    policy: Box<dyn Authorizer>,
+    policy: std::sync::Arc<dyn Authorizer>,
     resources: Vec<Resource>,
     receipts: Vec<Receipt>,
     edit_receipts: Vec<editing::EditReceipt>,
     attachments: Vec<HeldAttachment>,
+    publication_receipts: Vec<calculation::PublicationReceipt>,
+    published: crate::ModelHost,
+    captures: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 impl WorkingModelService {
     pub fn new(limits: Limits, policy: Box<dyn Authorizer>) -> Result<Self, Error> {
@@ -176,22 +196,41 @@ impl WorkingModelService {
         edit_limits: EditLimits,
         policy: Box<dyn Authorizer>,
     ) -> Result<Self, Error> {
+        Self::with_all_limits(limits, edit_limits, CalculationLimits::default(), policy)
+    }
+    pub fn with_all_limits(
+        limits: Limits,
+        edit_limits: EditLimits,
+        calculation_limits: CalculationLimits,
+        policy: Box<dyn Authorizer>,
+    ) -> Result<Self, Error> {
         if limits.resources == 0 || limits.attachments == 0 || limits.receipts == 0 {
             return Err(Error::InvalidArgument);
         }
         edit_limits.validate()?;
+        calculation_limits.validate()?;
+        let instance = ServiceInstanceId::allocate();
+        let mut published =
+            crate::ModelHost::new(instance.to_string()).map_err(|_| Error::InvalidArgument)?;
+        published
+            .set_work_budget(calculation_limits.work)
+            .map_err(|_| Error::InvalidArgument)?;
         Ok(Self {
             info: ServiceInfo {
-                instance: ServiceInstanceId::allocate(),
+                instance,
                 durability: Durability::MemoryOnly,
                 limits,
                 edit_limits,
+                calculation_limits,
             },
-            policy,
+            policy: policy.into(),
             resources: Vec::new(),
             receipts: Vec::new(),
             edit_receipts: Vec::new(),
             attachments: Vec::new(),
+            publication_receipts: Vec::new(),
+            published,
+            captures: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         })
     }
     pub fn info(&self) -> ServiceInfo {
@@ -238,6 +277,9 @@ impl WorkingModelService {
             return Err(Error::InvalidArgument);
         }
         // Replay lookup precedes quotas, allocation and any future revision checks.
+        if self.publication_operation_exists(principal, &request.operation_id) {
+            return Err(Error::OperationIdConflict);
+        }
         if self
             .edit_receipts
             .iter()
@@ -256,7 +298,7 @@ impl WorkingModelService {
                 Err(Error::OperationIdConflict)
             };
         }
-        if self.receipts.len() + self.edit_receipts.len() >= self.info.limits.receipts {
+        if self.receipt_count() >= self.info.limits.receipts {
             return Err(Error::ReceiptLimit);
         }
         self.receipts
@@ -288,6 +330,7 @@ impl WorkingModelService {
                 graph,
                 revision,
                 identities: editing::Identities::default(),
+                lineage: PublishedModelId::allocate(),
             })
         })();
         receipt.result = candidate
@@ -317,6 +360,9 @@ impl WorkingModelService {
         self.context(instance, principal)?;
         if !valid_operation(operation) {
             return Err(Error::InvalidArgument);
+        }
+        if let Some(result) = self.publication_outcome(instance, principal, operation)? {
+            return Ok(result);
         }
         if let Some(r) = self
             .edit_receipts
@@ -625,7 +671,7 @@ mod tests {
         assert_eq!(s.create("alice", req), Err(Error::CoreInitializationFailed));
         assert!(s.resources.is_empty());
         let deny = Arc::new(AtomicBool::new(false));
-        s.policy = Box::new(Policy { deny: deny.clone() });
+        s.policy = std::sync::Arc::new(Policy { deny: deny.clone() });
         let req = request(&s, "revoked", "Other");
         assert_eq!(
             s.create_prepared("alice", req, |name| {
@@ -682,7 +728,7 @@ mod tests {
         let mut s = service(Limits::default());
         let visible = s.create("alice", request(&s, "one", "A")).unwrap();
         let hidden = s.create("alice", request(&s, "two", "B")).unwrap();
-        s.policy = Box::new(Filter(visible.id));
+        s.policy = std::sync::Arc::new(Filter(visible.id));
         assert_eq!(s.list(s.info.instance, "alice").unwrap().len(), 1);
         assert_eq!(
             s.inspect(s.info.instance, "alice", hidden.id),

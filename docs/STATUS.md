@@ -70,7 +70,14 @@ discovery/inspection and attachments, explicit quotas, and replay-safe creation.
 Slice B adds private transactional staging, atomic edit batches, one public revision
 per batch, portable node/port IDs, revision-pinned raw draft reads and diagnostics,
 final-directory binding for submitted formulas, and retained edit receipts.
-Unpublished evaluation, publication coordination, and authoring
-Protobuf/IPC/REPL operations remain deferred. See
+Slice C adds exact-revision structural validation, detached immutable evaluation
+captures with temporary overrides, and replay-safe publication into a coordinated
+immutable invocation registry. Published revisions and working revisions remain
+distinct. Authoring Protobuf/IPC/REPL operations remain deferred. See
 `docs/architecture/working-model-management.md` for the in-process API and limits.
 Transactional editing details are in `docs/architecture/working-model-editing.md`.
+Calculation/publication details are in
+`docs/architecture/working-model-calculation-publication.md`. Persistence, identity
+compaction and richer edit diagnostics remain follow-ups; memory-only commits do
+not survive service shutdown. Latest REPL macOS validation and Native AOT remain
+on the verification backlog.

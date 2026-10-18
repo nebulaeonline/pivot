@@ -214,8 +214,8 @@ pub struct DraftView {
 }
 #[derive(Clone, Default)]
 pub(super) struct Identities {
-    nodes: BTreeMap<AuthoringNodeId, NodeId>,
-    ports: BTreeMap<AuthoringPortId, PortId>,
+    pub(super) nodes: BTreeMap<AuthoringNodeId, NodeId>,
+    pub(super) ports: BTreeMap<AuthoringPortId, PortId>,
 }
 pub(super) struct EditReceipt {
     pub principal: String,
@@ -256,6 +256,9 @@ impl WorkingModelService {
             Some(request.model),
         )?;
         validate_request(&request, self.info.edit_limits)?;
+        if self.publication_operation_exists(principal, &request.operation_id) {
+            return Err(Error::OperationIdConflict);
+        }
         // Complete typed intent includes exact decimal layout, source bytes,
         // ordered commands, temporary references and expected revision.
         if self
@@ -276,7 +279,7 @@ impl WorkingModelService {
                 Err(Error::OperationIdConflict)
             };
         }
-        if self.receipts.len() + self.edit_receipts.len() >= self.info.limits.receipts {
+        if self.receipt_count() >= self.info.limits.receipts {
             return Err(Error::ReceiptLimit);
         }
         self.edit_receipts
@@ -306,6 +309,7 @@ impl WorkingModelService {
                     ..original.revision
                 },
                 identities: original.identities.clone(),
+                lineage: original.lineage,
             };
             let result = stage(&mut staged, &request.edits, self.info.edit_limits)?;
             self.check(
@@ -627,7 +631,7 @@ fn stage(r: &mut Resource, edits: &[Edit], limits: EditLimits) -> Result<EditRes
     })
 }
 
-fn draft(r: &Resource) -> DraftView {
+pub(super) fn draft(r: &Resource) -> DraftView {
     let node_ids: BTreeMap<_, _> = r.identities.nodes.iter().map(|(&a, &b)| (b, a)).collect();
     let port_ids: BTreeMap<_, _> = r.identities.ports.iter().map(|(&a, &b)| (b, a)).collect();
     let mut nodes = Vec::new();

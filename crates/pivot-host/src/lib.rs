@@ -95,6 +95,10 @@ struct HostedModel {
     snapshot: ModelSnapshot,
     description: wire::ModelDescription,
 }
+struct PreparedRegistration {
+    key: (String, String),
+    entry: HostedModel,
+}
 /// Entries are never replaced in place. Use a new external revision ID for edits.
 pub struct ModelHost {
     entries: BTreeMap<(String, String), HostedModel>,
@@ -157,6 +161,16 @@ impl ModelHost {
         snapshot: ModelSnapshot,
         ports: BTreeMap<String, String>,
     ) -> Result<(), ValidationError> {
+        let prepared = self.prepare_registration(model, snapshot, ports)?;
+        self.install_registration(prepared);
+        Ok(())
+    }
+    fn prepare_registration(
+        &self,
+        model: wire::ModelRef,
+        snapshot: ModelSnapshot,
+        ports: BTreeMap<String, String>,
+    ) -> Result<PreparedRegistration, ValidationError> {
         let mut used = BTreeSet::new();
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
@@ -262,14 +276,18 @@ impl ModelHost {
                 }
             }
         }
-        self.entries.insert(
+        Ok(PreparedRegistration {
             key,
-            HostedModel {
+            entry: HostedModel {
                 snapshot,
                 description,
             },
-        );
-        Ok(())
+        })
+    }
+    // Only install immediately after preparation under exclusive registry access.
+    // No recoverable errors/callbacks here; allocator aborts are process-fatal.
+    fn install_registration(&mut self, prepared: PreparedRegistration) {
+        self.entries.insert(prepared.key, prepared.entry);
     }
 
     /// Dispatch one complete serialized message, never a partial frame. Bad

@@ -1,6 +1,6 @@
 # Working-model management foundation
 
-Implemented Slices A and B of [ADR-0006](../adr/0006-working-model-lifecycle-and-transactions.md)
+Implemented Slices A–C of [ADR-0006](../adr/0006-working-model-lifecycle-and-transactions.md)
 in `pivot_host::management`. This is an in-process API; the daemon, Protobuf,
 REPL and C# clients do not expose it yet.
 
@@ -28,13 +28,18 @@ to core handles; see [transactional editing](working-model-editing.md).
 | --- | --- |
 | `info` | Service identity, memory-only durability, configured quotas |
 | `create` | Create a named empty working graph, return ID and exact revision |
-| `operation_outcome` | Principal-scoped create/edit outcome, or Unknown |
+| `operation_outcome` | Principal-scoped create/edit/publication outcome, or Unknown |
 | `list` | Authorized bounded resource descriptions, filtered per resource |
 | `inspect` | Name, exact revision and current graph/interface counts |
 | `read_draft` | Owned definitions, stable references and diagnostics at the exact current revision |
 | `apply_edits` | Private staging and atomic expected-revision batch commit |
 | `open` | Allocate another authorized, principal-owned attachment |
 | `close` | Release an attachment without deleting its resource |
+| `validate_working` | Structured global validation at the exact current revision |
+| `capture_evaluation` | Detached immutable capture, followed by local `evaluate` |
+| `prepare_publication` / `commit_publication` | Capture, then atomically register an exact immutable revision with its receipt |
+| `publish` | Synchronous convenience for prepare/commit |
+| `published_host` | Read-only access to the coordinated invocation registry |
 
 Create does not implicitly open an attachment. Multiple principals can attach
 when policy permits. Attachment closure is the disconnect-equivalent lifecycle
@@ -53,7 +58,8 @@ counts reflect committed graph edits. Invalid formulas remain inspectable.
 The embedder supplies a trusted, nonempty principal string (maximum 256 UTF-8
 bytes). This API does not authenticate strings from an untrusted client.
 `management::Authorizer` is independent of invocation `pivot_host::Authorizer`.
-Actions are Create, List, Inspect, Open, Close, Edit and Recover. Global checks use no model ID;
+Actions are Create, List, Inspect, Open, Close, Edit, Recover, Validate, Evaluate
+and Publish. Global checks use no model ID;
 resource checks supply its portable ID. Listing requires List and filters entries
 with Inspect. Open does not grant Inspect implicitly. Closing checks both
 attachment principal ownership and model-specific Close permission.
@@ -61,7 +67,7 @@ attachment principal ownership and model-specific Close permission.
 Policy decides resource sharing/ownership; the service does not automatically
 grant a creator access to inspect or attach. Creation checks authorization again
 after private preparation, before commit. Replays and outcome queries require
-current authorization for the recorded operation (Create or model-specific Edit)
+current authorization for the recorded operation (Create, model-specific Edit or Publish)
 and are scoped to the authenticated principal. Unknown outcome queries require
 the global Recover action. Draft reads require Inspect, independently of Edit.
 Possessing an ID or another principal's operation ID grants no access. Policy
@@ -114,8 +120,9 @@ assumption. Future transport, concurrency and storage choices remain replaceable
 
 ## Deferred
 
-Unpublished calculation, standalone validation/capture APIs, publication
-coordination, resource deletion/tombstones, persistence, authoring protocol/client
-operations, workbook projection and Avalonia integration remain unimplemented.
-Existing immutable host APIs and invocation policy are unchanged. Slice C
-(unpublished evaluation and publication) requires a separate review.
+Resource deletion/tombstones, persistence, authoring protocol/client operations,
+workbook projection and Avalonia integration remain unimplemented. Existing
+standalone immutable host APIs and invocation policy are unchanged. The management
+service now owns a coordinated registry exposed through read-only `published_host`;
+publication mutates it only through the management commit boundary. See
+[calculation/publication details](working-model-calculation-publication.md).

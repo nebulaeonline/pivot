@@ -2,7 +2,8 @@
 
 Implemented Slice B of accepted ADR-0006 in
 `pivot_host::management`. The service is still in process only. There is no
-authoring protocol, daemon/REPL editing, unpublished calculation or publication API.
+authoring protocol or daemon/REPL editing. Slice C adds separate
+[validation/evaluation/publication APIs](working-model-calculation-publication.md).
 
 ## API and revision boundary
 
@@ -96,7 +97,7 @@ an edit index; richer authoring error detail can be added before a wire API.
 
 ## Receipts, authorization and commit
 
-Create and Edit share `(instance, principal, operation ID)` identity and receipt
+Create, Edit and Publish share `(instance, principal, operation ID)` identity and receipt
 quota. Reusing a Create ID for an Edit, or vice versa, returns OperationIdConflict.
 After authentication-context, current Edit permission and request-shape checks,
 lookup the receipt **before** comparing the expected revision or checking quotas.
@@ -115,9 +116,11 @@ append its receipt under exclusive service access with reserved capacity and no
 callbacks/fallible work between them. Failure leaves graph, name directory, port
 mappings and public revision unchanged; an admitted rejection receipt remains.
 
-`operation_outcome` returns Edited, Committed (Create), Rejected or Unknown.
+`operation_outcome` returns Edited, Committed (Create), Rejected, Published,
+PublicationRejected or Unknown.
 Known outcomes require current authorization for their recorded mutation; Unknown
-requires the separate global Recover action. The authenticated principal scopes
+requires the separate global Recover action. Publication outcomes require Publish.
+The authenticated principal scopes
 all outcomes. No attachment grants edit or inspect permission by itself.
 
 All mutations are synchronous exclusive `&mut self` operations. Competing writers
@@ -158,7 +161,8 @@ collection, resource deletion and persistence remain future lifecycle work.
 
 ## Deferred
 
-No standalone validation/capture operation, private unpublished calculation,
-publication coordination, public authoring Protobuf, IPC/REPL/C# editing, new
-numeric types, persistence, workbook coordinates or GUI integration. Existing
-immutable model hosting remains independent. Review Slice B before Slice C.
+No public authoring Protobuf, IPC/REPL/C# editing, new numeric types, persistence,
+workbook coordinates or GUI integration. Slice C separately implements validation,
+capture, unpublished evaluation and publication; it does not strengthen the
+validation required to save a draft. Immutable model hosting remains independent
+of later working edits.

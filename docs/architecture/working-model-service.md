@@ -1,9 +1,10 @@
 # Working-model service proposal
 
 Status: Architectural baseline accepted in ADR-0006, with staged implementation.
-The [management foundation](working-model-management.md) implements Slices A and B,
-including [transactional editing](working-model-editing.md). Unpublished evaluation,
-publication and authoring Protobuf operations remain deferred.
+The [management foundation](working-model-management.md) implements Slices A–C,
+including [transactional editing](working-model-editing.md) and
+[validation, evaluation and publication](working-model-calculation-publication.md).
+Authoring Protobuf and client operations remain deferred.
 
 Expose graph authoring to arbitrary clients while preserving the existing immutable
 invocation host. Keep model management independent of transport, REPL, workbook

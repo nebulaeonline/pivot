@@ -15,6 +15,30 @@ hold no mutable cross-call cache. Repeated evaluations and separate contexts ove
 one snapshot cannot change each other's values. No incremental recalculation or
 parallel scheduler is introduced.
 
+## Isolated invocation
+
+`invoke(&InvocationRequest { inputs, outputs })` evaluates the same bound snapshot
+with temporary decimal overrides keyed by `NodeId`. Unspecified inputs use captured
+defaults. The request uses a sequence of bindings so duplicates are detectable.
+Only input nodes may be overridden; foreign, removed, or otherwise absent IDs are
+rejected. Presence is checked against the captured snapshot, not the current model.
+
+All bindings are validated, including bindings outside the selected dependency
+closure. Validation follows binding order, checking identity, input kind, then
+duplicates, and returns the first error. An empty output selection still validates
+bindings. Unknown output IDs are wrapped as invocation evaluation-request errors.
+Arithmetic failures remain node-level result data, just as for ordinary evaluation.
+
+Invocation reuses the snapshot's bound expressions and dependency order. It does
+not parse, rebind, edit the model, or advance its revision. Results retain accepted
+overrides through `input_overrides()`, including unused bindings. `snapshot()` still
+describes captured defaults; `value(id)` describes the evaluated invocation value.
+These two views deliberately differ when an input is overridden.
+
+Model editing changes working state; snapshot capture freezes it; evaluation uses
+captured values; invocation temporarily substitutes input values for one execution.
+The working model need not remain alive for evaluation or invocation.
+
 ## Results and errors
 
 `CalculationResult` retains the originating snapshot and its model-scoped revision.
@@ -57,7 +81,7 @@ anywhere in a model. Selected-output evaluation does not yet allow capture of
 partially invalid models. Distinguish this limit from independent arithmetic
 failures during execution; partial validation remains a future option.
 
-No per-invocation input overrides, configurable calculation policy, cancellation,
+No configurable calculation policy, cancellation,
 global resource budgets, persistence, or published version identity is added.
 Results hold snapshots in memory and may be expensive to retain in large numbers.
 Stable-ID references across working-model renames remain an architectural

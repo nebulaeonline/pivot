@@ -45,8 +45,37 @@ impl std::error::Error for EvaluationError {}
 
 type NodeResult = Result<PivotDecimal, EvaluationError>;
 
+/// Temporary bindings are a sequence so duplicate IDs can be rejected.
+/// Values are decimals for now; this is not a wire schema.
+#[derive(Debug, Clone, Default)]
+pub struct InvocationRequest {
+    pub inputs: Vec<(NodeId, PivotDecimal)>,
+    pub outputs: Vec<NodeId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InvocationError {
+    UnknownInput(NodeId),
+    NotInput(NodeId),
+    DuplicateInput(NodeId),
+    Evaluation(EvaluationError),
+}
+impl fmt::Display for InvocationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl std::error::Error for InvocationError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Evaluation(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
 /// Owns one snapshot. Every evaluate call creates fresh local execution state.
-/// Future policy and per-invocation bindings can be added without changing model storage.
+/// Invocations reuse bound snapshot expressions without editing captured inputs.
 pub struct EvaluationContext {
     snapshot: ModelSnapshot,
 }
@@ -62,6 +91,38 @@ impl EvaluationContext {
     /// Unknown outputs reject the request. Node failures remain result data and
     /// do not prevent independent outputs from being evaluated.
     pub fn evaluate(&self, outputs: &[NodeId]) -> Result<CalculationResult, EvaluationError> {
+        self.evaluate_with_inputs(outputs, BTreeMap::new())
+    }
+
+    /// Validate every binding, even if it is outside the requested dependency
+    /// closure. Unspecified inputs use captured defaults. No state is retained
+    /// in the context between invocations.
+    pub fn invoke(
+        &self,
+        request: &InvocationRequest,
+    ) -> Result<CalculationResult, InvocationError> {
+        let mut inputs = BTreeMap::new();
+        for &(id, value) in &request.inputs {
+            let node = self
+                .snapshot
+                .node(id)
+                .ok_or(InvocationError::UnknownInput(id))?;
+            if !matches!(node.definition(), SnapshotDefinition::Input(_)) {
+                return Err(InvocationError::NotInput(id));
+            }
+            if inputs.insert(id, value).is_some() {
+                return Err(InvocationError::DuplicateInput(id));
+            }
+        }
+        self.evaluate_with_inputs(&request.outputs, inputs)
+            .map_err(InvocationError::Evaluation)
+    }
+
+    fn evaluate_with_inputs(
+        &self,
+        outputs: &[NodeId],
+        inputs: BTreeMap<NodeId, PivotDecimal>,
+    ) -> Result<CalculationResult, EvaluationError> {
         let outputs: BTreeSet<_> = outputs.iter().copied().collect();
         let mut required = BTreeSet::new();
         let mut pending: Vec<_> = outputs.iter().copied().collect();
@@ -84,7 +145,7 @@ impl EvaluationContext {
                 .node(id)
                 .ok_or(EvaluationError::UnknownNode(id))?;
             let value = match node.definition() {
-                SnapshotDefinition::Input(value) => Ok(*value),
+                SnapshotDefinition::Input(value) => Ok(inputs.get(&id).copied().unwrap_or(*value)),
                 SnapshotDefinition::Computed { tokens, .. } => {
                     evaluate_expression(id, tokens, &values)
                 }
@@ -95,6 +156,7 @@ impl EvaluationContext {
             snapshot: self.snapshot.clone(),
             outputs: outputs.into_iter().collect(),
             values,
+            input_overrides: inputs,
         })
     }
 
@@ -112,6 +174,7 @@ pub struct CalculationResult {
     snapshot: ModelSnapshot,
     outputs: Vec<NodeId>,
     values: BTreeMap<NodeId, NodeResult>,
+    input_overrides: BTreeMap<NodeId, PivotDecimal>,
 }
 impl CalculationResult {
     pub fn revision(&self) -> Revision {
@@ -129,6 +192,11 @@ impl CalculationResult {
     }
     pub fn evaluated_count(&self) -> usize {
         self.values.len()
+    }
+    /// Accepted invocation overrides, including those outside selected outputs.
+    /// Captured defaults remain accessible through snapshot().
+    pub fn input_overrides(&self) -> &BTreeMap<NodeId, PivotDecimal> {
+        &self.input_overrides
     }
 }
 

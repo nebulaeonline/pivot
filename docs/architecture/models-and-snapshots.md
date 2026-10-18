@@ -24,8 +24,8 @@ initial in-process API, not a serialized execution format. Read-only snapshot ac
 prevents changes to captured definitions. Snapshot clones share immutable data.
 
 The working model stores input values for convenient editing. These are captured
-values, not cached results. Per-invocation overrides, declared model output ports,
-calculation policy capture, and dirty propagation are not implemented. Evaluation
+values, not cached results. Declared model output ports, calculation policy capture,
+and dirty propagation are not implemented. Per-invocation overrides and evaluation
 contexts now execute one snapshot and retain its revision identity with results;
 see [snapshot evaluation](snapshot-evaluation.md). Atomic multi-edit transactions and cross-process
 revision identifiers remain unspecified.

@@ -28,9 +28,12 @@ rejects cycles. See ADR-0002 and the model/snapshot architecture note.
 
 Snapshot evaluation now supports selected outputs or all nodes, bound decimal
 expressions, calculation-local state, typed arithmetic/dependency errors, and
-immutable results retaining their snapshot revision. Independent arithmetic
-failures do not prevent other outputs from being computed. Fifteen Rust tests pass.
+immutable results retaining their snapshot revision. Isolated invocation accepts
+temporary input overrides keyed by NodeId, with captured defaults and typed binding
+validation. Independent invocations share only immutable snapshot definitions.
+Independent arithmetic failures do not prevent other outputs from being computed.
+Nineteen Rust tests pass.
 
-Invalidation, model invocation with isolated input overrides, typed non-numeric
+Invalidation, named model interface declarations, typed non-numeric
 values, daemon behavior, and protocol implementation remain deferred.
 M0 is not fully complete: CI and broader project documentation remain outstanding.

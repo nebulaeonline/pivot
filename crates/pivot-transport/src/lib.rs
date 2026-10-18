@@ -1,7 +1,14 @@
 //! Local byte streams and bounded framing. No engine or protocol dependency.
 use std::{io, time::Duration};
 pub use tokio;
+
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+#[cfg(unix)]
+pub use unix::verified_peer_principal;
+/// OS-derived current-user identity, verified against the connected peer.
+/// This function never accepts identity claims from protocol payloads.
+#[cfg(windows)]
+pub use windows::verified_peer_principal;
 
 #[cfg(windows)]
 mod windows;

@@ -65,6 +65,12 @@ pub struct AuthoringAdapter {
     sessions: AtomicUsize,
 }
 impl AuthoringAdapter {
+    pub(super) fn request_limits(&self) -> foundation::Limits {
+        foundation::Limits {
+            bytes: self.limits.response_bytes,
+            ..self.limits.preflight
+        }
+    }
     pub fn new(service: SharedService, limits: AdapterLimits) -> Result<Arc<Self>, Error> {
         Self::with_clock(service, limits, Arc::new(MonotonicClock(Instant::now())))
     }

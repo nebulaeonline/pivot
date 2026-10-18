@@ -4,6 +4,9 @@
 on the engine or host. `pivotd` reuses pivot-host sessions/dispatch. `pivot-cli` only
 discovers, describes, and invokes through the actual protocol; it has no evaluator.
 ADR-0005 is Accepted. Timeouts, connection caps, and calculation budgets are operational policy.
+Opt-in v1.1 authoring is available through `pivotd --authoring`; see
+[daemon authoring configuration and security](daemon-authoring.md). `--demo`
+alone remains invocation-only. Authoring state is MemoryOnly and lost on restart.
 
 ## Run the demo
 
@@ -38,7 +41,7 @@ CLI input syntax is strict Name=Decimal; no floats or full formula language.
 No `--outputs` selects all public outputs. CLI exits 0 on success, 1 for connection,
 argument, or request failures, and 2 if an output contains a calculation error.
 Results include diagnostic invocation ID and exact external revision. A persistent command REPL is available; see [command REPL usage](command-repl.md).
-Expression evaluation, model editing, and scripting remain deferred.
+REPL expression evaluation, model editing, and scripting remain deferred.
 
 ## Frames, sessions, and lifecycle
 
@@ -63,7 +66,7 @@ policies, not wire semantics.
 
 Daemon flags configure `--idle-timeout-secs`, `--frame-read-timeout-secs`, and
 `--frame-write-timeout-secs` (positive seconds, at most 86400). `--max-connections`
-defaults to 16 (range 1–1024); `--work-budget` defaults to 100000 (positive units).
+defaults to 16 (range 1â€“1024); `--work-budget` defaults to 100000 (positive units).
 A work unit conservatively counts snapshot nodes, edges, and bound expression tokens
 before calculation. This bounds graph scans, but may reject large models for small
 output selections; it is not a wall-clock deadline or complete quota scheduler.

@@ -16,8 +16,9 @@ Extend the existing envelope additively in a negotiated v1.1 minor version, gate
 by `working-models-v1`. Preserve v1.0 published invocation messages and behavior.
 Reviewed production envelopes assign tag 20 to authoring requests/responses.
 Shared types are extracted without changing wire names or layouts. Foundation
-negotiation/codecs are implemented; live daemon capability advertisement and
-dispatch remain disabled pending separate adapter authorization.
+negotiation/codecs, Stage A adapter and Stage B local daemon integration are
+implemented. Live authoring advertisement and dispatch require explicit
+`--authoring` enablement; invocation-only remains the default profile.
 
 Expose service info, create/list/open/close, revision-pinned draft reads, typed
 edit batches, validation, synchronous unpublished evaluation, publication and
@@ -46,7 +47,7 @@ specified; never reconstruct historical diagnostics from a newer head. Receipt
 outcomes and diagnostic summaries remain available. Discovery is best effort, not an
 atomic catalog snapshot. No unbounded hidden read-view retention is introduced.
 
-The future daemon must expose one coherent publication registry for built-in and
+The daemon exposes one coherent publication registry for built-in and
 authored models. Publication remains a management-owned atomic registry/receipt
 commit, never a second independent daemon publication path.
 

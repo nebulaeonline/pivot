@@ -11,3 +11,6 @@ pivot-types = { path = "../../crates/pivot-types" }
 pivot-protocol = { path = "../../crates/pivot-protocol" }
 pivot-transport = { path = "../../crates/pivot-transport" }
 uuid = { version = "1.28.0", features = ["v4"] }
+
+[dev-dependencies]
+prost = "0.14.4"

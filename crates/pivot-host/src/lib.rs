@@ -100,10 +100,11 @@ struct PreparedRegistration {
     entry: HostedModel,
 }
 /// Entries are never replaced in place. Use a new external revision ID for edits.
+#[derive(Clone)]
 pub struct ModelHost {
-    entries: BTreeMap<(String, String), HostedModel>,
+    entries: Arc<BTreeMap<(String, String), Arc<HostedModel>>>,
     invocation_namespace: String,
-    next_invocation: AtomicU64,
+    next_invocation: Arc<AtomicU64>,
     work_budget: usize,
 }
 impl ModelHost {
@@ -120,9 +121,9 @@ impl ModelHost {
             return Err(error(wire::ErrorCode::InvalidArgument, "namespace"));
         }
         Ok(Self {
-            entries: BTreeMap::new(),
+            entries: Arc::new(BTreeMap::new()),
             invocation_namespace: namespace,
-            next_invocation: AtomicU64::new(0),
+            next_invocation: Arc::new(AtomicU64::new(0)),
             work_budget: 100_000,
         })
     }
@@ -224,7 +225,7 @@ impl ModelHost {
         }
         // Existing port IDs must continue to refer to the same process-local port
         // within this live registry; deleted/recreated ports require new IDs.
-        for ((model_id, _), existing) in &self.entries {
+        for ((model_id, _), existing) in self.entries.iter() {
             if model_id != &key.0 {
                 continue;
             }
@@ -287,7 +288,7 @@ impl ModelHost {
     // Only install immediately after preparation under exclusive registry access.
     // No recoverable errors/callbacks here; allocator aborts are process-fatal.
     fn install_registration(&mut self, prepared: PreparedRegistration) {
-        self.entries.insert(prepared.key, prepared.entry);
+        Arc::make_mut(&mut self.entries).insert(prepared.key, Arc::new(prepared.entry));
     }
 
     /// Dispatch one complete serialized message, never a partial frame. Bad
@@ -349,6 +350,7 @@ impl ModelHost {
     fn lookup(&self, reference: &wire::ModelRef) -> Result<&HostedModel, ValidationError> {
         self.entries
             .get(&(reference.model_id.clone(), reference.revision_id.clone()))
+            .map(Arc::as_ref)
             .ok_or_else(|| {
                 error(
                     if self.entries.keys().any(|(m, _)| m == &reference.model_id) {

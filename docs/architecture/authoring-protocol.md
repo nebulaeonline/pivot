@@ -1,14 +1,14 @@
 # Authoring protocol proposal
 
 Status: Accepted — ADR-0007. Schema/codecs, opt-in negotiation and bounded validation
-are implemented. Stage A serialized in-process dispatch is implemented; daemon
-authoring remains deferred. See [adapter implementation](serialized-authoring-adapter.md)
+are implemented. Stage A serialized dispatch and Stage B opt-in daemon authoring
+are implemented. See [daemon integration](daemon-authoring.md), [adapter implementation](serialized-authoring-adapter.md)
 and [foundation implementation](authoring-protocol-foundation.md).
 
 ## Versioning and envelope integration
 
 The foundation supports v1.1 and `working-models-v1`, including `decimal96`.
-Production daemon negotiation remains v1.0/invocation-only until adapter approval.
+Production daemon negotiation remains v1.0/invocation-only unless `--authoring` is enabled.
 Existing v1.0 clients retain their original contract. Foundation negotiation is an
 explicit opt-in API; codec installation does not advertise authoring automatically.
 
@@ -151,11 +151,11 @@ prepared token or invisible pending-capture registry. A concurrent edit can caus
 RevisionConflict at commit. Publication validates structure/interface, not arithmetic
 success for every input scenario. It never implicitly selects a newer head.
 
-Future pivotd integration must use one coherent published registry. Built-in/demo
+Implemented pivotd integration uses one coherent published registry. Built-in/demo
 and authored models must appear in the same authorized discovery/describe/invoke
 view. Add a controlled bootstrap/import boundary if needed; do not leave a standalone
 demo registry alongside an unrelated management registry. Preserve the same logical
-publication/receipt commit boundary. This integration is deferred, not implemented.
+publication/receipt commit boundary. See [daemon integration](daemon-authoring.md).
 
 ## Errors and diagnostics
 
@@ -258,8 +258,8 @@ Production schema allocation and codec/validation foundation are complete.
 Stage A implements error mapping, byte-aware paging/signed cursors, attachment
 cleanup, Info authorization and staged partial-port patches. Original decoded
 wire intent is retained in the existing edit receipt. Omitted fields resolve
-against the staged transaction candidate. Unified daemon registry bootstrap and
-live authoring IPC remain deferred; the daemon still advertises invocation only.
+against the staged transaction candidate. Stage B adds unified daemon registry
+bootstrap and live authoring IPC behind explicit enablement. REPL authoring remains deferred.
 
 Port update semantics: omitted means unchanged, supplied means replacement, and at
 least one update field is required. Present-but-empty formula source is valid draft

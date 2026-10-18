@@ -1,5 +1,14 @@
 # Linux and macOS validation
 
+## Stage B authoring — 2026-10-18
+
+Full local CI passed on Windows and Ubuntu WSL2, including the new daemon
+authoring tests over named pipes and Unix sockets. The final Rust suite has
+130 tests. Linux formatting, Clippy and all Rust tests were rerun after the final
+embedded message-limit correction. See the [Stage B handoff](handoffs/2026-10-18-daemon-authoring.md)
+for exact reports and coverage. .NET SDK versions were 10.0.402 on Windows and
+10.0.112 in WSL. macOS validation below predates authoring and must be refreshed.
+
 ## Verified coverage
 
 Windows named pipes and Unix-domain sockets on Ubuntu WSL2 Linux and macOS ARM64 have passed

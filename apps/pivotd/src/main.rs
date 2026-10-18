@@ -1,15 +1,22 @@
 use pivot_core::{interface::InputRequirement, model::WorkingModel};
-use pivot_host::{AllowAll, Limits, ModelHost, Session};
-use pivot_protocol::{v1::ModelRef, validation::MAX_MESSAGE_BYTES};
+use pivot_host::{
+    AllowAll,
+    management::{
+        self as management,
+        adapter::{AdapterLimits, AuthoringAdapter},
+        connection::Connection,
+    },
+};
+use pivot_protocol::v1::ModelRef;
 use pivot_transport::{self as transport, tokio};
 use std::{
     collections::BTreeMap,
     error::Error,
     io::{self, Read, Write},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
-fn demo() -> Result<ModelHost, Box<dyn Error>> {
+fn demo(host: &mut management::WorkingModelService) -> Result<(), Box<dyn Error>> {
     let mut model = WorkingModel::new("RestaurantProfit")?;
     let revenue = model.add_input("Revenue", "250000".parse()?)?;
     let costs = model.add_input("Costs", "85000".parse()?)?;
@@ -25,8 +32,7 @@ fn demo() -> Result<ModelHost, Box<dyn Error>> {
     )?;
     model.add_output_port("Net", net)?;
     model.add_output_port("Margin", margin)?;
-    let mut host = ModelHost::new(uuid::Uuid::new_v4().to_string())?;
-    host.register(
+    host.register_bootstrap(
         ModelRef {
             model_id: "restaurant-profit".into(),
             revision_id: "demo-v1".into(),
@@ -39,25 +45,20 @@ fn demo() -> Result<ModelHost, Box<dyn Error>> {
             ("Margin".into(), "margin".into()),
         ]),
     )?;
-    Ok(host)
-}
-async fn connection<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
-    mut stream: S,
-    host: Arc<ModelHost>,
-    timeouts: transport::FrameTimeouts,
-) -> io::Result<()> {
-    // Transport verified current-user peer identity. Model-level policy remains
-    // explicit: the demo exposes only its public interface to that local user.
-    let mut session =
-        Session::new(Limits::default(), Arc::new(AllowAll)).map_err(io::Error::other)?;
-    while let Some(request) =
-        transport::read_frame_with_timeouts(&mut stream, MAX_MESSAGE_BYTES, timeouts).await?
-    {
-        let response = host.dispatch(&mut session, &request);
-        transport::write_frame_with_timeouts(&mut stream, &response, MAX_MESSAGE_BYTES, timeouts)
-            .await?;
-    }
     Ok(())
+}
+/// This daemon accepts only OS-verified current-user peers. Authoring rights are
+/// explicitly enabled by its operator, independently of public invocation rights.
+struct LocalAuthoringPolicy(bool);
+impl management::Authorizer for LocalAuthoringPolicy {
+    fn allowed(
+        &self,
+        _: &str,
+        _: management::Action,
+        _: Option<management::WorkingModelId>,
+    ) -> bool {
+        self.0
+    }
 }
 async fn shutdown_signal() -> io::Result<()> {
     #[cfg(windows)]
@@ -82,6 +83,8 @@ fn seconds(value: Option<String>) -> Result<std::time::Duration, Box<dyn Error>>
 async fn run() -> Result<(), Box<dyn Error>> {
     let mut endpoint = transport::default_endpoint()?;
     let mut demo_enabled = false;
+    let mut authoring_enabled = false;
+    let mut authoring_sessions = 16usize;
     let mut shutdown_stdin = false;
     let mut timeouts = transport::FrameTimeouts::default();
     let mut max_connections = 16usize;
@@ -90,6 +93,16 @@ async fn run() -> Result<(), Box<dyn Error>> {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--demo" => demo_enabled = true,
+            "--authoring" => authoring_enabled = true,
+            "--authoring-sessions" => {
+                authoring_sessions = args
+                    .next()
+                    .ok_or("missing authoring session limit")?
+                    .parse()?;
+                if !(1..=1024).contains(&authoring_sessions) {
+                    return Err("authoring sessions must be 1..=1024".into());
+                }
+            }
             "--endpoint" => endpoint = args.next().ok_or("missing endpoint")?,
             "--shutdown-stdin" => shutdown_stdin = true,
             "--idle-timeout-secs" => timeouts.idle = seconds(args.next())?,
@@ -109,19 +122,43 @@ async fn run() -> Result<(), Box<dyn Error>> {
             }
             "--help" => {
                 println!(
-                    "pivotd --demo [--endpoint LOCAL_ENDPOINT] [--shutdown-stdin]\nPolicy: --idle-timeout-secs 300 --frame-read-timeout-secs 5 --frame-write-timeout-secs 5 --max-connections 16 --work-budget 100000"
+                    "pivotd [--demo] [--authoring] [--authoring-sessions 16] [--endpoint LOCAL_ENDPOINT] [--shutdown-stdin]\nAuthoring is current-user and MemoryOnly: all created models are lost on restart.\nPolicy: --idle-timeout-secs 300 --frame-read-timeout-secs 5 --frame-write-timeout-secs 5 --max-connections 16 --work-budget 100000"
                 );
                 return Ok(());
             }
             _ => return Err(format!("unknown argument: {arg}").into()),
         }
     }
-    if !demo_enabled {
-        return Err("only --demo hosting is available; persistence is not implemented".into());
+    if !demo_enabled && !authoring_enabled {
+        return Err("select --demo or --authoring; persistence is not implemented".into());
     }
-    let mut host = demo()?;
-    host.set_work_budget(work_budget)?;
-    let host = Arc::new(host);
+    let mut service = management::WorkingModelService::with_all_limits(
+        management::Limits::default(),
+        management::EditLimits::default(),
+        management::CalculationLimits {
+            work: work_budget,
+            ..Default::default()
+        },
+        Box::new(LocalAuthoringPolicy(authoring_enabled)),
+    )?;
+    if demo_enabled {
+        demo(&mut service)?;
+    }
+    let service = Arc::new(Mutex::new(service));
+    let adapter = if authoring_enabled {
+        eprintln!(
+            "Authoring enabled for the verified current OS user. Durability: MemoryOnly; all authoring state is lost on restart."
+        );
+        Some(AuthoringAdapter::new(
+            service.clone(),
+            AdapterLimits {
+                sessions: authoring_sessions,
+                ..Default::default()
+            },
+        )?)
+    } else {
+        None
+    };
     let mut listener = transport::Listener::bind(&endpoint)?;
     let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel();
     let _stop_guard = if shutdown_stdin {
@@ -148,9 +185,15 @@ async fn run() -> Result<(), Box<dyn Error>> {
             }
             accepted = listener.accept() => {
                 match accepted {
-                    Ok(stream) if tasks.len() < max_connections => { let host = host.clone(); tasks.spawn(async move {
-                        if let Err(error) = connection(stream, host, timeouts).await { eprintln!("connection closed: {error}"); }
-                    }); }
+                    Ok(stream) if tasks.len() < max_connections => {
+                        match transport::verified_peer_principal(&stream).and_then(|principal|
+                            Connection::new(service.clone(), adapter.clone(), principal, Arc::new(AllowAll)).map_err(io::Error::other)) {
+                            Ok(session) => { tasks.spawn(async move {
+                                if let Err(error) = pivotd::serve_connection(stream, session, timeouts).await { eprintln!("connection closed: {error}"); }
+                            }); }
+                            Err(error) => eprintln!("connection identity rejected: {error}"),
+                        }
+                    }
                     Ok(_) => eprintln!("connection limit reached"),
                     Err(error) => { eprintln!("connection rejected: {error}"); tokio::time::sleep(std::time::Duration::from_millis(25)).await; }
                 }

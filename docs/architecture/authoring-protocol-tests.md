@@ -2,8 +2,9 @@
 
 Status: Foundation codec/preflight/compatibility cases implemented and executed;
 22 serialized in-process adapter tests now cover paging, attachments, edits,
-evaluation, publication and authorization. Live authoring IPC cases remain a
-future plan. See [adapter evidence](serialized-authoring-adapter.md) and
+evaluation, publication and authorization. Five Stage B integration tests now
+cover real daemon/IPC paths and controlled connection cancellation/revocation.
+See [daemon evidence](daemon-authoring.md), [adapter evidence](serialized-authoring-adapter.md) and
 [foundation evidence](authoring-protocol-foundation.md). The
 production schema is generated in Rust/C#; the historical review draft is excluded.
 

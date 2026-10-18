@@ -133,6 +133,20 @@ pub struct Listener {
     pending: NamedPipeServer,
 }
 pub type Stream = NamedPipeClient;
+pub fn verified_peer_principal(stream: &NamedPipeServer) -> io::Result<String> {
+    let mut pid = 0;
+    if unsafe { GetNamedPipeClientProcessId(stream.as_raw_handle().cast(), &mut pid) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let peer = sid_for_process(pid)?;
+    if peer != current_sid()? {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "peer user mismatch",
+        ));
+    }
+    Ok(format!("sid:{peer}"))
+}
 impl Listener {
     pub fn bind(endpoint: &str) -> io::Result<Self> {
         Ok(Self {

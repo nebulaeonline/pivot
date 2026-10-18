@@ -4,6 +4,16 @@ use std::{
     path::{Path, PathBuf},
 };
 pub type Stream = tokio::net::UnixStream;
+pub fn verified_peer_principal(stream: &Stream) -> io::Result<String> {
+    let peer = stream.peer_cred()?.uid();
+    if peer != uid() {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "peer user mismatch",
+        ));
+    }
+    Ok(format!("uid:{peer}"))
+}
 fn uid() -> u32 {
     unsafe { libc::geteuid() }
 }

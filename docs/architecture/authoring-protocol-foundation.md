@@ -4,7 +4,8 @@ Implemented portion of Accepted ADR-0007: production schema, generated codecs,
 bounded structural/semantic validation, opt-in negotiation, typed intent and
 cross-language/legacy compatibility tests. This document records the foundation
 slice; the subsequent [Stage A adapter](serialized-authoring-adapter.md) now adds
-serialized in-process dispatch. Live daemon authoring remains deferred.
+serialized in-process dispatch. [Stage B](daemon-authoring.md) adds explicitly
+enabled local daemon authoring. Foundation scope and test results below are historical.
 
 ## Schema allocations and generation
 

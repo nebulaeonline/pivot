@@ -303,8 +303,10 @@ fn walk(
 }
 fn validate_text(message: &str, f: &FieldDescriptorProto, s: &str) -> Result<(), ValidationError> {
     let name = f.name();
-    if message == ".pivot.v1.ModelRef" {
-        if !identifier(s) {
+    if message.starts_with(".pivot.v1.") {
+        // Invocation model/port identities are opaque portable identifiers,
+        // including bootstrap labels and published `port-<uuid>` identities.
+        if (name.ends_with("_id") || name.ends_with("_ids")) && !identifier(s) {
             return Err(bad(name));
         }
         return Ok(());
@@ -427,7 +429,20 @@ pub fn decode_envelope(bytes: &[u8], limits: Limits) -> Result<v1::Request, Vali
     decode_authoring(&a.encode_to_vec(), limits)?;
     Ok(request)
 }
-/// Bounded handshake preflight used by opt-in simulated authoring sessions.
+/// Bounded structural preflight for a negotiated connection's operation routing.
+/// Operation-specific validation still belongs to its dispatcher.
+pub fn decode_session_request(
+    bytes: &[u8],
+    limits: Limits,
+) -> Result<v1::Request, ValidationError> {
+    if bytes.len() > limits.bytes {
+        return Err(exhausted());
+    }
+    let mut remaining = limits.fields;
+    walk(".pivot.v1.Request", bytes, limits, 0, &mut remaining)?;
+    v1::Request::decode(bytes).map_err(|_| bad("envelope"))
+}
+/// Bounded handshake preflight used by opt-in authoring sessions.
 pub fn decode_handshake(bytes: &[u8], limits: Limits) -> Result<v1::Request, ValidationError> {
     if bytes.len() > limits.bytes {
         return Err(exhausted());

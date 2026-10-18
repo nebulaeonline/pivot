@@ -73,8 +73,8 @@ final-directory binding for submitted formulas, and retained edit receipts.
 Slice C adds exact-revision structural validation, detached immutable evaluation
 captures with temporary overrides, and replay-safe publication into a coordinated
 immutable invocation registry. Published revisions and working revisions remain
-distinct. Serialized in-process authoring is implemented; live IPC/REPL authoring
-operations remain deferred. See
+distinct. Serialized authoring is available in process and through opt-in local
+daemon IPC; REPL authoring remains deferred. See
 `docs/architecture/working-model-management.md` for the in-process API and limits.
 Transactional editing details are in `docs/architecture/working-model-editing.md`.
 Calculation/publication details are in
@@ -85,15 +85,23 @@ on the verification backlog.
 
 ADR-0007 is Accepted. Production authoring schemas and shared types, Rust/C# codecs,
 bounded recursive mutation preflight, typed intent and opt-in v1.1 negotiation are
-implemented and compatibility-tested. The daemon remains invocation-only; authoring
-capabilities and dispatch are disabled there. Stage A now implements all twelve
+implemented and compatibility-tested. The daemon defaults to invocation-only;
+`--authoring` explicitly enables v1.1 authoring. Stage A implements all twelve
 serialized authoring operations in process, signed bounded paging, session-owned
 attachment cleanup, staged partial-port patches and exact wire-intent replay.
 Evaluation runs outside the service lock and delivery rechecks authorization.
 Detailed receipt diagnostic retention remains deferred. See
 `docs/architecture/serialized-authoring-adapter.md` and
-`docs/architecture/authoring-protocol-foundation.md`. Windows CI passes with
-124 Rust tests, including 22 adapter tests; this slice has not been rerun on Unix.
+`docs/architecture/authoring-protocol-foundation.md`. Stage B integrates actual
+local IPC, OS-derived principals, one demo/authored publication registry and
+blocking dispatch with no service lock across transport writes. Five new IPC
+tests cover daemon authoring, legacy compatibility, lost responses, concurrent
+edits, denial/revocation, cancellation cleanup, quotas and malicious traffic.
+See `docs/architecture/daemon-authoring.md` and the Stage B handoff for current
+Windows/WSL validation; macOS verification of this slice remains pending.
+The final Rust suite has 130 tests, including 23 adapter/router tests and five
+daemon IPC integration tests. Full Windows and WSL CI reports are linked from
+`docs/handoffs/2026-10-18-daemon-authoring.md`.
 Persistence direction is a common transactional contract with configurable
 providers: SQLite first/default locally with a filesystem path, and planned
 PostgreSQL/MySQL adapters. Storage choice is independent of local/network service

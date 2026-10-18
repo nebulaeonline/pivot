@@ -468,6 +468,7 @@ dependencies = [
  "pivot-protocol",
  "pivot-transport",
  "pivot-types",
+ "prost",
  "uuid",
 ]
 

@@ -2,8 +2,8 @@
 
 Stage A of ADR-0007 is implemented in `pivot_host::management::adapter`.
 It exercises real serialized v1.1 requests against the existing working-model
-service. The daemon remains v1.0 invocation-only. No authoring IPC or REPL editing
-is enabled, and durability remains MemoryOnly.
+service. Subsequent [Stage B integration](daemon-authoring.md) now enables optional
+daemon authoring IPC. REPL editing remains deferred and durability is MemoryOnly.
 
 ## Ownership and dispatch
 
@@ -81,6 +81,6 @@ transaction rollback/replay, partial patches, incomplete drafts, authorization
 revocation, off-lock evaluation, immutable publication, attachment cleanup,
 cursor integrity/expiry, competing writers and bounded responses.
 
-Stage B requires daemon integration, trusted transport identity and a unified
+Stage B adds daemon integration, trusted transport identity and a unified
 demo/authored invocation registry. Persistence, receipt-detail paging, C# client
 integration and REPL editing remain separate work.

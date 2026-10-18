@@ -121,6 +121,78 @@ fn ordinary() -> Fixture {
     fixture(m::Limits::default(), AdapterLimits::default())
 }
 #[test]
+fn daemon_router_preserves_small_negotiated_limits_for_invocation() {
+    let f = ordinary();
+    let mut graph = pivot_core::model::WorkingModel::new("ManyPorts").unwrap();
+    let node = graph.add_input("Value", "42".parse().unwrap()).unwrap();
+    let mut ports = BTreeMap::new();
+    for n in 0..40 {
+        let label = format!("Output{n}");
+        graph.add_output_port(&label, node).unwrap();
+        ports.insert(label, format!("portable-output-{n}"));
+    }
+    let model = p::ModelRef {
+        model_id: "bootstrap".into(),
+        revision_id: "r1".into(),
+    };
+    f.service
+        .lock()
+        .unwrap()
+        .register_bootstrap(model.clone(), graph.snapshot().unwrap(), ports)
+        .unwrap();
+    let adapter = AuthoringAdapter::new(
+        f.service.clone(),
+        AdapterLimits {
+            response_bytes: 512,
+            page_target_bytes: 512,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let mut router = m::connection::Connection::new(
+        f.service.clone(),
+        Some(adapter),
+        "alice".into(),
+        Arc::new(pivot_host::AllowAll),
+    )
+    .unwrap();
+    let hello = p::Request {
+        request_id: "hello".into(),
+        version: Some(p::Version { major: 1, minor: 1 }),
+        operation: Some(p::request::Operation::Handshake(p::Handshake {
+            supported_versions: vec![p::Version { major: 1, minor: 1 }],
+            required_capabilities: vec!["working-models-v1".into()],
+            optional_capabilities: vec![],
+        })),
+    };
+    let response = p::Response::decode(router.dispatch(&hello.encode_to_vec()).as_slice()).unwrap();
+    let Some(p::response::Outcome::Handshake(accepted)) = response.outcome else {
+        panic!()
+    };
+    assert_eq!(accepted.max_message_bytes, 512);
+    let request = p::Request {
+        request_id: "describe".into(),
+        version: hello.version,
+        operation: Some(p::request::Operation::DescribeModel(p::DescribeModel {
+            model: Some(model),
+        })),
+    };
+    let bytes = router.dispatch(&request.encode_to_vec());
+    assert!(bytes.len() <= 512);
+    let response = p::Response::decode(bytes.as_slice()).unwrap();
+    assert_eq!(response.version, hello.version);
+    let Some(p::response::Outcome::Error(error)) = response.outcome else {
+        panic!()
+    };
+    assert_eq!(error.code, p::ErrorCode::ResourceExhausted as i32);
+    let bytes = router.dispatch(&vec![0; 513]);
+    let response = p::Response::decode(bytes.as_slice()).unwrap();
+    let Some(p::response::Outcome::Error(error)) = response.outcome else {
+        panic!()
+    };
+    assert_eq!(error.code, p::ErrorCode::ResourceExhausted as i32);
+}
+#[test]
 fn negotiated_request_ceiling_also_bounds_responses() {
     let options = AdapterLimits {
         preflight: foundation::Limits {

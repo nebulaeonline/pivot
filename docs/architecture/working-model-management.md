@@ -2,7 +2,8 @@
 
 Implemented Slices A–C of [ADR-0006](../adr/0006-working-model-lifecycle-and-transactions.md)
 in `pivot_host::management`. The [Stage A adapter](serialized-authoring-adapter.md)
-now exposes serialized Protobuf authoring in process. The daemon, REPL and C#
+exposes serialized Protobuf authoring in process. [Stage B](daemon-authoring.md)
+connects it to the daemon behind explicit enablement. REPL and C# executable
 clients do not expose authoring yet.
 
 ## Service and identity

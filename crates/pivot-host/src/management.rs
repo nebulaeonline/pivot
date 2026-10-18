@@ -40,6 +40,7 @@ pub use editing::*;
 mod calculation;
 pub use calculation::*;
 pub mod adapter;
+pub mod connection;
 
 /// Distinct from core revisions, calculation snapshots and published revisions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -237,6 +238,21 @@ impl WorkingModelService {
     }
     pub fn info(&self) -> ServiceInfo {
         self.info
+    }
+    /// Trusted bootstrap boundary, before serving requests. Uses the same bounded
+    /// registry as authored publication; it does not create an authoring resource.
+    pub fn register_bootstrap(
+        &mut self,
+        model: pivot_protocol::v1::ModelRef,
+        snapshot: pivot_core::model::ModelSnapshot,
+        ports: std::collections::BTreeMap<String, String>,
+    ) -> Result<(), Error> {
+        if self.published.entries.len() >= self.info.calculation_limits.published_revisions {
+            return Err(Error::ResourceLimit);
+        }
+        self.published
+            .register(model, snapshot, ports)
+            .map_err(|_| Error::InvalidArgument)
     }
     fn diagnostic_permission(
         &self,

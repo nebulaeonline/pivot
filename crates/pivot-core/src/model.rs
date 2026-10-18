@@ -99,7 +99,117 @@ pub struct WorkingModel {
     next_port: u64,
     interface: ModelInterface,
 }
+/// Raw editable definitions, including invalid source. Core IDs remain local.
+pub enum DraftDefinition<'a> {
+    Input(PivotDecimal),
+    Computed {
+        source: &'a str,
+        binding: Result<&'a [NodeId], &'a SnapshotError>,
+    },
+}
 impl WorkingModel {
+    /// Explicit private transaction branch preserving existing bound identities.
+    /// The caller must serialize installation and discard failed branches. This
+    /// is not a new independent model: do not publish competing branches as one
+    /// mutable resource. Allocated branch IDs must not escape before commit.
+    pub fn stage(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            revision: self.revision,
+            nodes: self.nodes.clone(),
+            names: self.names.clone(),
+            next_node: self.next_node,
+            next_port: self.next_port,
+            interface: self.interface.clone(),
+        }
+    }
+    pub fn draft_nodes(&self) -> impl Iterator<Item = (NodeId, &str, DraftDefinition<'_>)> {
+        self.nodes.iter().map(|(&id, n)| {
+            (
+                id,
+                n.name.as_str(),
+                match &n.definition {
+                    Definition::Input(v) => DraftDefinition::Input(*v),
+                    Definition::Computed { source, binding } => DraftDefinition::Computed {
+                        source,
+                        binding: binding.as_ref().map(|(_, deps)| deps.as_slice()),
+                    },
+                },
+            )
+        })
+    }
+    pub fn contains_node(&self, id: NodeId) -> bool {
+        self.nodes.contains_key(&id)
+    }
+    /// Replace either definition kind without changing node identity. Existing
+    /// input ports may become invalid drafts when converting to computed.
+    pub fn replace_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
+        if !self.nodes.contains_key(&id) {
+            return Err(ModelError::UnknownNode(id));
+        }
+        self.advance()?;
+        self.nodes.get_mut(&id).unwrap().definition = Definition::Input(value);
+        Ok(())
+    }
+    /// Update an input port in place, preserving its core and public identity.
+    pub fn update_input_port(
+        &mut self,
+        id: PortId,
+        node: NodeId,
+        requirement: InputRequirement,
+    ) -> Result<(), ModelError> {
+        let old = self
+            .interface
+            .inputs
+            .values()
+            .find(|p| p.id == id)
+            .ok_or(ModelError::Interface(InterfaceError::UnknownPort(id)))?;
+        let name = old.name.clone();
+        let target = self.nodes.get(&node).ok_or(ModelError::UnknownNode(node))?;
+        if !matches!(target.definition, Definition::Input(_)) {
+            return Err(ModelError::NotInput(node));
+        }
+        if self
+            .interface
+            .inputs
+            .values()
+            .any(|p| p.id != id && p.node == node)
+        {
+            return Err(ModelError::Interface(InterfaceError::DuplicateInputTarget(
+                node,
+            )));
+        }
+        if let InputRequirement::Optional { default } = &requirement
+            && default.value_type() != pivot_types::ValueType::Decimal
+        {
+            return Err(ModelError::Interface(InterfaceError::TypeMismatch {
+                name,
+                expected: pivot_types::ValueType::Decimal,
+                actual: default.value_type(),
+            }));
+        }
+        self.advance()?;
+        let port = self.interface.inputs.get_mut(&name).unwrap();
+        port.node = node;
+        port.requirement = requirement;
+        Ok(())
+    }
+    pub fn update_output_port(&mut self, id: PortId, node: NodeId) -> Result<(), ModelError> {
+        let name = self
+            .interface
+            .outputs
+            .values()
+            .find(|p| p.id == id)
+            .ok_or(ModelError::Interface(InterfaceError::UnknownPort(id)))?
+            .name
+            .clone();
+        if !self.nodes.contains_key(&node) {
+            return Err(ModelError::UnknownNode(node));
+        }
+        self.advance()?;
+        self.interface.outputs.get_mut(&name).unwrap().node = node;
+        Ok(())
+    }
     pub fn new(name: impl Into<String>) -> Result<Self, ModelError> {
         let mut model = NEXT_MODEL.load(Ordering::Relaxed);
         loop {

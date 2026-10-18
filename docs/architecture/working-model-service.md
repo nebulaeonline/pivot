@@ -1,11 +1,14 @@
 # Working-model service proposal
 
-Status: Proposed — ADR-0006. Design only; none of these service operations is
-implemented or added to the current Protobuf schema.
+Status: Architectural baseline accepted in ADR-0006, with staged implementation.
+The [management foundation](working-model-management.md) implements Slices A and B,
+including [transactional editing](working-model-editing.md). Unpublished evaluation,
+publication and authoring Protobuf operations remain deferred.
 
 Expose graph authoring to arbitrary clients while preserving the existing immutable
 invocation host. Keep model management independent of transport, REPL, workbook
-coordinates, and GUI. All proposed behavior below requires review before implementation.
+coordinates, and GUI. API spellings and deferred implementation details below
+remain provisional; acceptance does not authorize all slices at once.
 
 ## Boundaries
 

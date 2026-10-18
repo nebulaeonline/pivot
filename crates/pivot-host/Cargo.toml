@@ -9,3 +9,4 @@ pivot-core = { path = "../pivot-core" }
 pivot-types = { path = "../pivot-types" }
 pivot-protocol = { path = "../pivot-protocol" }
 prost = "0.14.4"
+uuid = { version = "1.28.0", features = ["v4"] }

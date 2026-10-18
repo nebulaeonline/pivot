@@ -1,4 +1,5 @@
 //! Transport-independent, in-memory hosting. No persistent publishing policy.
+pub mod management;
 use pivot_core::{
     evaluation::EvaluationContext,
     interface::{InputRequirement, NamedInvocationRequest, PublicEvaluationError},

@@ -1,6 +1,6 @@
 # ADR-0006: Working-model lifecycle and transaction boundaries
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-18
 
 ## Context
@@ -10,7 +10,7 @@ service. REPL, C#, Rust, and future Avalonia clients need the same authoring API
 Editing cannot mutate published revisions, depend on a terminal's lifetime, or
 expose mutable graph objects and process-local IDs through IPC.
 
-## Decision proposal
+## Decision
 
 Introduce a transport-independent model-management layer alongside the invocation
 host. It owns editable working models, portable authoring identities, authorization,
@@ -30,20 +30,34 @@ working-revision comparison. Success advances the public working revision once;
 failure exposes none of the batch. Invalid formula drafts may be saved with
 diagnostics, while malformed commands and structural identity violations reject the
 batch. Existing bound references retain stable identity through edits and renames.
+Preserve original submitted formula text, including incomplete drafts. Newly
+submitted formulas bind against the final candidate directory for the batch;
+existing bound expressions are never silently rebound.
 
 Capture exact working revisions for validation and unpublished evaluation without
 holding an edit lock during calculation. Publish only a validated immutable snapshot
 and only if a final revision check still succeeds. Published revisions and active
 calculations remain unchanged by later edits or deletion of a working model.
+Working revision, calculation snapshot and published revision are distinct
+identities. A snapshot implies neither publication nor retained result retrieval.
 
 Use client operation IDs and bounded, retained receipts for mutation ambiguity,
 separate from request correlation. Replays of the same operation and payload cannot
 apply an edit twice within the same service instance. Restart invalidates the initial
 in-memory receipt guarantee; do not imply durable exactly-once operations.
+Receipt replay lookup precedes expected-revision conflict checking. Reusing an
+operation ID with different intent is an error. Reserve receipt capacity before
+commit; installing state and its successful receipt is one indivisible logical
+commit. Refuse new mutations rather than evicting guaranteed receipts. Retain
+resource receipts for the resource lifetime, and deletion receipts through the
+service instance lifetime.
 
-The detailed proposed operations, failure behavior, examples, and approval questions
+The detailed operations, failure behavior, examples, and review questions
 are in [working-model service design](../architecture/working-model-service.md).
-No Protobuf schema change or implementation is authorized by this proposal alone.
+Acceptance establishes the architectural baseline. Implement in bounded stages:
+management foundation with replay-safe creation, transactional editing, then
+unpublished evaluation/publication. Authoring protocol and clients follow those
+in-process foundations. Persistence and detailed storage choices remain deferred.
 
 ## Alternatives considered
 
@@ -70,8 +84,8 @@ new numeric types, workbook addresses, and scripting are separate proposals.
 
 ## Verification / reconsideration trigger
 
-Before acceptance, review retention, strict-versus-draft validation, operation receipt
-lifetime, publication atomicity, and portable authoring identities. Before shipping,
+Accepted on 2026-10-18 following parent review and project-owner authorization.
+Before shipping,
 require conflict, rollback, disconnect/replay, restart, authorization, snapshot,
 publication, and bounded-resource tests described in the design document.
 Revisit lifecycle when persistence or multiple daemon processes are introduced.

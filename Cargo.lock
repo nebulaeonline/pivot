@@ -364,6 +364,7 @@ dependencies = [
  "pivot-protocol",
  "pivot-types",
  "prost",
+ "uuid",
 ]
 
 [[package]]

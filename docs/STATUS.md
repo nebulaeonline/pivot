@@ -61,8 +61,16 @@ The complete CI pipeline also passes on macOS 27.0.1 ARM64 with .NET SDK
 `docs/platform-validation.md` for reports and the SMB build limitation.
 Native AOT, GUI execution, and actual cross-user endpoint denial remain unverified.
 
-The editable working-model service is now designed in proposed ADR-0006 and
+The editable working-model service is now designed in accepted ADR-0006 and
 `docs/architecture/working-model-service.md`: connection-independent resources,
 atomic expected-revision edit batches, draft validation, unpublished evaluation,
-publication boundaries, and operation-receipt reconciliation. This is a proposal
-only; no authoring service or Protobuf operations have been implemented.
+publication boundaries, and operation-receipt reconciliation. Slice A is implemented
+in `pivot_host::management`: memory-only resources, portable identities, authorized
+discovery/inspection and attachments, explicit quotas, and replay-safe creation.
+Slice B adds private transactional staging, atomic edit batches, one public revision
+per batch, portable node/port IDs, revision-pinned raw draft reads and diagnostics,
+final-directory binding for submitted formulas, and retained edit receipts.
+Unpublished evaluation, publication coordination, and authoring
+Protobuf/IPC/REPL operations remain deferred. See
+`docs/architecture/working-model-management.md` for the in-process API and limits.
+Transactional editing details are in `docs/architecture/working-model-editing.md`.

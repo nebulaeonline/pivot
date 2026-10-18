@@ -29,6 +29,9 @@ pub struct InputPort {
     pub(crate) requirement: InputRequirement,
 }
 impl InputPort {
+    pub fn node(&self) -> NodeId {
+        self.node
+    }
     pub fn id(&self) -> PortId {
         self.id
     }
@@ -49,6 +52,9 @@ pub struct OutputPort {
     pub(crate) node: NodeId,
 }
 impl OutputPort {
+    pub fn node(&self) -> NodeId {
+        self.node
+    }
     pub fn id(&self) -> PortId {
         self.id
     }

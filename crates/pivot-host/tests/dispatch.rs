@@ -110,6 +110,67 @@ fn code(response: Response) -> ErrorCode {
     ErrorCode::try_from(error.code).unwrap()
 }
 #[test]
+fn management_resources_remain_separate_from_published_invocations() {
+    struct ManagementPolicy;
+    impl management::Authorizer for ManagementPolicy {
+        fn allowed(
+            &self,
+            _: &str,
+            _: management::Action,
+            _: Option<management::WorkingModelId>,
+        ) -> bool {
+            true
+        }
+    }
+    let (host, _, _) = fixture();
+    let mut session = session();
+    hello(&host, &mut session);
+    let before = invoke(&host, &mut session, call("r1", 100));
+    let mut manager = management::WorkingModelService::new(
+        management::Limits::default(),
+        Box::new(ManagementPolicy),
+    )
+    .unwrap();
+    let instance = manager.info().instance;
+    let created = manager
+        .create(
+            "editor",
+            management::CreateRequest {
+                instance,
+                operation_id: "create".into(),
+                name: "Profit".into(),
+            },
+        )
+        .unwrap();
+    let attachment = manager.open(instance, "editor", created.id).unwrap();
+    let edit_request = management::ApplyEdits {
+        instance,
+        model: created.id,
+        expected: created.revision,
+        operation_id: "edit".into(),
+        edits: vec![management::Edit::AddNode {
+            temporary: "new".into(),
+            name: "GrossSales".into(),
+            definition: management::NodeDefinition::Input(d("9999")),
+        }],
+    };
+    let edited = manager.apply_edits("editor", edit_request.clone()).unwrap();
+    assert_eq!(manager.apply_edits("editor", edit_request), Ok(edited));
+    manager.close(instance, "editor", attachment.id).unwrap();
+    let after = invoke(&host, &mut session, call("r1", 100));
+    assert_eq!(before.outputs, after.outputs);
+    assert_eq!(before.effective_inputs, after.effective_inputs);
+    let list = send(
+        &host,
+        &mut session,
+        request::Operation::ListModels(ListModels::default()),
+    );
+    assert!(
+        matches!(list.outcome, Some(response::Outcome::Models(models)) if models.models.len() == 1)
+    );
+    assert_eq!(manager.list(instance, "editor").unwrap().len(), 1);
+}
+#[test]
 fn discovery_introspection_and_invocation_provenance() {
     let (host, _, _) = fixture();
     let mut s = session();

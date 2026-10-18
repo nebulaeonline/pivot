@@ -60,3 +60,9 @@ The complete CI pipeline also passes on macOS 27.0.1 ARM64 with .NET SDK
 10.0.402 using an isolated local APFS source/build copy. See
 `docs/platform-validation.md` for reports and the SMB build limitation.
 Native AOT, GUI execution, and actual cross-user endpoint denial remain unverified.
+
+The editable working-model service is now designed in proposed ADR-0006 and
+`docs/architecture/working-model-service.md`: connection-independent resources,
+atomic expected-revision edit batches, draft validation, unpublished evaluation,
+publication boundaries, and operation-receipt reconciliation. This is a proposal
+only; no authoring service or Protobuf operations have been implemented.

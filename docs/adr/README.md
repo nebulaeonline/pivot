@@ -13,6 +13,7 @@ decisions, not implementation suggestions.
 - [ADR-0002: Editable models with immutable calculation snapshots](0002-editable-model-calculation-snapshots.md) — Accepted
 - [ADR-0003: Stable references and public interfaces](0003-stable-references-and-public-interfaces.md) — Accepted
 - [ADR-0004: Portable Protobuf protocol](0004-portable-protobuf-protocol.md) — Accepted
-- [ADR-0005: Local IPC and endpoint security](0005-local-ipc-and-endpoint-security.md) — Proposed
+- [ADR-0005: Local IPC and endpoint security](0005-local-ipc-and-endpoint-security.md) — Accepted
+- [ADR-0006: Working-model lifecycle and transactions](0006-working-model-lifecycle-and-transactions.md) — Proposed
 
 Final numeric policy, persistence, transaction semantics, and broader resource scheduling remain open.

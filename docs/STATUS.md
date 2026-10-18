@@ -81,3 +81,13 @@ Calculation/publication details are in
 compaction and richer edit diagnostics remain follow-ups; memory-only commits do
 not survive service shutdown. Latest REPL macOS validation and Native AOT remain
 on the verification backlog.
+
+ADR-0007 and `docs/architecture/authoring-protocol.md` now propose the versioned
+authoring contract, with an isolated review-only Protobuf draft and Rust/C# test
+plan. No production tags are frozen, capability enabled or live dispatch added.
+Persistence direction is a common transactional contract with configurable
+providers: SQLite first/default locally with a filesystem path, and planned
+PostgreSQL/MySQL adapters. Storage choice is independent of local/network service
+mode. Initially one active service owns a store; multi-instance coordination remains
+separate work. See `docs/architecture/persistence-providers.md`. Provider support,
+schemas and recovery are not implemented; runtime durability remains MemoryOnly.

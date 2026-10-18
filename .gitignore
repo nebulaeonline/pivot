@@ -1,0 +1,28 @@
+# .NET build output and local tooling
+**/[Bb]in/
+**/[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+BenchmarkDotNet.Artifacts/
+artifacts/
+packages/
+*.nupkg
+*.snupkg
+
+# Rust build output and backup files
+target/
+**/*.rs.bk
+
+# Editor settings
+.vscode/
+
+# Codex / parent GPT handoff documents
+gpt*.md

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/clients/" />
+  <Folder Name="/clients/dotnet/">
+    <Project Path="clients/dotnet/Pivot.Avalonia/Pivot.Avalonia.csproj" />
+    <Project Path="clients/dotnet/Pivot.Client/Pivot.Client.csproj" />
+    <Project Path="clients/dotnet/Pivot.Desktop/Pivot.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/decimal-parity/">
+    <Project Path="tests/decimal-parity/DecimalParity.csproj" />
+  </Folder>
+</Solution>

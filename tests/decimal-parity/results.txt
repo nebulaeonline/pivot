@@ -1,0 +1,3 @@
+Vectors: 10099
+Value/error failures: 0
+Scale differences: 0

@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/pivot-types",
+    "crates/pivot-core",
+    "crates/pivot-protocol",
+    "crates/pivot-storage",
+    "crates/pivot-transport",
+    "apps/pivotd",
+    "apps/pivot-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false

@@ -3,7 +3,7 @@
 `pivot-transport` supplies local streams, OS security, and framing without depending
 on the engine or host. `pivotd` reuses pivot-host sessions/dispatch. `pivot-cli` only
 discovers, describes, and invokes through the actual protocol; it has no evaluator.
-ADR-0005 remains Proposed.
+ADR-0005 is Accepted. Timeouts, connection caps, and calculation budgets are operational policy.
 
 ## Run the demo
 
@@ -37,8 +37,8 @@ names. Unix endpoints must be absolute and have a private parent directory.
 CLI input syntax is strict Name=Decimal; no floats or full formula language.
 No `--outputs` selects all public outputs. CLI exits 0 on success, 1 for connection,
 argument, or request failures, and 2 if an output contains a calculation error.
-Results include diagnostic invocation ID and exact external revision. The full
-interactive REPL is deferred.
+Results include diagnostic invocation ID and exact external revision. A persistent command REPL is available; see [command REPL usage](command-repl.md).
+Expression evaluation, model editing, and scripting remain deferred.
 
 ## Frames, sessions, and lifecycle
 
@@ -54,13 +54,19 @@ Multiple sequential operations reuse the same negotiated connection. The CLI
 handshakes, discovers the exact revision, describes it, resolves public labels,
 and invokes by portable IDs. Registry snapshots survive client disconnects.
 
-Frame reads and writes have five-second total deadlines, including idle reads.
-This initial daemon therefore closes idle clients after five seconds. Up to sixteen
-connection tasks are retained; excess connections are closed. A host budget defaults
-to 100,000 units, conservatively counting all snapshot nodes, edges, and bound tokens
-before calculation. This bounds work including evaluator graph scans, but may reject
-a large model even when selected outputs are small. It is not a wall-clock deadline,
-memory quota, or a complete future resource scheduler.
+The default idle connection deadline is 300 seconds. After the first header byte,
+remaining header plus payload share one five-second partial-frame deadline. Writes
+have a separate five-second total deadline. Slow partial transfers cannot reset the
+read deadline by sending occasional bytes. CLI response waits use ten seconds before
+the first response byte, then the partial-frame deadline. These are operational
+policies, not wire semantics.
+
+Daemon flags configure `--idle-timeout-secs`, `--frame-read-timeout-secs`, and
+`--frame-write-timeout-secs` (positive seconds, at most 86400). `--max-connections`
+defaults to 16 (range 1–1024); `--work-budget` defaults to 100000 (positive units).
+A work unit conservatively counts snapshot nodes, edges, and bound expression tokens
+before calculation. This bounds graph scans, but may reject large models for small
+output selections; it is not a wall-clock deadline or complete quota scheduler.
 
 Ctrl+C shuts down on all platforms; Windows also handles Ctrl+Break and Unix handles
 SIGTERM. Shutdown stops accepting, aborts idle connection tasks, and joins them;

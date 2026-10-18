@@ -44,14 +44,18 @@ fn demo() -> Result<ModelHost, Box<dyn Error>> {
 async fn connection<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
     mut stream: S,
     host: Arc<ModelHost>,
+    timeouts: transport::FrameTimeouts,
 ) -> io::Result<()> {
     // Transport verified current-user peer identity. Model-level policy remains
     // explicit: the demo exposes only its public interface to that local user.
     let mut session =
         Session::new(Limits::default(), Arc::new(AllowAll)).map_err(io::Error::other)?;
-    while let Some(request) = transport::read_frame(&mut stream, MAX_MESSAGE_BYTES).await? {
+    while let Some(request) =
+        transport::read_frame_with_timeouts(&mut stream, MAX_MESSAGE_BYTES, timeouts).await?
+    {
         let response = host.dispatch(&mut session, &request);
-        transport::write_frame(&mut stream, &response, MAX_MESSAGE_BYTES).await?;
+        transport::write_frame_with_timeouts(&mut stream, &response, MAX_MESSAGE_BYTES, timeouts)
+            .await?;
     }
     Ok(())
 }
@@ -68,18 +72,45 @@ async fn shutdown_signal() -> io::Result<()> {
         tokio::select! { result = tokio::signal::ctrl_c() => result, _ = terminate.recv() => Ok(()) }
     }
 }
+fn seconds(value: Option<String>) -> Result<std::time::Duration, Box<dyn Error>> {
+    let value: u64 = value.ok_or("missing timeout")?.parse()?;
+    if !(1..=86400).contains(&value) {
+        return Err("timeout must be 1..=86400 seconds".into());
+    }
+    Ok(std::time::Duration::from_secs(value))
+}
 async fn run() -> Result<(), Box<dyn Error>> {
     let mut endpoint = transport::default_endpoint()?;
     let mut demo_enabled = false;
     let mut shutdown_stdin = false;
+    let mut timeouts = transport::FrameTimeouts::default();
+    let mut max_connections = 16usize;
+    let mut work_budget = 100_000usize;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--demo" => demo_enabled = true,
             "--endpoint" => endpoint = args.next().ok_or("missing endpoint")?,
             "--shutdown-stdin" => shutdown_stdin = true,
+            "--idle-timeout-secs" => timeouts.idle = seconds(args.next())?,
+            "--frame-read-timeout-secs" => timeouts.partial_read = seconds(args.next())?,
+            "--frame-write-timeout-secs" => timeouts.write = seconds(args.next())?,
+            "--max-connections" => {
+                max_connections = args.next().ok_or("missing connection limit")?.parse()?;
+                if !(1..=1024).contains(&max_connections) {
+                    return Err("connection limit must be 1..=1024".into());
+                }
+            }
+            "--work-budget" => {
+                work_budget = args.next().ok_or("missing work budget")?.parse()?;
+                if work_budget == 0 {
+                    return Err("work budget must be positive".into());
+                }
+            }
             "--help" => {
-                println!("pivotd --demo [--endpoint LOCAL_ENDPOINT] [--shutdown-stdin]");
+                println!(
+                    "pivotd --demo [--endpoint LOCAL_ENDPOINT] [--shutdown-stdin]\nPolicy: --idle-timeout-secs 300 --frame-read-timeout-secs 5 --frame-write-timeout-secs 5 --max-connections 16 --work-budget 100000"
+                );
                 return Ok(());
             }
             _ => return Err(format!("unknown argument: {arg}").into()),
@@ -88,7 +119,9 @@ async fn run() -> Result<(), Box<dyn Error>> {
     if !demo_enabled {
         return Err("only --demo hosting is available; persistence is not implemented".into());
     }
-    let host = Arc::new(demo()?);
+    let mut host = demo()?;
+    host.set_work_budget(work_budget)?;
+    let host = Arc::new(host);
     let mut listener = transport::Listener::bind(&endpoint)?;
     let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel();
     let _stop_guard = if shutdown_stdin {
@@ -115,8 +148,8 @@ async fn run() -> Result<(), Box<dyn Error>> {
             }
             accepted = listener.accept() => {
                 match accepted {
-                    Ok(stream) if tasks.len() < 16 => { let host = host.clone(); tasks.spawn(async move {
-                        if let Err(error) = connection(stream, host).await { eprintln!("connection closed: {error}"); }
+                    Ok(stream) if tasks.len() < max_connections => { let host = host.clone(); tasks.spawn(async move {
+                        if let Err(error) = connection(stream, host, timeouts).await { eprintln!("connection closed: {error}"); }
                     }); }
                     Ok(_) => eprintln!("connection limit reached"),
                     Err(error) => { eprintln!("connection rejected: {error}"); tokio::time::sleep(std::time::Duration::from_millis(25)).await; }

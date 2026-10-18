@@ -8,6 +8,9 @@ Coverage includes discovery, description, required/defaulted inputs, decimal
 values/scales, selected outputs, exact revisions, errors, concurrent clients,
 successful/failed handshake, repeated requests, invalid/oversized/zero/truncated
 frames, abandoned requests, slow partial reads, survival, and graceful shutdown.
+The persistent REPL checks multiple commands, extended idleness, default/decimal
+semantics, invalid command recovery, explicit reconnect, and an ambiguous invocation
+that must not be retried. Piped command tests do not exercise terminal key editing.
 
 Logs go to `artifacts/ipc/` or `--output-dir`. Subprocess timeouts bound failures;
 cleanup requests supervised stdin shutdown and force-kills only the test daemon if

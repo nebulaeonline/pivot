@@ -15,4 +15,4 @@ decisions, not implementation suggestions.
 - [ADR-0004: Portable Protobuf protocol](0004-portable-protobuf-protocol.md) — Accepted
 - [ADR-0005: Local IPC and endpoint security](0005-local-ipc-and-endpoint-security.md) — Proposed
 
-Final numeric policy, IPC security/framing, persistence, and transaction semantics remain open.
+Final numeric policy, persistence, transaction semantics, and broader resource scheduling remain open.

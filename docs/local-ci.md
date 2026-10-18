@@ -31,7 +31,8 @@ enforced, so the pipeline is not a hermetic build.
 5. Build the full .NET solution in Release with warnings treated as errors.
 6. Run all 10,099 Rust/C# decimal compatibility cases using the Release C# harness.
 7. Generate and exchange Rust/C# Protobuf protocol fixtures.
-8. Start a temporary demo daemon and test real local IPC/CLI round trips and malformed-client survival.
+8. Start a temporary demo daemon and test IPC/CLI/REPL round trips, extended idleness,
+   malformed-client survival, and explicit reconnect without ambiguous invocation replay.
 
 The runner stops at the first failed command and returns a nonzero exit status.
 It streams output to the console and preserves each command's output in a log.

@@ -24,7 +24,7 @@ skeletons, a decimal numeric foundation with cross-language tests, and a basic
 expression parser, editable models with immutable snapshots, and headless decimal
 evaluation with isolated input overrides and named public model interfaces.
 A demo daemon and CLI now support discovery and invocation over local IPC.
-The full REPL and spreadsheet UI are still ahead.
+A persistent command REPL is available. Expression/model editing and the spreadsheet UI are still ahead.
 
 The transport-independent Protobuf protocol has Rust/C# serialization tests and an
 in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)

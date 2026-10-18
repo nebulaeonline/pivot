@@ -13,5 +13,6 @@ windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Secur
 [target."cfg(unix)".dependencies]
 libc = "0.2.191"
 [dev-dependencies]
+tokio = { version = "1.53.3", features = ["test-util"] }
 pivot-protocol = { path = "../pivot-protocol" }
 prost = "0.14.4"

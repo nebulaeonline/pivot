@@ -32,7 +32,9 @@ immutable results retaining their snapshot revision. Isolated invocation accepts
 temporary input overrides keyed by NodeId, with captured defaults and typed binding
 validation. Independent invocations share only immutable snapshot definitions.
 Independent arithmetic failures do not prevent other outputs from being computed.
-Forty-one Rust tests pass on Windows, Ubuntu WSL2 Linux, and macOS ARM64. Public model ports now support named invocation,
+Forty-four Rust tests pass on Windows and Ubuntu WSL2 Linux for the command-REPL
+slice. macOS ARM64 last passed 41 tests before this slice; the REPL changes require
+a fresh Mac run. Public model ports now support named invocation,
 required inputs, explicit optional defaults, and stable port identities. Formula
 names bind only at edit submission; snapshots reuse stable-ID references.
 Public values have extensible tagged value/type boundaries (Decimal-only today).
@@ -42,9 +44,13 @@ values remain deferred. A demo daemon and minimal CLI now use named pipes on
 Windows and Unix-domain sockets on Unix (Linux WSL2 and macOS ARM64 verified). ADR-0004 is accepted after the review
 refinements. The portable contract has generated Rust/C# codecs, numeric provenance
 validation, explicit input sources, negotiated limits, and an in-process pivot-host
-registry/dispatcher with mandatory handshake sessions. ADR-0005 is Proposed;
+registry/dispatcher with mandatory handshake sessions. ADR-0005 is Accepted;
 local IPC includes current-user peer checks, bounded framing, connection limits,
-and a conservative calculation work budget. The full REPL remains deferred.
+and a conservative calculation work budget. Idle/partial-read/write deadlines,
+connection caps, and work budgets are configurable operational policy. A persistent
+command REPL shares the actual IPC client and supports session-local history,
+line editing, explicit reconnect, and no automatic replay after disconnect.
+Expression evaluation, model editing, and scripting remain deferred.
 Local CI is available through `python scripts/ci.py`, covering Rust formatting,
 lint/tests, .NET Release builds, and cross-language decimal compatibility. See
 `docs/local-ci.md` for prerequisites and current platform/reproducibility limits.

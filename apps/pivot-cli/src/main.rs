@@ -9,6 +9,7 @@ struct Client {
     stream: transport::Stream,
     next: u64,
     maximum: usize,
+    healthy: bool,
 }
 impl Client {
     async fn open(endpoint: &str) -> Result<Self> {
@@ -16,6 +17,7 @@ impl Client {
             stream: transport::connect(endpoint).await?,
             next: 0,
             maximum: validation::MAX_MESSAGE_BYTES,
+            healthy: true,
         };
         let response = client
             .exchange(request::Operation::Handshake(Handshake {
@@ -42,11 +44,29 @@ impl Client {
             operation: Some(operation),
         };
         validation::validate_request(&request)?;
-        transport::write_frame(&mut self.stream, &request.encode_to_vec(), self.maximum).await?;
-        let bytes = transport::read_frame(&mut self.stream, self.maximum)
-            .await?
-            .ok_or("server disconnected")?;
-        let response = validation::decode_response(&bytes, &request)?;
+        if !self.healthy {
+            return Err("disconnected; use reconnect (no invocation was retried)".into());
+        }
+        let received: Result<Response> = async {
+            transport::write_frame(&mut self.stream, &request.encode_to_vec(), self.maximum)
+                .await?;
+            let policy = transport::FrameTimeouts {
+                idle: std::time::Duration::from_secs(10),
+                ..Default::default()
+            };
+            let bytes = transport::read_frame_with_timeouts(&mut self.stream, self.maximum, policy)
+                .await?
+                .ok_or("server disconnected")?;
+            Ok(validation::decode_response(&bytes, &request)?)
+        }
+        .await;
+        let response = match received {
+            Ok(response) => response,
+            Err(error) => {
+                self.healthy = false;
+                return Err(format!("connection lost or invalid response: {error}; invocation outcome may be unknown; use reconnect; no automatic retry").into());
+            }
+        };
         match response.outcome.ok_or("missing response")? {
             response::Outcome::Error(error) => Err(format!(
                 "{:?}: {}",
@@ -128,18 +148,22 @@ fn wire_decimal(text: &str) -> Result<Value> {
         })),
     })
 }
-async fn run() -> Result<bool> {
-    let mut endpoint = transport::default_endpoint()?;
-    let mut revision = None;
-    let mut output_labels: Option<Vec<String>> = None;
-    let mut positional = Vec::new();
-    let mut args = std::env::args().skip(1);
+#[derive(Default)]
+struct CommandArgs {
+    endpoint: Option<String>,
+    revision: Option<String>,
+    output_labels: Option<Vec<String>>,
+    positional: Vec<String>,
+}
+fn parse_command(tokens: Vec<String>) -> Result<CommandArgs> {
+    let mut parsed = CommandArgs::default();
+    let mut args = tokens.into_iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--endpoint" => endpoint = args.next().ok_or("missing endpoint")?,
-            "--revision" => revision = Some(args.next().ok_or("missing revision")?),
+            "--endpoint" => parsed.endpoint = Some(args.next().ok_or("missing endpoint")?),
+            "--revision" => parsed.revision = Some(args.next().ok_or("missing revision")?),
             "--outputs" => {
-                output_labels = Some(
+                parsed.output_labels = Some(
                     args.next()
                         .ok_or("missing outputs")?
                         .split(',')
@@ -147,20 +171,29 @@ async fn run() -> Result<bool> {
                         .collect(),
                 )
             }
-            "--help" => {
-                println!(
-                    "pivot-cli [--endpoint LOCAL_ENDPOINT] models\npivot-cli [OPTIONS] describe MODEL\npivot-cli [OPTIONS] invoke MODEL Input=Decimal ...\nOPTIONS: --revision ID --outputs Label,Label"
-                );
-                return Ok(true);
-            }
+            "--help" => parsed.positional.push("help".into()),
             _ if arg.starts_with("--") => return Err(format!("unknown option: {arg}").into()),
-            _ => positional.push(arg),
+            _ => parsed.positional.push(arg),
         }
     }
-    let command = positional
-        .first()
-        .ok_or("expected models, describe, or invoke; use --help")?;
-    let mut client = Client::open(&endpoint).await?;
+    Ok(parsed)
+}
+fn help() {
+    println!(
+        "Commands: help | models | describe MODEL [--revision ID] | invoke MODEL Input=Decimal ... [--revision ID] [--outputs Label,Label] | reconnect [--endpoint LOCAL_ENDPOINT] | exit"
+    );
+    println!(
+        "Start interactive mode: pivot-cli [--endpoint LOCAL_ENDPOINT] repl (or omit the command). History is session-local; no input values are saved to disk."
+    );
+}
+async fn execute(client: &mut Client, args: CommandArgs) -> Result<bool> {
+    let CommandArgs {
+        positional,
+        revision,
+        output_labels,
+        ..
+    } = args;
+    let command = positional.first().ok_or("expected command; use help")?;
     match command.as_str() {
         "models" if positional.len() == 1 => {
             for entry in client.models().await? {
@@ -229,7 +262,10 @@ async fn run() -> Result<bool> {
             let response::Outcome::Invocation(result) = outcome else {
                 return Err("unexpected invocation response".into());
             };
-            validation::validate_result(&result, &invocation, &d)?;
+            if let Err(error) = validation::validate_result(&result, &invocation, &d) {
+                client.healthy = false;
+                return Err(error.into());
+            }
             let mut success = true;
             for output in &result.outputs {
                 let name = &d
@@ -263,6 +299,136 @@ async fn run() -> Result<bool> {
     }
     Ok(true)
 }
+async fn repl(endpoint: String) -> Result<bool> {
+    use rustyline::error::ReadlineError;
+    use std::io::{IsTerminal, Write};
+    let terminal = std::io::stdin().is_terminal();
+    let mut editor = if terminal {
+        Some(rustyline::DefaultEditor::new()?)
+    } else {
+        None
+    };
+    let mut endpoint = endpoint;
+    let mut client = match Client::open(&endpoint).await {
+        Ok(client) => {
+            println!("Connected. Type help for commands.");
+            Some(client)
+        }
+        Err(error) => {
+            eprintln!("Connection failed: {error}; use reconnect.");
+            None
+        }
+    };
+    std::io::stdout().flush()?;
+    loop {
+        let line = if let Some(editor) = &mut editor {
+            match editor.readline("pivot> ") {
+                Ok(line) => {
+                    editor.add_history_entry(line.as_str())?;
+                    line
+                }
+                Err(ReadlineError::Interrupted) => {
+                    println!("Interrupted. Type exit to quit.");
+                    continue;
+                }
+                Err(ReadlineError::Eof) => break,
+                Err(error) => return Err(error.into()),
+            }
+        } else {
+            // Pipe mode shares command parsing/execution, but deliberately has
+            // no terminal editing. Flush results for supervisors and tests.
+            let mut line = String::new();
+            if std::io::stdin().read_line(&mut line)? == 0 {
+                break;
+            }
+            line
+        };
+        if line.trim().is_empty() {
+            continue;
+        }
+        // Commands are whitespace-delimited labels/decimal bindings. No shell,
+        // quotes, script execution, or computational expression language.
+        let parsed = match parse_command(line.split_whitespace().map(str::to_owned).collect()) {
+            Ok(args) => args,
+            Err(error) => {
+                eprintln!("Error: {error}");
+                continue;
+            }
+        };
+        match parsed.positional.first().map(String::as_str) {
+            Some("exit")
+                if parsed.positional.len() == 1
+                    && parsed.endpoint.is_none()
+                    && parsed.revision.is_none()
+                    && parsed.output_labels.is_none() =>
+            {
+                break;
+            }
+            Some("help") if parsed.positional.len() == 1 => help(),
+            Some("reconnect")
+                if parsed.positional.len() == 1
+                    && parsed.revision.is_none()
+                    && parsed.output_labels.is_none() =>
+            {
+                // Explicit reconnect always discards the previous connection.
+                client = None;
+                if let Some(selected) = parsed.endpoint {
+                    endpoint = selected;
+                }
+                match Client::open(&endpoint).await {
+                    Ok(connected) => {
+                        client = Some(connected);
+                        println!("Reconnected.");
+                    }
+                    Err(error) => eprintln!("Connection failed: {error}; use reconnect."),
+                }
+            }
+            _ if parsed.endpoint.is_some() => {
+                eprintln!("Error: use reconnect --endpoint to change endpoint")
+            }
+            Some("models" | "describe" | "invoke") => {
+                if let Some(connected) = &mut client {
+                    if let Err(error) = execute(connected, parsed).await {
+                        eprintln!("Error: {error}");
+                    }
+                    if !connected.healthy {
+                        client = None;
+                    }
+                } else {
+                    eprintln!("Disconnected; use reconnect. No command was sent.");
+                }
+            }
+            _ => eprintln!("Error: unknown or invalid command; use help"),
+        }
+        std::io::stdout().flush()?;
+        std::io::stderr().flush()?;
+    }
+    println!("Goodbye.");
+    Ok(true)
+}
+async fn run() -> Result<bool> {
+    let mut args = parse_command(std::env::args().skip(1).collect())?;
+    if args.positional.is_empty() {
+        args.positional.push("repl".into());
+    }
+    let endpoint = match args.endpoint.take() {
+        Some(endpoint) => endpoint,
+        None => transport::default_endpoint()?,
+    };
+    if args.positional == ["help"] {
+        help();
+        return Ok(true);
+    }
+    if args.positional == ["repl"] {
+        if args.revision.is_some() || args.output_labels.is_some() {
+            return Err("specify revision and outputs per REPL command".into());
+        }
+        return repl(endpoint).await;
+    }
+    let mut client = Client::open(&endpoint).await?;
+    execute(&mut client, args).await
+}
+
 #[tokio::main]
 async fn main() {
     match run().await {

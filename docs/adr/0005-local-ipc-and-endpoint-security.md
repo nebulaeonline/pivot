@@ -1,6 +1,6 @@
 # ADR-0005: Local IPC framing and endpoint security
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-18
 
 ## Context
@@ -11,15 +11,15 @@ even when callers run as the same user.
 
 ## Decision
 
-Propose Windows byte-mode named pipes and filesystem Unix-domain sockets on
+Use Windows byte-mode named pipes and filesystem Unix-domain sockets on
 Linux/macOS. No TCP or shared memory. Each frame is a four-byte unsigned
 little-endian payload length followed by one Protobuf message. Reject zero-length
 and oversized frames before payload allocation. One connection owns one negotiated
 session and exchanges sequential request/response frames.
 
-Propose a protected Windows pipe DACL granting only the current user's SID, remote
+Use a protected Windows pipe DACL granting only the current user's SID, remote
 client rejection, exclusive first-instance creation, and both-side peer process
-token user checks. Propose a current-user-owned mode-0700 Unix directory and
+token user checks. Use a current-user-owned mode-0700 Unix directory and
 mode-0600 socket, plus both-side OS peer-credential UID checks. Fail closed on
 security setup/identity failures. Never silently delete an existing socket or
 fall back to a weaker endpoint.
@@ -55,5 +55,8 @@ Require real daemon/client round trips, malformed/partial frame survival, sessio
 tests, concurrent clients, endpoint exclusivity, ACL inspection, and shutdown tests.
 Windows, Ubuntu WSL2 Linux, and macOS ARM64 are verified by the existing local
 CI gates; see [platform validation](../platform-validation.md). An actual
-other-user denial test remains open. This validation does not accept the ADR.
-Review framing, permissions, and budget behavior before accepting this ADR.
+other-user denial test remains open. The owner authorized acceptance after the three-platform review and required timeout
+refinement. Idle, partial-frame read, and write deadlines are separate configurable
+operational policy. Connection caps and work budgets are configurable policy too,
+not permanent protocol semantics. Native AOT, fuzzing, full resource fairness,
+and cancellation remain open verification/design items.

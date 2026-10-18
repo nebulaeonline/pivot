@@ -9,3 +9,4 @@ pivot-protocol = { path = "../../crates/pivot-protocol" }
 pivot-types = { path = "../../crates/pivot-types" }
 pivot-transport = { path = "../../crates/pivot-transport" }
 prost = "0.14.4"
+rustyline = { version = "19.0.0", default-features = false }

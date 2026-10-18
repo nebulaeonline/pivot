@@ -8,6 +8,7 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -19,7 +20,7 @@ def main():
     args = parser.parse_args()
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["cargo", "build", "--locked", "-p", "pivotd", "-p", "pivot-cli", "-p", "pivot-transport", "--bins", "--example", "ipc_probe"], cwd=ROOT, check=True, timeout=180)
+    subprocess.run(["cargo", "build", "--locked", "-p", "pivotd", "-p", "pivot-cli", "-p", "pivot-transport", "--bins", "--example", "ipc_probe", "--example", "repl_peer"], cwd=ROOT, check=True, timeout=180)
     # Cargo supplies the real target directory even if overridden in configuration.
     metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--no-deps", "--format-version", "1"], cwd=ROOT, text=True))
     binary = pathlib.Path(metadata["target_directory"]) / "debug"
@@ -69,6 +70,65 @@ def main():
         checks.append(probe.stdout.strip())
         assert "RestaurantProfit" in cli("models")
         assert daemon.poll() is None
+        # Persistent command mode, including idle time longer than the old five seconds.
+        repl = subprocess.Popen([str(binary / ("pivot-cli" + extension)), "--endpoint", endpoint, "repl"], cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        repl_lines = []
+        described = threading.Event()
+        def drain_repl():
+            for line in repl.stdout:
+                repl_lines.append(line)
+                if "output Margin Decimal" in line:
+                    described.set()
+        repl_reader = threading.Thread(target=drain_repl, daemon=True)
+        repl_reader.start()
+        try:
+            repl.stdin.write("help\nmodels\ndescribe RestaurantProfit\n")
+            repl.stdin.flush()
+            assert described.wait(timeout=12), "REPL did not complete initial commands"
+            time.sleep(6)
+            repl.stdin.write("invalid-command\ninvoke RestaurantProfit Revenue=250000\ninvoke RestaurantProfit Revenue=0\ninvoke RestaurantProfit Revenue=100 Costs=25 --revision demo-v1 --outputs Net\nreconnect\nmodels\nexit\n")
+            repl.stdin.close()
+            repl.wait(timeout=15)
+            repl_reader.join(timeout=3)
+            transcript = "".join(repl_lines)
+            assert repl.returncode == 0, transcript
+            assert "unknown or invalid command" in transcript
+            assert "Net=165000" in transcript and "Margin=0.66" in transcript
+            assert "Net=75" in transcript and "ERROR DivisionByZero" in transcript
+            assert "Reconnected." in transcript and "Goodbye." in transcript
+            assert "connection lost" not in transcript.lower(), transcript
+            (output / "repl.log").write_text(transcript, encoding="utf-8")
+        finally:
+            if repl.poll() is None:
+                repl.kill()
+                repl.wait(timeout=5)
+            repl_reader.join(timeout=3)
+        checks.append("persistent REPL, extended idle, help/history-independent pipe mode, invalid command recovery, explicit reconnect")
+        # A peer receives Invoke then closes without a response. The client must
+        # not retry; it can explicitly reconnect to the real daemon afterward.
+        fake_endpoint = endpoint + "-ambiguous" if os.name == "nt" else str(private / "ambiguous.sock")
+        audit = output / "ambiguous-invocation.txt"
+        peer = subprocess.Popen([str(binary / "examples" / ("repl_peer" + extension)), fake_endpoint, str(audit)], cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        peer_ready = queue.Queue()
+        peer_reader = threading.Thread(target=lambda: peer_ready.put(peer.stdout.readline()), daemon=True)
+        peer_reader.start()
+        try:
+            assert peer_ready.get(timeout=8).startswith("READY")
+            script = f"invoke RestaurantProfit Revenue=100\nmodels\nreconnect --endpoint {endpoint}\ninvoke RestaurantProfit Revenue=100 Costs=25 --outputs Net\nexit\n"
+            result = subprocess.run([str(binary / ("pivot-cli" + extension)), "--endpoint", fake_endpoint, "repl"], input=script, cwd=ROOT, text=True, capture_output=True, timeout=15)
+            transcript = result.stdout + result.stderr
+            assert result.returncode == 0, transcript
+            assert "outcome may be unknown" in transcript and "No command was sent" in transcript
+            assert "Net=75" in transcript and "Reconnected." in transcript
+            peer.wait(timeout=6)
+            assert peer.returncode == 0 and audit.read_text() == "invocations=1\n"
+            (output / "repl-disconnect.log").write_text(transcript, encoding="utf-8")
+        finally:
+            if peer.poll() is None:
+                peer.kill()
+                peer.wait(timeout=5)
+            peer_reader.join(timeout=2)
+        checks.append("ambiguous invocation sent once, disconnected command not sent, explicit reconnect to healthy daemon")
     finally:
         try:
             if daemon.poll() is None:

@@ -10,5 +10,6 @@ superseding them and link to the replacement. Acceptance records owner
 decisions, not implementation suggestions.
 
 - [ADR-0001: Graph-first computation core](0001-graph-first-core.md) — Accepted
+- [ADR-0002: Editable models with immutable calculation snapshots](0002-editable-model-calculation-snapshots.md) — Accepted
 
 Numeric policy, protocol, persistence, and transaction semantics remain open.

@@ -21,6 +21,16 @@ binary arithmetic, and parentheses into an AST. Multiplication/division precede
 addition/subtraction; binary operators associate left. Names are case-preserving
 and unresolved. The AST has no evaluation or I/O behavior.
 
-Graph construction, evaluation, invalidation, cycles, model invocation, typed
-non-numeric values, daemon behavior, and protocol implementation remain deferred.
+Editable models now support stable node IDs, named decimal inputs, computed nodes,
+and immutable snapshots with captured inputs and model-scoped revisions. Snapshot
+validation binds names, extracts forward/reverse dependencies, orders nodes, and
+rejects cycles. See ADR-0002 and the model/snapshot architecture note.
+
+Snapshot evaluation now supports selected outputs or all nodes, bound decimal
+expressions, calculation-local state, typed arithmetic/dependency errors, and
+immutable results retaining their snapshot revision. Independent arithmetic
+failures do not prevent other outputs from being computed. Fifteen Rust tests pass.
+
+Invalidation, model invocation with isolated input overrides, typed non-numeric
+values, daemon behavior, and protocol implementation remain deferred.
 M0 is not fully complete: CI and broader project documentation remain outstanding.

@@ -21,7 +21,8 @@ the default for financial and analytical calculations.
 
 Pivot is in early development. The repository contains the Rust and .NET project
 skeletons, a decimal numeric foundation with cross-language tests, and a basic
-expression parser. Graph execution, the daemon protocol, REPL, and spreadsheet
+expression parser, editable models with immutable snapshots, and headless decimal
+evaluation. The daemon protocol, REPL, and spreadsheet
 UI are still ahead.
 
 See [implementation status](docs/STATUS.md) and

@@ -1,2 +1,4 @@
-//! UI-free computation building blocks. Graph evaluation is not yet implemented.
+//! UI-free model definitions, snapshots, and decimal computation.
+pub mod evaluation;
 pub mod expression;
+pub mod model;

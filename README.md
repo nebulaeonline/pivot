@@ -26,3 +26,7 @@ UI are still ahead.
 
 See [implementation status](docs/STATUS.md) and
 [architecture decisions](docs/adr/README.md) for more detail.
+
+## License
+
+Pivot is licensed under the [Apache License 2.0](LICENSE).

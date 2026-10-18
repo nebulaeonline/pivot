@@ -49,6 +49,29 @@ pub fn validate_value(value: &Value) -> Result<(), ValidationError> {
         _ => Err(err(ErrorCode::UnsupportedValueType, "value.kind")),
     }
 }
+/// Mathematical decimal equality, independent of scale and signed zero.
+/// Derived message equality remains available for exact representation checks.
+pub fn numeric_equal(left: &Value, right: &Value) -> Result<bool, ValidationError> {
+    validate_value(left)?;
+    validate_value(right)?;
+    fn canonical(value: &Value) -> (u128, u32, bool) {
+        let Some(value::Kind::Decimal(d)) = &value.kind else {
+            unreachable!()
+        };
+        let mut coefficient =
+            u128::from(d.lo) | (u128::from(d.mid) << 32) | (u128::from(d.hi) << 64);
+        let mut scale = d.scale;
+        if coefficient == 0 {
+            return (0, 0, false);
+        }
+        while scale > 0 && coefficient % 10 == 0 {
+            coefficient /= 10;
+            scale -= 1;
+        }
+        (coefficient, scale, d.negative)
+    }
+    Ok(canonical(left) == canonical(right))
+}
 fn model(value: Option<&ModelRef>) -> Result<(), ValidationError> {
     let value = value.ok_or_else(|| invalid("model"))?;
     id(&value.model_id, "model_id")?;
@@ -83,6 +106,8 @@ pub fn negotiate(hello: &Handshake) -> Result<HandshakeAccepted, ValidationError
         selected_version: Some(Version { major: 1, minor: 0 }),
         capabilities: CAPABILITIES.iter().map(|s| s.to_string()).collect(),
         max_message_bytes: MAX_MESSAGE_BYTES as u32,
+        max_inputs: MAX_PORTS as u32,
+        max_outputs: MAX_PORTS as u32,
     })
 }
 pub fn decode_request(bytes: &[u8]) -> Result<Request, ValidationError> {
@@ -121,6 +146,9 @@ pub fn validate_request(request: &Request) -> Result<(), ValidationError> {
                     let mut seen = BTreeSet::new();
                     for binding in &value.inputs {
                         id(&binding.port_id, "input.port_id")?;
+                        if binding.source != InputSource::Unspecified as i32 {
+                            return Err(invalid("input.source"));
+                        }
                         if !seen.insert(&binding.port_id) {
                             return Err(err(ErrorCode::DuplicateBinding, "inputs"));
                         }
@@ -284,7 +312,24 @@ pub fn validate_result(
                 Some(input_port::Requirement::DefaultValue(value)) => Some(value),
                 _ => None,
             });
-        if bindings.get(&port.port_id).copied().flatten() != expected {
+        let actual_binding = result
+            .effective_inputs
+            .iter()
+            .find(|b| b.port_id == port.port_id)
+            .ok_or_else(|| invalid("effective_inputs"))?;
+        let source = if invocation.inputs.iter().any(|b| b.port_id == port.port_id) {
+            InputSource::Submitted
+        } else {
+            InputSource::Defaulted
+        };
+        if actual_binding.source != source as i32 {
+            return Err(invalid("effective_inputs.source"));
+        }
+        let actual = actual_binding
+            .value
+            .as_ref()
+            .ok_or_else(|| invalid("effective_inputs.value"))?;
+        if !numeric_equal(actual, expected.ok_or_else(|| invalid("effective_inputs"))?)? {
             return Err(invalid("effective_inputs"));
         }
     }
@@ -325,6 +370,10 @@ pub fn decode_response(bytes: &[u8], request: &Request) -> Result<Response, Vali
                 || accepted.selected_version != response.version
                 || accepted.max_message_bytes == 0
                 || accepted.max_message_bytes as usize > MAX_MESSAGE_BYTES
+                || accepted.max_inputs == 0
+                || accepted.max_inputs as usize > MAX_PORTS
+                || accepted.max_outputs == 0
+                || accepted.max_outputs as usize > MAX_PORTS
             {
                 return Err(invalid("handshake"));
             }
@@ -367,6 +416,12 @@ pub fn decode_response(bytes: &[u8], request: &Request) -> Result<Response, Vali
                 id(&binding.port_id, "input.port_id")?;
                 if !input_ids.insert(&binding.port_id) {
                     return Err(err(ErrorCode::DuplicateBinding, "effective_inputs"));
+                }
+                if !matches!(
+                    InputSource::try_from(binding.source),
+                    Ok(InputSource::Submitted | InputSource::Defaulted)
+                ) {
+                    return Err(invalid("effective_inputs.source"));
                 }
                 validate_value(
                     binding

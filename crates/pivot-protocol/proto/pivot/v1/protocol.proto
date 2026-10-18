@@ -43,12 +43,20 @@ message HandshakeAccepted {
   Version selected_version = 1;
   repeated string capabilities = 2;
   uint32 max_message_bytes = 3;
+  uint32 max_inputs = 4;
+  uint32 max_outputs = 5;
 }
 message ListModels { uint32 page_size = 1; string continuation_token = 2; }
 message ModelSummary { ModelRef model = 1; string name = 2; }
 message ModelList { repeated ModelSummary models = 1; string continuation_token = 2; }
 message DescribeModel { ModelRef model = 1; }
-message InputBinding { string port_id = 1; Value value = 2; }
+enum InputSource { INPUT_SOURCE_UNSPECIFIED = 0; SUBMITTED = 1; DEFAULTED = 2; }
+message InputBinding {
+  string port_id = 1;
+  Value value = 2;
+  // Unspecified in requests; mandatory Submitted/Defaulted in effective results.
+  InputSource source = 3;
+}
 message InvokeModel {
   ModelRef model = 1;
   repeated InputBinding inputs = 2;
@@ -70,6 +78,7 @@ enum ErrorCode {
   RESOURCE_EXHAUSTED = 11;
   UNAUTHORIZED = 12;
   INTERNAL = 13;
+  HANDSHAKE_REQUIRED = 14;
 }
 message ProtocolError { ErrorCode code = 1; string message = 2; string port_id = 3; }
 enum CalculationErrorCode {

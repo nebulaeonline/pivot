@@ -32,14 +32,16 @@ immutable results retaining their snapshot revision. Isolated invocation accepts
 temporary input overrides keyed by NodeId, with captured defaults and typed binding
 validation. Independent invocations share only immutable snapshot definitions.
 Independent arithmetic failures do not prevent other outputs from being computed.
-Twenty-eight Rust tests pass. Public model ports now support named invocation,
+Thirty-seven Rust tests pass. Public model ports now support named invocation,
 required inputs, explicit optional defaults, and stable port identities. Formula
 names bind only at edit submission; snapshots reuse stable-ID references.
 Public values have extensible tagged value/type boundaries (Decimal-only today).
 
 Invalidation, IEEE-754 and other non-decimal
-values and daemon behavior remain deferred. The proposed portable Protobuf contract
-has generated Rust/C# codecs and Rust validation tests; ADR-0004 remains Proposed.
+values and daemon networking remain deferred. ADR-0004 is accepted after the review
+refinements. The portable contract has generated Rust/C# codecs, numeric provenance
+validation, explicit input sources, negotiated limits, and an in-process pivot-host
+registry/dispatcher with mandatory handshake sessions. No socket/pipe service exists.
 Local CI is available through `python scripts/ci.py`, covering Rust formatting,
 lint/tests, .NET Release builds, and cross-language decimal compatibility. See
 `docs/local-ci.md` for prerequisites and current platform/reproducibility limits.

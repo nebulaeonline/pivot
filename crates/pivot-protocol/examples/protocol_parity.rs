@@ -16,6 +16,7 @@ fn main() {
                     revision_id: "revision_1".into(),
                 }),
                 inputs: vec![InputBinding {
+                    source: 0,
                     port_id: "revenue".into(),
                     value: Some(Value {
                         kind: Some(value::Kind::Decimal(Decimal128 {

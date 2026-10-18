@@ -83,6 +83,23 @@ impl From<RoundingMode> for RoundingStrategy {
 pub struct PivotDecimal(Decimal);
 
 impl PivotDecimal {
+    /// Lossless significand boundary, independent of backend memory layout.
+    pub fn from_parts(
+        lo: u32,
+        mid: u32,
+        hi: u32,
+        negative: bool,
+        scale: u32,
+    ) -> Result<Self, DecimalError> {
+        if scale > 28 {
+            return Err(DecimalError::InvalidScale);
+        }
+        Ok(Self(Decimal::from_parts(lo, mid, hi, negative, scale)))
+    }
+    pub fn parts(self) -> (u32, u32, u32, bool, u32) {
+        let parts = self.0.unpack();
+        (parts.lo, parts.mid, parts.hi, parts.negative, parts.scale)
+    }
     pub const ZERO: Self = Self(Decimal::ZERO);
     pub const ONE: Self = Self(Decimal::ONE);
     pub const MAX: Self = Self(Decimal::MAX);

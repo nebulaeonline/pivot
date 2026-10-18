@@ -26,8 +26,8 @@ evaluation with isolated input overrides and named public model interfaces.
 The daemon protocol, REPL, and spreadsheet
 UI are still ahead.
 
-A transport-independent Protobuf protocol is proposed and covered by Rust/C#
-serialization tests. No daemon networking is implemented yet.
+The transport-independent Protobuf protocol has Rust/C# serialization tests and an
+in-process host adapter for discovery and invocation. No daemon networking is implemented yet.
 
 See [implementation status](docs/STATUS.md) and
 [architecture decisions](docs/adr/README.md) for more detail.

@@ -260,6 +260,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pivot-host"
+version = "0.1.0"
+dependencies = [
+ "pivot-core",
+ "pivot-protocol",
+ "pivot-types",
+ "prost",
+]
+
+[[package]]
 name = "pivot-protocol"
 version = "0.1.0"
 dependencies = [

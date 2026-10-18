@@ -1,6 +1,7 @@
 # Portable protocol contract proposal
 
-Status: Proposed; ADR-0004 is not accepted.
+Status: Accepted initial architecture after the targeted review refinements.
+Identity allocation and persistent registry policy remain reserved.
 
 Schema: `crates/pivot-protocol/proto/pivot/v1/protocol.proto`. Messages and Rust
 validation are transport-independent. The protocol crate has no engine dependency.
@@ -12,13 +13,13 @@ validation are transport-independent. The protocol crate has no engine dependenc
 | model_id | Logical model, stable across restarts when durably registered |
 | revision_id | Immutable definition/interface revision within a model; never reused for changed meaning |
 | port_id | Public port within a model; retained across label changes, new identity for replacement |
-| invocation_id | Host-generated calculation identity; later retrieval requires authorization |
+| invocation_id | Diagnostic execution identity only; does not imply retention or retrieval |
 | request_id | Client correlation token unique among outstanding requests on a connection |
 
 IDs are opaque ASCII alphanumeric plus `.`, `_`, `-`, 1–128 bytes. Registry-generated
 UUID text is a candidate allocator, not a required format. A future registry maps
-portable IDs to runtime objects; no runtime handles are serialized. Allocators and
-durable registration are not implemented. Published versions and runtime instances
+portable IDs to runtime objects; no runtime handles are serialized. The in-process host registers caller-assigned IDs. Durable registration and
+automatic allocation remain unimplemented. Published versions and runtime instances
 remain distinct future concepts. Schema alone does not provide persistence.
 
 ListModels supplies available model/revision pairs. DescribeModel and InvokeModel
@@ -36,11 +37,17 @@ are `decimal96`, `model-discovery`, and `synchronous-invocation`.
 Handshake requests may omit envelope version; their supported-version list is
 authoritative. Accepted responses use v1.0 in envelope and selection. Subsequent
 requests require v1.0. This implementation's errors also use v1.0 envelopes, even
-for unsupported-version failures; review generic bootstrap before another major.
+for unsupported-version failures; review generic bootstrap before another major. Before negotiation, interpret only
+Response.request_id, its error outcome, stable bootstrap ErrorCode numbers, and the
+v1.0 diagnostic envelope; do not treat that envelope as successful negotiation.
+Malformed/oversized messages with no safe correlation ID return an empty request_id.
+These bootstrap error tags/codes must remain understandable to future clients.
 
-Responses echo request_id. Helpers validate messages and negotiation individually.
-The future session layer must enforce handshake ordering, negotiated capabilities,
-and unique outstanding IDs. Correlation is not idempotency, replay protection,
+Responses echo request_id. Standalone protocol helpers validate messages individually. The in-process host
+requires the first successful operation to be Handshake; ordinary requests before
+it return HandshakeRequired. Invalid handshakes leave the session unnegotiated and
+may be retried. Repeated handshakes after success are rejected. Dispatch is synchronous
+with exclusive session access, so there is at most one outstanding request per session. Correlation is not idempotency, replay protection,
 retry safety, authentication, or exactly-once execution.
 
 ## Operations
@@ -55,7 +62,8 @@ retry safety, authentication, or exactly-once execution.
 
 Page size defaults to at most 100 when zero; maximum 100. Tokens are opaque and
 limited to 512 bytes. Pagination consistency and result retention/expiry need
-service decisions. No token/result store exists. Retrying invocation may create
+service decisions. The in-memory host uses a registry-index cursor and stores no results. Cursor
+consistency across registry edits is not guaranteed. Retrying invocation may create
 another calculation. Cancellation and asynchronous completion remain future work.
 
 ## Values
@@ -92,19 +100,28 @@ division by zero, dependency failure, or invalid expression. Independent outputs
 can succeed. Public messages expose no internal graph identity or privileged trace.
 
 InvocationResult includes invocation ID, model/revision, all effective public input
-values including defaults, and exactly the selected outputs once each. Provenance
-validation currently requires exact declared representations, including scale/sign.
+values including defaults, and exactly the selected outputs once each. Each effective InputBinding marks its source Submitted or Defaulted; request bindings
+must leave source Unspecified. Effective values are authoritative execution provenance.
+Validation requires numeric equality to supplied/default values, independent of scale
+or signed zero, plus the correct source. Derived message equality is representation
+equality and remains useful for explicit codec round-trip guarantees only.
 Internal inputs remain hidden. Effective inputs can be sensitive; future transport
 and retrieval need the same authorization boundary as invocation.
 
 decode_response checks correlation, envelope version, operation shape, outputs,
 values, and basic provenance structure. validate_result additionally verifies the
 interface and effective input values. Use both for full invocation validation.
-No engine adapter or host executes these messages yet.
+The pivot-host adapter now executes these messages against registered snapshots.
 
 ## Limits and evolution
 
-Maximum encoded message: 1 MiB; 1,024 input and 1,024 output entries. Handshakes
+Initial resource ceilings are 1 MiB encoded messages and 1,024 public input/output
+entries, not limits on the engine graph. A large model can expose a small interface.
+Sessions configure actual limits within these ceilings; HandshakeAccepted advertises
+max_message_bytes, max_inputs, and max_outputs. Host dispatch enforces incoming and
+outgoing byte limits plus invocation entry limits. A smaller limit may make a large
+description/list unavailable; the response becomes ResourceExhausted. Supporting
+larger ceilings later requires a deliberate implementation/contract revision. Handshakes
 allow 32 versions and 64 capability entries. Model names are at most 256 bytes,
 port labels 128, error messages 1,024. Byte bounds precede Protobuf decode. Future
 transports must check frame length before allocating payloads. Framing, authorization,
@@ -128,7 +145,9 @@ successful outputs, arithmetic errors, and provenance. Generated C# fixtures exc
 requests/results/errors and check 58 decimal layouts. Static generated serializers
 are used; actual Native AOT publishing/execution is not tested or claimed.
 
-Review portable ID lifecycle, revision selection, port mapping, bootstrap rules,
-limits, representation-sensitive provenance, and synchronous result semantics before
-accepting ADR-0004. GetInvocationResult remains disabled pending authorized lifetime,
-retention, and expiry policies. No network implementation is authorized by this proposal.
+The targeted ADR-0004 review refinements are implemented: numeric versus exact
+comparison, submitted/defaulted input provenance, mandatory session handshake with
+bootstrap errors, advertised/enforced host resource limits, and diagnostic-only
+invocation IDs. Core architecture is accepted. Durable ID allocation, published-model
+lifecycle, portable registry persistence, retention, authorization mechanisms, and
+transport framing still require separate decisions.

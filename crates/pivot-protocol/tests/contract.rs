@@ -45,6 +45,7 @@ fn invocation() -> InvokeModel {
     InvokeModel {
         model: Some(model()),
         inputs: vec![InputBinding {
+            source: 0,
             port_id: "revenue".into(),
             value: Some(value(100, 0)),
         }],
@@ -211,6 +212,7 @@ fn successful_failed_and_malformed_results() {
         effective_inputs: vec![
             call.inputs[0].clone(),
             InputBinding {
+                source: 0,
                 port_id: "cost".into(),
                 value: Some(value(25, 0)),
             },
@@ -220,6 +222,13 @@ fn successful_failed_and_malformed_results() {
             outcome: Some(output_result::Outcome::Value(value(75, 0))),
         }],
     };
+    for input in &mut result.effective_inputs {
+        input.source = if input.port_id == "revenue" {
+            InputSource::Submitted as i32
+        } else {
+            InputSource::Defaulted as i32
+        };
+    }
     validate_result(&result, &call, &description).unwrap();
     assert_eq!(
         InvocationResult::decode(result.encode_to_vec().as_slice()).unwrap(),
@@ -279,4 +288,47 @@ fn response_correlation_and_payload_validation() {
     response.request_id = call.request_id.clone();
     response.outcome = Some(response::Outcome::Models(ModelList::default()));
     assert!(decode_response(&response.encode_to_vec(), &call).is_err());
+}
+
+#[test]
+fn numerical_equality_is_not_representation_equality() {
+    assert_ne!(value(10, 1), value(100, 2));
+    assert!(numeric_equal(&value(10, 1), &value(100, 2)).unwrap());
+    let mut zero = value(0, 28);
+    let Some(value::Kind::Decimal(d)) = &mut zero.kind else {
+        panic!()
+    };
+    d.negative = true;
+    assert!(numeric_equal(&zero, &value(0, 0)).unwrap());
+    assert!(!numeric_equal(&value(11, 1), &value(1, 0)).unwrap());
+    assert!(numeric_equal(&value(1, 29), &value(1, 0)).is_err());
+}
+
+#[test]
+fn provenance_accepts_equivalent_values_but_rejects_false_source() {
+    let call = invocation();
+    let description = description();
+    let mut result = InvocationResult {
+        invocation_id: "inv_1".into(),
+        model: Some(model()),
+        effective_inputs: vec![
+            InputBinding {
+                port_id: "revenue".into(),
+                value: Some(value(10000, 2)),
+                source: InputSource::Submitted as i32,
+            },
+            InputBinding {
+                port_id: "cost".into(),
+                value: Some(value(2500, 2)),
+                source: InputSource::Defaulted as i32,
+            },
+        ],
+        outputs: vec![OutputResult {
+            port_id: "net".into(),
+            outcome: Some(output_result::Outcome::Value(value(75, 0))),
+        }],
+    };
+    validate_result(&result, &call, &description).unwrap();
+    result.effective_inputs[0].source = InputSource::Defaulted as i32;
+    assert!(validate_result(&result, &call, &description).is_err());
 }

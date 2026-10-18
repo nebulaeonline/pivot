@@ -4,6 +4,7 @@ members = [
     "crates/pivot-types",
     "crates/pivot-core",
     "crates/pivot-protocol",
+    "crates/pivot-host",
     "crates/pivot-storage",
     "crates/pivot-transport",
     "apps/pivotd",

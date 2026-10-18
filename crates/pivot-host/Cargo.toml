@@ -1,0 +1,11 @@
+[package]
+name = "pivot-host"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+pivot-core = { path = "../pivot-core" }
+pivot-types = { path = "../pivot-types" }
+pivot-protocol = { path = "../pivot-protocol" }
+prost = "0.14.4"

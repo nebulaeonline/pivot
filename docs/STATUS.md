@@ -112,14 +112,14 @@ Five executable REPL tests bring the Rust suite to 135 tests. The real-process
 IPC harness also checks authoring, reopening and immutable published invocation.
 See `docs/architecture/command-repl.md` and
 `docs/handoffs/2026-10-18-minimal-repl-authoring.md` for evidence and limits.
-Persistence direction is a common transactional contract with configurable
+Optional hosted persistence direction is a common transactional contract with configurable
 providers: SQLite first/default locally with a filesystem path, and planned
 PostgreSQL/MySQL adapters. Storage choice is independent of local/network service
 mode. Initially one active service owns a store; multi-instance coordination remains
 separate work. See `docs/architecture/persistence-providers.md`. Provider support,
 schemas and recovery are not implemented; runtime durability remains MemoryOnly.
 
-ADR-0008 is Accepted with the required review refinements: database-authoritative domain transactions, portable bound
+ADR-0008 is Accepted for optional durable hosted storage with the required review refinements: database-authoritative domain transactions, portable bound
 expressions/exact values, durable identities and receipt scopes, SQLite ownership
 and durability profile, recovery/failure matrix and shared provider conformance.
 See `docs/handoffs/2026-10-18-transactional-persistence-design.md` for the review
@@ -132,3 +132,29 @@ The running daemon/REPL remain MemoryOnly; no database/provider, migration, dura
 coordinator, wire fields or cross-restart replay is implemented. See
 `docs/architecture/portable-storage-foundation.md` and
 `docs/handoffs/2026-10-18-portable-storage-foundation.md`.
+
+## Current priority: portable documents
+
+The parent review accepts the ADR-0008 serialization/restoration foundation and
+preserves ADR-0006/0007/0008 history. Further hosted persistence is deferred:
+SQLite ownership feasibility, schema/migrations, durable commit coordination,
+cross-restart receipts and PostgreSQL/MySQL adapters are not the next work.
+
+[Proposed ADR-0009](adr/0009-portable-documents-and-local-lifecycle.md) and its
+[design handoff](handoffs/2026-10-18-portable-document-design.md) define ordinary
+model documents and local New/Open/Edit/Calculate/Save/Save As/Close behavior.
+This proposal is design only. No document format/container is selected and no
+native file operations, document sessions, protocol additions, worksheet projection
+or UI are implemented. A model document must work without a spreadsheet, database
+registry, publication, receipt or recovery epoch. The current hosted storage-v1
+record is not the native document format. Core calculation stays independent.
+
+Separate backlog items remain:
+
+- Review ADR-0009; then authorize a bounded document-focused implementation slice.
+- Workbook projection and spreadsheet graph/range APIs, including sparse storage.
+- Bulk viewport/range transport and incremental calculation.
+- Executable C# IPC client and Native AOT verification.
+- Native macOS validation of recent authoring and storage-foundation changes.
+- Avalonia virtualized spreadsheet control.
+- Optional ADR-0008 durable hosted persistence, explicitly deferred.

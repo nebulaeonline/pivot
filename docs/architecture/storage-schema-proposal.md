@@ -1,5 +1,14 @@
 # Versioned logical storage schema proposal
 
+## Current scope and priority
+
+This is the accepted ADR-0008 design for **optional durable hosted storage**.
+Further hosted implementation, including the SQLite feasibility gate, is deferred
+following the portable-foundation review. It is not required for ordinary local
+files and does not select their container. See proposed
+[ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md). Requirements below
+remain applicable if hosted work resumes; they are not authorization to proceed.
+
 Status: Accepted ADR-0008 design. This is a logical database/record contract, not
 DDL, migrations or an implemented `.proto` schema. Providers choose physical SQL
 types/indexes while preserving these keys and invariants.

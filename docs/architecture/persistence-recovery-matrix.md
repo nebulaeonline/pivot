@@ -1,5 +1,14 @@
 # Persistence failure and recovery matrix
 
+## Current scope and priority
+
+This is the accepted ADR-0008 design for **optional durable hosted storage**.
+Further hosted implementation, including the SQLite feasibility gate, is deferred
+following the portable-foundation review. It is not required for ordinary local
+files and does not select their container. See proposed
+[ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md). Requirements below
+remain applicable if hosted work resumes; they are not authorization to proceed.
+
 Status: Accepted ADR-0008 design. These are required provider outcomes, not executed database tests.
 Ready is the only normal serving state. Storage failures never trigger a silent
 MemoryOnly fallback. Provider error text is not exposed verbatim to clients.

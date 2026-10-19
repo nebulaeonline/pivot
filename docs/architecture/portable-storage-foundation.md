@@ -135,7 +135,14 @@ exact decimals, immutable publication/defaults, malformed/cross-model records,
 truncation/noncanonical bytes, bounded arbitrary data and all-or-error collection
 restoration. CI executes these through workspace Rust tests.
 
-Next, after review: SQLite owner-lock/WAL/checkpoint/backup feasibility and provider
-foundation. SQL domain commits, database-authoritative coordinator/startup completeness,
-durable protocol negotiation, actual daemon restart recovery and cross-platform
-durability proof remain separate slices. No driver or service flag has been added.
+The implementation review accepts this foundation. Further optional hosted work,
+including SQLite owner-lock/WAL/checkpoint/backup feasibility, is deferred. SQL domain
+commits, database-authoritative startup, durable protocol negotiation, actual daemon
+restart recovery and cross-platform durability proof remain unimplemented.
+No driver or service flag has been added.
+
+The next design proposal is [ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md).
+The frozen 14-field record above remains a hosted storage format, not the native
+user-document format. See the [reuse plan](document-storage-reuse.md) for separating
+graph semantics from hosted authority without changing frozen bytes or duplicating
+parser/binder/evaluator logic. No document adapter is implemented by that proposal.

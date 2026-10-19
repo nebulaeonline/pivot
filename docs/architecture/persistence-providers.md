@@ -1,5 +1,14 @@
 # Persistence providers and recovery direction
 
+## Current scope and priority
+
+This is the accepted ADR-0008 design for **optional durable hosted storage**.
+Further hosted implementation, including the SQLite feasibility gate, is deferred
+following the portable-foundation review. It is not required for ordinary local
+files and does not select their container. See proposed
+[ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md). Requirements below
+remain applicable if hosted work resumes; they are not authorization to proceed.
+
 Status: Project-owner direction, 2026-10-18. The detailed design is now accepted
 in [ADR-0008](../adr/0008-transactional-persistence-and-recovery.md), with
 [transactional architecture](transactional-persistence.md),
@@ -73,7 +82,8 @@ Multi-instance/clustered serving is separate work, not an implied provider featu
 
 ## Persistence design questions
 
-Use database engines rather than a bespoke storage engine/file format. Pivot still
+For optional hosted stores, use database engines rather than a bespoke storage engine.
+This requirement does not choose the native user-document container. Pivot still
 needs versioned application schemas, migrations and recovery. A persistence ADR should
 resolve these concrete questions:
 

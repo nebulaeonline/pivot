@@ -18,9 +18,13 @@ decisions, not implementation suggestions.
 - [ADR-0007: Versioned working-model authoring protocol](0007-versioned-authoring-protocol.md) — Accepted
 - [ADR-0008: Transactional persistence and recovery](0008-transactional-persistence-and-recovery.md) — Accepted
 
+- [ADR-0009: Portable documents and local lifecycle](0009-portable-documents-and-local-lifecycle.md) — Proposed
+
 Authoring protocol, daemon integration and the minimal REPL are implemented.
-ADR-0008 accepts persistence/recovery behind a common provider contract, with
-SQLite first and PostgreSQL/MySQL planned independently of deployment mode.
-The portable codec/import foundation is implemented; no database provider or
-durable service is present. Final numeric policy,
-broader scheduling and multi-instance coordination remain separate work.
+ADR-0008 remains Accepted for optional durable hosted storage; further provider,
+SQLite feasibility, coordinator and cross-restart protocol work is deferred. The
+portable codec/import foundation is accepted and implemented; no database provider
+or durable service is present. Proposed ADR-0009 defines the next document-focused
+design slice, with no container selection or runtime implementation. Ordinary local
+documents must not require hosted storage. Final numeric policy, broader scheduling
+and multi-instance coordination remain separate work.

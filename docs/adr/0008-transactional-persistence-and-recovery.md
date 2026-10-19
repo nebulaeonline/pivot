@@ -3,6 +3,20 @@
 Status: Accepted
 Date: 2026-10-18
 
+## Scope clarification after implementation review
+
+The portable serialization/restoration foundation is accepted. This ADR retains its
+Accepted status and historical decisions, but applies to **optional durable hosted
+model storage**, not ordinary document files. Database/provider implementation,
+SQLite ownership feasibility, migrations, durable coordination and cross-restart
+receipts are deferred. The original feasibility gate below remains a prerequisite
+if that hosted work resumes; it is no longer the next scheduled slice.
+
+Native documents do not require StoreId, RecoveryEpochId, publication or receipts.
+The frozen hosted record is not designated as the native file format. See proposed
+[ADR-0009](0009-portable-documents-and-local-lifecycle.md) for the next design priority.
+No runtime guarantees or storage-v1 bytes change with this clarification.
+
 ## Context
 
 ADR-0006/0007 and the minimal REPL now support cross-process authoring and

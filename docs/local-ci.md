@@ -220,3 +220,37 @@ cost 1.300 seconds versus 0.0467 reference; full snapshot 48.748 ms versus 30.31
 reference. Native RSS guard/high-water support remains unavailable; separate
 monitoring is sampled evidence only. All three-platform validation gates are now
 satisfied for parent review; no downstream backend migration is included.
+
+
+## Opt-in persistent workbook and bulk foundation
+
+Default CI retains reference Workbook coverage. Additionally run:
+
+```sh
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-features
+cargo test --locked -p pivot-workbook --features persistent-core
+cargo test --locked -p pivot-core --no-default-features
+```
+
+Current all-feature counts are 296 Windows / 297 Linux / 297 native macOS, fallback 21 each. Keep true
+fallback/research-only core lints as above. Run benchmarks only after all builds and
+correctness processes finish; see [method/evidence](performance/persistent-workbook-bulk.md).
+Native validation requires a fresh APFS working-tree copy; the previous transition
+report is not evidence for this implementation. Use the
+[new packet](handoffs/2026-10-19-macos-persistent-workbook-bulk-instructions.md).
+
+Final bulk-foundation full CI passes on Windows/Linux (248/249 default Rust tests),
+including .NET, 10,099 decimal vectors, frozen C# protocol and actual local IPC.
+Combined feature counts are 296/297, fallback 21 each and persistent-workbook-only
+48 each; all listed strict lint configurations pass. The 226 sequential Release
+children also pass; see the linked performance record for raw reports and caveats.
+Native macOS now passes full CI (249 default / 297 all-feature / 21 fallback /
+48 workbook-only), all required strict lint gates and 109 Release/diagnostic
+children, bringing the three-platform total to 335. The fresh internal APFS copy
+matched all 290 source hashes before this documentation update; no native source
+fixes or reruns were needed. See the
+[native report](../artifacts/macos-validation-20261019T220845Z/REPORT.md). Warning-level
+memory pressure was observed; native RSS samples are not child high-water and the
+runner RSS guard remains unavailable. The APFS/SMB packet above remains the
+reproduction procedure.

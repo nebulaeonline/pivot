@@ -1,4 +1,4 @@
-//! Opt-in structural feasibility laboratory. Not a production model API.
+//! Canonical persistent graph; the independent research API is feature gated.
 //! Fixed-radix directory + 64-slot immutable pages; IDs never encode addresses.
 use super::*;
 use crate::evaluation::{EvaluationError, evaluate_expression};
@@ -10,7 +10,7 @@ mod inspection;
 pub mod memory;
 pub mod reclaim;
 pub use compatibility::{Materialized, NamedCalculation, NamedError, Restored, benchmark_model};
-use index::Index;
+pub use index::{Index, Key};
 use memory::{Admission, Charge, Footprint, Memory, Shared};
 impl From<Admission> for Error {
     fn from(_: Admission) -> Self {
@@ -365,6 +365,27 @@ pub struct Graph {
     local_validation: bool,
     proof: Shared<Proof>,
 }
+// A bulk private root always has a reserved reclamation destination, including
+// early errors and cooperative cancellation during construction/validation.
+struct CandidateRoot {
+    value: Option<Graph>,
+    retire: Option<Box<dyn FnOnce(Graph) + Send>>,
+}
+impl CandidateRoot {
+    fn take(mut self) -> Graph {
+        self.value.take().unwrap()
+    }
+}
+impl Drop for CandidateRoot {
+    fn drop(&mut self) {
+        if let Some(graph) = self.value.take() {
+            match self.retire.take() {
+                Some(retire) => retire(graph),
+                None => drop(graph),
+            }
+        }
+    }
+}
 struct Proof(std::sync::atomic::AtomicBool);
 impl Footprint for Proof {}
 impl Graph {
@@ -667,6 +688,51 @@ impl Graph {
     /// Private branch, incremental indexes, bounded validation, single atomic installation.
     /// Invalid source/missing targets/cycles commit as editable drafts; hard failures install nothing.
     pub fn apply(&mut self, expected: Version, edits: Vec<Edit>) -> Result<Version, Error> {
+        self.apply_mode(expected, edits, None, None)
+    }
+    #[cfg(feature = "core-integration")]
+    pub(super) fn apply_bulk(
+        &mut self,
+        expected: Version,
+        edits: Vec<Edit>,
+        cancel: &dyn Fn() -> bool,
+        retire: impl FnOnce(Graph) + Send + 'static,
+    ) -> Result<Version, Error> {
+        // Reserve all new names/identities before compiling any submitted formula.
+        let mut additions = Vec::new();
+        let mut definitions = Vec::new();
+        let mut next = self.next;
+        for edit in edits {
+            if cancel() {
+                return Err(Error::Cancelled);
+            }
+            match edit {
+                Edit::AddInput(n, v) => {
+                    additions.push(Edit::AddInput(n, v));
+                    next = next.checked_add(1).ok_or(Error::Exhausted)?;
+                }
+                Edit::AddFormula(n, source) => {
+                    let id = NodeId {
+                        model: self.version.model,
+                        node: next,
+                    };
+                    next = next.checked_add(1).ok_or(Error::Exhausted)?;
+                    additions.push(Edit::AddInput(n, PivotDecimal::ZERO));
+                    definitions.push(Edit::Formula(id, source));
+                }
+                edit => definitions.push(edit),
+            }
+        }
+        additions.extend(definitions);
+        self.apply_mode(expected, additions, Some(cancel), Some(Box::new(retire)))
+    }
+    fn apply_mode(
+        &mut self,
+        expected: Version,
+        edits: Vec<Edit>,
+        bulk: Option<&dyn Fn() -> bool>,
+        retire: Option<Box<dyn FnOnce(Graph) + Send>>,
+    ) -> Result<Version, Error> {
         if expected != self.version {
             return Err(Error::Stale);
         }
@@ -721,17 +787,39 @@ impl Graph {
                 transfer_bytes = transfer_bytes.saturating_add(tokens.len().saturating_mul(128));
             }
         }
+        let max_source = edits
+            .iter()
+            .map(|e| match e {
+                Edit::Formula(_, s)
+                | Edit::Resolved(_, s, _)
+                | Edit::Invalid(_, s, _)
+                | Edit::AddFormula(_, s) => s.len(),
+                _ => 0,
+            })
+            .max()
+            .unwrap_or(0);
+        let source_scratch = if bulk.is_some() {
+            source_bytes
+                .saturating_mul(4)
+                .saturating_add(max_source.saturating_mul(512))
+        } else {
+            source_bytes.saturating_mul(512)
+        };
         let _scratch = self.memory.reserve(
             8192usize
                 .saturating_add(self.max_name.saturating_mul(256))
-                .saturating_add(source_bytes.saturating_mul(512))
+                .saturating_add(source_scratch)
                 .saturating_add(transfer_bytes)
                 .saturating_add(structural_work),
         )?;
-        let mut candidate = {
-            let _phase = crate::experiment_profile::scope(1);
-            self.clone()
+        let mut guard = CandidateRoot {
+            value: Some({
+                let _phase = crate::experiment_profile::scope(1);
+                self.clone()
+            }),
+            retire,
         };
+        let candidate = guard.value.as_mut().unwrap();
         if candidate.local_validation && self.certified() {
             candidate.invalid = Index::new(candidate.memory.clone());
             candidate.import_invalid = false;
@@ -740,6 +828,9 @@ impl Graph {
         let mut topology = false;
         let mut inputs = false;
         for edit in edits {
+            if bulk.is_some_and(|check| check()) {
+                return Err(Error::Cancelled);
+            }
             match edit {
                 Edit::ReplaceInput(id, value) => {
                     if !matches!(*candidate.live_record(id)?.definition, Compiled::Input) {
@@ -875,6 +966,13 @@ impl Graph {
             } else {
                 candidate.import_invalid = false;
             }
+        } else if topology && bulk.is_some() {
+            let check = bulk.unwrap();
+            if let Some((id, error)) = candidate.validate_many(&changed, check)? {
+                candidate
+                    .invalid
+                    .insert(id, candidate.memory.alloc(error)?)?;
+            }
         } else if topology {
             let _phase = crate::experiment_profile::scope(7);
             if !candidate.local_validation {
@@ -916,9 +1014,68 @@ impl Graph {
         candidate.version.inputs += u64::from(inputs);
         {
             let _phase = crate::experiment_profile::scope(10);
-            *self = candidate;
+            *self = guard.take();
         }
         Ok(self.version)
+    }
+    fn validate_many(
+        &self,
+        roots: &BTreeSet<NodeId>,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Option<(NodeId, SnapshotError)>, Error> {
+        let mut done = BTreeSet::new();
+        let mut active = BTreeSet::new();
+        let mut budget = self.limits.validation_visits;
+        let mut work = Work::new(self.memory.clone());
+        for &root in roots {
+            if self.live_record(root).is_err() {
+                continue;
+            }
+            let mut pending = vec![(root, false)];
+            while let Some((id, exit)) = pending.pop() {
+                if cancel() {
+                    return Err(Error::Cancelled);
+                }
+                budget = budget.checked_sub(1).ok_or(Error::ValidationBudget)?;
+                if exit {
+                    active.remove(&id);
+                    done.insert(id);
+                    continue;
+                }
+                if done.contains(&id) {
+                    continue;
+                }
+                work.add(512)?;
+                if !active.insert(id) {
+                    return Ok(Some((
+                        root,
+                        SnapshotError::Unorderable {
+                            nodes: active.into_iter().collect(),
+                        },
+                    )));
+                }
+                let record = self.live_record(id)?;
+                if let Compiled::Formula {
+                    binding: Err(error),
+                    ..
+                } = &*record.definition
+                {
+                    return Ok(Some((root, error.clone())));
+                }
+                work.add(record.definition.deps().len().saturating_mul(64))?;
+                pending.push((id, true));
+                for &target in record.definition.deps() {
+                    if self.live_record(target).is_err() {
+                        return Ok(Some((
+                            root,
+                            SnapshotError::MissingReference { node: id, target },
+                        )));
+                    }
+                    pending.push((target, false));
+                }
+            }
+        }
+        Ok(None)
     }
     fn validate_from(
         &self,

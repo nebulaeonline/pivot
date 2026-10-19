@@ -2,19 +2,39 @@
 
 Date: 2026-10-19
 
-Latest milestone: **Persistent Core — Standalone Default Transition** is implemented.
+Latest milestone: **Persistent Workbook Integration and Bulk Mutation Foundation**
+is implemented behind `pivot-workbook/persistent-core`; production Workbook remains
+reference. Canonical core batches reserve identities/resources, bind final names,
+publish atomically and dispatch once. Persistent workbook edits retain sparse
+stable identity and pinned S/T metadata with bounded rectangle reads. See
+[ADR-0012](adr/0012-bulk-mutation-and-persistent-workbook.md),
+[architecture](architecture/persistent-workbook-bulk.md),
+[evidence](performance/persistent-workbook-bulk.md) and
+[handoff](handoffs/2026-10-19-persistent-workbook-bulk.md).
+Full default CI passes on Windows/Linux/native macOS (248/249/249 Rust tests),
+with all-feature regression 296/297/297, fallback 21 each and workbook-only 48 each.
+All 335 Release/diagnostic children pass with zero final domain charges; native
+validation used a fresh internal APFS copy and all 290 source hashes matched before
+this documentation update. Core batching improves roughly 5–9x Windows / 21–25x
+Linux / 4.5–5.3x macOS over individual persistent edits. Native 100K workbook
+population is 1.14–1.40 s, still slower than optimized reference. The
+[native report](../artifacts/macos-validation-20261019T220845Z/REPORT.md) records
+warning-level memory pressure and sampled RSS only, not native child high-water.
+Ready for parent review; production workbook selection stays reference.
+
+The preceding **Standalone Default Transition** is accepted.
 Default-feature standalone WorkingModel::new now starts directly on persistent
 state with a shared convenience runtime; application/session owners can use new_in
 and an explicit runtime with aggregate admission and deterministic shutdown.
 Reference fallback is explicit. Host, storage, workbook, legacy import and daemon
 constructors deliberately retain their reference paths; frozen formats and limits
-are unchanged. Stop for transition review. See
+are unchanged. That transition is accepted. See
 [ADR-0011](adr/0011-standalone-persistent-default.md),
 [constructor/lifecycle policy](architecture/standalone-default-transition.md) and
 [handoff](handoffs/2026-10-19-standalone-default-transition.md).
-Native macOS transition validation also passed from a fresh APFS copy. Current
-Windows/Linux/macOS default counts are 241/242/242 and combined counts 264/265/265;
-all ninety transition Release processes passed. Parent acceptance remains pending.
+Native macOS transition validation also passed from a fresh APFS copy. At transition review,
+Windows/Linux/macOS default counts were 241/242/242 and combined counts 264/265/265;
+all ninety transition Release processes passed. Parent acceptance is recorded in ADR-0011. That earlier native run predates bulk; current bulk validation is recorded above.
 
 The Rust workspace and .NET 10/Avalonia solution are scaffolded. Architecture
 records live in `docs/adr/` using `ADR-NNNN` identifiers. ADR-0001 records the

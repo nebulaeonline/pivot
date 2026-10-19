@@ -312,6 +312,9 @@ impl<T: Send + 'static> Drop for Released<T> {
 }
 pub(super) struct Owned<T: Send + 'static>(Arc<Released<T>>);
 impl<T: Send + 'static> Owned<T> {
+    pub(super) fn same(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
     pub(super) fn get(&self) -> &T {
         self.0.value.as_ref().unwrap()
     }
@@ -323,18 +326,37 @@ impl<T: Send + 'static> Clone for Owned<T> {
 }
 
 type Work = Box<dyn FnOnce() + Send>;
+/// Accepted work not yet running, including up to two receiver-assigned tasks.
+/// The channel itself retains its configured bound; these are not OS queue lengths.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct WorkLaneStats {
+    pub queued: usize,
+    pub peak_queued: usize,
+    pub accepted: u64,
+    pub rejected: u64,
+}
 struct Task {
+    queued: bool,
+    queue: Arc<Mutex<WorkLaneStats>>,
     work: Option<Work>,
     ticket: Option<Ticket>,
     pending: Arc<(Mutex<usize>, Condvar)>,
 }
 impl Task {
     fn run(mut self) {
+        if self.queued {
+            lock(&self.queue).queued -= 1;
+            self.queued = false;
+        }
         (self.work.take().unwrap())();
     }
 }
 impl Drop for Task {
     fn drop(&mut self) {
+        if self.queued {
+            lock(&self.queue).queued -= 1;
+            self.queued = false;
+        }
         if let Some(work) = self.work.take() {
             self.ticket.take().unwrap().retire(work);
         }
@@ -344,6 +366,7 @@ impl Drop for Task {
     }
 }
 pub(super) struct Lane {
+    queue: Arc<Mutex<WorkLaneStats>>,
     sender: mpsc::SyncSender<Task>,
     pending: Arc<(Mutex<usize>, Condvar)>,
 }
@@ -381,6 +404,7 @@ impl Lane {
             );
         }
         Ok(Self {
+            queue: Arc::new(Mutex::new(WorkLaneStats::default())),
             sender,
             pending: Arc::new((Mutex::new(0), Condvar::new())),
         })
@@ -398,6 +422,8 @@ impl Lane {
         let (sender, receiver) = mpsc::sync_channel(1);
         let cancel = cancel.clone();
         let task = Task {
+            queued: true,
+            queue: self.queue.clone(),
             work: Some(Box::new(move || {
                 if cancel.is_cancelled() {
                     let _ = sender.send(Err("cancelled"));
@@ -415,10 +441,35 @@ impl Lane {
             pending: self.pending.clone(),
         };
         *lock(&self.pending.0) += 1;
-        self.sender.try_send(task).map_err(|e| match e {
-            mpsc::TrySendError::Full(_) => "work queue busy; retry or cancel obsolete work",
-            mpsc::TrySendError::Disconnected(_) => "work lane disconnected; runtime unavailable",
-        })?;
+        let outcome = {
+            let mut queue = lock(&self.queue);
+            queue.queued += 1;
+            match self.sender.try_send(task) {
+                Ok(()) => {
+                    queue.accepted += 1;
+                    queue.peak_queued = queue.peak_queued.max(queue.queued);
+                    Ok(())
+                }
+                Err(error) => {
+                    let (message, mut task) = match error {
+                        mpsc::TrySendError::Full(task) => {
+                            ("work queue busy; retry or cancel obsolete work", task)
+                        }
+                        mpsc::TrySendError::Disconnected(task) => {
+                            ("work lane disconnected; runtime unavailable", task)
+                        }
+                    };
+                    queue.queued -= 1;
+                    queue.rejected += 1;
+                    task.queued = false;
+                    Err((message, task))
+                }
+            }
+        };
+        if let Err((message, task)) = outcome {
+            drop(task);
+            return Err(message);
+        }
         receiver.recv().map_err(|_| "work task failed")?
     }
     fn flush(&self) {
@@ -446,6 +497,8 @@ pub struct IntegrationRuntime {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RuntimeStats {
+    pub mutations: WorkLaneStats,
+    pub heavy: WorkLaneStats,
     pub live_owners: usize,
     pub pending_cleanup: usize,
     pub completed_cleanup: u64,
@@ -498,6 +551,8 @@ impl IntegrationRuntime {
     pub fn stats(&self) -> RuntimeStats {
         let pool = lock(&self.state().cleanup.slots.pool);
         RuntimeStats {
+            mutations: *lock(&self.state().mutations.queue),
+            heavy: *lock(&self.state().heavy.queue),
             live_owners: pool.live,
             pending_cleanup: pool.pending,
             completed_cleanup: pool.completed,
@@ -622,6 +677,7 @@ mod tests {
                 Some(receiver)
             };
             let lane = Lane {
+                queue: Arc::new(Mutex::new(WorkLaneStats::default())),
                 sender,
                 pending: Arc::new((Mutex::new(0), Condvar::new())),
             };
@@ -814,5 +870,99 @@ mod tests {
         );
         drop(model);
         assert!(runtime.finish().is_ok());
+    }
+
+    #[test]
+    fn queued_large_batch_cancellation_and_backpressure_preserve_owners_and_revision() {
+        let runtime = IntegrationRuntime::new(64 * 1024 * 1024, 1).unwrap();
+        let mut model = runtime.create_model("queued").unwrap();
+        let mut rejected = runtime.create_model("rejected").unwrap();
+        let before = model.revision();
+        let rejected_before = rejected.revision();
+        let mut batch = model.begin_batch(1024, 16384).unwrap();
+        for n in 0..1024 {
+            batch.add_input(format!("n{n}"), 1.into()).unwrap();
+        }
+        let mut reject = rejected.begin_batch(1024, 16384).unwrap();
+        for n in 0..1024 {
+            reject.add_input(format!("r{n}"), 2.into()).unwrap();
+        }
+        let gate = Arc::new((Mutex::new(false), Condvar::new()));
+        let (ready, started) = mpsc::channel();
+        let (done, complete) = mpsc::channel();
+        let cancel = CancellationToken::default();
+        struct ReleaseGate(Arc<(Mutex<bool>, Condvar)>);
+        impl Drop for ReleaseGate {
+            fn drop(&mut self) {
+                *lock(&self.0.0) = true;
+                self.0.1.notify_all();
+            }
+        }
+        thread::scope(|scope| {
+            let _release = ReleaseGate(gate.clone());
+            for _ in 0..2 {
+                let state = runtime.state().clone();
+                let ready = ready.clone();
+                let gate = gate.clone();
+                scope.spawn(move || {
+                    state
+                        .heavy
+                        .run(&state.cleanup, &Default::default(), move || {
+                            ready.send(()).unwrap();
+                            let mut open = lock(&gate.0);
+                            while !*open {
+                                open = gate.1.wait(open).unwrap();
+                            }
+                        })
+                        .unwrap()
+                });
+                // Capacity one is intentional: wait for each receiver to start
+                // before submitting the next held job, avoiding a setup rejection.
+                started
+                    .recv_timeout(std::time::Duration::from_secs(5))
+                    .unwrap();
+            }
+            let token = cancel.clone();
+            let writer = &mut model;
+            scope.spawn(move || {
+                done.send(writer.apply_batch(batch, &token)).unwrap();
+            });
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            while runtime.stats().heavy.queued == 0 && std::time::Instant::now() < deadline {
+                thread::sleep(std::time::Duration::from_millis(1));
+            }
+            let queued = runtime.stats().heavy.queued;
+            let result = if queued > 0 {
+                Some(rejected.apply_batch(reject, &Default::default()))
+            } else {
+                None
+            };
+            let mut interactive = runtime.create_model("interactive").unwrap();
+            interactive.add_input("responsive", 1.into()).unwrap();
+            drop(interactive);
+            cancel.cancel();
+            *lock(&gate.0) = true;
+            gate.1.notify_all();
+            assert_eq!(queued, 1);
+            assert!(result.unwrap().is_err());
+            assert!(
+                complete
+                    .recv_timeout(std::time::Duration::from_secs(5))
+                    .unwrap()
+                    .is_err()
+            );
+        });
+        assert_eq!(model.revision(), before);
+        assert_eq!(rejected.revision(), rejected_before);
+        assert!(model.node_id("n0").is_none());
+        runtime.flush();
+        let stats = runtime.stats();
+        assert_eq!(stats.heavy.queued, 0);
+        assert_eq!(stats.heavy.rejected, 1);
+        assert!(stats.heavy.peak_queued <= 3);
+        drop((model, rejected));
+        let memory = runtime.memory();
+        assert!(runtime.finish().is_ok());
+        assert_eq!(memory.stats().charged, 0);
     }
 }

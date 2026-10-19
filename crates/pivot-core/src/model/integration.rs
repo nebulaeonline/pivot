@@ -6,14 +6,18 @@ use std::{any::Any, sync::mpsc, thread};
 pub use structural::memory::{Memory as AllocationDomain, MemoryStats as AllocationStats};
 use structural::{Calculation, Capture, ComputeError, Edit, Graph, Limits, memory::Memory};
 
+#[doc(hidden)]
+pub mod batch;
 mod inspection;
 mod reference;
+#[doc(hidden)]
+pub mod resources;
 mod runtime;
 mod standalone;
 pub use inspection::{
     DefinitionView, EdgeCursor, EdgePage, InspectionCursor, InspectionPage, NodeView,
 };
-pub use runtime::{CancellationToken, IntegrationRuntime, RuntimeStats};
+pub use runtime::{CancellationToken, IntegrationRuntime, RuntimeStats, WorkLaneStats};
 use runtime::{Owned, RuntimeState, Ticket};
 pub use standalone::RuntimeConfig;
 pub(super) use standalone::create_default;

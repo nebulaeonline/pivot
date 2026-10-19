@@ -1,6 +1,6 @@
 # ADR-0011: Standalone persistent default and shared runtime lifecycle
 
-Date: 2026-10-19. Status: Implemented; pending transition review.
+Date: 2026-10-19. Status: Accepted. Implementation: complete; verified on Windows, Linux and native macOS.
 
 ## Context
 
@@ -72,6 +72,6 @@ including 264/265/265 combined tests, 21 fallback core tests per platform and al
 ninety default-facing Release processes. Native source/build/test files stayed on
 internal APFS and copied source hashes matched. See the
 [transition handoff](../handoffs/2026-10-19-standalone-default-transition.md).
-The decision remains pending parent review; measured per-edit bulk construction
+The parent accepted this decision; measured per-edit bulk construction
 and complete-materialization costs are explicit acceptance tradeoffs. No native
 per-child RSS high-water or RSS-guard claim is made.

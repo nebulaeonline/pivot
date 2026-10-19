@@ -75,7 +75,7 @@ impl Memory {
             }
         }
     }
-    pub(super) fn alloc<T: Footprint>(&self, value: T) -> Result<Shared<T>, Admission> {
+    pub fn alloc<T: Footprint>(&self, value: T) -> Result<Shared<T>, Admission> {
         let bytes = std::mem::size_of::<Charged<T>>()
             + 2 * std::mem::size_of::<usize>()
             + value.heap_bytes();

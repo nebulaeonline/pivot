@@ -10,6 +10,8 @@ use pivot_core::{
 use pivot_types::{DecimalError, PivotDecimal};
 use std::collections::{BTreeMap, BTreeSet};
 use uuid::Uuid;
+#[cfg(feature = "persistent-core")]
+mod persistent;
 
 macro_rules! identity {
     ($name:ident) => {
@@ -110,7 +112,7 @@ impl DecimalInput {
 }
 
 /// Typed postfix submission. At resolves once; committed formulas retain Cell refs.
-/// Source is provenance only: this proof does not parse spreadsheet formula text.
+/// Typed source is provenance; SetFormulaText uses the shared spreadsheet parser.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
     Decimal(DecimalInput),
@@ -305,10 +307,23 @@ pub struct Workbook {
     rows: Axis,
     columns: Axis,
     data: SheetState,
+    #[cfg(feature = "persistent-core")]
+    persistent: Option<persistent::State>,
     core: WorkingModel,
     limits: Limits,
+    #[cfg(feature = "scaling-experiment")]
+    budget_once: bool,
 }
 impl Workbook {
+    /// Trusted comparison coordinator: final quota check only for monotonic research fixtures.
+    /// Production reference transactions retain their per-edit quota checks.
+    #[cfg(feature = "scaling-experiment")]
+    #[doc(hidden)]
+    pub fn new_reference_experiment(name: &str, limits: Limits) -> Result<Self> {
+        let mut book = Self::new_checked(name, limits, true)?;
+        book.budget_once = true;
+        Ok(book)
+    }
     pub fn new(name: &str, limits: Limits) -> Result<Self> {
         Self::new_checked(name, limits, false)
     }
@@ -339,8 +354,12 @@ impl Workbook {
                 length: limits.columns,
             },
             data: SheetState::default(),
+            #[cfg(feature = "persistent-core")]
+            persistent: None,
             core: WorkingModel::new_reference(name).map_err(graph_error)?,
             limits,
+            #[cfg(feature = "scaling-experiment")]
+            budget_once: false,
         })
     }
     pub fn worksheet(&self) -> WorksheetId {
@@ -394,6 +413,10 @@ impl Workbook {
         })
     }
     pub fn cell_at(&self, position: Position) -> Result<Option<CellView>> {
+        #[cfg(feature = "persistent-core")]
+        if self.persistent.is_some() {
+            return persistent::cell_at(self, position);
+        }
         self.axes_at(position)?;
         Ok(self
             .data
@@ -402,10 +425,18 @@ impl Workbook {
             .and_then(|id| self.view(*id)))
     }
     pub fn node_for(&self, reference: CellRef) -> Result<GraphNodeId> {
+        #[cfg(feature = "persistent-core")]
+        if self.persistent.is_some() {
+            return persistent::node_for(self, reference);
+        }
         let id = self.target(reference)?;
         Ok(self.data.bindings[&id].portable)
     }
     pub fn stats(&self) -> Stats {
+        #[cfg(feature = "persistent-core")]
+        if let Some(p) = &self.persistent {
+            return p.stats();
+        }
         let mut tokens = 0usize;
         let mut source = 0usize;
         let mut metadata = 0usize;
@@ -519,6 +550,10 @@ impl Workbook {
         Ok(())
     }
     pub fn apply(&mut self, expected: Expected, edits: &[Edit]) -> Result<Expected> {
+        #[cfg(feature = "persistent-core")]
+        if self.persistent.is_some() {
+            return self.apply_cancelled(expected, edits, &Default::default());
+        }
         #[cfg(feature = "scaling-experiment")]
         let _phase = pivot_core::experiment_profile::scope(4);
         self.check(expected)?;
@@ -533,8 +568,12 @@ impl Workbook {
             rows: self.rows.clone(),
             columns: self.columns.clone(),
             data: self.data.clone(),
+            #[cfg(feature = "persistent-core")]
+            persistent: None,
             core: self.core.stage(),
             limits: self.limits,
+            #[cfg(feature = "scaling-experiment")]
+            budget_once: self.budget_once,
         };
         #[cfg(feature = "scaling-experiment")]
         drop(stage_phase);
@@ -544,6 +583,15 @@ impl Workbook {
             } else {
                 candidate.edit(edit)?;
             }
+            #[cfg(feature = "scaling-experiment")]
+            if !candidate.budget_once {
+                candidate.budget()?;
+            }
+            #[cfg(not(feature = "scaling-experiment"))]
+            candidate.budget()?;
+        }
+        #[cfg(feature = "scaling-experiment")]
+        if candidate.budget_once {
             candidate.budget()?;
         }
         if candidate.data == self.data {
@@ -773,6 +821,10 @@ impl Workbook {
         Ok(())
     }
     pub fn validate(&self, expected: Expected) -> Result<Vec<Diagnostic>> {
+        #[cfg(feature = "persistent-core")]
+        if self.persistent.is_some() {
+            return persistent::validate(self, expected);
+        }
         self.check(expected)?;
         let mut diagnostics = vec![];
         for (&id, record) in &self.data.records {
@@ -845,7 +897,13 @@ impl Workbook {
         }
         Ok(diagnostics)
     }
+    /// Explicit globally validated capture. Persistent interactive callers should
+    /// choose capture_local to avoid complete diagnosis of unrelated drafts.
     pub fn capture(&self, expected: Expected) -> Result<CalculationCapture> {
+        #[cfg(feature = "persistent-core")]
+        if self.persistent.is_some() {
+            return persistent::capture(self, expected, false);
+        }
         self.check(expected)?;
         let snapshot = self.core.snapshot().map_err(|_| Error::InvalidDraft)?;
         let cells = self
@@ -858,7 +916,11 @@ impl Workbook {
         Ok(CalculationCapture {
             expected,
             worksheet: self.worksheet,
-            context: EvaluationContext::new(snapshot),
+            context: Some(EvaluationContext::new(snapshot)),
+            #[cfg(feature = "persistent-core")]
+            pinned: None,
+            #[cfg(feature = "persistent-core")]
+            local_core: None,
             cells,
             positions,
             limit: self.limits.read_records,
@@ -870,6 +932,10 @@ impl Workbook {
         rectangle: Rectangle,
         max_records: usize,
     ) -> Result<RectangleRead> {
+        #[cfg(feature = "persistent-core")]
+        if self.persistent.is_some() {
+            return persistent::read(self, expected, rectangle, max_records);
+        }
         #[cfg(feature = "scaling-experiment")]
         let _phase = pivot_core::experiment_profile::scope(9);
         self.check(expected)?;
@@ -918,7 +984,11 @@ pub struct RectangleRead {
 pub struct CalculationCapture {
     expected: Expected,
     worksheet: WorksheetId,
-    context: EvaluationContext,
+    context: Option<EvaluationContext>,
+    #[cfg(feature = "persistent-core")]
+    pinned: Option<persistent::State>,
+    #[cfg(feature = "persistent-core")]
+    local_core: Option<pivot_core::model::integration::CalculationCapture>,
     cells: BTreeMap<CellId, NodeId>,
     positions: BTreeMap<Position, CellId>,
     limit: usize,
@@ -940,12 +1010,23 @@ impl CalculationCapture {
         self.expected
     }
     pub fn cell_at(&self, position: Position) -> Option<CellRef> {
+        #[cfg(feature = "persistent-core")]
+        if let Some(p) = &self.pinned {
+            return p.positions.get(&position).map(|id| CellRef {
+                worksheet: self.worksheet,
+                cell: *id,
+            });
+        }
         self.positions.get(&position).map(|id| CellRef {
             worksheet: self.worksheet,
             cell: *id,
         })
     }
     pub fn evaluate(&self, outputs: &[CellRef]) -> Result<Calculation> {
+        #[cfg(feature = "persistent-core")]
+        if self.local_core.is_some() {
+            return persistent::evaluate(self, outputs);
+        }
         if outputs.len() > self.limit {
             return Err(Error::Limit);
         }
@@ -958,7 +1039,12 @@ impl CalculationCapture {
                 self.cells.get(&r.cell).copied().ok_or(Error::InvalidTarget)
             })
             .collect::<Result<Vec<_>>>()?;
-        let result = self.context.evaluate(&nodes).map_err(graph_error)?;
+        let result = self
+            .context
+            .as_ref()
+            .unwrap()
+            .evaluate(&nodes)
+            .map_err(graph_error)?;
         let values = outputs
             .iter()
             .zip(nodes)

@@ -1,6 +1,28 @@
 # Linux and macOS validation
 
-## Latest: standalone default transition (2026-10-19)
+## Current: persistent workbook and bulk foundation (2026-10-19)
+
+Full default CI passes on Windows/Linux/native macOS (248/249/249 Rust tests),
+including .NET, decimal/protocol parity and real IPC. All-feature regression passes
+296/297/297, true core fallback 21 each and workbook-only 48 each. Required strict
+lint configurations pass. All 335 Release/diagnostic children pass with zero final
+domain charges. Production workbook selection stays reference.
+
+The [native report](../artifacts/macos-validation-20261019T220845Z/REPORT.md) validates
+this slice on Apple M1 ARM64 from a fresh internal APFS copy; all 290 source hashes
+matched before the documentation update. All 109 native children pass, without
+source changes or reruns. Native 100K numeric core batch is 239.8 ms versus 1.205 s
+individual, and workbook population is 1.14–1.40 s. Existing interactive and proposed
+bulk targets pass. Warning-level memory pressure occurred during large cases;
+separate sparse RSS samples do not establish child high-water and the runner RSS
+guard remains unavailable on macOS.
+
+See the [current evidence](performance/persistent-workbook-bulk.md),
+[handoff](handoffs/2026-10-19-persistent-workbook-bulk.md) and
+[APFS reproduction packet](handoffs/2026-10-19-macos-persistent-workbook-bulk-instructions.md).
+Earlier native reports below apply to preceding accepted milestones.
+
+## Accepted standalone default transition (2026-10-19)
 
 The standalone selection/lifecycle transition now passes full CI on Windows,
 Linux WSL2 and native macOS ARM64: default counts 241/242/242, combined 264/265/265,

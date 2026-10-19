@@ -117,8 +117,11 @@ fn copy(w: &Workbook) -> Workbook {
         rows: w.rows.clone(),
         columns: w.columns.clone(),
         data: w.data.clone(),
+        #[cfg(feature = "persistent-core")]
+        persistent: w.persistent.clone(),
         core: w.core.stage(),
         limits: w.limits,
+        budget_once: w.budget_once,
     }
 }
 struct Topology {
@@ -154,6 +157,11 @@ pub struct SharedWorkbook {
 }
 impl SharedWorkbook {
     pub fn new(book: Workbook) -> Self {
+        #[cfg(feature = "persistent-core")]
+        assert!(
+            book.persistent.is_none(),
+            "legacy research overlay requires reference worksheet"
+        );
         Self {
             version: Version {
                 session: book.session,

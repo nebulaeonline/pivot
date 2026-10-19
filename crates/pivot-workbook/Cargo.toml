@@ -10,6 +10,7 @@ pivot-types = { path = "../pivot-types" }
 uuid = { version = "1.28.0", features = ["v4"] }
 
 [features]
+persistent-core = ["pivot-core/core-integration"]
 scaling-experiment = ["pivot-core/scaling-experiment"]
 
 [[example]]
@@ -27,3 +28,7 @@ required-features = ["scaling-experiment"]
 [[example]]
 name = "structural-inputs"
 required-features = ["scaling-experiment"]
+
+[[example]]
+name = "bulk"
+required-features = ["persistent-core", "scaling-experiment"]

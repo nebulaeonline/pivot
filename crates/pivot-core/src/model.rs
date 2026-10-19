@@ -18,7 +18,7 @@ static NEXT_MODEL: AtomicU64 = AtomicU64::new(1);
 /// Persistent standalone backend and bounded shared runtime.
 #[cfg(feature = "core-integration")]
 pub mod integration;
-/// Isolated paged structural-mutation research; never used by default models.
+/// Public research surface over the canonical paged implementation.
 #[cfg(feature = "scaling-experiment")]
 pub mod structural;
 #[cfg(all(feature = "core-integration", not(feature = "scaling-experiment")))]

@@ -123,3 +123,13 @@ axis tree, range index or incremental calculation was introduced to hide those c
 
 See the [review handoff](../handoffs/2026-10-19-workbook-projection-slice-a.md) for tests,
 CI and exclusions. Stop here before general parser/range or application integration.
+
+
+## Persistent integration follow-up (2026-10-19)
+
+[ADR-0012](../adr/0012-bulk-mutation-and-persistent-workbook.md) and the
+[bounded integration](../architecture/persistent-workbook-bulk.md) add an opt-in
+persistent Workbook path while retaining this accepted identity, draft and
+transaction behavior. Production Workbook remains reference pending separate
+review. Exact shared behavior suites and a differential transaction oracle cover
+the new path; this historical foundation record is not a backend-switch decision.

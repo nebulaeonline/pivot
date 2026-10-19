@@ -117,14 +117,28 @@ reported as end-to-end spreadsheet performance.
    formula changes, immutable generations, isolated process RSS and guarded 1M
    diagnostics. Name/edge indexes, physical admission and production adapters remain
    explicit gates before adopting a representation or resuming features.
-4. Review the [compatibility foundation](persistent-core-compatibility-foundation.md)
+4. The parent accepted the [compatibility foundation](persistent-core-compatibility-foundation.md)
    and its [handoff](../handoffs/2026-10-19-compatibility-foundation.md): persistent
    indexes, general-model/transfer behavior, bounded allocation admission, retention,
    churn and reclamation. Default ownership remains unchanged pending integration.
-5. Resume the executable C# application boundary only after integration is reviewed.
+5. Review [controlled integration Stage 1](controlled-core-integration.md): the
+   bounded WorkingModel backend/capture seam, actual revisions, exact diagnostics,
+   explicit worker ownership and full facade measurements. Default selection stays
+   unchanged; snapshot inspection, ports and workbook/host integration are deferred.
+6. Resume the executable C# application boundary only when reviewed integration
+   and explicit next-slice authorization permit it.
 
 Ranges, new value kinds, broad UI infrastructure and hosted persistence remain
 excluded. Preserve all decimal, core, document/file, protocol and IPC tests. Prior
 native macOS scalar-formula validation is complete; native Mac corroboration of the
 new scaling experiment remains separate work. Do not infer product capacity from
 experimental cap overrides or bulk setup throughput.
+
+## Controlled core integration checkpoint
+
+Following acceptance of the persistent compatibility foundation, the bounded
+[Stage 1 core integration](controlled-core-integration.md) moves selected standalone
+operations behind WorkingModel. Its [handoff](../handoffs/2026-10-19-controlled-core-integration.md)
+records facade-level costs and ownership limits. This does not integrate workbook
+anchors, coordinate mutations, full snapshot inspection or hosted transactions;
+those remain explicit follow-up gates before changing a production backend.

@@ -1,5 +1,9 @@
 # Production Graph Representation - Compatibility Foundation
 
+Parent review: accepted. The next implemented review packet is
+[Controlled Core Integration — Stage 1](2026-10-19-controlled-core-integration.md).
+The evidence and recommendation below are historical to this foundation slice.
+
 Date: 2026-10-19
 Recommendation: **Further focused restructuring required.**
 The persistent/paged direction remains supported; do not switch production users.

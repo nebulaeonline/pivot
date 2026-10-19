@@ -132,3 +132,28 @@ On this Windows machine the pre-existing debug target's generated proc-macro DLL
 could not be overwritten (LNK1104), even outside the sandbox. A fresh target directory
 `target/scaling-windows-checks` passed the checks; do not weaken tests or delete
 loaded binaries. Set CARGO_TARGET_DIR for CI and its subprocesses when reproducing.
+
+## Controlled core integration — Stage 1
+
+The `core-integration` feature opts into the WorkingModel activation/capture seam;
+it does not enable the public research Graph API or change the default constructor.
+Run both the core-only configuration and the combined regression configuration:
+
+```text
+cargo clippy --locked --workspace --all-targets --features pivot-core/core-integration -- -D warnings
+cargo clippy --locked --workspace --all-targets --features pivot-core/core-integration,pivot-workbook/scaling-experiment -- -D warnings
+cargo test --locked --workspace --features pivot-core/core-integration,pivot-workbook/scaling-experiment
+```
+
+The combined suite passes 246 tests on Windows and 247 on Linux WSL2. Full default
+CI also passes on both platforms, including .NET, numeric/protocol parity and real
+IPC. Windows named-pipe tests require execution outside the restricted sandbox.
+Use a distinct Windows target directory if generated DLLs are held open; Linux
+file tests use the disk-backed PIVOT_FILE_TEST_ROOT documented above.
+
+`python scripts/integration.py` compares optimized full facade operations at
+1K/10K/100K, with 16/32 retained structural captures, allocation counters, RSS
+sampling and complete reclamation. Run benchmark processes sequentially and keep
+regression builds separate from measured latency. See the
+[specification](performance/controlled-core-integration.md) and
+[Stage 1 handoff](handoffs/2026-10-19-controlled-core-integration.md).

@@ -1,5 +1,20 @@
 # Linux and macOS validation
 
+## Latest: controlled core integration Stage 1 (2026-10-19)
+
+The bounded opt-in core integration passes Windows/Linux full default CI and
+combined feature regression (246 Windows / 247 Linux tests), with complete
+optimized 1K/10K/100K facade benchmarks on both platforms. The default production
+backend and advertised limits are unchanged. See the
+[review packet](handoffs/2026-10-19-controlled-core-integration.md) for exact logs,
+source manifests, latency boundaries, retained-memory and reclamation evidence.
+
+Native macOS has **not** run the new integration feature or these benchmarks.
+Its previous Slice B validation remains historical coverage; a new native ARM64
+run must copy source from SMB to a local APFS volume, especially for .NET, and
+write shared results back under artifacts. No new Mac result is inferred from WSL.
+
+
 ## Compatibility foundation - 2026-10-19
 
 Windows default full CI passes 209 Rust tests, .NET Release, decimal/protocol parity

@@ -15,9 +15,15 @@ use std::{
 };
 
 static NEXT_MODEL: AtomicU64 = AtomicU64::new(1);
+/// Controlled opt-in integration through the accepted model facade.
+#[cfg(feature = "core-integration")]
+pub mod integration;
 /// Isolated paged structural-mutation research; never used by default models.
 #[cfg(feature = "scaling-experiment")]
 pub mod structural;
+#[cfg(all(feature = "core-integration", not(feature = "scaling-experiment")))]
+#[allow(dead_code, unused_imports)] // research-only adapters await later migration stages
+mod structural;
 /// Internal validated transfer boundary; not a persistent format or client API.
 #[doc(hidden)]
 pub mod transfer;
@@ -38,6 +44,8 @@ pub struct Revision {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelError {
+    #[cfg(feature = "core-integration")]
+    Backend(&'static str),
     Interface(InterfaceError),
     InvalidName(String),
     DuplicateName(String),
@@ -54,6 +62,8 @@ impl std::error::Error for ModelError {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SnapshotError {
+    #[cfg(feature = "core-integration")]
+    Backend(&'static str),
     Interface(InterfaceError),
     Parse {
         node: NodeId,
@@ -124,6 +134,8 @@ impl Clone for WorkingNode {
 /// editing; validation occurs at snapshot capture. Not implicitly cloneable.
 #[derive(Debug)]
 pub struct WorkingModel {
+    #[cfg(feature = "core-integration")]
+    integrated: Option<integration::Integrated>,
     name: String,
     revision: Revision,
     nodes: BTreeMap<NodeId, WorkingNode>,
@@ -149,6 +161,8 @@ impl WorkingModel {
         #[cfg(feature = "scaling-experiment")]
         let _phase = crate::experiment_profile::scope(1);
         Self {
+            #[cfg(feature = "core-integration")]
+            integrated: self.integrated.clone(),
             name: self.name.clone(),
             revision: self.revision,
             nodes: self.nodes.clone(),
@@ -159,7 +173,7 @@ impl WorkingModel {
         }
     }
     pub fn draft_nodes(&self) -> impl Iterator<Item = (NodeId, &str, DraftDefinition<'_>)> {
-        self.nodes.iter().map(|(&id, n)| {
+        let legacy = self.nodes.iter().map(|(&id, n)| {
             (
                 id,
                 n.name.as_str(),
@@ -171,14 +185,25 @@ impl WorkingModel {
                     },
                 },
             )
-        })
+        });
+        #[cfg(feature = "core-integration")]
+        let legacy = legacy.chain(self.integrated.iter().flat_map(|i| i.graph().draft_nodes()));
+        legacy
     }
     pub fn contains_node(&self, id: NodeId) -> bool {
+        #[cfg(feature = "core-integration")]
+        if let Some(i) = &self.integrated {
+            return i.graph().contains_node(id);
+        }
         self.nodes.contains_key(&id)
     }
     /// Replace either definition kind without changing node identity. Existing
     /// input ports may become invalid drafts when converting to computed.
     pub fn replace_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         if !self.nodes.contains_key(&id) {
             return Err(ModelError::UnknownNode(id));
         }
@@ -194,6 +219,10 @@ impl WorkingModel {
         node: Option<NodeId>,
         requirement: Option<InputRequirement>,
     ) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         let old = self
             .interface
             .inputs
@@ -230,6 +259,10 @@ impl WorkingModel {
         node: NodeId,
         requirement: InputRequirement,
     ) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         let old = self
             .interface
             .inputs
@@ -267,6 +300,10 @@ impl WorkingModel {
         Ok(())
     }
     pub fn update_output_port(&mut self, id: PortId, node: NodeId) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         let name = self
             .interface
             .outputs
@@ -297,6 +334,8 @@ impl WorkingModel {
             }
         }
         Ok(Self {
+            #[cfg(feature = "core-integration")]
+            integrated: None,
             name: name.into(),
             revision: Revision { model, version: 0 },
             nodes: BTreeMap::new(),
@@ -307,15 +346,27 @@ impl WorkingModel {
         })
     }
     pub fn name(&self) -> &str {
+        #[cfg(feature = "core-integration")]
+        if let Some(i) = &self.integrated {
+            return i.graph().name();
+        }
         &self.name
     }
     pub fn revision(&self) -> Revision {
         self.revision
     }
     pub fn node_id(&self, name: &str) -> Option<NodeId> {
+        #[cfg(feature = "core-integration")]
+        if let Some(i) = &self.integrated {
+            return i.graph().node_id(name);
+        }
         self.names.get(name).copied()
     }
     pub fn interface(&self) -> &ModelInterface {
+        #[cfg(feature = "core-integration")]
+        if let Some(i) = &self.integrated {
+            return i.graph().interface();
+        }
         &self.interface
     }
     fn port_name(&self, name: &str) -> Result<(), ModelError> {
@@ -354,6 +405,10 @@ impl WorkingModel {
         node: NodeId,
         requirement: InputRequirement,
     ) -> Result<PortId, ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         let name = name.into();
         self.port_name(&name)?;
         let target = self.nodes.get(&node).ok_or(ModelError::UnknownNode(node))?;
@@ -391,6 +446,10 @@ impl WorkingModel {
         name: impl Into<String>,
         node: NodeId,
     ) -> Result<PortId, ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         let name = name.into();
         self.port_name(&name)?;
         if !self.nodes.contains_key(&node) {
@@ -403,6 +462,10 @@ impl WorkingModel {
         Ok(id)
     }
     pub fn rename_port(&mut self, id: PortId, name: impl Into<String>) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         let old = self
             .interface
             .inputs
@@ -433,6 +496,10 @@ impl WorkingModel {
         Ok(())
     }
     pub fn remove_port(&mut self, id: PortId) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         let name = self
             .interface
             .inputs
@@ -495,7 +562,12 @@ impl WorkingModel {
         name: impl Into<String>,
         value: PivotDecimal,
     ) -> Result<NodeId, ModelError> {
-        self.add(name.into(), Definition::Input(value))
+        let name = name.into();
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return self.integrated_add(name, Some(value), None);
+        }
+        self.add(name, Definition::Input(value))
     }
     pub fn add_computed(
         &mut self,
@@ -504,6 +576,10 @@ impl WorkingModel {
     ) -> Result<NodeId, ModelError> {
         let name = name.into();
         let source = source.into();
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return self.integrated_add(name, None, Some(source));
+        }
         self.validate_name(&name)?;
         let id = NodeId {
             model: self.revision.model,
@@ -519,6 +595,10 @@ impl WorkingModel {
     }
 
     pub fn set_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return self.integrated_edit(structural::Edit::Input(id, value));
+        }
         let node = self.nodes.get(&id).ok_or(ModelError::UnknownNode(id))?;
         if !matches!(node.definition, Definition::Input(_)) {
             return Err(ModelError::NotInput(id));
@@ -533,6 +613,10 @@ impl WorkingModel {
         id: NodeId,
         source: impl Into<String>,
     ) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return self.integrated_edit(structural::Edit::Formula(id, source.into()));
+        }
         if !self.nodes.contains_key(&id) {
             return Err(ModelError::UnknownNode(id));
         }
@@ -548,6 +632,10 @@ impl WorkingModel {
         self.nodes.get_mut(&id).unwrap().definition = Definition::Computed { source, binding };
     }
     pub fn rename(&mut self, id: NodeId, name: impl Into<String>) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         let old = self
             .nodes
             .get(&id)
@@ -566,6 +654,10 @@ impl WorkingModel {
         Ok(())
     }
     pub fn remove(&mut self, id: NodeId) -> Result<(), ModelError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+        }
         if !self.nodes.contains_key(&id) {
             return Err(ModelError::UnknownNode(id));
         }
@@ -578,6 +670,12 @@ impl WorkingModel {
     /// edits cannot overlap capture. After return, the working model is free
     /// to change while the owned snapshot is used elsewhere.
     pub fn snapshot(&self) -> Result<ModelSnapshot, SnapshotError> {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return Err(SnapshotError::Backend(
+                "full inspection snapshot not integrated; use capture_calculation",
+            ));
+        }
         #[cfg(feature = "scaling-experiment")]
         let _phase = crate::experiment_profile::scope(6);
         let mut nodes = BTreeMap::new();

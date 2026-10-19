@@ -5,5 +5,5 @@ pub mod interface;
 pub mod model;
 
 /// Benchmark-only instrumentation; no default production path changes.
-#[cfg(feature = "scaling-experiment")]
+#[cfg(any(feature = "scaling-experiment", feature = "core-integration"))]
 pub mod experiment_profile;

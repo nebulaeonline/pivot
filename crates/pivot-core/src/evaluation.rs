@@ -189,6 +189,10 @@ pub struct CalculationResult {
     input_overrides: BTreeMap<NodeId, PivotDecimal>,
 }
 impl CalculationResult {
+    /// All selected outputs and their evaluated dependencies.
+    pub fn values(&self) -> &BTreeMap<NodeId, Result<PivotDecimal, EvaluationError>> {
+        &self.values
+    }
     pub fn revision(&self) -> Revision {
         self.snapshot.revision()
     }

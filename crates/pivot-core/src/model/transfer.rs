@@ -106,6 +106,10 @@ pub fn set_resolved_expression(
     source: &str,
     tokens: &[ResolvedToken],
 ) -> Result<(), ModelError> {
+    #[cfg(feature = "core-integration")]
+    if model.integrated.is_some() {
+        return Err(ModelError::Backend("transfer not integrated in Stage 1"));
+    }
     if !model.nodes.contains_key(&id) {
         return Err(ModelError::UnknownNode(id));
     }
@@ -148,6 +152,10 @@ pub fn set_invalid_expression(
     source: &str,
     offset: usize,
 ) -> Result<(), ModelError> {
+    #[cfg(feature = "core-integration")]
+    if model.integrated.is_some() {
+        return Err(ModelError::Backend("transfer not integrated in Stage 1"));
+    }
     if !model.nodes.contains_key(&id) {
         return Err(ModelError::UnknownNode(id));
     }
@@ -174,6 +182,10 @@ pub fn export(
     nodes: &[NodeId],
     ports: &[PortId],
 ) -> Result<Image, ModelError> {
+    #[cfg(feature = "core-integration")]
+    if model.integrated.is_some() {
+        return Err(ModelError::Backend("transfer not integrated in Stage 1"));
+    }
     if nodes.len() > 8192 || ports.len() > 8192 || model.nodes.len() > 4096 {
         return Err(invalid());
     }
@@ -293,6 +305,8 @@ pub fn export_snapshot(
         }
     }
     let mut working = WorkingModel {
+        #[cfg(feature = "core-integration")]
+        integrated: None,
         name: data.name.clone(),
         revision: data.revision,
         nodes: BTreeMap::new(),

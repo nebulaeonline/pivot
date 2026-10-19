@@ -2,6 +2,18 @@
 
 Date: 2026-10-19
 
+Latest milestone: **Controlled Production Core Integration — Stage 1** is
+implemented behind `pivot-core/core-integration`, following acceptance of the
+persistent compatibility foundation. The selected standalone edits now use
+persistent state through WorkingModel, with exact core revisions, immutable
+calculation captures/results, full invalid-draft diagnostics, shared allocation
+admission and explicit worker ownership. No shadow reference model is maintained.
+The default backend, capacity limits, file codecs and host publication paths stay
+unchanged. Full inspection snapshots, port/retirement/transfer edits and workbook
+transactions are not integrated. Stop for Stage 1 review; see the
+[handoff](handoffs/2026-10-19-controlled-core-integration.md) and
+[compatibility/ownership matrix](architecture/controlled-core-integration.md).
+
 The Rust workspace and .NET 10/Avalonia solution are scaffolded. Architecture
 records live in `docs/adr/` using `ADR-NNNN` identifiers. ADR-0001 records the
 previously agreed graph-first design.
@@ -236,10 +248,12 @@ and candidate work, and provides bounded off-thread reclamation.
 See the [compatibility design](architecture/persistent-core-compatibility-foundation.md)
 and [foundation handoff](handoffs/2026-10-19-compatibility-foundation.md) for matched
 Release results, 32-generation retention, 1M repeats and remaining blockers.
-The recommendation is further focused restructuring before production integration:
-diagnostic/revision adapters, aggregate memory/copy-out policy, full reclamation
-ownership, wide-port/invalid-draft limits and broader workbook projection coverage.
-C# work stays held pending compatibility-foundation review. Relative/absolute
+That foundation recommended focused integration work on revisions/diagnostics,
+allocation ownership, ports and workbook coverage. The parent accepted it and
+requested Controlled Production Core Integration Stage 1, now implemented through
+WorkingModel as described at the top of this status. Review its explicit API and
+scheduling gaps before another migration slice. C# work stays held pending Stage 1
+review. Relative/absolute
 copy/fill, cross-sheet references, row/column structural edits, ranges/SUM, typed
 blank/text engine values, incremental calculation, workbook files, C# IPC and
 Avalonia rendering remain unimplemented.
@@ -251,4 +265,4 @@ Do not expand the experimental file broker or resume optional hosted persistence
 automatically. Production container selection remains a later workbook-driven
 decision. Native AOT, native macOS corroboration of this new experiment and
 production-scale validation remain backlog; the earlier Slice B Mac pass is retained
-as historical evidence. Stop after the compatibility-foundation review, without new features.
+as historical evidence. Stop after the controlled-integration Stage 1 review, without new features.

@@ -1,5 +1,9 @@
 # Persistent core compatibility foundation
 
+The parent accepted this milestone. Its successor is
+[Controlled Production Core Integration — Stage 1](controlled-core-integration.md).
+The assessment below describes the foundation before that bounded integration.
+
 Status: opt-in compatibility foundation, not a replacement WorkingModel.
 Recommendation: **Further focused restructuring required** before production
 integration. The persistent graph direction remains supported.

@@ -151,3 +151,6 @@ Supporting proposals:
 Latest implementation review packet: [Worksheet Slice A](../handoffs/2026-10-19-workbook-projection-slice-a.md).
 
 Latest formula implementation packet: [Slice B](../handoffs/2026-10-19-spreadsheet-formulas-slice-b.md).
+
+Latest core checkpoint: [Controlled Production Core Integration — Stage 1](../architecture/controlled-core-integration.md).
+This bounded standalone integration does not authorize a workbook backend switch.

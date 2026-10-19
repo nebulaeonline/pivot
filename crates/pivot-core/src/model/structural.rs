@@ -363,6 +363,10 @@ impl Graph {
         limits: Limits,
         memory: Memory,
     ) -> Result<Self, Error> {
+        #[cfg(feature = "core-integration")]
+        if model.integrated.is_some() {
+            return Err(ModelError::Backend("model already owns persistent state").into());
+        }
         let payload = model
             .nodes
             .values()
@@ -468,6 +472,37 @@ impl Graph {
         }
         graph.check_quota()?;
         Ok(graph)
+    }
+    #[cfg(feature = "core-integration")]
+    pub(super) fn contains_node(&self, id: NodeId) -> bool {
+        self.record(id).is_some_and(|r| r.live)
+    }
+    #[cfg(feature = "core-integration")]
+    pub(super) fn next_identity(&self) -> NodeId {
+        NodeId {
+            model: self.version.model,
+            node: self.next,
+        }
+    }
+    #[cfg(feature = "core-integration")]
+    pub(super) fn draft_nodes(&self) -> impl Iterator<Item = (NodeId, &str, DraftDefinition<'_>)> {
+        self.records
+            .iter()
+            .filter(|(_, r)| r.live)
+            .map(|(slot, r)| {
+                let id = NodeId {
+                    model: self.version.model,
+                    node: slot,
+                };
+                let definition = match &*r.definition {
+                    Compiled::Input => DraftDefinition::Input(**self.values.get(slot).unwrap()),
+                    Compiled::Formula { source, binding } => DraftDefinition::Computed {
+                        source,
+                        binding: binding.as_ref().map(|(_, d)| d.as_slice()),
+                    },
+                };
+                (id, r.name.as_str(), definition)
+            })
     }
     pub fn memory(&self) -> Memory {
         self.memory.clone()
@@ -860,25 +895,42 @@ impl Capture {
         self.0.version
     }
     pub fn evaluate(&self, outputs: &[NodeId]) -> Result<Calculation, ComputeError> {
+        self.evaluate_retiring(outputs, drop)
+    }
+    pub(super) fn evaluate_retiring(
+        &self,
+        outputs: &[NodeId],
+        retire: impl FnOnce(CalculationScratch),
+    ) -> Result<Calculation, ComputeError> {
         let _request = self.0.memory.reserve(
             outputs
                 .len()
                 .saturating_mul(std::mem::size_of::<NodeId>())
                 .saturating_add(128),
         )?;
-        self.invoke(&crate::evaluation::InvocationRequest {
-            inputs: Vec::new(),
-            outputs: outputs.to_vec(),
-        })
+        self.invoke_retiring(
+            &crate::evaluation::InvocationRequest {
+                inputs: Vec::new(),
+                outputs: outputs.to_vec(),
+            },
+            retire,
+        )
     }
     pub fn invoke(
         &self,
         request: &crate::evaluation::InvocationRequest,
     ) -> Result<Calculation, ComputeError> {
+        self.invoke_retiring(request, drop)
+    }
+    fn invoke_retiring(
+        &self,
+        request: &crate::evaluation::InvocationRequest,
+        retire: impl FnOnce(CalculationScratch),
+    ) -> Result<Calculation, ComputeError> {
         let _phase = crate::experiment_profile::scope(8);
         let mut work = Work::new(self.0.memory.clone());
         work.add(4096 + request.inputs.len() * 512 + request.outputs.len() * 128)?;
-        let inputs = crate::evaluation::prepare_inputs(request, |id| {
+        let mut inputs = crate::evaluation::prepare_inputs(request, |id| {
             self.0
                 .record(id)
                 .filter(|r| r.live)
@@ -886,50 +938,76 @@ impl Capture {
         })?;
         let mut required = BTreeSet::new();
         let mut order = Vec::new();
-        let mut pending: Vec<_> = request.outputs.iter().map(|&n| (n, false)).collect();
-        let mut visits = self.0.limits.validation_visits;
-        while let Some((id, exit)) = pending.pop() {
-            visits = visits.checked_sub(1).ok_or(ComputeError::WorkBudget)?;
-            let record = self.0.live_record(id).map_err(|_| {
-                crate::evaluation::InvocationError::Evaluation(EvaluationError::UnknownNode(id))
-            })?;
-            if exit {
-                order.push(id);
-            } else {
-                work.add(512 + record.definition.deps().len() * 64)?;
-                if required.insert(id) {
-                    pending.push((id, true));
-                    pending.extend(record.definition.deps().iter().map(|&d| (d, false)));
+        // Match the accepted selected-output normalization and unknown-output
+        // precedence even when callers submit duplicates in arbitrary order.
+        let outputs: BTreeSet<_> = request.outputs.iter().copied().collect();
+        let mut pending: Vec<_> = outputs.iter().map(|&n| (n, false)).collect();
+        let mut values = BTreeMap::new();
+        let outcome = (|| -> Result<Calculation, ComputeError> {
+            let mut visits = self.0.limits.validation_visits;
+            while let Some((id, exit)) = pending.pop() {
+                visits = visits.checked_sub(1).ok_or(ComputeError::WorkBudget)?;
+                let record = self.0.live_record(id).map_err(|_| {
+                    crate::evaluation::InvocationError::Evaluation(EvaluationError::UnknownNode(id))
+                })?;
+                if exit {
+                    order.push(id);
+                } else {
+                    work.add(512 + record.definition.deps().len() * 64)?;
+                    if required.insert(id) {
+                        pending.push((id, true));
+                        pending.extend(record.definition.deps().iter().map(|&d| (d, false)));
+                    }
                 }
             }
-        }
-        let mut values = BTreeMap::new();
-        for id in order {
-            let record = self.0.live_record(id).unwrap();
-            let value = match &*record.definition {
-                Compiled::Input => Ok(inputs
-                    .get(&id)
-                    .copied()
-                    .unwrap_or(**self.0.values.get(id.node).unwrap())),
-                Compiled::Formula {
-                    binding: Ok((tokens, _)),
-                    ..
-                } => {
-                    let _stack = self.0.memory.reserve(tokens.len().saturating_mul(64))?;
-                    evaluate_expression(id, tokens, &values)
-                }
-                _ => unreachable!("capture rejects invalid drafts"),
-            };
-            values.insert(id, value);
-        }
-        Ok(Calculation {
-            version: self.version(),
-            values,
-            input_overrides: inputs,
-            _capture: self.clone(),
+            for &id in &order {
+                let record = self.0.live_record(id).unwrap();
+                let value = match &*record.definition {
+                    Compiled::Input => Ok(inputs
+                        .get(&id)
+                        .copied()
+                        .unwrap_or(**self.0.values.get(id.node).unwrap())),
+                    Compiled::Formula {
+                        binding: Ok((tokens, _)),
+                        ..
+                    } => {
+                        let _stack = self.0.memory.reserve(tokens.len().saturating_mul(64))?;
+                        evaluate_expression(id, tokens, &values)
+                    }
+                    _ => unreachable!("capture rejects invalid drafts"),
+                };
+                values.insert(id, value);
+            }
+            Ok(Calculation {
+                version: self.version(),
+                values: std::mem::take(&mut values),
+                input_overrides: std::mem::take(&mut inputs),
+                _capture: self.clone(),
+                _work: std::mem::replace(&mut work, Work::new(self.0.memory.clone())),
+            })
+        })();
+        // Even a work-budget failure can own a large partial closure/result.
+        // Keep its reservations with those buffers until actual reclamation.
+        retire(CalculationScratch {
             _work: work,
-        })
+            _inputs: inputs,
+            _outputs: outputs,
+            _required: required,
+            _order: order,
+            _pending: pending,
+            _values: values,
+        });
+        outcome
     }
+}
+pub(super) struct CalculationScratch {
+    _inputs: BTreeMap<NodeId, PivotDecimal>,
+    _outputs: BTreeSet<NodeId>,
+    _required: BTreeSet<NodeId>,
+    _order: Vec<NodeId>,
+    _pending: Vec<(NodeId, bool)>,
+    _values: BTreeMap<NodeId, Result<PivotDecimal, EvaluationError>>,
+    _work: Work,
 }
 pub struct Calculation {
     version: Version,

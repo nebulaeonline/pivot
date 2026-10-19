@@ -85,6 +85,8 @@ impl Graph {
     }
     fn working(&self, nodes: BTreeMap<NodeId, WorkingNode>) -> Result<WorkingModel, Error> {
         Ok(WorkingModel {
+            #[cfg(feature = "core-integration")]
+            integrated: None,
             name: self.model_name.to_string(),
             revision: Revision {
                 model: self.version.model,

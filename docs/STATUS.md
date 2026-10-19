@@ -133,7 +133,7 @@ coordinator, wire fields or cross-restart replay is implemented. See
 `docs/architecture/portable-storage-foundation.md` and
 `docs/handoffs/2026-10-18-portable-storage-foundation.md`.
 
-## Current priority: portable documents
+## Accepted document foundation
 
 The parent review accepts the ADR-0008 serialization/restoration foundation and
 preserves ADR-0006/0007/0008 history. Further hosted persistence is deferred:
@@ -173,13 +173,29 @@ or UI is implemented. Process termination checks do not prove power-loss durabil
 Native macOS verification remains pending. The current hosted storage-v1 record is
 not the native document format.
 
-Separate backlog items remain:
+## Current priority: workbook projection
 
-- Review Slice B; prioritize workbook projection and C# application integration next.
-- Evaluate production containers and broad scale benchmarks after that file proof.
-- Workbook projection and spreadsheet graph/range APIs, including sparse storage.
-- Bulk viewport/range transport and incremental calculation.
-- Executable C# IPC client and Native AOT verification.
-- Native macOS validation of recent authoring and storage-foundation changes.
-- Avalonia virtualized spreadsheet control.
-- Optional ADR-0008 durable hosted persistence, explicitly deferred.
+The parent review accepts Slice B as an experimental milestone. Preserve its code
+and tests, and stop expanding the file subsystem. [Proposed ADR-0010](adr/0010-workbook-projection-and-spreadsheet-semantics.md)
+and the [review handoff](handoffs/2026-10-19-workbook-projection-design.md) define
+workbook ownership, sparse storage, stable projection/reference behavior, ranges,
+atomic edits, calculation implications and bounded viewport access.
+
+This pass is design-only. No workbook runtime, new grammar/evaluator, Protobuf,
+C# integration, incremental recalculation, GUI or production container is implemented.
+10K/100K/1M populated-cell workloads are proposed targets, not supported capacity.
+
+The next proposed sequence, subject to review, is:
+
+- Review ADR-0010, then authorize a small in-memory sparse worksheet/graph proof.
+- Executable C# application/client boundary and later bulk viewport access.
+- Reviewed reference/range/core evolution, incremental calculation and scale testing.
+- Avalonia virtualized grid, with computation independent of rendering.
+- Production container selection later, based on real workbook requirements.
+
+Keep these production issues separate from further file-broker work: Windows
+ACL/alternate-stream preservation, final-check races with uncooperative writers,
+native macOS file validation, power-loss guarantees, and full-copy/small graph
+limits. They are not Slice B blockers or authorization to extend that subsystem.
+Native AOT and recent native macOS verification remain backlog items. Optional
+ADR-0008 hosted database persistence stays explicitly deferred.

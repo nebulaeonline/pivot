@@ -121,3 +121,9 @@ Supporting proposals:
 - [Review handoff](../handoffs/2026-10-18-portable-document-design.md)
 
 Latest implementation review packet: [Document Foundation Slice B](../handoffs/2026-10-19-document-foundation-slice-b.md).
+
+Slice B implementation review: Accepted as experimental, with the documented
+production metadata/concurrency/platform/scale follow-ups retained. Further broker
+expansion is deferred. The next design-only proposal is
+[ADR-0010](0010-workbook-projection-and-spreadsheet-semantics.md); no production
+format or hosted-storage priority is implied by Slice B acceptance.

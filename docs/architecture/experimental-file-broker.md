@@ -133,3 +133,13 @@ calculate/invoke, edit/save, reopen again, Save As, independent-copy edits and
 pre/post-install termination. It requires no background daemon or database. Full
 workspace CI also executes this harness. See the
 [Slice B handoff](../handoffs/2026-10-19-document-foundation-slice-b.md) for exact logs.
+
+## Review disposition and production follow-ups
+
+Slice B is accepted as an experimental proof. Preserve its implementation and
+regression tests; stop expanding the broker while workbook projection is designed.
+Windows ACL/alternate-stream preservation, the uncooperative-writer race, native
+macOS behavior, power-loss guarantees and current full-copy/small graph ceilings
+remain explicit production issues, not Slice B blockers. See
+[ADR-0010's review packet](../handoffs/2026-10-19-workbook-projection-design.md).
+No production container or hosted-persistence work is authorized by that direction.

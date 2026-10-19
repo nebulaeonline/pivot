@@ -1,7 +1,7 @@
-//! Bounded, single-sheet typed projection proof. No A1 parser, files, IPC or GUI.
+//! Bounded single-sheet projection with Rust scalar formula parsing and binding.
 use pivot_core::{
     evaluation::{EvaluationContext, EvaluationError},
-    expression::{BinaryOp, UnaryOp},
+    expression::{self, BinaryOp, Expr, ParseError, UnaryOp},
     model::{
         NodeId, Revision, SnapshotError, WorkingModel,
         transfer::{self, ResolvedToken},
@@ -119,8 +119,29 @@ pub enum Token {
     Unary(UnaryOp),
     Binary(BinaryOp),
 }
+/// Original text is provenance, not a rendering of current effective coordinates.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FormulaReference {
+    pub span: std::ops::Range<usize>,
+    pub submitted_position: Position,
+    pub target: CellRef,
+    pub node: GraphNodeId,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TextFormula {
+    pub original_source: String,
+    pub references: Vec<FormulaReference>,
+    pub diagnostic: Option<ParseError>,
+    /// Transaction base plus zero-based edit ordinal and staged graph revision
+    /// identify the exact sequential candidate on which this formula resolved.
+    pub transaction_base: Expected,
+    pub edit_ordinal: usize,
+    pub resolved_graph: Revision,
+    tokens: Vec<Token>,
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Content {
+    TextFormula(TextFormula),
     Blank,
     Decimal(DecimalInput),
     Formula { source: String, tokens: Vec<Token> },
@@ -135,6 +156,10 @@ pub struct CellView {
 
 #[derive(Clone, Debug)]
 pub enum Edit {
+    SetFormulaText {
+        position: Position,
+        source: String,
+    },
     SetDecimal {
         position: Position,
         value: DecimalInput,
@@ -228,6 +253,7 @@ struct SheetState {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Diagnostic {
+    Formula { cell: CellRef, error: ParseError },
     MissingReference { cell: CellRef, target: CellRef },
     Unorderable { cells: Vec<CellRef> },
     CoreInvalid,
@@ -241,6 +267,12 @@ pub struct Stats {
     pub source_bytes: usize,
     pub estimated_owned_bytes: usize,
 }
+
+type LoweredFormula = (
+    Vec<Token>,
+    Vec<(std::ops::Range<usize>, Position)>,
+    Option<ParseError>,
+);
 
 pub struct Workbook {
     session: Uuid,
@@ -349,14 +381,22 @@ impl Workbook {
     pub fn stats(&self) -> Stats {
         let mut tokens = 0usize;
         let mut source = 0usize;
+        let mut metadata = 0usize;
         for record in self.data.records.values() {
-            if let Some(Content::Formula {
-                source: s,
-                tokens: t,
-            }) = &record.content
-            {
-                tokens += t.len();
-                source += s.len();
+            match &record.content {
+                Some(Content::Formula {
+                    source: s,
+                    tokens: t,
+                }) => {
+                    tokens += t.len();
+                    source += s.len();
+                }
+                Some(Content::TextFormula(f)) => {
+                    tokens += f.tokens.len();
+                    source += f.original_source.len();
+                    metadata += f.references.len() * std::mem::size_of::<FormulaReference>();
+                }
+                _ => (),
             }
         }
         // Logical estimate, not allocator/RSS measurement. BTree node overhead is
@@ -370,7 +410,8 @@ impl Workbook {
             estimated_owned_bytes: self.data.records.len() * 256
                 + self.data.positions.len() * 64
                 + tokens * std::mem::size_of::<Token>()
-                + source,
+                + source
+                + metadata,
         }
     }
     fn budget(&self) -> Result<()> {
@@ -422,6 +463,15 @@ impl Workbook {
         }
         let mut work = 0usize;
         for edit in edits {
+            if let Edit::SetFormulaText { source, .. } = edit {
+                if source.len() > self.limits.source_bytes {
+                    return Err(Error::Limit);
+                }
+                work = work.checked_add(source.len()).ok_or(Error::Limit)?;
+                if work > self.limits.bytes {
+                    return Err(Error::Limit);
+                }
+            }
             if let Edit::SetFormula { source, tokens, .. } = edit {
                 if source.len() > self.limits.source_bytes
                     || tokens.len() > self.limits.formula_tokens
@@ -453,8 +503,12 @@ impl Workbook {
             core: self.core.stage(),
             limits: self.limits,
         };
-        for edit in edits {
-            candidate.edit(edit)?;
+        for (ordinal, edit) in edits.iter().enumerate() {
+            if let Edit::SetFormulaText { position, source } = edit {
+                candidate.edit_text(*position, source, expected, ordinal)?;
+            } else {
+                candidate.edit(edit)?;
+            }
             candidate.budget()?;
         }
         if candidate.data == self.data {
@@ -466,6 +520,7 @@ impl Workbook {
     }
     fn edit(&mut self, edit: &Edit) -> Result<()> {
         match edit {
+            Edit::SetFormulaText { .. } => unreachable!("text routed through resolver"),
             Edit::SetDecimal { position, value } => {
                 let id = self.ensure_anchor(*position)?;
                 let content = Content::Decimal(*value);
@@ -482,31 +537,7 @@ impl Workbook {
                 tokens,
             } => {
                 let id = self.ensure_anchor(*position)?;
-                let mut bound = Vec::with_capacity(tokens.len());
-                let mut normalized = Vec::with_capacity(tokens.len());
-                for token in tokens {
-                    let normalized_token = match token {
-                        Token::At(position) => {
-                            let target = self.ensure_anchor(*position)?;
-                            Token::Cell(self.reference(target))
-                        }
-                        Token::Cell(reference) => {
-                            self.target(*reference)?;
-                            Token::Cell(*reference)
-                        }
-                        other => other.clone(),
-                    };
-                    bound.push(match &normalized_token {
-                        Token::Decimal(v) => ResolvedToken::Decimal(v.value()),
-                        Token::Cell(reference) => {
-                            ResolvedToken::Node(self.data.bindings[&reference.cell].runtime)
-                        }
-                        Token::Unary(op) => ResolvedToken::Unary(*op),
-                        Token::Binary(op) => ResolvedToken::Binary(*op),
-                        Token::At(_) => unreachable!("normalized position"),
-                    });
-                    normalized.push(normalized_token);
-                }
+                let (bound, normalized) = self.resolve_tokens(tokens)?;
                 let content = Content::Formula {
                     source: source.clone(),
                     tokens: normalized,
@@ -570,11 +601,169 @@ impl Workbook {
         }
         Ok(())
     }
+    fn resolve_tokens(&mut self, tokens: &[Token]) -> Result<(Vec<ResolvedToken>, Vec<Token>)> {
+        let mut bound = Vec::with_capacity(tokens.len());
+        let mut normalized = Vec::with_capacity(tokens.len());
+        for token in tokens {
+            let normalized_token = match token {
+                Token::At(position) => {
+                    let target = self.ensure_anchor(*position)?;
+                    Token::Cell(self.reference(target))
+                }
+                Token::Cell(reference) => {
+                    self.target(*reference)?;
+                    Token::Cell(*reference)
+                }
+                other => other.clone(),
+            };
+            bound.push(match &normalized_token {
+                Token::Decimal(v) => ResolvedToken::Decimal(v.value()),
+                Token::Cell(reference) => {
+                    ResolvedToken::Node(self.data.bindings[&reference.cell].runtime)
+                }
+                Token::Unary(op) => ResolvedToken::Unary(*op),
+                Token::Binary(op) => ResolvedToken::Binary(*op),
+                Token::At(_) => unreachable!("normalized position"),
+            });
+            normalized.push(normalized_token);
+        }
+        Ok((bound, normalized))
+    }
+    fn lower_text(&self, parsed: &std::result::Result<Expr, ParseError>) -> LoweredFormula {
+        let mut references = vec![];
+        let mut tokens = vec![];
+        // Validate all coordinate syntax/bounds before materializing any targets.
+        let mut diagnostic = parsed.as_ref().err().cloned();
+        if let Ok(expr) = &parsed {
+            let mut stack = vec![(expr, false)];
+            while let Some((expr, visited)) = stack.pop() {
+                match expr {
+                    Expr::Decimal(v) => tokens.push(Token::Decimal(DecimalInput::from_decimal(*v))),
+                    Expr::CellReference { row, column, span } => {
+                        let pos = Position::new(*row, *column);
+                        if self.axes_at(pos).is_err() {
+                            diagnostic = Some(ParseError {
+                                offset: span.start,
+                                message: "cell reference outside worksheet",
+                            });
+                            break;
+                        }
+                        tokens.push(Token::At(pos));
+                        // Identity is filled only after the whole expression validates.
+                        references.push((span.clone(), pos));
+                    }
+                    Expr::Unary { op, operand } => {
+                        if visited {
+                            tokens.push(Token::Unary(*op));
+                        } else {
+                            stack.push((expr, true));
+                            stack.push((operand, false));
+                        }
+                    }
+                    Expr::Binary { op, left, right } => {
+                        if visited {
+                            tokens.push(Token::Binary(*op));
+                        } else {
+                            stack.push((expr, true));
+                            stack.push((right, false));
+                            stack.push((left, false));
+                        }
+                    }
+                    Expr::Name(_) => unreachable!("spreadsheet parser emits typed references"),
+                }
+            }
+        }
+        (tokens, references, diagnostic)
+    }
+    fn edit_text(
+        &mut self,
+        position: Position,
+        source: &str,
+        base: Expected,
+        ordinal: usize,
+    ) -> Result<()> {
+        self.axes_at(position)?;
+        let parsed = expression::parse_spreadsheet(source);
+        let (mut tokens, references, diagnostic) = self.lower_text(&parsed);
+        if tokens.len() > self.limits.formula_tokens {
+            return Err(Error::Limit);
+        }
+        let id = self.ensure_anchor(position)?;
+        let mut bound_references = vec![];
+        let resolved_graph;
+        if let Some(error) = &diagnostic {
+            tokens.clear();
+            resolved_graph = self.core.revision();
+            transfer::set_invalid_expression(
+                &mut self.core,
+                self.data.bindings[&id].runtime,
+                source,
+                error.offset,
+            )
+            .map_err(graph_error)?;
+        } else {
+            let (bound, normalized) = self.resolve_tokens(&tokens)?;
+            tokens = normalized;
+            resolved_graph = self.core.revision();
+            transfer::set_resolved_expression(
+                &mut self.core,
+                self.data.bindings[&id].runtime,
+                source,
+                &bound,
+            )
+            .map_err(graph_error)?;
+            for (span, pos) in references {
+                let target = self.reference(self.data.positions[&pos]);
+                bound_references.push(FormulaReference {
+                    span,
+                    submitted_position: pos,
+                    target,
+                    node: self.node_for(target)?,
+                });
+            }
+        }
+        self.data.records.get_mut(&id).unwrap().content = Some(Content::TextFormula(TextFormula {
+            original_source: source.into(),
+            references: bound_references,
+            diagnostic,
+            transaction_base: base,
+            edit_ordinal: ordinal,
+            resolved_graph,
+            tokens,
+        }));
+        Ok(())
+    }
     pub fn validate(&self, expected: Expected) -> Result<Vec<Diagnostic>> {
         self.check(expected)?;
         let mut diagnostics = vec![];
         for (&id, record) in &self.data.records {
-            if let Some(Content::Formula { tokens, .. }) = &record.content {
+            if let Some(Content::TextFormula(f)) = &record.content
+                && let Some(error) = &f.diagnostic
+            {
+                diagnostics.push(Diagnostic::Formula {
+                    cell: self.reference(id),
+                    error: error.clone(),
+                });
+            }
+            if let Some(Content::TextFormula(f)) = &record.content {
+                for reference in &f.references {
+                    if self.data.records[&reference.target.cell].position.is_none() {
+                        diagnostics.push(Diagnostic::Formula {
+                            cell: self.reference(id),
+                            error: ParseError {
+                                offset: reference.span.start,
+                                message: "retired cell reference",
+                            },
+                        });
+                    }
+                }
+            }
+            let tokens = match &record.content {
+                Some(Content::Formula { tokens, .. }) => Some(tokens),
+                Some(Content::TextFormula(f)) => Some(&f.tokens),
+                _ => None,
+            };
+            if let Some(tokens) = tokens {
                 let mut missing = BTreeSet::new();
                 for token in tokens {
                     if let Token::Cell(target) = token
@@ -611,7 +800,8 @@ impl Workbook {
                         .collect(),
                 })
             }
-            Err(SnapshotError::MissingReference { .. }) if !diagnostics.is_empty() => (),
+            Err(SnapshotError::MissingReference { .. } | SnapshotError::Parse { .. })
+                if !diagnostics.is_empty() => {}
             Err(_) => diagnostics.push(Diagnostic::CoreInvalid),
         }
         Ok(diagnostics)
@@ -750,5 +940,78 @@ impl CalculationCapture {
             generation: Uuid::new_v4(),
             values,
         })
+    }
+}
+
+#[cfg(test)]
+mod formula_costs {
+    use super::*;
+    use std::{hint::black_box, time::Instant};
+    #[test]
+    fn report_text_formula_costs() {
+        println!(
+            "cells,parse_avg_ns,resolve_avg_ns,formula_edit_us,input_edit_us,capture_us,evaluate_us"
+        );
+        for count in [16u32, 128, 512] {
+            let mut w = Workbook::new("Costs", Limits::default()).unwrap();
+            let value = DecimalInput::from_parts(1, 0, 0, false, 0).unwrap();
+            let edits: Vec<_> = (1..=count)
+                .map(|column| Edit::SetDecimal {
+                    position: Position::new(1, column),
+                    value,
+                })
+                .collect();
+            for batch in edits.chunks(256) {
+                w.apply(w.expected(), batch).unwrap();
+            }
+            let source = "=A1+B1*2";
+            let start = Instant::now();
+            for _ in 0..500 {
+                black_box(expression::parse_spreadsheet(black_box(source)).unwrap());
+            }
+            let parse = start.elapsed().as_nanos() / 500;
+            let parsed = expression::parse_spreadsheet(source);
+            let start = Instant::now();
+            for _ in 0..500 {
+                let (tokens, spans, error) = w.lower_text(black_box(&parsed));
+                assert!(error.is_none());
+                black_box(spans);
+                black_box(w.resolve_tokens(&tokens).unwrap());
+            }
+            let resolve = start.elapsed().as_nanos() / 500;
+            let output = Position::new(2, 1);
+            let start = Instant::now();
+            w.apply(
+                w.expected(),
+                &[Edit::SetFormulaText {
+                    position: output,
+                    source: source.into(),
+                }],
+            )
+            .unwrap();
+            let formula = start.elapsed().as_micros();
+            let start = Instant::now();
+            w.apply(
+                w.expected(),
+                &[Edit::SetDecimal {
+                    position: Position::new(1, 1),
+                    value: DecimalInput::from_parts(2, 0, 0, false, 0).unwrap(),
+                }],
+            )
+            .unwrap();
+            let input = start.elapsed().as_micros();
+            let reference = w.cell_at(output).unwrap().unwrap().reference;
+            let start = Instant::now();
+            let captured = w.capture(w.expected()).unwrap();
+            let capture = start.elapsed().as_micros();
+            let start = Instant::now();
+            let result = captured.evaluate(&[reference]).unwrap();
+            let evaluate = start.elapsed().as_micros();
+            assert_eq!(result.values[0].1.clone().unwrap(), "4".parse().unwrap());
+            println!(
+                "{},{parse},{resolve},{formula},{input},{capture},{evaluate}",
+                count + 1
+            );
+        }
     }
 }

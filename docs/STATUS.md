@@ -81,7 +81,7 @@ Transactional editing details are in `docs/architecture/working-model-editing.md
 Calculation/publication details are in
 `docs/architecture/working-model-calculation-publication.md`. Persistence, identity
 compaction and richer edit diagnostics remain follow-ups; memory-only commits do
-not survive service shutdown. Latest REPL macOS validation and Native AOT remain
+not survive service shutdown. The latest native macOS CI now covers the REPL; Native AOT remains
 on the verification backlog.
 
 ADR-0007 is Accepted. Production authoring schemas and shared types, Rust/C# codecs,
@@ -99,7 +99,7 @@ blocking dispatch with no service lock across transport writes. Five new IPC
 tests cover daemon authoring, legacy compatibility, lost responses, concurrent
 edits, denial/revocation, cancellation cleanup, quotas and malicious traffic.
 See `docs/architecture/daemon-authoring.md` and the Stage B handoff for current
-Windows/WSL validation; macOS verification of this slice remains pending.
+Windows/WSL validation; the latest macOS CI also passes these retained tests.
 The Stage B Rust suite had 130 tests, including 23 adapter/router tests and five
 daemon IPC integration tests. Full Windows and WSL CI reports are linked from
 `docs/handoffs/2026-10-18-daemon-authoring.md`.
@@ -152,7 +152,7 @@ See [implementation details](architecture/document-foundation.md) and the
 
 The Slice A suite had 167 Rust tests, including 13 new document integration tests and
 one new hosted resource-budget compatibility test. Full Windows CI and WSL Linux
-Rust/lint/IPC checks pass. Native macOS validation of recent work remains pending.
+Rust/lint/IPC checks passed at submission; the latest macOS CI also covers these tests.
 Document Foundation Slice B now adds an explicitly experimental versioned envelope
 and a headless Rust file broker for New/Open/Save/Save As/Close. It stages complete
 private candidates, checks observed target fingerprints, installs without truncation,
@@ -166,11 +166,11 @@ See the [experimental envelope](architecture/experimental-document-format.md),
 
 Slice B passes full Windows CI (185 Rust tests) and available WSL Linux checks
 (186 tests, including Unix-only permissions/alias coverage) plus actual IPC/REPL.
-File tests cover NTFS and native Linux disk-backed storage; macOS remains pending.
+File tests now cover NTFS, native Linux disk-backed storage and local macOS APFS.
 
 No production .pivot format, SQLite/ZIP container, document RPC, C# broker, worksheets
 or UI is implemented. Process termination checks do not prove power-loss durability.
-Native macOS verification remains pending. The current hosted storage-v1 record is
+The latest native macOS suite passes the retained file tests. The hosted storage-v1 record is
 not the native document format.
 
 ## Current priority: workbook projection
@@ -192,19 +192,37 @@ it does not parse fabricated identifiers or introduce a second expression engine
 See [implementation and small costs](architecture/workbook-projection-foundation.md)
 and [Slice A handoff](handoffs/2026-10-19-workbook-projection-slice-a.md).
 Full Windows CI passes 200 Rust tests, .NET/parity and actual IPC/REPL regressions.
-Available WSL Linux checks pass 201 tests and real IPC. Native macOS verification
-of recent work remains pending. Tiny debug-profile measurements at 17/129/513 live
+Available WSL Linux checks passed 201 tests and real IPC at Slice A submission.
+The later Slice B macOS run covers these regressions too. Tiny debug-profile
+measurements at 17/129/513 live
 cells are not spreadsheet-scale claims; full-copy graph staging/snapshot rebuilds
 and logical small-model budgets remain explicit.
 
-Stop after this proof for review. The following milestone should review the shared
-Rust reference parser/binder extension and executable C# application boundary.
-General textual A1 parsing, relative/absolute copy/fill, cross-sheet references,
-row/column structural edits, ranges/SUM, typed blank/text engine values, incremental
-calculation, workbook files, C# IPC and Avalonia rendering are not implemented.
+Spreadsheet Scalar Formula Parsing and Binding Slice B is implemented. The existing
+Rust parser has an explicit spreadsheet mode for optional `=`, same-sheet A1
+references, decimal arithmetic, unary signs and parentheses. Text formula edits bind
+once to stable cell/node targets and preserve original source, reference spans and
+transaction/candidate provenance. Malformed/out-of-bounds drafts are diagnosable and
+non-executable; hard failures roll back the batch. Moves and coordinate reuse do
+not rebind formulas; explicit resubmission does.
 
-Keep production file ACL/alternate-stream policy, final-check writer races, native
-macOS validation and power-loss guarantees separate from this worksheet proof.
+See [grammar and implementation](architecture/spreadsheet-scalar-formulas.md) and
+[Slice B handoff](handoffs/2026-10-19-spreadsheet-formulas-slice-b.md) for current
+verification and costs. Full Windows CI passes 209 Rust tests plus .NET/parity/IPC;
+available WSL2 checks pass 210 Rust tests plus IPC. Native macOS ARM64 now passes
+full CI with 210 Rust tests, .NET Release, both parity suites and actual IPC/REPL.
+The current working tree matched all 215 source hashes from the Mac validation;
+builds and .NET outputs stayed on local APFS, with reports copied back to SMB.
+See the [macOS review](handoffs/2026-10-19-macos-validation.md).
+Stop after this slice for review. The following priority is
+a runnable C# application/session IPC client, subject to review. Relative/absolute
+copy/fill, cross-sheet references, row/column structural edits, ranges/SUM, typed
+blank/text engine values, incremental calculation, workbook files, C# IPC and
+Avalonia rendering remain unimplemented.
+
+Keep production file ACL/alternate-stream policy, final-check writer races and
+power-loss guarantees separate from this worksheet proof. GUI execution, Native AOT
+and actual cross-user denial remain unverified.
 Do not expand the experimental file broker or resume optional hosted persistence
 automatically. Production container selection remains a later workbook-driven
 decision; Native AOT and large-workload profiling remain verification backlog.

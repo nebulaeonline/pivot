@@ -139,6 +139,35 @@ pub fn set_resolved_expression(
     Ok(())
 }
 
+/// Internal rejected-formula seam. The workbook retains its richer diagnostic;
+/// the core stores a non-executable draft using an existing transfer error code.
+/// No invalid formula is represented as a numeric input.
+pub fn set_invalid_expression(
+    model: &mut WorkingModel,
+    id: NodeId,
+    source: &str,
+    offset: usize,
+) -> Result<(), ModelError> {
+    if !model.nodes.contains_key(&id) {
+        return Err(ModelError::UnknownNode(id));
+    }
+    if source.len() > 4096 || offset > source.len() || !source.is_char_boundary(offset) {
+        return Err(invalid());
+    }
+    model.advance()?;
+    model.nodes.get_mut(&id).unwrap().definition = Definition::Computed {
+        source: source.into(),
+        binding: Err(SnapshotError::Parse {
+            node: id,
+            error: ParseError {
+                offset,
+                message: "unexpected trailing input",
+            },
+        }),
+    };
+    Ok(())
+}
+
 /// Caller supplies complete allocated identity ledgers, including retired IDs.
 pub fn export(
     model: &WorkingModel,
@@ -443,6 +472,29 @@ pub fn import(image: Image) -> Result<Imported, ModelError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rejected_drafts_validate_before_mutation_and_retired_references_remain_bound() {
+        let mut m = WorkingModel::new("Seam").unwrap();
+        let a = m.add_input("A", PivotDecimal::ONE).unwrap();
+        let b = m.add_input("B", PivotDecimal::ZERO).unwrap();
+        let mut other = WorkingModel::new("Other").unwrap();
+        let foreign = other.add_input("X", PivotDecimal::ZERO).unwrap();
+        let revision = m.revision();
+        for (target, source, offset) in [(foreign, "=1", 0), (b, "=1", 3), (b, "=é", 2)] {
+            assert!(set_invalid_expression(&mut m, target, source, offset).is_err());
+            assert_eq!(m.revision(), revision);
+        }
+        m.remove(a).unwrap();
+        set_resolved_expression(&mut m, b, "=A1", &[ResolvedToken::Node(a)]).unwrap();
+        assert!(
+            matches!(m.snapshot(),Err(SnapshotError::MissingReference { target,.. }) if target==a)
+        );
+        let revision = m.revision();
+        assert!(set_invalid_expression(&mut m, a, "=1", 0).is_err());
+        assert_eq!(m.revision(), revision);
+        set_invalid_expression(&mut m, b, "=)", 1).unwrap();
+        assert!(matches!(m.snapshot(), Err(SnapshotError::Parse { .. })));
+    }
     #[test]
     fn trusted_projection_setter_validates_before_mutating_without_parsing() {
         let mut model = WorkingModel::new("Proof").unwrap();

@@ -79,7 +79,8 @@ a production document format, create a database or prove power-loss durability.
 The experimental file tests do exercise headless disk round trips, independent
 processes, pre/post-install failures and conservative uncertain-save recovery.
 Run `cargo test --locked -p pivot-storage` for the focused foundation checks.
-The workspace also tests pivot-workbook's bounded typed single-sheet proof. Run
+The workspace also tests pivot-workbook's bounded single-sheet proof and scalar
+text formula parser/binder. Run
 `cargo test --locked -p pivot-workbook` for its focused semantic checks and
 `cargo test --locked -p pivot-workbook --test costs -- --nocapture` for small
 unoptimized measurements. These are not scale benchmarks or workbook-file tests.
@@ -87,8 +88,16 @@ unoptimized measurements. These are not scale benchmarks or workbook-file tests.
 The full pipeline is verified on Windows with .NET 10.0.402 and Ubuntu WSL2 Linux
 with .NET 10.0.112, and macOS 27.0.1 ARM64 with .NET 10.0.402, using installed
 Rust nightly toolchains. Linux and macOS used isolated source/build outputs.
+For the current formula Slice B, Windows and native macOS full CI passed 209/210
+Rust tests respectively; WSL2 Rust/IPC checks passed 210. Linux .NET's full-pipeline
+evidence predates this slice. The [latest Mac review](handoffs/2026-10-19-macos-validation.md)
+links its CI and separate cost reports copied back to the shared artifacts directory.
 On macOS, use local APFS storage: the SMB-mounted source copy failed with a
 .NET file-sharing error; the local APFS copy passed all gates. See
 [platform validation](platform-validation.md) for reproducible commands.
 GUI execution and Native AOT publishing are not gates yet. There is no automatic
 trigger: run the command before handoff or wire it into future CI hosting.
+
+Formula costs: `cargo test --locked -p pivot-workbook --lib report_text_formula_costs -- --nocapture`
+separates parser and existing-anchor resolution costs from full formula/input edits,
+snapshot capture and evaluation. See the [Slice B note](architecture/spreadsheet-scalar-formulas.md).

@@ -706,6 +706,15 @@ fn bind(
     while let Some((expr, visited)) = stack.pop() {
         match expr {
             Expr::Decimal(value) => tokens.push(BoundToken::Decimal(*value)),
+            Expr::CellReference { span, .. } => {
+                return Err(SnapshotError::Parse {
+                    node: id,
+                    error: ParseError {
+                        offset: span.start,
+                        message: "unexpected trailing input",
+                    },
+                });
+            }
             Expr::Name(name) => {
                 let target = *names.get(name).ok_or_else(|| SnapshotError::UnknownName {
                     node: id,

@@ -1,5 +1,9 @@
 # Sparse Worksheet and Graph Projection — Slice A
 
+Historical Slice A boundary: [Slice B](spreadsheet-scalar-formulas.md) now adds
+text parsing, stable binding metadata and editable formula diagnostics. Descriptions
+of missing A1 parsing below apply to the original Slice A proof.
+
 Implemented bounded proof under accepted ADR-0010, 2026-10-19. Architecture is
 accepted; general spreadsheet compatibility semantics remain reserved for review.
 

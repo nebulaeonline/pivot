@@ -1,5 +1,5 @@
 //! Initial expression grammar: decimals, ASCII names, unary +/-, binary
-//! + - * /, and parentheses. No assignments, calls, or cell addressing.
+//! + - * /, and parentheses. An explicit spreadsheet mode adds scalar A1 references.
 use pivot_types::PivotDecimal;
 use std::fmt;
 
@@ -7,6 +7,11 @@ use std::fmt;
 pub enum Expr {
     Decimal(PivotDecimal),
     Name(String),
+    CellReference {
+        row: u32,
+        column: u32,
+        span: std::ops::Range<usize>,
+    },
     Unary {
         op: UnaryOp,
         operand: Box<Expr>,
@@ -46,13 +51,31 @@ impl std::error::Error for ParseError {}
 /// Parse a complete expression, bounded to 4096 bytes and 64 recursive levels.
 /// The byte limit additionally bounds AST size from flat operator chains.
 pub fn parse(source: &str) -> Result<Expr, ParseError> {
+    parse_mode(source, false)
+}
+
+/// Parse same-sheet scalar spreadsheet syntax; spans refer to the original text.
+pub fn parse_spreadsheet(source: &str) -> Result<Expr, ParseError> {
+    parse_mode(source, true)
+}
+fn parse_mode(source: &str, spreadsheet: bool) -> Result<Expr, ParseError> {
     if source.len() > 4096 {
         return Err(ParseError {
             offset: 4096,
             message: "expression too long",
         });
     }
-    let mut p = Parser { source, pos: 0 };
+    let mut p = Parser {
+        source,
+        pos: 0,
+        spreadsheet,
+    };
+    if spreadsheet {
+        p.space();
+        if p.peek() == Some(b'=') {
+            p.pos += 1;
+        }
+    }
     let result = p.expr(0, 0)?;
     p.space();
     if p.pos != source.len() {
@@ -63,6 +86,7 @@ pub fn parse(source: &str) -> Result<Expr, ParseError> {
 struct Parser<'a> {
     source: &'a str,
     pos: usize,
+    spreadsheet: bool,
 }
 impl Parser<'_> {
     fn error(&self, message: &'static str) -> ParseError {
@@ -134,7 +158,32 @@ impl Parser<'_> {
                 {
                     self.pos += 1;
                 }
-                Expr::Name(self.source[start..self.pos].to_owned())
+                if self.spreadsheet {
+                    let text = &self.source[start..self.pos];
+                    let split = text.bytes().take_while(u8::is_ascii_alphabetic).count();
+                    let invalid = || ParseError {
+                        offset: start,
+                        message: "invalid cell reference",
+                    };
+                    if split == 0 || split == text.len() || text.as_bytes()[split] == b'0' {
+                        return Err(invalid());
+                    }
+                    let mut column = 0u32;
+                    for b in text[..split].bytes() {
+                        column = column
+                            .checked_mul(26)
+                            .and_then(|n| n.checked_add((b.to_ascii_uppercase() - b'A' + 1) as u32))
+                            .ok_or_else(invalid)?;
+                    }
+                    let row = text[split..].parse::<u32>().map_err(|_| invalid())?;
+                    Expr::CellReference {
+                        row,
+                        column,
+                        span: start..self.pos,
+                    }
+                } else {
+                    Expr::Name(self.source[start..self.pos].to_owned())
+                }
             }
             _ => return Err(self.error("expected decimal, name, sign, or parenthesis")),
         };

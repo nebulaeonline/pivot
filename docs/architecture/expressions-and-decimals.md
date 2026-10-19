@@ -89,3 +89,10 @@ Parsing `Net / Revenue` does not evaluate it or check whether the names exist.
   precision-reduction policy. Explicit rounding default is owner-requested.
 - Extend values and expression syntax only with a specified use case.
 - Define source spans and configurable limits if later editing/diagnostics need them.
+
+## Spreadsheet scalar mode
+
+`parse_spreadsheet` adds optional leading `=` and typed same-sheet A1 references
+through the same parser. Standalone `parse` retains its existing name syntax. See
+[grammar and binding](spreadsheet-scalar-formulas.md) for exact scope, spans, draft
+diagnostics and stable workbook target resolution. Both modes use the same evaluator.

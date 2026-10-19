@@ -112,11 +112,12 @@ not claimed.
 
 ## Verification / reconsideration trigger
 
-Slice A now implements the approved small sparse worksheet/numeric graph proof.
-Stop after its handoff for review. The following milestone should review the shared
-Rust reference parser/binder extension and executable C# application boundary;
-no further implementation is automatic. Keep ranges, parser extensions and incremental
-evaluation behind their own reviewed steps within that direction.
+Slice A implements the approved small sparse worksheet/numeric graph proof.
+Slice B now adds the reviewed scalar same-sheet Rust formula parser/binder; see
+[its implementation note](../architecture/spreadsheet-scalar-formulas.md). Stop after
+its handoff for review. The following priority is the executable C# application
+boundary; no further implementation is automatic. Keep ranges, extended reference
+syntax and incremental evaluation behind their own reviewed steps.
 
 Require independent-reference semantic oracles, transaction/snapshot isolation tests,
 and measured 10K/100K/1M populated-cell workloads before claiming capacity. Revisit
@@ -136,3 +137,5 @@ Supporting proposals:
 - [Review handoff](../handoffs/2026-10-19-workbook-projection-design.md)
 
 Latest implementation review packet: [Worksheet Slice A](../handoffs/2026-10-19-workbook-projection-slice-a.md).
+
+Latest formula implementation packet: [Slice B](../handoffs/2026-10-19-spreadsheet-formulas-slice-b.md).

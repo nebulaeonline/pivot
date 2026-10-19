@@ -1,27 +1,31 @@
 # Spreadsheet formula, reference and range analysis
 
 Status: Semantic candidates under accepted ADR-0010 architecture, not compatibility
-contracts. General A1 grammar, copy/fill, ranges and aggregate functions remain unimplemented.
+contracts. Same-sheet scalar A1 parsing/binding is implemented in
+[Slice B](spreadsheet-scalar-formulas.md). Copy/fill, extended reference syntax,
+ranges and aggregate functions remain unimplemented.
 
 Review clarification: ADR-0010's structural architecture is Accepted. Reference
 transforms, range boundaries/movement, blank/text coercion, reduction order and
 shared writable aliases remain separately reviewable compatibility semantics.
-[Slice A](workbook-projection-foundation.md) implements only the bounded typed
-single-sheet proof; future mechanisms described here are not claimed implemented.
+[Slice A](workbook-projection-foundation.md) provides the bounded typed
+single-sheet proof. Slice B adds scalar formula text; the broader mechanisms below
+remain proposals unless explicitly covered by its implementation note.
 
 ## Shared Rust expression pipeline
 
-Introduce spreadsheet reference AST descriptors through an extension of the existing
+Slice B introduces spreadsheet reference AST descriptors through an extension of the existing
 Rust parsing/binding pipeline. Reuse operator precedence, decimal literal handling
 and the evaluator. A resolver translates reference descriptors to stable graph/cell
 targets. It must not rewrite A1 strings into artificial variable names and then
 reparse them, or evaluate formulas in C#.
 
 Standalone model parsing keeps its current identifier semantics. Spreadsheet mode
-would recognize A1 patterns, `$` markers, sheet qualifiers and range operators.
+recognizes scalar A1 patterns. `$` markers, sheet qualifiers and range operators
+remain future proposals.
 Names resembling valid A1 addresses are reserved in workbook expression scope to
 avoid ambiguity; they remain valid identifiers where the standalone model grammar
-already permits them. This is a proposed parsing-mode boundary, not a current API. Address column
+already permits them. `parse_spreadsheet` is the current scalar-only API. Address column
 letters normalize to ASCII uppercase. Sheet/name labels retain case-preserving,
 ordinal case-sensitive lookup for the initial proof, consistent with current named
 models; a broader case-insensitive compatibility policy needs explicit review.

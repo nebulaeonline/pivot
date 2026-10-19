@@ -119,7 +119,11 @@ its handoff for review. The parent review accepts Slice B and makes performance
 feasibility the critical path before C# integration. See the
 [bounded research assessment](../architecture/graph-workbook-scaling-feasibility.md):
 shared input/topology roots are an experiment, not an adopted production storage
-policy. Review the assessment and restructuring scope before further implementation.
+policy. The parent accepts assessment B; the bounded
+[structural mutation experiment](../architecture/structural-mutation-feasibility.md)
+now tests local formula edits and retained topology generations. Review its
+[handoff](../handoffs/2026-10-19-structural-mutation-feasibility.md) before production
+replacement or further feature implementation.
 Keep ranges and extended reference syntax behind their own reviewed steps.
 
 Require independent-reference semantic oracles, transaction/snapshot isolation tests,

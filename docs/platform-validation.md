@@ -1,5 +1,16 @@
 # Linux and macOS validation
 
+## Structural mutation research - 2026-10-19
+
+Windows full default CI passes 209 Rust tests plus .NET Release, decimal/protocol
+parity and real IPC/REPL. The opt-in workspace passes 222 tests and feature Clippy.
+Linux passes 210 default tests, 223 feature tests, feature Clippy and actual IPC/REPL.
+The [structural handoff](handoffs/2026-10-19-structural-mutation-feasibility.md)
+records matching Release comparisons, separate process memory, million-cell guards
+and Linux results. These experiments do not replace the older Mac report: native
+macOS corroboration of the paged prototype remains pending. Use local APFS for Mac
+source/build/.NET work and return artifacts to SMB.
+
 ## Scaling feasibility research — 2026-10-19
 
 Windows default full CI passes 209 Rust tests plus .NET/parity/IPC; opt-in feature

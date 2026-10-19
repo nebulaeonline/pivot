@@ -15,6 +15,9 @@ use std::{
 };
 
 static NEXT_MODEL: AtomicU64 = AtomicU64::new(1);
+/// Isolated paged structural-mutation research; never used by default models.
+#[cfg(feature = "scaling-experiment")]
+pub mod structural;
 /// Internal validated transfer boundary; not a persistent format or client API.
 #[doc(hidden)]
 pub mod transfer;

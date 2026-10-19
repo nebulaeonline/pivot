@@ -173,7 +173,7 @@ or UI is implemented. Process termination checks do not prove power-loss durabil
 The latest native macOS suite passes the retained file tests. The hosted storage-v1 record is
 not the native document format.
 
-## Current priority: workbook projection
+## Workbook projection and current performance gate
 
 The parent review accepts ADR-0010's structural architecture while reserving
 spreadsheet compatibility semantics. [ADR-0010](adr/0010-workbook-projection-and-spreadsheet-semantics.md)
@@ -221,7 +221,16 @@ now compares optimized baseline and shared-topology/input-overlay behavior at
 and [research handoff](handoffs/2026-10-19-scaling-feasibility.md). Its recommendation
 is B: viable with architectural restructuring, not production adoption of the
 prototype. Default behavior and small-model production limits remain unchanged.
-C# work is held until this assessment and restructuring scope are reviewed. Relative/absolute
+The parent accepted assessment B and authorized the bounded Structural Mutation
+Feasibility slice. A separate opt-in paged core and fixed-projection workbook
+adapter now test localized formula/dependency edits and coherent immutable captures.
+See the [representation comparison](architecture/structural-mutation-feasibility.md)
+and [structural handoff](handoffs/2026-10-19-structural-mutation-feasibility.md).
+Matched end-to-end timings include the baseline's deferred validation. Baseline
+and prototype memory workloads run in separate guarded processes. No production
+replacement is adopted; name-index copying, high-degree reverse sets, projection
+mutation coverage and physical retention admission remain integration work.
+C# work stays held pending structural review. Relative/absolute
 copy/fill, cross-sheet references, row/column structural edits, ranges/SUM, typed
 blank/text engine values, incremental calculation, workbook files, C# IPC and
 Avalonia rendering remain unimplemented.
@@ -233,4 +242,4 @@ Do not expand the experimental file broker or resume optional hosted persistence
 automatically. Production container selection remains a later workbook-driven
 decision. Native AOT, native macOS corroboration of this new experiment and
 production-scale validation remain backlog; the earlier Slice B Mac pass is retained
-as historical evidence. Stop after the feasibility review, without new features.
+as historical evidence. Stop after the structural feasibility review, without new features.

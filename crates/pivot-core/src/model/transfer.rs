@@ -66,7 +66,7 @@ pub enum ResolvedToken {
     Unary(UnaryOp),
     Binary(BinaryOp),
 }
-fn checked_dependencies(tokens: &[BoundToken]) -> Result<Vec<NodeId>, ModelError> {
+pub(super) fn checked_dependencies(tokens: &[BoundToken]) -> Result<Vec<NodeId>, ModelError> {
     if tokens.len() > 1_048_576 {
         return Err(invalid());
     }

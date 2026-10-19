@@ -19,3 +19,11 @@ required-features = ["scaling-experiment"]
 [[example]]
 name = "scaling-random"
 required-features = ["scaling-experiment"]
+
+[[example]]
+name = "structural"
+required-features = ["scaling-experiment"]
+
+[[example]]
+name = "structural-inputs"
+required-features = ["scaling-experiment"]

@@ -189,3 +189,10 @@ incremental structural indexes; retain this baseline, independent oracles and me
 controls. Formula edits and structural snapshot retention still require credible gates.
 Do not adopt this tree literally or raise production caps as a substitute for design.
 No ranges, aggregation, serialization, hosted persistence, RPC, C# or UI was added.
+
+## Subsequent review
+
+The parent accepted assessment B and authorized Structural Mutation Feasibility.
+See the [successor handoff](2026-10-19-structural-mutation-feasibility.md) for the
+separate paged prototype and normalized complete formula-edit comparison. The
+historic treap results and baseline-retention million-cell guard above are preserved.

@@ -109,11 +109,14 @@ reported as end-to-end spreadsheet performance.
 ## Current decision sequence
 
 1. Slices A/B establish accepted stable-identity projection and scalar Rust formulas.
-2. Review the mandatory [scaling feasibility assessment](graph-workbook-scaling-feasibility.md)
+2. The parent accepts the mandatory [scaling feasibility assessment](graph-workbook-scaling-feasibility.md)
    and [reproducible experiment](../performance/scaling-experiment.md). Production
    behavior and limits are preserved; the isolated prototype is not an adoption.
-3. Agree storage/mutation/snapshot restructuring scope and its next correctness,
-   formula-edit, memory and production-admission gates before resuming features.
+3. Review [structural mutation feasibility](structural-mutation-feasibility.md)
+   and its [matched experiment](../performance/structural-experiment.md): localized
+   formula changes, immutable generations, isolated process RSS and guarded 1M
+   diagnostics. Name/edge indexes, physical admission and production adapters remain
+   explicit gates before adopting a representation or resuming features.
 4. Resume the executable C# application boundary only after that review authorizes it.
 
 Ranges, new value kinds, broad UI infrastructure and hosted persistence remain

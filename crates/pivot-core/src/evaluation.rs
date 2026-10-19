@@ -202,7 +202,7 @@ impl CalculationResult {
     }
 }
 
-fn evaluate_expression(
+pub(crate) fn evaluate_expression(
     id: NodeId,
     tokens: &[BoundToken],
     values: &BTreeMap<NodeId, NodeResult>,

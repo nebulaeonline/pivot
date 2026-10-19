@@ -1060,3 +1060,5 @@ mod formula_costs {
 /// Isolated benchmark prototype, excluded from default builds.
 #[cfg(feature = "scaling-experiment")]
 pub mod scaling;
+#[cfg(feature = "scaling-experiment")]
+pub mod structural;

@@ -104,6 +104,14 @@ snapshot capture and evaluation. See the [Slice B note](architecture/spreadsheet
 
 ## Opt-in scaling research
 
+The newer [structural experiment](performance/structural-experiment.md) runs with
+`python scripts/structural.py`. It isolates baseline and paged implementations in
+separate guarded processes and normalizes the complete formula-edit/validation/
+capture/evaluation boundary. `python scripts/structural_analyze.py <run-directory>`
+produces full percentile tables. These remain manual research checks, not additions
+to default CI or production-capacity guarantees. The same scaling-experiment feature
+enables both generations of research and their correctness tests.
+
 Default CI retains production behavior and admission limits. Run
 `cargo test --locked --workspace --features pivot-workbook/scaling-experiment`
 and matching workspace Clippy/all-targets for the isolated prototype and six extra

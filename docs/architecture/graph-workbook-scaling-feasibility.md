@@ -1,6 +1,6 @@
 # Graph and workbook scaling feasibility
 
-Disposition: **B â€” viable with architectural restructuring**, subject to review.
+Disposition: **B â€” viable with architectural restructuring**, accepted by parent review.
 The evidence supports retaining stable graph/cell identities and immutable captures,
 but not retaining whole-workbook staging and snapshot rebuilding for ordinary edits.
 This is a bounded research result, not production adoption or permission to resume C#.
@@ -167,3 +167,9 @@ physical memory accounting and production limit policy before adopting it.
 
 The feasibility investigation ends here. The next decision is restructuring scope,
 not automatic C# implementation or additional spreadsheet features.
+
+The accepted follow-up is now documented in the
+[structural mutation comparison](structural-mutation-feasibility.md) and
+[structural research handoff](../handoffs/2026-10-19-structural-mutation-feasibility.md).
+It uses a separate paged prototype and a matched validation boundary; the historic
+measurements and incomplete million-cell diagnostic above remain unchanged.

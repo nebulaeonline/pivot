@@ -1,7 +1,13 @@
 # Viewport and bulk worksheet access proposal
 
-Status: Proposed ADR-0010 logical contract. No RPC schema, C# client feature or
-Avalonia control is implemented or authorized here.
+Status: Accepted bounded-rectangle direction under ADR-0010. Slice A provides only basic
+in-process content reads; caching, geometry transport, RPC and GUI remain future work.
+
+Review clarification: ADR-0010's structural architecture is Accepted. Reference
+transforms, range boundaries/movement, blank/text coercion, reduction order and
+shared writable aliases remain separately reviewable compatibility semantics.
+[Slice A](workbook-projection-foundation.md) implements only the bounded typed
+single-sheet proof; future mechanisms described here are not claimed implemented.
 
 ## Bounded rectangular reads
 

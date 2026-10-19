@@ -1,7 +1,13 @@
 # Range dependencies and incremental calculation implications
 
-Status: Proposed ADR-0010 direction. Current evaluation is synchronous/full-snapshot;
-no incremental engine, typed ranges or worksheet calculations are implemented.
+Status: Accepted calculation boundary under ADR-0010. Slice A reuses full core snapshots
+and decimal evaluation; ranges, typed selections and incremental calculation remain future work.
+
+Review clarification: ADR-0010's structural architecture is Accepted. Reference
+transforms, range boundaries/movement, blank/text coercion, reduction order and
+shared writable aliases remain separately reviewable compatibility semantics.
+[Slice A](workbook-projection-foundation.md) implements only the bounded typed
+single-sheet proof; future mechanisms described here are not claimed implemented.
 
 ## Dependencies beyond scalar edges
 

@@ -19,7 +19,7 @@ decisions, not implementation suggestions.
 - [ADR-0008: Transactional persistence and recovery](0008-transactional-persistence-and-recovery.md) — Accepted
 
 - [ADR-0009: Portable documents and local lifecycle](0009-portable-documents-and-local-lifecycle.md) — Accepted
-- [ADR-0010: Workbook projection and spreadsheet semantics](0010-workbook-projection-and-spreadsheet-semantics.md) — Proposed
+- [ADR-0010: Workbook projection and spreadsheet semantics](0010-workbook-projection-and-spreadsheet-semantics.md) — Accepted
 
 Authoring protocol, daemon integration and the minimal REPL are implemented.
 ADR-0008 remains Accepted for optional durable hosted storage; further provider,
@@ -32,6 +32,8 @@ selection, document RPC and workbook/UI integration remain separate. Ordinary lo
 documents must not require hosted storage. Final numeric policy, broader scheduling
 and multi-instance coordination remain separate work.
 
-Slice B's experimental implementation is accepted. Proposed ADR-0010 is the next
-workbook-focused design packet. It adds no runtime behavior or production container
-choice; the next implementation requires separate review and authorization.
+Slice B's experimental implementation is accepted. ADR-0010 accepts the structural
+workbook architecture while reserving spreadsheet compatibility semantics. Its
+bounded Slice A now implements one sparse worksheet/graph proof with typed references.
+General A1 parsing, ranges, GUI, protocol and workbook files remain future work;
+stop after the proof for review.

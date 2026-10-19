@@ -1,6 +1,13 @@
 # Graph projection and stable cell references
 
-Status: Proposed ADR-0010 semantics, not current core capabilities.
+Status: Accepted identity separation under ADR-0010. Operation policies below remain
+provisional beyond the explicitly tested typed Slice A proof.
+
+Review clarification: ADR-0010's structural architecture is Accepted. Reference
+transforms, range boundaries/movement, blank/text coercion, reduction order and
+shared writable aliases remain separately reviewable compatibility semantics.
+[Slice A](workbook-projection-foundation.md) implements only the bounded typed
+single-sheet proof; future mechanisms described here are not claimed implemented.
 
 ## Identity and binding
 

@@ -6,8 +6,9 @@ The detailed follow-on proposal is now [ADR-0010](../adr/0010-workbook-projectio
 with [ownership](workbook-ownership.md), [sparse storage](sparse-worksheet-storage.md),
 [reference semantics](spreadsheet-formulas-and-ranges.md), [atomic edits](workbook-edit-transactions.md),
 [calculation](workbook-calculation.md) and [viewport access](workbook-viewport-access.md).
-Those details remain Proposed; this earlier accepted direction is not implementation
-or automatic acceptance of every new semantic choice.
+ADR-0010 now accepts the structural direction while reserving semantic compatibility
+choices. The bounded [Slice A proof](workbook-projection-foundation.md) implements
+only typed single-sheet behavior, not the full parser/range/viewport design.
 
 A standalone computational model remains useful without a sheet. A workbook adds
 stable WorksheetIds, sheet names, sparse cells, formats, resources and projection

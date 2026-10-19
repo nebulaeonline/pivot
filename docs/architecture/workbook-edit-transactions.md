@@ -1,6 +1,13 @@
 # Atomic workbook edit proposal
 
-Status: Proposed ADR-0010 design. No new service, receipt protocol or edit API exists.
+Status: Accepted atomicity direction under ADR-0010. Slice A implements in-process
+coordinated batches; future service/wire behavior below is not implemented.
+
+Review clarification: ADR-0010's structural architecture is Accepted. Reference
+transforms, range boundaries/movement, blank/text coercion, reduction order and
+shared writable aliases remain separately reviewable compatibility semantics.
+[Slice A](workbook-projection-foundation.md) implements only the bounded typed
+single-sheet proof; future mechanisms described here are not claimed implemented.
 
 ## One coherent installation boundary
 

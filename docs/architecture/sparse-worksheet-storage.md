@@ -1,6 +1,13 @@
 # Sparse worksheet storage proposal
 
-Status: Proposed ADR-0010 structure, not implemented capacity or a serialized schema.
+Status: Accepted sparse-storage direction under ADR-0010. Slice A uses bounded ordered
+maps and one ordered run per axis; adaptive chunks remain a future proposal.
+
+Review clarification: ADR-0010's structural architecture is Accepted. Reference
+transforms, range boundaries/movement, blank/text coercion, reduction order and
+shared writable aliases remain separately reviewable compatibility semantics.
+[Slice A](workbook-projection-foundation.md) implements only the bounded typed
+single-sheet proof; future mechanisms described here are not claimed implemented.
 
 ## Content and allocation
 

@@ -175,27 +175,36 @@ not the native document format.
 
 ## Current priority: workbook projection
 
-The parent review accepts Slice B as an experimental milestone. Preserve its code
-and tests, and stop expanding the file subsystem. [Proposed ADR-0010](adr/0010-workbook-projection-and-spreadsheet-semantics.md)
-and the [review handoff](handoffs/2026-10-19-workbook-projection-design.md) define
-workbook ownership, sparse storage, stable projection/reference behavior, ranges,
-atomic edits, calculation implications and bounded viewport access.
+The parent review accepts ADR-0010's structural architecture while reserving
+spreadsheet compatibility semantics. [ADR-0010](adr/0010-workbook-projection-and-spreadsheet-semantics.md)
+now distinguishes accepted boundaries from future cut/copy/delete, range affinity,
+blank/text/aggregate and shared-writable-node policies. No Excel compatibility claim
+or production workbook format is made.
 
-This pass is design-only. No workbook runtime, new grammar/evaluator, Protobuf,
-C# integration, incremental recalculation, GUI or production container is implemented.
-10K/100K/1M populated-cell workloads are proposed targets, not supported capacity.
+Sparse Worksheet and Graph Projection Slice A is implemented in the dedicated
+pivot-workbook crate. It has one sparse worksheet/graph, independent cell/axis/node
+identities, exact decimal input metadata, typed stable references, clear/move/retire,
+atomic bounded edit batches, no-op detection, diagnostics, immutable calculation
+captures and basic bounded rectangular reads. The trusted resolved-token seam in
+the core transfer module shares existing token/dependency validation and evaluator;
+it does not parse fabricated identifiers or introduce a second expression engine.
 
-The next proposed sequence, subject to review, is:
+See [implementation and small costs](architecture/workbook-projection-foundation.md)
+and [Slice A handoff](handoffs/2026-10-19-workbook-projection-slice-a.md).
+Full Windows CI passes 200 Rust tests, .NET/parity and actual IPC/REPL regressions.
+Available WSL Linux checks pass 201 tests and real IPC. Native macOS verification
+of recent work remains pending. Tiny debug-profile measurements at 17/129/513 live
+cells are not spreadsheet-scale claims; full-copy graph staging/snapshot rebuilds
+and logical small-model budgets remain explicit.
 
-- Review ADR-0010, then authorize a small in-memory sparse worksheet/graph proof.
-- Executable C# application/client boundary and later bulk viewport access.
-- Reviewed reference/range/core evolution, incremental calculation and scale testing.
-- Avalonia virtualized grid, with computation independent of rendering.
-- Production container selection later, based on real workbook requirements.
+Stop after this proof for review. The following milestone should review the shared
+Rust reference parser/binder extension and executable C# application boundary.
+General textual A1 parsing, relative/absolute copy/fill, cross-sheet references,
+row/column structural edits, ranges/SUM, typed blank/text engine values, incremental
+calculation, workbook files, C# IPC and Avalonia rendering are not implemented.
 
-Keep these production issues separate from further file-broker work: Windows
-ACL/alternate-stream preservation, final-check races with uncooperative writers,
-native macOS file validation, power-loss guarantees, and full-copy/small graph
-limits. They are not Slice B blockers or authorization to extend that subsystem.
-Native AOT and recent native macOS verification remain backlog items. Optional
-ADR-0008 hosted database persistence stays explicitly deferred.
+Keep production file ACL/alternate-stream policy, final-check writer races, native
+macOS validation and power-loss guarantees separate from this worksheet proof.
+Do not expand the experimental file broker or resume optional hosted persistence
+automatically. Production container selection remains a later workbook-driven
+decision; Native AOT and large-workload profiling remain verification backlog.

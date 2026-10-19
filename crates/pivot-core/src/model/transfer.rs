@@ -58,6 +58,87 @@ fn invalid() -> ModelError {
     ModelError::InvalidName("invalid graph transfer".into())
 }
 
+/// Internal already-resolved expression input. Not a parser, wire or storage ABI.
+#[derive(Clone, Debug)]
+pub enum ResolvedToken {
+    Decimal(PivotDecimal),
+    Node(NodeId),
+    Unary(UnaryOp),
+    Binary(BinaryOp),
+}
+fn checked_dependencies(tokens: &[BoundToken]) -> Result<Vec<NodeId>, ModelError> {
+    if tokens.len() > 1_048_576 {
+        return Err(invalid());
+    }
+    let mut depth = 0usize;
+    let mut dependencies = BTreeSet::new();
+    for token in tokens {
+        match token {
+            BoundToken::Decimal(_) => depth += 1,
+            BoundToken::Node(id) => {
+                depth += 1;
+                dependencies.insert(*id);
+            }
+            BoundToken::Unary(_) => {
+                if depth < 1 {
+                    return Err(invalid());
+                }
+            }
+            BoundToken::Binary(_) => {
+                if depth < 2 {
+                    return Err(invalid());
+                }
+                depth -= 1;
+            }
+        }
+    }
+    if depth != 1 {
+        return Err(invalid());
+    }
+    Ok(dependencies.into_iter().collect())
+}
+/// Validated trusted projection seam: preserve runtime identity and existing
+/// evaluator semantics, without parsing synthetic names or historical source.
+/// References to this model's allocated retired nodes remain diagnosable drafts.
+pub fn set_resolved_expression(
+    model: &mut WorkingModel,
+    id: NodeId,
+    source: &str,
+    tokens: &[ResolvedToken],
+) -> Result<(), ModelError> {
+    if !model.nodes.contains_key(&id) {
+        return Err(ModelError::UnknownNode(id));
+    }
+    if source.len() > 4096 || tokens.len() > 1_048_576 {
+        return Err(invalid());
+    }
+    let mut bound = Vec::with_capacity(tokens.len());
+    for token in tokens {
+        bound.push(match token {
+            ResolvedToken::Decimal(v) => BoundToken::Decimal(*v),
+            ResolvedToken::Node(target) => {
+                if target.model != model.revision.model || target.node >= model.next_node {
+                    return Err(invalid());
+                }
+                BoundToken::Node(*target)
+            }
+            ResolvedToken::Unary(op) => BoundToken::Unary(*op),
+            ResolvedToken::Binary(op) => BoundToken::Binary(*op),
+        });
+    }
+    let dependencies = checked_dependencies(&bound)?;
+    model.advance()?;
+    model
+        .nodes
+        .get_mut(&id)
+        .expect("validated target")
+        .definition = Definition::Computed {
+        source: source.into(),
+        binding: Ok((bound, dependencies)),
+    };
+    Ok(())
+}
+
 /// Caller supplies complete allocated identity ledgers, including retired IDs.
 pub fn export(
     model: &WorkingModel,
@@ -255,40 +336,19 @@ pub fn import(image: Image) -> Result<Imported, ModelError> {
                         if work > 1_048_576 {
                             return Err(invalid());
                         }
-                        let mut depth = 0usize;
-                        let mut dependencies = BTreeSet::new();
                         let mut bound = Vec::new();
                         for token in tokens {
                             bound.push(match token {
-                                Token::Decimal(v) => {
-                                    depth += 1;
-                                    BoundToken::Decimal(v)
-                                }
+                                Token::Decimal(v) => BoundToken::Decimal(v),
                                 Token::Node(slot) => {
-                                    depth += 1;
-                                    let target = *nodes.get(slot).ok_or_else(invalid)?;
-                                    dependencies.insert(target);
-                                    BoundToken::Node(target)
+                                    BoundToken::Node(*nodes.get(slot).ok_or_else(invalid)?)
                                 }
-                                Token::Unary(op) => {
-                                    if depth < 1 {
-                                        return Err(invalid());
-                                    }
-                                    BoundToken::Unary(op)
-                                }
-                                Token::Binary(op) => {
-                                    if depth < 2 {
-                                        return Err(invalid());
-                                    }
-                                    depth -= 1;
-                                    BoundToken::Binary(op)
-                                }
+                                Token::Unary(op) => BoundToken::Unary(op),
+                                Token::Binary(op) => BoundToken::Binary(op),
                             });
                         }
-                        if depth != 1 {
-                            return Err(invalid());
-                        }
-                        Ok((bound, dependencies.into_iter().collect()))
+                        let dependencies = checked_dependencies(&bound)?;
+                        Ok((bound, dependencies))
                     }
                     Binding::ParseFailed { offset, code } => {
                         if offset > source.len() || !source.is_char_boundary(offset) {
@@ -383,6 +443,58 @@ pub fn import(image: Image) -> Result<Imported, ModelError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn trusted_projection_setter_validates_before_mutating_without_parsing() {
+        let mut model = WorkingModel::new("Proof").unwrap();
+        let a = model.add_input("A", PivotDecimal::ONE).unwrap();
+        let b = model.add_input("B", PivotDecimal::ZERO).unwrap();
+        let mut other = WorkingModel::new("Other").unwrap();
+        let foreign = other.add_input("A", PivotDecimal::ONE).unwrap();
+        let initial = model.revision();
+        for tokens in [
+            vec![],
+            vec![ResolvedToken::Binary(BinaryOp::Add)],
+            vec![ResolvedToken::Node(foreign)],
+        ] {
+            assert!(set_resolved_expression(&mut model, b, "opaque typed proof", &tokens).is_err());
+            assert_eq!(model.revision(), initial);
+        }
+        set_resolved_expression(
+            &mut model,
+            b,
+            "not parseable spreadsheet source",
+            &[
+                ResolvedToken::Node(a),
+                ResolvedToken::Decimal(PivotDecimal::ONE),
+                ResolvedToken::Binary(BinaryOp::Add),
+            ],
+        )
+        .unwrap();
+        let snapshot = model.snapshot().unwrap();
+        let result = crate::evaluation::EvaluationContext::new(snapshot)
+            .evaluate(&[b])
+            .unwrap();
+        assert_eq!(
+            *result.value(b).unwrap().as_ref().unwrap(),
+            "2".parse().unwrap()
+        );
+        model.remove(a).unwrap();
+        assert!(matches!(
+            model.snapshot(),
+            Err(SnapshotError::MissingReference { .. })
+        ));
+        let revision = model.revision();
+        assert!(
+            set_resolved_expression(
+                &mut model,
+                a,
+                "retired target",
+                &[ResolvedToken::Decimal(PivotDecimal::ZERO)]
+            )
+            .is_err()
+        );
+        assert_eq!(model.revision(), revision);
+    }
     #[test]
     fn importer_validates_slots_names_tokens_and_failures_without_parsing() {
         let base = Image {

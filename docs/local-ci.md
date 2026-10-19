@@ -79,6 +79,10 @@ a production document format, create a database or prove power-loss durability.
 The experimental file tests do exercise headless disk round trips, independent
 processes, pre/post-install failures and conservative uncertain-save recovery.
 Run `cargo test --locked -p pivot-storage` for the focused foundation checks.
+The workspace also tests pivot-workbook's bounded typed single-sheet proof. Run
+`cargo test --locked -p pivot-workbook` for its focused semantic checks and
+`cargo test --locked -p pivot-workbook --test costs -- --nocapture` for small
+unoptimized measurements. These are not scale benchmarks or workbook-file tests.
 
 The full pipeline is verified on Windows with .NET 10.0.402 and Ubuntu WSL2 Linux
 with .NET 10.0.112, and macOS 27.0.1 ARM64 with .NET 10.0.402, using installed

@@ -1,7 +1,13 @@
 # Workbook performance and verification plan
 
-Status: Proposed ADR-0010 workloads and acceptance evidence. No benchmark or new
-workbook test has run; 10K/100K/1M are targets, not supported capacities.
+Status: Verification plan under accepted ADR-0010. Slice A reports small proof costs;
+10K/100K/1M workloads, allocator profiling and scale gates remain unexecuted targets.
+
+Review clarification: ADR-0010's structural architecture is Accepted. Reference
+transforms, range boundaries/movement, blank/text coercion, reduction order and
+shared writable aliases remain separately reviewable compatibility semantics.
+[Slice A](workbook-projection-foundation.md) implements only the bounded typed
+single-sheet proof; future mechanisms described here are not claimed implemented.
 
 ## Semantic and transactional oracle
 
@@ -99,9 +105,9 @@ reported as end-to-end spreadsheet performance.
 
 ## Proposed implementation sequence after review
 
-1. Small in-memory sparse worksheet and graph projection: decimal constants/formulas,
-   stable anchors, basic edits/clear/move, atomic root installation and snapshot tests.
-   Use current graph semantics and disclose small-model/full-copy limits.
+1. Implemented Slice A: small in-memory sparse worksheet/graph projection, typed
+   decimal formulas, anchors, clear/move/retire, atomic batches and snapshot tests.
+   Current graph semantics and small-model/full-copy limits remain explicit.
 2. Review shared Rust reference parsing/resolver changes and implement the approved
    A1/copy/structural subset with explicit expected-state checks. No frontend evaluator.
 3. Validate an executable C# client against real application/session operations,
@@ -110,7 +116,8 @@ reported as end-to-end spreadsheet performance.
    validation in bounded reviewed slices; then incremental calculation and scale gates.
    Parallel work is possible, but no range syntax should ship without matching semantics.
 
-This is sequencing for architecture review, not permission to implement. Preserve
-existing core, document, file, protocol, decimal and IPC tests throughout. Native
-macOS validation remains a separate backlog item; no previous Windows/WSL result
-proves workbook behavior that has not been written.
+Slice A is implemented and stops for review; this sequence is not automatic
+permission for additional work. Preserve existing core, document, file, protocol,
+decimal and IPC tests throughout. Native macOS validation remains a separate backlog
+item. Only the bounded typed proof has workbook evidence; future parser/range/scale
+behavior still requires implementation and its own verification.

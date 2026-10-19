@@ -1,22 +1,41 @@
 # ADR-0010: Workbook projection and spreadsheet semantics
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-19
+
+## Acceptance boundary
+
+Accepted after the parent architecture review and owner authorization of the bounded
+Sparse Worksheet and Graph Projection Slice A. Structural principles are accepted:
+separate workbook/core/storage boundaries, independent identities, sparse content,
+atomic graph/projection edits, immutable calculations, future bounded viewport access
+and first-class selections as the range direction.
+
+Spreadsheet compatibility semantics are **not frozen** for cut/move versus copy/fill,
+structural deletion versus clear/replacement, range boundaries/movement, blank/text
+coercion and aggregation, numeric reduction order, or multiple writable projections
+of a shared node. The detailed policies below are candidates for separate review.
+No Excel compatibility is claimed. Slice A exercises a narrow explicit typed
+move/clear/retire policy as a proof, not a permanent user-facing contract.
+
+The implemented proof lives in pivot-workbook; see
+[implementation and costs](../architecture/workbook-projection-foundation.md).
 
 ## Context
 
 ADR-0009 Slice B is accepted: a hosting-independent model survives experimental
 file save and process restart. Stop expanding that file subsystem. Pivot now needs
 the spreadsheet projection that makes its graph useful through familiar cells,
-addresses and rectangular operations. No worksheet runtime exists today.
+addresses and rectangular operations. At proposal time no worksheet runtime existed.
 
 The core currently parses identifiers and decimal arithmetic, binds stable nodes,
 and captures immutable snapshots. It has no cell/range grammar, range dependencies
 or incremental recalculation. Current graph limits and full-copy staging are
 correctness mechanisms, not spreadsheet-scale solutions.
 
-The owner authorized this proposal only. No workbook, parser, evaluator, protocol,
-GUI, storage format or runtime changes are authorized by this document.
+The owner first authorized the design and then the bounded Rust-only proof after
+review. General parser/range semantics, protocol, GUI, workbook serialization and
+scale/incremental work remain outside that authorization.
 
 ## Decision
 
@@ -26,9 +45,9 @@ sheets, sparse cell content, reference/projection metadata and presentation. A s
 is not a graph. One graph may span sheets and contain nodes with no cells.
 
 Keep worksheet/viewport code out of pivot-storage. The first approved workbook
-implementation should establish its own module/crate boundary, provisionally
-`pivot-workbook`, depending on core/value capabilities. Do not move existing
-document/storage code speculatively or require this candidate crate now.
+implementation now establishes `pivot-workbook`, depending only on core/value
+capabilities and UUID identity allocation. Existing document/storage code remains
+in place; no speculative document split is required.
 
 Use stable worksheet, cell and graph identities independent of displayed positions.
 Separate content edits, clearing content, movement and structural deletion. An
@@ -93,9 +112,10 @@ not claimed.
 
 ## Verification / reconsideration trigger
 
-After architecture review, authorize a small sparse worksheet/numeric graph proof,
-then the executable C# client and later bulk access/Avalonia integration. Do not
-start implementation automatically. Keep ranges, parser extensions and incremental
+Slice A now implements the approved small sparse worksheet/numeric graph proof.
+Stop after its handoff for review. The following milestone should review the shared
+Rust reference parser/binder extension and executable C# application boundary;
+no further implementation is automatic. Keep ranges, parser extensions and incremental
 evaluation behind their own reviewed steps within that direction.
 
 Require independent-reference semantic oracles, transaction/snapshot isolation tests,
@@ -114,3 +134,5 @@ Supporting proposals:
 - [Viewport access](../architecture/workbook-viewport-access.md)
 - [Performance and verification](../architecture/workbook-performance-verification.md)
 - [Review handoff](../handoffs/2026-10-19-workbook-projection-design.md)
+
+Latest implementation review packet: [Worksheet Slice A](../handoffs/2026-10-19-workbook-projection-slice-a.md).

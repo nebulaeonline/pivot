@@ -1,8 +1,13 @@
 # Spreadsheet formula, reference and range analysis
 
-Status: Proposed ADR-0010 semantics for review. No syntax, resolver, function or
-range implementation is added. Current core grammar remains identifiers, decimal
-literals, unary signs, arithmetic and parentheses.
+Status: Semantic candidates under accepted ADR-0010 architecture, not compatibility
+contracts. General A1 grammar, copy/fill, ranges and aggregate functions remain unimplemented.
+
+Review clarification: ADR-0010's structural architecture is Accepted. Reference
+transforms, range boundaries/movement, blank/text coercion, reduction order and
+shared writable aliases remain separately reviewable compatibility semantics.
+[Slice A](workbook-projection-foundation.md) implements only the bounded typed
+single-sheet proof; future mechanisms described here are not claimed implemented.
 
 ## Shared Rust expression pipeline
 

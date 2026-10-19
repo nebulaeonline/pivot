@@ -1,5 +1,15 @@
 # Linux and macOS validation
 
+## Sparse worksheet projection Slice A — 2026-10-19
+
+Full Windows CI passes 200 Rust tests, .NET Release, decimal/protocol parity and
+actual named-pipe IPC/REPL checks. Available Ubuntu WSL2 formatting, Clippy,
+201 Rust tests, small-workload measurements and Unix-socket IPC/REPL also pass.
+See [worksheet Slice A handoff](handoffs/2026-10-19-workbook-projection-slice-a.md)
+for exact reports and the deliberately small, full-copy proof limitations.
+Existing file regressions retain their disk-backed Linux test root. Native macOS
+validation remains pending; no new Linux .NET, GUI or Native AOT run is claimed.
+
 ## Experimental model files — 2026-10-19
 
 Slice B passes full Windows CI with 185 Rust tests, .NET Release, cross-language

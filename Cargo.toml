@@ -6,6 +6,7 @@ members = [
     "crates/pivot-protocol",
     "crates/pivot-host",
     "crates/pivot-storage",
+    "crates/pivot-workbook",
     "crates/pivot-transport",
     "apps/pivotd",
     "apps/pivot-cli",

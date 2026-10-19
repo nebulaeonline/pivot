@@ -1,6 +1,13 @@
 # Workbook ownership and boundaries
 
-Status: Proposed ADR-0010 design; no workbook runtime or dependency changes.
+Status: Accepted structural architecture under ADR-0010. Slice A now provides the dedicated
+workbook boundary; broader document/model composition remains design direction.
+
+Review clarification: ADR-0010's structural architecture is Accepted. Reference
+transforms, range boundaries/movement, blank/text coercion, reduction order and
+shared writable aliases remain separately reviewable compatibility semantics.
+[Slice A](workbook-projection-foundation.md) implements only the bounded typed
+single-sheet proof; future mechanisms described here are not claimed implemented.
 
 | Concept | Owns or represents | Does not imply |
 | --- | --- | --- |
@@ -46,8 +53,7 @@ does not extend the current model-only experimental format.
 
 ## Implementation placement
 
-Propose a dedicated Rust workbook boundary, provisionally pivot-workbook, when the
-first implementation is approved. It can depend on pivot-core/pivot-types and own
+The approved first proof now uses the dedicated Rust pivot-workbook boundary. It can depend on pivot-core/pivot-types and own
 sparse sheets, reference resolution, edits and viewport-independent reads. It must
 not depend on Avalonia, transport, SQL providers or a hosted registry.
 

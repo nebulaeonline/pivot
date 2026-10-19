@@ -1,5 +1,19 @@
 # Linux and macOS validation
 
+## Experimental model files — 2026-10-19
+
+Slice B passes full Windows CI with 185 Rust tests, .NET Release, cross-language
+parity and actual named-pipe IPC/REPL. Available WSL Linux formatting, Clippy,
+186 Rust tests and actual Unix-socket IPC/REPL also pass. The extra test covers
+Unix permissions and aliases. See [Slice B evidence](handoffs/2026-10-19-document-foundation-slice-b.md).
+
+Windows files were tested on the local fixed NTFS J: volume. Final Linux file
+checks used `/var/tmp/pivot-experimental-file-tests` on the native disk filesystem
+(`stat` reports ext2/ext3), selected via PIVOT_FILE_TEST_ROOT because `/tmp` is tmpfs.
+This proves the bounded experimental workflow across processes, not power-loss
+or OS-crash durability. Native macOS verification remains pending. Linux .NET was
+not rerun for this Rust-only change; no production document format is selected.
+
 ## Document Foundation Slice A — 2026-10-18
 
 Full Windows CI passes with 167 Rust tests, .NET Release, decimal/protocol parity

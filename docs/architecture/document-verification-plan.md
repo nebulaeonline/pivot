@@ -1,9 +1,10 @@
 # Document verification and compatibility plan
 
 Status: Accepted ADR-0009 verification direction. Slice A adds in-memory document
-and graph tests; see [implementation evidence](document-foundation.md). File/broker,
-container, C# IPC and workbook scenarios below remain future verification, not
-claims of implemented behavior. The older 153-test report covers the prior foundation.
+and graph tests; Slice B adds experimental file/broker, cross-process and fault tests.
+See [Slice A](document-foundation.md) and [Slice B evidence](../handoffs/2026-10-19-document-foundation-slice-b.md).
+Production containers, power-loss proof, C# IPC, Revert/autosave and workbook scenarios
+remain future verification. The older 153-test report covers the prior foundation.
 
 ## Acceptance scenarios
 
@@ -62,5 +63,6 @@ testing and a stated storage profile. Network/cloud filesystem support is separa
 5. Design workbook projection, range/bulk APIs, incremental calculation and UI in
    separate slices. Deferred hosted database work remains independent.
 
-ADR-0009 and Slice A are authorized; further implementation is not automatic.
-Stop after the in-memory foundation for review.
+ADR-0009 and Slices A/B are authorized and implemented to their bounded scopes.
+Further implementation is not automatic. Stop after the experimental file workflow
+for review; prioritize workbook projection and C# integration rather than hosted storage.

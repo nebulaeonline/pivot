@@ -25,7 +25,8 @@ ADR-0008 remains Accepted for optional durable hosted storage; further provider,
 SQLite feasibility, coordinator and cross-restart protocol work is deferred. The
 portable codec/import foundation is accepted and implemented; no database provider
 or durable service is present. Accepted ADR-0009 defines the document-focused
-direction. Slice A implements hosting-free payloads and in-memory sessions, with no
-container selection, file broker or document RPC. Ordinary local
+direction. Slice A implements hosting-free payloads/in-memory sessions; Slice B
+adds an experimental headless file envelope and broker. Production container
+selection, document RPC and workbook/UI integration remain separate. Ordinary local
 documents must not require hosted storage. Final numeric policy, broader scheduling
 and multi-instance coordination remain separate work.

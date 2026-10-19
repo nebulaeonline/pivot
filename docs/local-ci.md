@@ -75,7 +75,9 @@ reports in `tests/decimal-parity/`.
 
 Workspace Rust tests now include the storage-codec compatibility corpus and
 portable restoration and in-memory document-session tests. They do not exercise
-native document files, create a database or prove crash durability.
+a production document format, create a database or prove power-loss durability.
+The experimental file tests do exercise headless disk round trips, independent
+processes, pre/post-install failures and conservative uncertain-save recovery.
 Run `cargo test --locked -p pivot-storage` for the focused foundation checks.
 
 The full pipeline is verified on Windows with .NET 10.0.402 and Ubuntu WSL2 Linux

@@ -82,5 +82,8 @@ Slice A verifies legacy frozen bytes, malformed-data rejection and existing daem
 behavior remain compatible. Hosted restore retains its exact CBOR resource profile,
 separate from the document payload's logical accounting budgets. `pivot-core` still depends on
 neither documents nor storage, filesystem, IPC, authorization or SQLite. The
-implementation introduces a graph/session Rust API and internal refactor but no
-new dependency, document codec, provider, filesystem operation or protocol change.
+Slice A introduced a graph/session Rust API with no new dependency or filesystem
+operation. Slice B now reuses shared codec primitives for an experimental document
+envelope and adds a Rust broker with SHA-256 and platform filesystem dependencies
+inside pivot-storage. It adds no provider, core dependency, hosted record change
+or protocol operation. See [broker details](experimental-file-broker.md).

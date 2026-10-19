@@ -179,6 +179,59 @@ impl Writer {
             }),
         }
     }
+    fn graph_body(
+        &mut self,
+        name: &str,
+        node_ids: &[Uuid],
+        port_ids: &[Uuid],
+        nodes: &[Node],
+        ports: &[Port],
+    ) -> Result<()> {
+        let w = self;
+        w.text(name)?;
+        w.a(node_ids.len(), |w| {
+            for id in node_ids {
+                w.id(*id)?;
+            }
+            Ok(())
+        })?;
+        w.a(port_ids.len(), |w| {
+            for id in port_ids {
+                w.id(*id)?;
+            }
+            Ok(())
+        })?;
+        w.a(nodes.len(), |w| {
+            for n in nodes {
+                w.a(3, |w| {
+                    w.id(n.id)?;
+                    w.text(&n.name)?;
+                    w.definition(&n.definition)
+                })?;
+            }
+            Ok(())
+        })?;
+        w.a(ports.len(), |w| {
+            for p in ports {
+                w.a(5, |w| {
+                    w.id(p.id)?;
+                    w.text(&p.name)?;
+                    w.id(p.model)?;
+                    w.id(p.node)?;
+                    match p.kind {
+                        PortKind::Required => w.a(1, |w| w.u(0u8)),
+                        PortKind::Optional(v) => w.a(2, |w| {
+                            w.u(1u8)?;
+                            w.dec(v)
+                        }),
+                        PortKind::Output => w.a(1, |w| w.u(2u8)),
+                    }
+                })?;
+            }
+            Ok(())
+        })?;
+        Ok(())
+    }
     fn record(&mut self, r: &Record) -> Result<()> {
         self.a(14, |w| {
             w.u(r.codec)?;
@@ -189,48 +242,7 @@ impl Writer {
             w.id(r.model)?;
             w.id(r.revision)?;
             w.u(r.sequence)?;
-            w.text(&r.name)?;
-            w.a(r.node_ids.len(), |w| {
-                for id in &r.node_ids {
-                    w.id(*id)?;
-                }
-                Ok(())
-            })?;
-            w.a(r.port_ids.len(), |w| {
-                for id in &r.port_ids {
-                    w.id(*id)?;
-                }
-                Ok(())
-            })?;
-            w.a(r.nodes.len(), |w| {
-                for n in &r.nodes {
-                    w.a(3, |w| {
-                        w.id(n.id)?;
-                        w.text(&n.name)?;
-                        w.definition(&n.definition)
-                    })?;
-                }
-                Ok(())
-            })?;
-            w.a(r.ports.len(), |w| {
-                for p in &r.ports {
-                    w.a(5, |w| {
-                        w.id(p.id)?;
-                        w.text(&p.name)?;
-                        w.id(p.model)?;
-                        w.id(p.node)?;
-                        match p.kind {
-                            PortKind::Required => w.a(1, |w| w.u(0u8)),
-                            PortKind::Optional(v) => w.a(2, |w| {
-                                w.u(1u8)?;
-                                w.dec(v)
-                            }),
-                            PortKind::Output => w.a(1, |w| w.u(2u8)),
-                        }
-                    })?;
-                }
-                Ok(())
-            })?;
+            w.graph_body(&r.name, &r.node_ids, &r.port_ids, &r.nodes, &r.ports)?;
             if let Some(p) = &r.publication {
                 w.a(4, |w| {
                     w.id(p.model)?;
@@ -329,29 +341,21 @@ fn narrow<T: TryFrom<u64>>(v: V) -> Result<T> {
 fn next(values: &mut impl Iterator<Item = V>) -> Result<V> {
     values.next().ok_or(Error::Malformed)
 }
-fn parse(v: V) -> Result<Record> {
-    let mut f = v.array(14)?.into_iter();
-    let codec = narrow(next(&mut f)?)?;
-    let numeric = narrow(next(&mut f)?)?;
-    let expression = narrow(next(&mut f)?)?;
-    let store = next(&mut f)?.uuid()?;
-    let epoch = next(&mut f)?.uuid()?;
-    let model = next(&mut f)?.uuid()?;
-    let revision = next(&mut f)?.uuid()?;
-    let sequence = next(&mut f)?.u()?;
-    let name = next(&mut f)?.text()?;
-    let node_ids = next(&mut f)?
+type GraphBody = (String, Vec<Uuid>, Vec<Uuid>, Vec<Node>, Vec<Port>);
+fn parse_graph_body(f: &mut impl Iterator<Item = V>) -> Result<GraphBody> {
+    let name = next(f)?.text()?;
+    let node_ids = next(f)?
         .list()?
         .into_iter()
         .map(V::uuid)
         .collect::<Result<_>>()?;
-    let port_ids = next(&mut f)?
+    let port_ids = next(f)?
         .list()?
         .into_iter()
         .map(V::uuid)
         .collect::<Result<_>>()?;
     let mut nodes = vec![];
-    for n in next(&mut f)?.list()? {
+    for n in next(f)?.list()? {
         let mut n = n.array(3)?.into_iter();
         let id = next(&mut n)?.uuid()?;
         let name = next(&mut n)?.text()?;
@@ -403,7 +407,7 @@ fn parse(v: V) -> Result<Record> {
         });
     }
     let mut ports = vec![];
-    for p in next(&mut f)?.list()? {
+    for p in next(f)?.list()? {
         let mut p = p.array(5)?.into_iter();
         let id = next(&mut p)?.uuid()?;
         let name = next(&mut p)?.text()?;
@@ -427,6 +431,19 @@ fn parse(v: V) -> Result<Record> {
             kind,
         });
     }
+    Ok((name, node_ids, port_ids, nodes, ports))
+}
+fn parse(v: V) -> Result<Record> {
+    let mut f = v.array(14)?.into_iter();
+    let codec = narrow(next(&mut f)?)?;
+    let numeric = narrow(next(&mut f)?)?;
+    let expression = narrow(next(&mut f)?)?;
+    let store = next(&mut f)?.uuid()?;
+    let epoch = next(&mut f)?.uuid()?;
+    let model = next(&mut f)?.uuid()?;
+    let revision = next(&mut f)?.uuid()?;
+    let sequence = next(&mut f)?.u()?;
+    let (name, node_ids, port_ids, nodes, ports) = parse_graph_body(&mut f)?;
     let p = next(&mut f)?.list()?;
     let publication = if p.is_empty() {
         None
@@ -491,4 +508,81 @@ pub fn decode(bytes: &[u8], limits: Limits) -> Result<Record> {
     let record = parse(v)?;
     record.validate(limits)?;
     Ok(record)
+}
+
+// Experimental document payload only; hosted-v1 layout is unchanged.
+pub(crate) fn encode_document(
+    document: &crate::document::ModelDocument,
+    limits: Limits,
+) -> Result<Vec<u8>> {
+    // Public envelope boundary validates graph limits independently of byte limits.
+    let mut writer = Writer {
+        out: vec![],
+        limits,
+        depth: 0,
+        items: limits.items,
+    };
+    writer.a(4, |w| {
+        w.u(document.format)?;
+        w.id(document.document_id)?;
+        w.id(document.state_id)?;
+        let g = &document.graph;
+        w.a(10, |w| {
+            w.u(g.version)?;
+            w.u(g.numeric)?;
+            w.u(g.expression)?;
+            w.id(g.model)?;
+            w.id(g.revision)?;
+            w.graph_body(&g.name, &g.node_ids, &g.port_ids, &g.nodes, &g.ports)
+        })
+    })?;
+    Ok(writer.out)
+}
+pub(crate) fn decode_document(
+    bytes: &[u8],
+    limits: Limits,
+) -> Result<crate::document::ModelDocument> {
+    if bytes.len() > limits.bytes || limits.depth > 64 {
+        return Err(Error::Limit);
+    }
+    let mut reader = Reader {
+        bytes,
+        pos: 0,
+        items: limits.items,
+        limits,
+    };
+    let v = reader.read(0)?;
+    if reader.pos != bytes.len() {
+        return Err(Error::Malformed);
+    }
+    let mut d = v.array(4)?.into_iter();
+    let format = narrow(next(&mut d)?)?;
+    let document_id = next(&mut d)?.uuid()?;
+    let state_id = next(&mut d)?.uuid()?;
+    let mut g = next(&mut d)?.array(10)?.into_iter();
+    let version = narrow(next(&mut g)?)?;
+    let numeric = narrow(next(&mut g)?)?;
+    let expression = narrow(next(&mut g)?)?;
+    let model = next(&mut g)?.uuid()?;
+    let revision = next(&mut g)?.uuid()?;
+    let (name, node_ids, port_ids, nodes, ports) = parse_graph_body(&mut g)?;
+    let document = crate::document::ModelDocument {
+        format,
+        document_id,
+        state_id,
+        graph: GraphPayload {
+            version,
+            numeric,
+            expression,
+            model,
+            revision,
+            name,
+            node_ids,
+            port_ids,
+            nodes,
+            ports,
+        },
+    };
+    // The envelope caller validates semantic/logical limits before installation.
+    Ok(document)
 }

@@ -16,7 +16,9 @@ The completed implementation and ADR-0006/0007/0008 history remain intact. Furth
 hosted persistence work is deferred. Following the document review, the owner
 authorized Document Foundation Slice A: hosting-free graph payloads and one-graph
 in-memory sessions. Filesystems, document containers, IPC, worksheets and UI remain
-outside that implementation scope.
+outside that initial implementation scope. After Slice A acceptance, the owner
+authorized Slice B's experimental headless file workflow; production format
+selection, IPC, worksheets and UI remain separate.
 
 ## Decision
 
@@ -80,7 +82,9 @@ prerequisite for that experimental proof.
 The hosting-free payload and in-memory document adapter are implemented as Slice A
 inside pivot-storage, without a new crate or dependency. They delegate graph
 semantics to the core rather than reproducing hosted attachments, receipts,
-publication or authorization. File lifecycle and document containers remain designs.
+publication or authorization. Slice B now implements a provisional envelope and
+bounded Rust file broker, with verified installation and explicit uncertainty.
+Production format/container selection and C# broker integration remain designs.
 See the [Slice A implementation](../architecture/document-foundation.md). The current
 record limits are
 correctness budgets, not a large-workbook capacity promise. Future sparse storage,
@@ -95,9 +99,10 @@ The document lifecycle does not inherit hosted full-revision retention requireme
 Accepted after incorporating the parent review refinements and owner authorization
 of Slice A. The first proof covers in-memory creation, editing, evaluation,
 export/restoration, isolation and saved checkpoints without hosted management.
-A subsequent separately authorized slice should prove a model-only file can be opened,
-evaluated, edited and saved with identical bindings and no registry or database
-configuration. Verify in-process Rust and, separately, session-host use. Exercise
+Slice B now proves experimental model-only files can be opened, evaluated, edited
+and saved across processes with identical bindings and no registry/database
+configuration. Its tested file profile and limitations are explicit; this is not a
+production document-format acceptance. Verify in-process Rust and, separately, session-host use. Exercise
 cross-platform replacement failures before advertising supported save guarantees.
 
 Reconsider graph composition for cross-model formulas, identity remapping for true
@@ -115,4 +120,4 @@ Supporting proposals:
 - [Verification plan](../architecture/document-verification-plan.md)
 - [Review handoff](../handoffs/2026-10-18-portable-document-design.md)
 
-Latest implementation review packet: [Document Foundation Slice A](../handoffs/2026-10-18-document-foundation-slice-a.md).
+Latest implementation review packet: [Document Foundation Slice B](../handoffs/2026-10-19-document-foundation-slice-b.md).

@@ -5,6 +5,10 @@ Implemented bounded in-memory subset of accepted
 can be created, edited, validated, evaluated, exported and restored without becoming
 a hosted resource. No filesystem, byte-format or IPC document workflow exists yet.
 
+Subsequent work: [Slice B](experimental-file-broker.md) now supplies the explicitly
+experimental Rust file workflow. This page records the Slice A in-memory baseline;
+its earlier file-work exclusions do not describe the later Slice B implementation.
+
 ## Code boundaries
 
 All new functionality lives in `pivot-storage`; no new crate or dependency was

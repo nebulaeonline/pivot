@@ -1,8 +1,10 @@
 # Document ownership and local lifecycle
 
 Status: Accepted ADR-0009 architecture. [Slice A](document-foundation.md) implements
-only a thin in-memory one-graph session. File operations, broker, bulk transfer,
-worksheets and document RPC remain unimplemented designs.
+a thin in-memory one-graph session. [Slice B](experimental-file-broker.md) now adds
+experimental Rust headless file operations. C# broker, bulk transfer, worksheets,
+Revert/autosave and document RPC remain unimplemented designs. The broader lifecycle
+below is architectural direction; the Slice B page records its narrower actual profile.
 
 ## Ownership
 

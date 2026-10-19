@@ -1,6 +1,9 @@
 # Local document file safety and failure matrix
 
-Status: Accepted ADR-0009 design contract; no file adapter or fault tests implemented.
+Status: Accepted ADR-0009 design contract. Slice B implements a bounded experimental
+Rust file broker and pre/post-install fault tests; see its
+[actual behavior and platform limits](experimental-file-broker.md). Future rows such
+as Revert, autosave and C# IPC are not implemented or claimed tested by Slice B.
 Applies to explicit document saves, not ADR-0008 hosted database commits.
 
 ## Proposed safe-save sequence

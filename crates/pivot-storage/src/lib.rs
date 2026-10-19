@@ -1,6 +1,7 @@
 //! Portable storage records and restoration only. No database or durability claim.
 mod codec;
 pub mod document;
+pub mod experimental_file;
 mod graph;
 mod runtime;
 pub use codec::{decode, encode};

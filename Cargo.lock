@@ -443,9 +443,12 @@ dependencies = [
 name = "pivot-storage"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "pivot-core",
  "pivot-types",
+ "sha2",
  "uuid",
+ "windows-sys",
 ]
 
 [[package]]

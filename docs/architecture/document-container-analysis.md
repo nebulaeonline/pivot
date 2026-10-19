@@ -46,7 +46,8 @@ Following the ADR-0009 review, the next goal after Slice A is the smallest usefu
 headless model-file proof, using a clearly experimental container. That proof needs
 a bounded format and safe write behavior, not an extensive benchmarking project.
 The workloads below inform later production selection and must not block proving
-New/Open/Save/Save As. No experimental format is selected or implemented in Slice A.
+New/Open/Save/Save As. [Slice B](experimental-document-format.md) now implements a
+minimal experimental binary envelope, without selecting the production container.
 
 ## Later comparison before production selection
 

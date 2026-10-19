@@ -135,6 +135,9 @@ impl DocumentSession {
     pub fn graph(&self) -> &GraphPayload {
         self.graph.record()
     }
+    pub(crate) fn mark_unsaved(&mut self) {
+        self.saved = None;
+    }
     pub fn is_dirty(&self) -> bool {
         self.saved != Some(self.state)
     }

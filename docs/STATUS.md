@@ -1,6 +1,6 @@
 # Pivot implementation status
 
-Date: 2026-10-18
+Date: 2026-10-19
 
 The Rust workspace and .NET 10/Avalonia solution are scaffolded. Architecture
 records live in `docs/adr/` using `ADR-NNNN` identifiers. ADR-0001 records the
@@ -150,16 +150,32 @@ exact values, invalid drafts, stale-token checks and saved checkpoints are teste
 See [implementation details](architecture/document-foundation.md) and the
 [Slice A review handoff](handoffs/2026-10-18-document-foundation-slice-a.md).
 
-The suite now has 167 Rust tests, including 13 new document integration tests and
+The Slice A suite had 167 Rust tests, including 13 new document integration tests and
 one new hosted resource-budget compatibility test. Full Windows CI and WSL Linux
 Rust/lint/IPC checks pass. Native macOS validation of recent work remains pending.
-No native byte format, file broker, document RPC, worksheets or UI is implemented.
-Acknowledging a saved checkpoint is an in-memory attestation, not a disk write.
-The current hosted storage-v1 record is not the native document format.
+Document Foundation Slice B now adds an explicitly experimental versioned envelope
+and a headless Rust file broker for New/Open/Save/Save As/Close. It stages complete
+private candidates, checks observed target fingerprints, installs without truncation,
+verifies installed content and only then acknowledges the exact export. Fault tests
+cover conflicts, failed/uncertain saves, reconciliation and S/T dirty-state behavior.
+Independent-process tests create, reopen, calculate/invoke, edit/save, copy and reopen
+models without hosting. The core and frozen hosted storage-v1 fixtures are unchanged.
+See the [experimental envelope](architecture/experimental-document-format.md),
+[broker and limits](architecture/experimental-file-broker.md) and
+[Slice B handoff](handoffs/2026-10-19-document-foundation-slice-b.md).
+
+Slice B passes full Windows CI (185 Rust tests) and available WSL Linux checks
+(186 tests, including Unix-only permissions/alias coverage) plus actual IPC/REPL.
+File tests cover NTFS and native Linux disk-backed storage; macOS remains pending.
+
+No production .pivot format, SQLite/ZIP container, document RPC, C# broker, worksheets
+or UI is implemented. Process termination checks do not prove power-loss durability.
+Native macOS verification remains pending. The current hosted storage-v1 record is
+not the native document format.
 
 Separate backlog items remain:
 
-- Review Slice A; then authorize the smallest experimental headless model-file workflow.
+- Review Slice B; prioritize workbook projection and C# application integration next.
 - Evaluate production containers and broad scale benchmarks after that file proof.
 - Workbook projection and spreadsheet graph/range APIs, including sparse storage.
 - Bulk viewport/range transport and incremental calculation.

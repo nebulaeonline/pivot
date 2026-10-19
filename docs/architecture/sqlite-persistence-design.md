@@ -1,9 +1,15 @@
 # SQLite implementation design
 
-Status: Proposed under ADR-0008. No driver, database, migration or service flag is
+Status: Accepted ADR-0008 design. No driver, database, migration or service flag is
 implemented. Settings here define the intended profile, not current behavior.
 
 ## Deployment and ownership
+
+**Early implementation gate:** after review of the portable codec/import foundation,
+first prove the chosen driver/VFS startup sequence maintains lifetime ownership
+with WAL, checkpoints and backup on Windows/Linux/macOS. An effective pragma alone
+is insufficient. This cross-platform feasibility slice precedes full SQL schema,
+domain commits or coordinator integration and must not release ownership for backup.
 
 SQLite is the first provider and default when local durable storage is explicitly
 configured. Accept an absolute filesystem path owned by the service user; do not

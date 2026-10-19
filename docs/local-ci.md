@@ -73,6 +73,10 @@ reports in `tests/decimal-parity/`.
 
 ## Current coverage limits
 
+Workspace Rust tests now include the storage-codec compatibility corpus and
+portable restoration tests. They do not create a database or prove crash durability.
+Run `cargo test --locked -p pivot-storage` for the focused foundation checks.
+
 The full pipeline is verified on Windows with .NET 10.0.402 and Ubuntu WSL2 Linux
 with .NET 10.0.112, and macOS 27.0.1 ARM64 with .NET 10.0.402, using installed
 Rust nightly toolchains. Linux and macOS used isolated source/build outputs.

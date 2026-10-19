@@ -1,6 +1,6 @@
 # ADR-0008: Transactional persistence and recovery
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-18
 
 ## Context
@@ -30,7 +30,8 @@ ServiceInstanceId per process. New durable replay uses a stable principal author
 epoch and operation ID. Keep current v1.1 replay instance-scoped: do not reinterpret
 old fields, reuse reserved enum values, or claim cross-restart recovery from them.
 A separately reviewed negotiated protocol extension is required before exposing
-durable guarantees externally. This slice allocates no fields and changes no code.
+durable guarantees externally. No protocol fields are allocated by this ADR or
+the subsequent portable codec/import foundation.
 
 Commit candidate state plus its original typed intent and terminal receipt in one
 transaction, using expected-head comparison and ownership fencing. Publication
@@ -70,13 +71,27 @@ PostgreSQL is the proposed second conformance target, then MySQL; neither is pro
 Durable commits require a coordinator and explicit recovery states. Initial full
 revision records favor correctness over space efficiency; quotas and later measured
 compaction are necessary. The provider abstraction remains provisional until a
-second implementation passes shared tests. Existing MemoryOnly operation is
-unchanged until design acceptance and a separately authorized implementation.
+second implementation passes shared tests. Existing MemoryOnly operation remains
+unchanged. The first authorized implementation is the isolated portable codec/import
+foundation, not a durable service/provider.
 
 ## Verification / reconsideration trigger
 
-Acceptance requires review of the linked API, identity/protocol gate, portable
-expression codec, failure matrix and provider conformance plan. Implementation
+Accepted after the parent architecture review and owner authorization to incorporate
+its required refinements. Full immutable working revisions are the initial strategy,
+not a permanent scale requirement. Before substantial spreadsheet workloads, measure
+copy costs and review structural sharing/chunked storage with unchanged logical
+revision and receipt guarantees.
+
+Require separate count and byte quotas for receipts, revisions, tombstones and
+published snapshots, with actionable authorized quota reporting. Failure to restore
+any authoritative record blocks Ready; no partial catalog may be served. Storage
+codec compatibility fixtures precede database migrations. An early cross-platform
+SQLite owner-lock/WAL/checkpoint/backup feasibility slice must pass before full SQL
+schema/coordinator work. The durable protocol remains a separate acceptance gate;
+external policy consistency and verified filesystem/VFS limits remain explicit.
+
+Implementation
 must pass crash and ambiguous-commit tests on supported platforms before any
 durable capability is advertised. Reconsider for multi-instance serving, receipt
 expiry, new numeric semantics, large revision histories or filesystem changes.

@@ -1,7 +1,8 @@
 # Shared storage-provider conformance plan
 
-Status: Proposed under ADR-0008. No database tests are implemented or claimed to
-pass. Current 135-test CI validates MemoryOnly behavior, not this contract.
+Status: Accepted ADR-0008 plan. No database tests are implemented or claimed to
+pass. Portable codec/import tests now cover their bounded subset; existing
+MemoryOnly CI does not prove database durability.
 
 ## Harness and oracle
 
@@ -66,6 +67,14 @@ weaken the promise. Record which crash assumptions are fault-injected rather tha
 physically power-tested.
 
 ## Second provider and release gates
+
+Before **any database migration**, freeze and execute an independent versioned
+storage-codec corpus, including exact valid bytes and malformed/noncanonical cases.
+Before full SQLite schema/coordinator work, prove ownership/WAL/checkpoint/backup
+feasibility with the selected driver and VFS on each supported platform. Require
+independent count/byte quota tests for receipts, retained revisions, tombstones and
+publications, and actionable authorized category reporting. Include failure of one
+object in an otherwise valid startup catalog: Ready must remain blocked globally.
 
 SQLite passing is necessary but does not prove the abstraction. PostgreSQL is the
 proposed second target: demonstrate transaction serialization, ownership-session

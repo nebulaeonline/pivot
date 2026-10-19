@@ -1,6 +1,6 @@
 # Persistence failure and recovery matrix
 
-Status: Proposed under ADR-0008. These are required outcomes, not executed tests.
+Status: Accepted ADR-0008 design. These are required provider outcomes, not executed database tests.
 Ready is the only normal serving state. Storage failures never trigger a silent
 MemoryOnly fallback. Provider error text is not exposed verbatim to clients.
 
@@ -41,6 +41,11 @@ or failed installation moves to RecoveryRequired, blocking new state-dependent
 requests and successful delivery until truth is established. OwnershipLost or
 unreadable/corrupt storage moves to Failed/closed admission, not a degraded writable
 mode. Recovery work has explicit byte/time budgets and does not skip failing models.
+
+In particular, one unsupported/corrupt authoritative model, publication or required
+receipt prevents Ready for the entire service. Partial startup with only the
+remaining valid objects is forbidden. Portable collection import tests cover its
+all-or-error portion; database catalog completeness is a later coordinator test.
 
 If a provider proves that a submitted transaction rolled back, an absent receipt
 can resolve as NotCommittedInActiveEpoch. If access is unavailable or ownership

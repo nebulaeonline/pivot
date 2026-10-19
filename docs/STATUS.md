@@ -119,9 +119,16 @@ mode. Initially one active service owns a store; multi-instance coordination rem
 separate work. See `docs/architecture/persistence-providers.md`. Provider support,
 schemas and recovery are not implemented; runtime durability remains MemoryOnly.
 
-ADR-0008 is Proposed: database-authoritative domain transactions, portable bound
+ADR-0008 is Accepted with the required review refinements: database-authoritative domain transactions, portable bound
 expressions/exact values, durable identities and receipt scopes, SQLite ownership
 and durability profile, recovery/failure matrix and shared provider conformance.
 See `docs/handoffs/2026-10-18-transactional-persistence-design.md` for the review
-packet. Durable wire semantics require a separately reviewed capability extension;
-no protocol fields, provider, migrations or runtime changes are added in this slice.
+packet. Durable wire semantics require a separately reviewed capability extension.
+The first implementation slice now adds owned portable graph/publication records,
+bounded deterministic-CBOR v1 encoding/decoding, a validated no-rebinding core import
+boundary, retired identities, exact decimals and coherent collection restoration.
+There are 11 frozen codec fixtures and 18 new tests (153 Rust workspace tests total).
+The running daemon/REPL remain MemoryOnly; no database/provider, migration, durable
+coordinator, wire fields or cross-restart replay is implemented. See
+`docs/architecture/portable-storage-foundation.md` and
+`docs/handoffs/2026-10-18-portable-storage-foundation.md`.

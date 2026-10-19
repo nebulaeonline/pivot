@@ -442,6 +442,11 @@ dependencies = [
 [[package]]
 name = "pivot-storage"
 version = "0.1.0"
+dependencies = [
+ "pivot-core",
+ "pivot-types",
+ "uuid",
+]
 
 [[package]]
 name = "pivot-transport"

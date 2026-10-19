@@ -15,6 +15,9 @@ use std::{
 };
 
 static NEXT_MODEL: AtomicU64 = AtomicU64::new(1);
+/// Internal validated transfer boundary; not a persistent format or client API.
+#[doc(hidden)]
+pub mod transfer;
 
 /// Process-local identity, not a persistence or wire identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

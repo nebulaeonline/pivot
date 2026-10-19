@@ -1,5 +1,13 @@
 # Linux and macOS validation
 
+## Portable storage foundation — 2026-10-18
+
+Windows full CI and WSL Linux Rust/IPC checks cover the portable record codec and
+validated restoration foundation, including its frozen compatibility corpus.
+See the [storage foundation handoff](handoffs/2026-10-18-portable-storage-foundation.md)
+for exact reports. This validates portable in-memory restoration, **not SQLite or
+database durability**. macOS verification of this slice remains pending.
+
 ## Minimal REPL authoring — 2026-10-18
 
 Full Windows CI and available WSL Linux Rust/IPC checks cover the new authoring

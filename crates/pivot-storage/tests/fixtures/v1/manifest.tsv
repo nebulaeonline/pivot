@@ -1,0 +1,11 @@
+working.hex	ok	-
+published.hex	ok	-
+codec-version.hex	decode	UnsupportedVersion
+numeric-version.hex	decode	UnsupportedVersion
+expression-version.hex	decode	UnsupportedVersion
+operator.hex	decode	UnsupportedVersion
+cross-model.hex	decode	Identity
+decimal-flags.hex	decode	Malformed
+nonminimal.hex	decode	Malformed
+trailing.hex	decode	Malformed
+invalid-published.hex	restore	InvalidPublished

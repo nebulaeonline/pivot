@@ -1,6 +1,8 @@
 # Transactional persistence architecture
 
-Status: Proposed, ADR-0008; design only. Runtime remains MemoryOnly.
+Status: Accepted ADR-0008 architecture. Portable codec/import foundation is
+implemented separately; database/coordinator behavior below is not implemented.
+Runtime remains MemoryOnly.
 
 ## Authority and boundaries
 
@@ -124,6 +126,26 @@ snapshots for the store lifetime. Apply configured byte/count quotas before new
 admission, reserving space for the entire terminal outcome. Full storage refuses
 new mutations; existing receipt reconciliation remains available when readable.
 No disk-pressure eviction. Backups remain necessary; quotas are not a disk-full guarantee.
+
+Use independent count **and** byte accounting/reservations for terminal receipts
+(including admitted rejections), retained working revisions, identity tombstones
+and published snapshots. Report the exhausted category, usage, cap and permitted
+maintenance/recovery action to authorized clients/administrators; global cross-user
+usage requires separate administrative authorization. A receipt quota failure must
+not be mislabeled as a live-node limit. These durable quota/status mechanisms are
+future coordinator/protocol work, not additions to the current MemoryOnly service.
+
+Complete immutable working revisions are the initial implementation strategy,
+not a permanent requirement. Future chunking/structural sharing and bounded deltas
+may change physical storage while preserving logical immutable records, replay
+outcomes and recovery atomicity. Measure history growth before large spreadsheet
+work; never silently discard receipts to make full-copy storage fit.
+
+Startup is all-or-fail: every authoritative working head, identity ledger,
+published revision and required receipt must reconstruct coherently before Ready.
+A corrupt/unsupported object blocks the whole catalog, not just that object. The
+portable foundation's `restore_all` enforces all-or-error collection import; the
+future coordinator must additionally prove that its input catalog is complete.
 
 Acknowledgment is future metadata, not permission to reuse operation IDs. A future
 compactor may remove bulky detail only while retaining an intent/outcome fence that

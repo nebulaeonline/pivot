@@ -16,10 +16,11 @@ decisions, not implementation suggestions.
 - [ADR-0005: Local IPC and endpoint security](0005-local-ipc-and-endpoint-security.md) — Accepted
 - [ADR-0006: Working-model lifecycle and transactions](0006-working-model-lifecycle-and-transactions.md) — Accepted
 - [ADR-0007: Versioned working-model authoring protocol](0007-versioned-authoring-protocol.md) — Accepted
-- [ADR-0008: Transactional persistence and recovery](0008-transactional-persistence-and-recovery.md) — Proposed
+- [ADR-0008: Transactional persistence and recovery](0008-transactional-persistence-and-recovery.md) — Accepted
 
 Authoring protocol, daemon integration and the minimal REPL are implemented.
-ADR-0008 proposes persistence/recovery behind a common provider contract, with
+ADR-0008 accepts persistence/recovery behind a common provider contract, with
 SQLite first and PostgreSQL/MySQL planned independently of deployment mode.
-No persistence implementation is approved or present. Final numeric policy,
+The portable codec/import foundation is implemented; no database provider or
+durable service is present. Final numeric policy,
 broader scheduling and multi-instance coordination remain separate work.

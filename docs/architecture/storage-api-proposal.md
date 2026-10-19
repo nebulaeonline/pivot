@@ -1,6 +1,6 @@
 # Provider-independent storage API proposal
 
-Status: Proposed under ADR-0008. Signatures below are design notation, not Rust
+Status: Accepted ADR-0008 design direction. Signatures below remain design notation, not Rust
 implementation or a promise of source-compatible public APIs.
 
 ## Ownership and execution
@@ -115,6 +115,30 @@ provider transactional; policy updates controlled by Pivot share its commit gate
 Provider errors redact credentials, database paths and SQL data from client failures.
 
 ## Provider obligations and limits
+
+Durable quota accounting uses independent `used_count`, `used_bytes`,
+`reserved_count`, `reserved_bytes`, `count_cap` and `byte_cap` per category:
+
+| Category | Logical accounting unit |
+| --- | --- |
+| Receipts | One terminal operation, including admitted rejection; full encoded intent/outcome and retained diagnostic-summary bytes |
+| Working revisions | One retained logical revision and its complete encoded graph/interface/metadata; publication alone creates no working revision |
+| Published snapshots | One immutable published revision, full snapshot/interface/provenance and external-port map |
+| Identity/tombstone retention | Allocated identity rows plus separately visible retired count/bytes; reserve their eventual tombstone capacity at identity admission |
+
+Measure versioned uncompressed logical record bytes consistently across providers;
+report physical database/journal size separately. Structural sharing must not
+silently change the meaning of advertised quotas. Categories cannot borrow another
+category's reservation or silently evict its records. Existing replay lookup
+precedes admission even when a category is full. Deleting/retiring an identity does
+not reclaim its reserved deduplication/tombstone guarantee.
+
+Authorized status reports identify the exhausted category, usage/reservations/cap
+and safe administrative next action. Global usage needs administrative rights;
+ordinary callers must not learn private cross-user resource counts. Rich durable
+status is part of the future negotiated contract, not new wire fields in this slice.
+These are coordinator/provider obligations; `pivot-storage::Limits` currently
+implements only codec/import work and allocation budgets.
 
 SQLite initially serializes all storage use through its one owned connection.
 Planned server providers may implement serializable behavior with appropriate

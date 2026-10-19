@@ -1,6 +1,6 @@
 # Versioned logical storage schema proposal
 
-Status: Proposed under ADR-0008. This is a logical database/record contract, not
+Status: Accepted ADR-0008 design. This is a logical database/record contract, not
 DDL, migrations or an implemented `.proto` schema. Providers choose physical SQL
 types/indexes while preserving these keys and invariants.
 
@@ -14,6 +14,13 @@ duplicate/unknown record fields fail closed, and bounded decoders reject excess
 depth/count/bytes. A storage digest is not a substitute for typed comparison.
 The deterministic encoding rules are defined in [RFC 8949 section 4.2](https://www.rfc-editor.org/rfc/rfc8949.html#section-4.2).
 No generic Rust serde layout or generated transport struct is the stored ABI.
+
+The first [codec/import implementation](portable-storage-foundation.md) freezes a
+restricted deterministic-CBOR v1 array layout and an independent compatibility
+corpus. Only portable graph/publication records are implemented; logical database
+tables, receipt encoding and migrations below remain future work. Full immutable
+working-revision copies are the initial strategy, not a permanent physical layout.
+Future structural sharing must preserve this logical contract and retained outcomes.
 
 UUIDs are 16 bytes in canonical network order, never platform GUID memory layouts.
 u64 values use fixed eight-byte big-endian logical SQL keys, with checked arithmetic,

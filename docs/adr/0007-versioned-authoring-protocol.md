@@ -79,15 +79,18 @@ remains separate; no provider implementation or bespoke native format is introdu
 The foundation implements bounded recursive structural preflight before generated
 decoding, identity/value validation and typed mutation intent. Port patches use
 presence: omitted means unchanged, supplied means replacement; at least one update
-is required. Future adaptation must apply patches inside staged state; current
-in-process SetInputPort accepts both replacement fields. Empty formula source is
+is required. Stage A implements patches inside staged state with native
+PatchInputPort, retaining omitted fields and original wire intent. Empty formula source is
 a present invalid draft, and edit sequence zero is valid. Model limits are
 configurable metadata, not permanent protocol maxima. Initial transport remains
 1 MiB; future bulk mechanisms require separate negotiation. Existing invocation
 wire layouts are preserved, while generated source/descriptor organization changes.
 
-Adapters still need authorization, receipt accounting, portable error mapping,
-byte-aware paging, signed cursors, attachment cleanup and off-lock calculation.
+Implementation status (2026-10-18): Stage A supplies authorization, receipt
+accounting, portable errors, byte-aware paging, signed cursors, attachment cleanup
+and off-lock calculation. Stage B and the minimal REPL expose these through local
+IPC. The accepted instance-scoped recovery decision is unchanged. ADR-0008 is a
+separate proposed durable design, not an implemented extension of these guarantees.
 
 See [protocol architecture](../architecture/authoring-protocol.md),
 [production schema](../../crates/pivot-protocol/proto/pivot/authoring/v1/authoring.proto), and

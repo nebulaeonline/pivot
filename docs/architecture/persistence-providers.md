@@ -1,7 +1,13 @@
 # Persistence providers and recovery direction
 
-Status: Project-owner direction, 2026-10-18; detailed design pending. No persistence
-ADR, provider schema, database dependency or implementation is approved by this note.
+Status: Project-owner direction, 2026-10-18. The detailed design is now proposed
+in [ADR-0008](../adr/0008-transactional-persistence-and-recovery.md), with
+[transactional architecture](transactional-persistence.md),
+[API](storage-api-proposal.md), [logical schema](storage-schema-proposal.md),
+[SQLite design](sqlite-persistence-design.md),
+[failure matrix](persistence-recovery-matrix.md) and
+[conformance plan](storage-provider-conformance.md). Those proposals require review;
+no provider, database dependency, migration or runtime durability is implemented.
 
 Design one transactional persistence contract with configurable providers. SQLite
 is the first implementation and default local provider, accepting an explicit

@@ -59,6 +59,11 @@ management foundation with replay-safe creation, transactional editing, then
 unpublished evaluation/publication. Authoring protocol and clients follow those
 in-process foundations. Persistence and detailed storage choices remain deferred.
 
+Implementation note (2026-10-18): Slices A–C, the ADR-0007 adapter, local daemon
+and minimal authoring REPL are now implemented. The staging order above records
+the accepted rollout, not a claim that the service remains in-process only.
+ADR-0008 now proposes storage/recovery; runtime remains MemoryOnly.
+
 ## Alternatives considered
 
 - Connection-owned models: an idle timeout or terminal crash destroys work.

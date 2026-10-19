@@ -118,3 +118,10 @@ PostgreSQL/MySQL adapters. Storage choice is independent of local/network servic
 mode. Initially one active service owns a store; multi-instance coordination remains
 separate work. See `docs/architecture/persistence-providers.md`. Provider support,
 schemas and recovery are not implemented; runtime durability remains MemoryOnly.
+
+ADR-0008 is Proposed: database-authoritative domain transactions, portable bound
+expressions/exact values, durable identities and receipt scopes, SQLite ownership
+and durability profile, recovery/failure matrix and shared provider conformance.
+See `docs/handoffs/2026-10-18-transactional-persistence-design.md` for the review
+packet. Durable wire semantics require a separately reviewed capability extension;
+no protocol fields, provider, migrations or runtime changes are added in this slice.

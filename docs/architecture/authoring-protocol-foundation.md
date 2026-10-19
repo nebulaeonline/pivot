@@ -101,9 +101,10 @@ storage reservations before any successful mutation commit. Exhaustion rejects
 admission; never silently truncate or evict promised details.
 
 Working-head paging, signed cursors, connection-bound attachment cleanup and bounded
-idempotent Close are accepted adapter requirements, not implemented by codecs.
-Service Info authorization, unified daemon registry/bootstrap and portable failure
-mapping likewise remain deferred. Database-provider direction remains in
+idempotent Close are implemented by Stage A, rather than codecs alone.
+Service Info authorization and portable failure mapping are implemented there;
+Stage B implements the unified daemon registry/bootstrap. This section originally
+recorded the foundation boundary. Database-provider direction remains in
 [persistence providers](persistence-providers.md), outside ADR-0007 implementation.
 
 ## Compatibility evidence

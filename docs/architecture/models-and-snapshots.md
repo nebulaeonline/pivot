@@ -25,5 +25,8 @@ The working model stores input values for convenient editing. These are captured
 values, not cached results. Public ports are implemented; calculation policy capture and dirty propagation
 remain deferred. Per-invocation overrides and evaluation
 contexts now execute one snapshot and retain its revision identity with results;
-see [snapshot evaluation](snapshot-evaluation.md). Atomic multi-edit transactions and cross-process
-revision identifiers remain unspecified.
+see [snapshot evaluation](snapshot-evaluation.md). Atomic multi-edit transactions
+and portable cross-process revisions are implemented in the
+[management service](working-model-management.md) and ADR-0007 daemon/REPL path.
+Core handles remain process-local; [ADR-0008](../adr/0008-transactional-persistence-and-recovery.md)
+proposes portable storage records rather than serializing those handles.

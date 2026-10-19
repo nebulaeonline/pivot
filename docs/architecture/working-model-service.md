@@ -4,8 +4,11 @@ Status: Architectural baseline accepted in ADR-0006, with staged implementation.
 The [management foundation](working-model-management.md) implements Slices A–C,
 including [transactional editing](working-model-editing.md) and
 [validation, evaluation and publication](working-model-calculation-publication.md).
-Authoring schema/codecs are implemented under ADR-0007; live dispatch and client
-authoring operations remain deferred.
+ADR-0007 now includes serialized dispatch, opt-in local daemon authoring and the
+minimal [REPL authoring client](command-repl.md#minimal-authoring).
+Persistence remains unimplemented; [ADR-0008](../adr/0008-transactional-persistence-and-recovery.md)
+is a proposed design only. Deferred API names below belong to the original baseline;
+use the linked implementation documents for current behavior.
 
 Expose graph authoring to arbitrary clients while preserving the existing immutable
 invocation host. Keep model management independent of transport, REPL, workbook

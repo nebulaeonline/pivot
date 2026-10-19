@@ -1,7 +1,9 @@
 # Working-model validation, evaluation and publication
 
-Implemented Slice C of ADR-0006 in `pivot_host::management`. All APIs remain in
-process. Authoring wire dispatch, daemon/REPL commands and persistence remain deferred.
+Implemented Slice C of ADR-0006 in `pivot_host::management`. The same APIs now
+serve the ADR-0007 adapter, opt-in local daemon and minimal authoring REPL.
+See [daemon integration](daemon-authoring.md) and [REPL](command-repl.md).
+Persistence remains unimplemented; ADR-0008 is proposed design only.
 
 ## Validation and capture
 

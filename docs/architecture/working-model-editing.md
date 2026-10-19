@@ -1,8 +1,8 @@
 # Transactional working-model editing
 
 Implemented Slice B of accepted ADR-0006 in
-`pivot_host::management`. The service is still in process only. There is no
-authoring protocol or daemon/REPL editing. Slice C adds separate
+`pivot_host::management`. It now serves the versioned authoring adapter, opt-in
+local daemon and minimal REPL; it is not limited to in-process clients. Slice C adds separate
 [validation/evaluation/publication APIs](working-model-calculation-publication.md).
 
 ## API and revision boundary

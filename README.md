@@ -26,7 +26,7 @@ evaluation with isolated input overrides and named public model interfaces.
 A demo daemon and CLI now support discovery and invocation over local IPC.
 A persistent command REPL is available. Opt-in daemon authoring supports transactional
 editing, evaluation and publication through the protocol; state is memory-only.
-REPL editing and the spreadsheet UI are still ahead.
+Minimal REPL authoring is available; the spreadsheet UI is still ahead.
 
 The transport-independent Protobuf protocol has Rust/C# serialization tests and an
 in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)

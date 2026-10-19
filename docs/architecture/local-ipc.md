@@ -41,7 +41,8 @@ CLI input syntax is strict Name=Decimal; no floats or full formula language.
 No `--outputs` selects all public outputs. CLI exits 0 on success, 1 for connection,
 argument, or request failures, and 2 if an output contains a calculation error.
 Results include diagnostic invocation ID and exact external revision. A persistent command REPL is available; see [command REPL usage](command-repl.md).
-REPL expression evaluation, model editing, and scripting remain deferred.
+Minimal REPL authoring now edits named models and evaluates selected nodes through
+the daemon. General scripting remains deferred.
 
 ## Frames, sessions, and lifecycle
 

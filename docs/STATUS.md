@@ -50,7 +50,8 @@ and a conservative calculation work budget. Idle/partial-read/write deadlines,
 connection caps, and work budgets are configurable operational policy. A persistent
 command REPL shares the actual IPC client and supports session-local history,
 line editing, explicit reconnect, and no automatic replay after disconnect.
-Expression evaluation, model editing, and scripting remain deferred.
+Minimal named-model authoring and selected-node evaluation are available through
+typed daemon requests; general scripting remains deferred.
 Local CI is available through `python scripts/ci.py`, covering Rust formatting,
 lint/tests, .NET Release builds, and cross-language decimal compatibility. See
 `docs/local-ci.md` for prerequisites and current platform/reproducibility limits.
@@ -74,7 +75,7 @@ Slice C adds exact-revision structural validation, detached immutable evaluation
 captures with temporary overrides, and replay-safe publication into a coordinated
 immutable invocation registry. Published revisions and working revisions remain
 distinct. Serialized authoring is available in process and through opt-in local
-daemon IPC; REPL authoring remains deferred. See
+daemon IPC and the minimal authoring REPL. See
 `docs/architecture/working-model-management.md` for the in-process API and limits.
 Transactional editing details are in `docs/architecture/working-model-editing.md`.
 Calculation/publication details are in
@@ -99,9 +100,18 @@ tests cover daemon authoring, legacy compatibility, lost responses, concurrent
 edits, denial/revocation, cancellation cleanup, quotas and malicious traffic.
 See `docs/architecture/daemon-authoring.md` and the Stage B handoff for current
 Windows/WSL validation; macOS verification of this slice remains pending.
-The final Rust suite has 130 tests, including 23 adapter/router tests and five
+The Stage B Rust suite had 130 tests, including 23 adapter/router tests and five
 daemon IPC integration tests. Full Windows and WSL CI reports are linked from
 `docs/handoffs/2026-10-18-daemon-authoring.md`.
+The subsequent minimal authoring REPL adds create/list/select/inspect, decimal
+inputs, opaque formula submissions/repairs, public ports, validation, evaluation
+and exact-revision publication. It preserves pending operation IDs/intent after
+ambiguous responses and requires explicit recovery/retry; conflicts never trigger
+automatic refresh. Creating/opening a model warns that restart loses its state.
+Five executable REPL tests bring the Rust suite to 135 tests. The real-process
+IPC harness also checks authoring, reopening and immutable published invocation.
+See `docs/architecture/command-repl.md` and
+`docs/handoffs/2026-10-18-minimal-repl-authoring.md` for evidence and limits.
 Persistence direction is a common transactional contract with configurable
 providers: SQLite first/default locally with a filesystem path, and planned
 PostgreSQL/MySQL adapters. Storage choice is independent of local/network service

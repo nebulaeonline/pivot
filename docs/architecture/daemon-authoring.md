@@ -11,8 +11,8 @@ cargo run -p pivotd -- --demo --authoring --authoring-sessions 16 --work-budget 
 `--demo` alone retains invocation-only behavior. `--authoring` alone starts an
 empty publication registry. With both flags, demo and authored publications share
 the management service's single registry. Existing CLI/REPL discovery, description
-and invocation work unchanged; authoring commands are not added to the CLI/REPL.
-An authoring client must currently use the generated protocol directly.
+and invocation work unchanged. The subsequent [minimal authoring REPL](command-repl.md#minimal-authoring)
+now exposes this contract through typed IPC commands.
 
 **Durability is MemoryOnly. Restart loses all authored resources and receipts.**
 The daemon reports this at startup and through GetServiceInfo. Persistence remains
@@ -95,6 +95,6 @@ publication releases a one-slot attachment quota without deadlock. These control
 policy tests add no test-only daemon control protocol.
 
 Validation evidence is recorded in the [Stage B handoff](../handoffs/2026-10-18-daemon-authoring.md).
-macOS verification of this slice remains pending. REPL authoring, persistence,
+macOS verification of this slice remains pending. Persistence,
 C# executable IPC, Native AOT, spreadsheet projection, benchmarks and GUI work
 remain separate follow-ups.

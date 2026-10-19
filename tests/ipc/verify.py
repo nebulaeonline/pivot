@@ -14,6 +14,61 @@ import uuid
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
+def verify_authoring(binary, extension, output):
+    name = "pivot-repl-authoring-" + uuid.uuid4().hex
+    private = pathlib.Path("/tmp") / name
+    endpoint = "\\\\.\\pipe\\" + name if os.name == "nt" else str(private / "pivot.sock")
+    ready = queue.Queue()
+    log = (output / "authoring-daemon.log").open("w", encoding="utf-8")
+    daemon = subprocess.Popen([str(binary / ("pivotd" + extension)), "--demo", "--authoring", "--endpoint", endpoint, "--shutdown-stdin"], cwd=ROOT,
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    def drain():
+        for line in daemon.stdout:
+            log.write(line)
+            log.flush()
+            if line.startswith("READY "):
+                ready.put(line)
+    reader = threading.Thread(target=drain, daemon=True)
+    reader.start()
+    try:
+        ready.get(timeout=12)
+        commands = ["working create ReplProfit", "input Revenue = 250000", "input Costs = 85000", "formula Net = Revenue - Costs",
+                    "port input Sales Revenue required", "port input Expenses Costs optional 85000", "port output Profit Net", "working show",
+                    "validate", "eval Net", "eval Net Revenue=100000 Costs=25000", "publish", "models", "invoke ReplProfit Sales=250000",
+                    "input Costs = 90000", "eval Net", "invoke ReplProfit Sales=250000", "reconnect", "working use ReplProfit",
+                    "formula Net = Revenue +", "working show", "validate", "formula Net = Revenue - Costs", "validate", "eval Net", "exit"]
+        result = subprocess.run([str(binary / ("pivot-cli" + extension)), "--endpoint", endpoint, "repl"], input="\n".join(commands) + "\n",
+                                cwd=ROOT, text=True, capture_output=True, timeout=25)
+        transcript = result.stdout + result.stderr
+        (output / "authoring-repl.log").write_text(transcript, encoding="utf-8")
+        assert result.returncode == 0 and not result.stderr, transcript
+        for expected in ["Net=165000", "Net=75000", "Net=160000", "Valid=true", "Valid=false", "Diagnostic Parse", "Published", "Reconnected.",
+                         "Working models are currently memory-only and are lost when pivotd restarts."]:
+            assert expected in transcript, (expected, transcript)
+        assert transcript.count("Profit=165000") == 2, transcript
+        # Reopen from an entirely new executable, using authorized discovery.
+        reopened = subprocess.run([str(binary / ("pivot-cli" + extension)), "--endpoint", endpoint, "repl"],
+                                  input="working list\nworking use ReplProfit\neval Net\nexit\n", cwd=ROOT, text=True, capture_output=True, timeout=15)
+        assert reopened.returncode == 0 and not reopened.stderr and "Net=160000" in reopened.stdout, (reopened.stdout, reopened.stderr)
+        (output / "authoring-reopen.log").write_text(reopened.stdout, encoding="utf-8")
+    finally:
+        if daemon.poll() is None:
+            daemon.stdin.write("\n")
+            daemon.stdin.flush()
+        try:
+            daemon.wait(timeout=8)
+        except subprocess.TimeoutExpired:
+            daemon.kill()
+            daemon.wait(timeout=5)
+            raise
+        finally:
+            reader.join(timeout=3)
+            log.close()
+            if os.name != "nt" and private.exists():
+                private.rmdir()
+    assert daemon.returncode == 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=pathlib.Path, default=ROOT / "artifacts/ipc")
@@ -148,6 +203,8 @@ def main():
     if os.name != "nt":
         assert not pathlib.Path(endpoint).exists()
     checks.append("graceful daemon shutdown and endpoint cleanup")
+    verify_authoring(binary, extension, output)
+    checks.append("authoring REPL create/edit/interface/validate/evaluate/publish/legacy invoke, immutable publications, repair and reopen")
     (output / "results.txt").write_text("PASS\n" + "\n".join(checks) + "\n", encoding="utf-8")
     print("IPC integration: PASS")
 

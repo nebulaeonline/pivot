@@ -1,5 +1,13 @@
 # Linux and macOS validation
 
+## Minimal REPL authoring — 2026-10-18
+
+Full Windows CI and available WSL Linux Rust/IPC checks cover the new authoring
+commands, mutation recovery, conflicts and executable client tests. The Rust suite
+has 135 tests. The real-process harness exercises both ordinary invocation and
+authoring REPL workflows. See the [REPL authoring handoff](handoffs/2026-10-18-minimal-repl-authoring.md)
+for exact evidence. macOS ARM64/APFS validation of Stage B and this REPL remains pending.
+
 ## Stage B authoring — 2026-10-18
 
 Full local CI passed on Windows and Ubuntu WSL2, including the new daemon

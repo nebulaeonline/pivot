@@ -10,3 +10,7 @@ pivot-types = { path = "../../crates/pivot-types" }
 pivot-transport = { path = "../../crates/pivot-transport" }
 prost = "0.14.4"
 rustyline = { version = "19.0.0", default-features = false }
+uuid = { version = "1.28.0", features = ["v4"] }
+
+[dev-dependencies]
+pivot-host = { path = "../../crates/pivot-host" }

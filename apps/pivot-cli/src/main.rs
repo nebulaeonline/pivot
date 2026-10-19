@@ -5,6 +5,7 @@ use prost::Message;
 use std::error::Error;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
+mod authoring;
 struct Client {
     stream: transport::Stream,
     next: u64,
@@ -179,6 +180,7 @@ fn parse_command(tokens: Vec<String>) -> Result<CommandArgs> {
     Ok(parsed)
 }
 fn help() {
+    authoring::help();
     println!(
         "Commands: help | models | describe MODEL [--revision ID] | invoke MODEL Input=Decimal ... [--revision ID] [--outputs Label,Label] | reconnect [--endpoint LOCAL_ENDPOINT] | exit"
     );
@@ -309,6 +311,7 @@ async fn repl(endpoint: String) -> Result<bool> {
         None
     };
     let mut endpoint = endpoint;
+    let mut working = authoring::Working::default();
     let mut client = match Client::open(&endpoint).await {
         Ok(client) => {
             println!("Connected. Type help for commands.");
@@ -346,6 +349,17 @@ async fn repl(endpoint: String) -> Result<bool> {
         if line.trim().is_empty() {
             continue;
         }
+        if authoring::recognizes(&line) {
+            if let Err(error) = working
+                .execute(&endpoint, line.trim_end_matches(['\r', '\n']))
+                .await
+            {
+                eprintln!("Error: {error}");
+            }
+            std::io::stdout().flush()?;
+            std::io::stderr().flush()?;
+            continue;
+        }
         // Commands are whitespace-delimited labels/decimal bindings. No shell,
         // quotes, script execution, or computational expression language.
         let parsed = match parse_command(line.split_whitespace().map(str::to_owned).collect()) {
@@ -371,6 +385,13 @@ async fn repl(endpoint: String) -> Result<bool> {
                     && parsed.output_labels.is_none() =>
             {
                 // Explicit reconnect always discards the previous connection.
+                if parsed.endpoint.as_ref().is_some_and(|e| e != &endpoint) && working.pending() {
+                    eprintln!(
+                        "Error: unresolved mutation belongs to this endpoint; use working recover or working abandon first"
+                    );
+                    continue;
+                }
+                working.disconnect();
                 client = None;
                 if let Some(selected) = parsed.endpoint {
                     endpoint = selected;

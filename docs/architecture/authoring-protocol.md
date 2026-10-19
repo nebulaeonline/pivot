@@ -259,7 +259,8 @@ Stage A implements error mapping, byte-aware paging/signed cursors, attachment
 cleanup, Info authorization and staged partial-port patches. Original decoded
 wire intent is retained in the existing edit receipt. Omitted fields resolve
 against the staged transaction candidate. Stage B adds unified daemon registry
-bootstrap and live authoring IPC behind explicit enablement. REPL authoring remains deferred.
+bootstrap and live authoring IPC behind explicit enablement. The subsequent
+[minimal authoring REPL](command-repl.md#minimal-authoring) uses this contract.
 
 Port update semantics: omitted means unchanged, supplied means replacement, and at
 least one update field is required. Present-but-empty formula source is valid draft

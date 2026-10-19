@@ -1,6 +1,6 @@
 # Initial workbook projection considerations
 
-Status: Proposed ADR-0009 constraints for later work; not a workbook implementation.
+Status: Accepted ADR-0009 constraints for later work; not a workbook implementation.
 
 A standalone computational model remains useful without a sheet. A workbook adds
 stable WorksheetIds, sheet names, sparse cells, formats, resources and projection

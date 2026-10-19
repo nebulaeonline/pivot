@@ -1,7 +1,9 @@
 # Portable document representation and identities
 
-Status: Proposed ADR-0009 logical representation. No byte layout, extension
-registration, document codec or source-compatible API is established here.
+Status: Accepted ADR-0009 logical direction. [Slice A](document-foundation.md)
+implements one graph and a minimal owned document representation. Future workbook,
+saved-file and container fields below remain designs. No native byte format,
+extension registration or stable public API is established here.
 
 ## Logical envelope
 
@@ -52,7 +54,10 @@ treat them as current authoritative values.
 | SavedFileVersion | Fresh opaque version for a successfully written content state; preserved when reopening that file; not a monotonic edit counter |
 | File fingerprint | Broker-owned observation of physical target identity and bytes, including external changes; separate from embedded IDs |
 
-Do not order UUIDs to infer recency. Two Save As copies may later diverge while
+These are conceptual distinctions, not a requirement to allocate every ID in the
+first implementation. Slice A persists logical document/state/graph/revision IDs in
+owned content, creates private session IDs and tags calculations, but does not yet
+allocate saved-file versions or file fingerprints. Do not order UUIDs to infer recency. Two Save As copies may later diverge while
 retaining logical identities; they get different saved versions and sessions.
 Opening two copies must not alias their live runtime state. Importing a graph into
 the same document requires explicit collision detection and coordinated ID remapping;

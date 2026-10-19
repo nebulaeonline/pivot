@@ -6,8 +6,11 @@ including [transactional editing](working-model-editing.md) and
 [validation, evaluation and publication](working-model-calculation-publication.md).
 ADR-0007 now includes serialized dispatch, opt-in local daemon authoring and the
 minimal [REPL authoring client](command-repl.md#minimal-authoring).
-Persistence remains unimplemented; [ADR-0008](../adr/0008-transactional-persistence-and-recovery.md)
-is a proposed design only. Deferred API names below belong to the original baseline;
+The runtime remains MemoryOnly. [ADR-0008](../adr/0008-transactional-persistence-and-recovery.md)
+is Accepted for optional hosted persistence; its portable foundation is implemented
+but database/coordinator work is deferred. The hosting-independent
+[document foundation](document-foundation.md) is separate from this service.
+Deferred API names below belong to the original baseline;
 use the linked implementation documents for current behavior.
 
 Expose graph authoring to arbitrary clients while preserving the existing immutable

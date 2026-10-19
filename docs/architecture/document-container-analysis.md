@@ -1,6 +1,6 @@
 # Native document container alternatives
 
-Status: Proposed ADR-0009 analysis. No physical container selected or implemented.
+Status: Accepted ADR-0009 evaluation direction. No physical container selected or implemented.
 The `.pivot` name is illustrative; logical content and lifecycle do not depend on
 the final extension or container signature.
 
@@ -40,7 +40,15 @@ schema and disable unnecessary executable/extension behavior before consuming
 untrusted content. Binary readers must validate all offsets and arithmetic before
 allocation. A sectioned container does not make a monolithic graph payload lazy.
 
-## Required comparison before choosing
+## Proof first; comparison before a production format freeze
+
+Following the ADR-0009 review, the next goal after Slice A is the smallest useful
+headless model-file proof, using a clearly experimental container. That proof needs
+a bounded format and safe write behavior, not an extensive benchmarking project.
+The workloads below inform later production selection and must not block proving
+New/Open/Save/Save As. No experimental format is selected or implemented in Slice A.
+
+## Later comparison before production selection
 
 Use the same representative logical data for each prototype: a small standalone
 model, a medium formula graph, and sparse workbook-shaped data at 100,000 and
@@ -60,5 +68,5 @@ Review complexity and maintenance alongside throughput: migration tools, indepen
 inspection, read-only compatibility, repair diagnostics, licensing/deployment,
 cross-language boundaries and supported filesystems. Do not choose from an isolated
 microbenchmark or from the availability of the current CBOR encoder. Prototypes
-and container selection require authorization after this proposal review; none are
-part of this slice.
+and production container selection require separate authorization; none are part
+of Slice A. Do not freeze production .pivot bytes from the experimental proof.

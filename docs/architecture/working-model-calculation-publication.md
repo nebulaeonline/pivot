@@ -3,7 +3,9 @@
 Implemented Slice C of ADR-0006 in `pivot_host::management`. The same APIs now
 serve the ADR-0007 adapter, opt-in local daemon and minimal authoring REPL.
 See [daemon integration](daemon-authoring.md) and [REPL](command-repl.md).
-Persistence remains unimplemented; ADR-0008 is proposed design only.
+This service remains MemoryOnly. ADR-0008 is Accepted for optional hosted
+persistence; its portable foundation is implemented but database work is deferred.
+[Document sessions](document-foundation.md) calculate independently of publication.
 
 ## Validation and capture
 

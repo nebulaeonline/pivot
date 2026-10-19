@@ -1,6 +1,6 @@
 # Local document file safety and failure matrix
 
-Status: Proposed ADR-0009 contract; no file adapter or fault tests implemented.
+Status: Accepted ADR-0009 design contract; no file adapter or fault tests implemented.
 Applies to explicit document saves, not ADR-0008 hosted database commits.
 
 ## Proposed safe-save sequence

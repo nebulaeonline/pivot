@@ -1,5 +1,15 @@
 # Linux and macOS validation
 
+## Document Foundation Slice A — 2026-10-18
+
+Full Windows CI passes with 167 Rust tests, .NET Release, decimal/protocol parity
+and executable IPC/REPL checks. WSL Linux formatting, Clippy, the 167-test Rust suite
+and real IPC harness also pass. See the
+[Slice A handoff](handoffs/2026-10-18-document-foundation-slice-a.md) for exact reports.
+This validates hosting-independent in-memory documents and hosted compatibility,
+not native file I/O, a document container or database durability. No Linux .NET
+rerun was needed for this Rust-only change; native macOS verification remains pending.
+
 ## Portable storage foundation — 2026-10-18
 
 Windows full CI and WSL Linux Rust/IPC checks cover the portable record codec and

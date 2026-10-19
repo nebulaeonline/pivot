@@ -141,8 +141,9 @@ commits, database-authoritative startup, durable protocol negotiation, actual da
 restart recovery and cross-platform durability proof remain unimplemented.
 No driver or service flag has been added.
 
-The next design proposal is [ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md).
+The document direction is accepted [ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md).
 The frozen 14-field record above remains a hosted storage format, not the native
 user-document format. See the [reuse plan](document-storage-reuse.md) for separating
 graph semantics from hosted authority without changing frozen bytes or duplicating
-parser/binder/evaluator logic. No document adapter is implemented by that proposal.
+parser/binder/evaluator logic. The hosting-free graph and in-memory session adapter is now implemented in
+[Slice A](document-foundation.md); no native document bytes or file I/O is implemented.

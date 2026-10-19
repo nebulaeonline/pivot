@@ -13,7 +13,7 @@ receipts are deferred. The original feasibility gate below remains a prerequisit
 if that hosted work resumes; it is no longer the next scheduled slice.
 
 Native documents do not require StoreId, RecoveryEpochId, publication or receipts.
-The frozen hosted record is not designated as the native file format. See proposed
+The frozen hosted record is not designated as the native file format. See accepted
 [ADR-0009](0009-portable-documents-and-local-lifecycle.md) for the next design priority.
 No runtime guarantees or storage-v1 bytes change with this clarification.
 

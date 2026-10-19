@@ -74,7 +74,8 @@ reports in `tests/decimal-parity/`.
 ## Current coverage limits
 
 Workspace Rust tests now include the storage-codec compatibility corpus and
-portable restoration tests. They do not create a database or prove crash durability.
+portable restoration and in-memory document-session tests. They do not exercise
+native document files, create a database or prove crash durability.
 Run `cargo test --locked -p pivot-storage` for the focused foundation checks.
 
 The full pipeline is verified on Windows with .NET 10.0.402 and Ubuntu WSL2 Linux

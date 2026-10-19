@@ -140,18 +140,27 @@ preserves ADR-0006/0007/0008 history. Further hosted persistence is deferred:
 SQLite ownership feasibility, schema/migrations, durable commit coordination,
 cross-restart receipts and PostgreSQL/MySQL adapters are not the next work.
 
-[Proposed ADR-0009](adr/0009-portable-documents-and-local-lifecycle.md) and its
-[design handoff](handoffs/2026-10-18-portable-document-design.md) define ordinary
-model documents and local New/Open/Edit/Calculate/Save/Save As/Close behavior.
-This proposal is design only. No document format/container is selected and no
-native file operations, document sessions, protocol additions, worksheet projection
-or UI are implemented. A model document must work without a spreadsheet, database
-registry, publication, receipt or recovery epoch. The current hosted storage-v1
-record is not the native document format. Core calculation stays independent.
+[Accepted ADR-0009](adr/0009-portable-documents-and-local-lifecycle.md) defines
+ordinary model documents and local New/Open/Edit/Calculate/Save/Save As/Close
+behavior. Document Foundation Slice A now implements hosting-free graph payloads
+and thin one-graph in-memory sessions in pivot-storage. Sessions reuse core staging,
+binding, validated import and evaluation, with no hosted registration, publication,
+store/epoch identities or receipts. Immutable export/restore, independent copies,
+exact values, invalid drafts, stale-token checks and saved checkpoints are tested.
+See [implementation details](architecture/document-foundation.md) and the
+[Slice A review handoff](handoffs/2026-10-18-document-foundation-slice-a.md).
+
+The suite now has 167 Rust tests, including 13 new document integration tests and
+one new hosted resource-budget compatibility test. Full Windows CI and WSL Linux
+Rust/lint/IPC checks pass. Native macOS validation of recent work remains pending.
+No native byte format, file broker, document RPC, worksheets or UI is implemented.
+Acknowledging a saved checkpoint is an in-memory attestation, not a disk write.
+The current hosted storage-v1 record is not the native document format.
 
 Separate backlog items remain:
 
-- Review ADR-0009; then authorize a bounded document-focused implementation slice.
+- Review Slice A; then authorize the smallest experimental headless model-file workflow.
+- Evaluate production containers and broad scale benchmarks after that file proof.
 - Workbook projection and spreadsheet graph/range APIs, including sparse storage.
 - Bulk viewport/range transport and incremental calculation.
 - Executable C# IPC client and Native AOT verification.

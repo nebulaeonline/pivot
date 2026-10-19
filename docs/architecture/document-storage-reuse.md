@@ -1,6 +1,9 @@
 # Reusing portable storage for documents
 
-Status: Proposed ADR-0009 reuse plan; no refactoring or API changes implemented.
+Status: Accepted ADR-0009 reuse direction. Slice A now factors shared graph validation,
+restoration and editing behind hosted and document adapters inside pivot-storage.
+See [actual implementation and limits](document-foundation.md). Remaining file and
+workbook integration described below is future work.
 
 ## What exists
 
@@ -10,15 +13,15 @@ bounded deterministic CBOR, validated restoration and frozen compatibility fixtu
 The doc-hidden `pivot-core::model::transfer` bridge validates temporary slot images
 and allocates fresh runtime handles. It restores bindings without reparsing source.
 
-The current `Record`, codec and `restore_all` are **not** hosting-free document APIs:
+The hosted `Record`, codec and `restore_all` are **not** hosting-free document APIs:
 they require store/epoch metadata and enforce collection/publication invariants.
 `RestoredModel` edit helpers are a bounded foundation test surface, not an existing
 document session manager. No native file workflow is implemented.
 
-## Proposed adapter boundary
+## Shared adapter boundary
 
-Factor a hosting-free owned graph payload and shared graph validation/mapping logic
-behind two adapters when implementation is authorized:
+Slice A factors a hosting-free owned GraphPayload and shared validation/mapping
+logic behind two adapters:
 
 ```text
 Document envelope -> graph adapter -> validated core transfer -> WorkingModel
@@ -28,8 +31,10 @@ Hosted v1 Record -> hosted adapter -> shared graph validation -> core transfer
 The diagram is logical: no crate split or public API freeze is proposed. Keep the
 existing hosted Record shape, codec behavior, discriminants, validation phases and
 frozen fixture bytes unchanged. Its adapter retains store consistency, publication
-lineage and collection rules. A new document envelope handles document versions and
-interfaces without calling a publication registry or inventing placeholder store IDs.
+lineage and collection rules. The owned model-document envelope handles logical
+versions and interfaces without
+calling a publication registry or inventing placeholder store IDs. It is not yet
+a byte-format envelope.
 
 Reuse graph field semantics and, where useful, codec primitives; do not assume the
 entire 14-field CBOR record can serve as the document payload. New document bytes
@@ -71,9 +76,11 @@ all authoritative document sections before exposing a normal editable session.
 Across independently restored models, compare portable IDs rather than new core
 PortIds/NodeIds. Keep document/session namespace around copied identities. Public
 interfaces can use the existing snapshot invocation machinery without ModelHost
-registration; add a document-specific façade only after review.
+registration; Slice A now provides that direct in-process session façade.
 
-Before integration, verify legacy frozen bytes, errors, malformed-data rejection
-and existing daemon behavior remain compatible. `pivot-core` must still depend on
-neither documents nor storage, filesystem, IPC, authorization or SQLite. No new
-dependency, refactor, document API or protocol operation is introduced by this plan.
+Slice A verifies legacy frozen bytes, malformed-data rejection and existing daemon
+behavior remain compatible. Hosted restore retains its exact CBOR resource profile,
+separate from the document payload's logical accounting budgets. `pivot-core` still depends on
+neither documents nor storage, filesystem, IPC, authorization or SQLite. The
+implementation introduces a graph/session Rust API and internal refactor but no
+new dependency, document codec, provider, filesystem operation or protocol change.

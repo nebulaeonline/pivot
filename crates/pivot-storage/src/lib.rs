@@ -1,7 +1,10 @@
 //! Portable storage records and restoration only. No database or durability claim.
 mod codec;
+pub mod document;
+mod graph;
 mod runtime;
 pub use codec::{decode, encode};
+pub use graph::{EditableGraph, GraphPayload, NamedValues, Values};
 pub use runtime::{
     Diagnostic, DiagnosticKind, RestoredModel, capture, capture_snapshot, restore, restore_all,
 };
@@ -197,6 +200,55 @@ impl Record {
         if self.codec != 1 || self.numeric != 1 || self.expression != 1 {
             return Err(Error::UnsupportedVersion);
         }
+        if self.store.is_nil() || self.epoch.is_nil() {
+            return Err(Error::Malformed);
+        }
+        GraphView {
+            model: self.model,
+            revision: self.revision,
+            name: &self.name,
+            node_ids: &self.node_ids,
+            port_ids: &self.port_ids,
+            nodes: &self.nodes,
+            ports: &self.ports,
+        }
+        .validate(limits)?;
+        if let Some(p) = &self.publication {
+            if [p.model, p.revision, p.snapshot].iter().any(Uuid::is_nil) {
+                return Err(Error::Identity);
+            }
+            let mapped = ordered(p.public_ports.iter().map(|(id, _)| *id))?;
+            if mapped != self.ports.iter().map(|p| p.id).collect() {
+                return Err(Error::Identity);
+            }
+            let mut labels = BTreeSet::new();
+            for (_, id) in &p.public_ports {
+                if id.is_empty()
+                    || id.len() > 128
+                    || !id
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
+                    || !labels.insert(id)
+                {
+                    return Err(Error::Identity);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+pub(crate) struct GraphView<'a> {
+    pub model: Uuid,
+    pub revision: Uuid,
+    pub name: &'a str,
+    pub node_ids: &'a [Uuid],
+    pub port_ids: &'a [Uuid],
+    pub nodes: &'a [Node],
+    pub ports: &'a [Port],
+}
+impl GraphView<'_> {
+    fn validate(&self, limits: Limits) -> Result<()> {
         if limits.depth == 0
             || limits.depth > 64
             || self.nodes.len() > limits.nodes.min(4096)
@@ -205,9 +257,7 @@ impl Record {
         {
             return Err(Error::Limit);
         }
-        if [self.store, self.epoch, self.model, self.revision]
-            .iter()
-            .any(Uuid::is_nil)
+        if [self.model, self.revision].iter().any(Uuid::is_nil)
             || self.name.is_empty()
             || self.name.len() > 128
         {
@@ -232,7 +282,7 @@ impl Record {
         if work > work_limit {
             return Err(Error::Limit);
         }
-        for n in &self.nodes {
+        for n in self.nodes {
             if !nodes.contains(&n.id) || !identifier(&n.name) || !names.insert(&n.name) {
                 return Err(Error::Identity);
             }
@@ -316,7 +366,7 @@ impl Record {
         }
         let mut labels = BTreeSet::new();
         let mut inputs = BTreeSet::new();
-        for p in &self.ports {
+        for p in self.ports {
             if !ports.contains(&p.id)
                 || !identifier(&p.name)
                 || !labels.insert(&p.name)
@@ -330,27 +380,6 @@ impl Record {
             }
             if let PortKind::Optional(v) = p.kind {
                 v.parts()?;
-            }
-        }
-        if let Some(p) = &self.publication {
-            if [p.model, p.revision, p.snapshot].iter().any(Uuid::is_nil) {
-                return Err(Error::Identity);
-            }
-            let mapped = ordered(p.public_ports.iter().map(|(id, _)| *id))?;
-            if mapped != self.ports.iter().map(|p| p.id).collect() {
-                return Err(Error::Identity);
-            }
-            let mut labels = BTreeSet::new();
-            for (_, id) in &p.public_ports {
-                if id.is_empty()
-                    || id.len() > 128
-                    || !id
-                        .bytes()
-                        .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
-                    || !labels.insert(id)
-                {
-                    return Err(Error::Identity);
-                }
             }
         }
         Ok(())

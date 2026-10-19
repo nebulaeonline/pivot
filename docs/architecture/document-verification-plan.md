@@ -1,8 +1,9 @@
 # Document verification and compatibility plan
 
-Status: Proposed ADR-0009 future verification. No document tests are implemented or
-claimed to pass. Existing storage fixtures and 153 reported Rust tests cover only
-the previously implemented foundation.
+Status: Accepted ADR-0009 verification direction. Slice A adds in-memory document
+and graph tests; see [implementation evidence](document-foundation.md). File/broker,
+container, C# IPC and workbook scenarios below remain future verification, not
+claims of implemented behavior. The older 153-test report covers the prior foundation.
 
 ## Acceptance scenarios
 
@@ -53,12 +54,13 @@ testing and a stated storage profile. Network/cloud filesystem support is separa
 1. Review ADR-0009 boundaries, identity/lifecycle semantics and outstanding decisions.
 2. Authorize a narrow payload-adapter/session proof, preserving all existing fixtures
    and tests. Do not conflate it with choosing or implementing a production file format.
-3. Separately authorize comparable container prototypes and select a physical format
-   from requirements, measurements and safety evidence.
-4. Authorize a model-only file workflow and prove its broker/failure behavior before
-   adding worksheets. Evaluate a thin headless proof first; UI is not required.
+3. After Slice A review, separately authorize the smallest headless model-only file
+   workflow with an explicitly experimental container and safe replacement. Prove
+   New/Open/Save/Save As before broad container benchmarking; UI is not required.
+4. Compare production container candidates and scale workloads later, before freezing
+   production document bytes. Experimental success does not select that final format.
 5. Design workbook projection, range/bulk APIs, incremental calculation and UI in
    separate slices. Deferred hosted database work remains independent.
 
-These gates are proposed sequencing for review, not authorization to continue past
-the current design slice. The design packet stops here.
+ADR-0009 and Slice A are authorized; further implementation is not automatic.
+Stop after the in-memory foundation for review.

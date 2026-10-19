@@ -108,6 +108,36 @@ fn number(restored: &RestoredModel, node: Uuid) -> pivot_types::PivotDecimal {
 }
 
 #[test]
+fn hosted_restore_retains_exact_encoded_budget_profile() {
+    let mut record = base();
+    for n in 103..200 {
+        record.port_ids.push(id(n));
+        record.ports.push(Port {
+            id: id(n),
+            name: format!("Output{n}"),
+            model: record.model,
+            node: id(12),
+            kind: PortKind::Output,
+        });
+    }
+    let bytes = encode(&record, Limits::default()).unwrap();
+    let limits = Limits {
+        bytes: bytes.len(),
+        ..Limits::default()
+    };
+    // Document logical accounting is independent of hosted-v1 exact byte limits.
+    assert!(
+        record
+            .graph_payload(limits)
+            .unwrap()
+            .validate(limits)
+            .is_err()
+    );
+    let restored = restore(decode(&bytes, limits).unwrap(), limits).unwrap();
+    assert_eq!(number(&restored, id(12)), "75".parse().unwrap());
+}
+
+#[test]
 fn rename_and_name_reuse_never_retarget_bound_references() {
     let mut restored = restore(base(), Limits::default()).unwrap();
     restored.rename(id(10), "Sales").unwrap();

@@ -1,7 +1,8 @@
 # Document ownership and local lifecycle
 
-Status: Proposed under [ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md).
-Design only; no document sessions, file operations or new wire contracts exist yet.
+Status: Accepted ADR-0009 architecture. [Slice A](document-foundation.md) implements
+only a thin in-memory one-graph session. File operations, broker, bulk transfer,
+worksheets and document RPC remain unimplemented designs.
 
 ## Ownership
 
@@ -9,7 +10,10 @@ The calculation core knows graphs and immutable calculation snapshots, not files
 worksheets, authorization or service ownership. A Rust document layer owns portable
 definitions, exact value representations, document metadata and future projections.
 The application/session host owns live document sessions and serialized edits. The
-optional hosted-model service remains a separate capability; loading a document
+session is deliberately thin: it reuses core staging, binding, restoration and
+evaluation, without duplicating WorkingModelService attachments, retained receipts,
+publication or authorization machinery. The optional hosted-model service remains
+a separate capability; loading a document
 does not allocate a publication or durable registry entry.
 
 In desktop mode, the C# application initiates user-authorized file operations. Its
@@ -53,6 +57,9 @@ Host sessions always namespace runtime maps. A future Duplicate/Fork operation
 must explicitly remap identities and bound references together; Save As does not
 silently perform that operation. Reopening a path already open in one application
 should activate its session, unless the user explicitly requests an independent copy.
+DocumentId means logical ancestry; it is never a file-conflict key or authority to
+merge sessions or recovery checkpoints. A future file broker must combine session,
+physical target fingerprint and saved baseline when distinguishing copies.
 
 Revert allocates a fresh SessionId even if DocumentId is unchanged; old calculations
 and pending commands cannot apply to the replacement. Closing a session cancels or
@@ -117,7 +124,9 @@ broker to write an arbitrary path or leak another client's document.
 Do not open URIs or external model references automatically. Untrusted content has
 byte/count/depth/work budgets on both sides of IPC; future bulk transfer must avoid
 unbounded contiguous allocation and preserve authenticated session ownership. File
-size budgets are distinct from today's invocation/authoring frame limits. No new
+size budgets are distinct from today's invocation/authoring frame limits. Do not
+raise the existing 1 MiB frame limit to carry large files; design bounded transfer
+separately. Slice A uses owned in-memory data only and does not exercise IPC. No new
 capability or protocol version is selected here. Remote mode must later explicitly
 choose client-owned upload/download or authorized server-side paths; client paths
 are never interpreted as remote server paths by default.

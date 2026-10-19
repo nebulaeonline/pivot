@@ -18,13 +18,14 @@ decisions, not implementation suggestions.
 - [ADR-0007: Versioned working-model authoring protocol](0007-versioned-authoring-protocol.md) — Accepted
 - [ADR-0008: Transactional persistence and recovery](0008-transactional-persistence-and-recovery.md) — Accepted
 
-- [ADR-0009: Portable documents and local lifecycle](0009-portable-documents-and-local-lifecycle.md) — Proposed
+- [ADR-0009: Portable documents and local lifecycle](0009-portable-documents-and-local-lifecycle.md) — Accepted
 
 Authoring protocol, daemon integration and the minimal REPL are implemented.
 ADR-0008 remains Accepted for optional durable hosted storage; further provider,
 SQLite feasibility, coordinator and cross-restart protocol work is deferred. The
 portable codec/import foundation is accepted and implemented; no database provider
-or durable service is present. Proposed ADR-0009 defines the next document-focused
-design slice, with no container selection or runtime implementation. Ordinary local
+or durable service is present. Accepted ADR-0009 defines the document-focused
+direction. Slice A implements hosting-free payloads and in-memory sessions, with no
+container selection, file broker or document RPC. Ordinary local
 documents must not require hosted storage. Final numeric policy, broader scheduling
 and multi-instance coordination remain separate work.

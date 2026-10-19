@@ -84,10 +84,37 @@ enum Definition {
         binding: Result<(Vec<BoundToken>, Vec<NodeId>), SnapshotError>,
     },
 }
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct WorkingNode {
     name: String,
     definition: Definition,
+}
+
+impl Clone for WorkingNode {
+    fn clone(&self) -> Self {
+        #[cfg(feature = "scaling-experiment")]
+        crate::experiment_profile::copy(
+            std::mem::size_of::<Self>()
+                + self.name.len()
+                + match &self.definition {
+                    Definition::Input(_) => 0,
+                    Definition::Computed { source, binding } => {
+                        source.len()
+                            + binding
+                                .as_ref()
+                                .map(|(t, d)| {
+                                    t.len() * std::mem::size_of::<BoundToken>()
+                                        + d.len() * std::mem::size_of::<NodeId>()
+                                })
+                                .unwrap_or(0)
+                    }
+                },
+        );
+        Self {
+            name: self.name.clone(),
+            definition: self.definition.clone(),
+        }
+    }
 }
 
 /// Mutations require exclusive access. Invalid formulas may be saved while
@@ -116,6 +143,8 @@ impl WorkingModel {
     /// is not a new independent model: do not publish competing branches as one
     /// mutable resource. Allocated branch IDs must not escape before commit.
     pub fn stage(&self) -> Self {
+        #[cfg(feature = "scaling-experiment")]
+        let _phase = crate::experiment_profile::scope(1);
         Self {
             name: self.name.clone(),
             revision: self.revision,
@@ -546,8 +575,28 @@ impl WorkingModel {
     /// edits cannot overlap capture. After return, the working model is free
     /// to change while the owned snapshot is used elsewhere.
     pub fn snapshot(&self) -> Result<ModelSnapshot, SnapshotError> {
+        #[cfg(feature = "scaling-experiment")]
+        let _phase = crate::experiment_profile::scope(6);
         let mut nodes = BTreeMap::new();
         for (&id, node) in &self.nodes {
+            #[cfg(feature = "scaling-experiment")]
+            crate::experiment_profile::copy(
+                std::mem::size_of::<SnapshotNode>()
+                    + node.name.len()
+                    + match &node.definition {
+                        Definition::Input(_) => 0,
+                        Definition::Computed { source, binding } => {
+                            source.len()
+                                + binding
+                                    .as_ref()
+                                    .map(|(t, d)| {
+                                        t.len() * std::mem::size_of::<BoundToken>()
+                                            + d.len() * std::mem::size_of::<NodeId>()
+                                    })
+                                    .unwrap_or(0)
+                        }
+                    },
+            );
             let (definition, dependencies) = match &node.definition {
                 Definition::Input(value) => (SnapshotDefinition::Input(*value), Vec::new()),
                 Definition::Computed { source, binding } => {
@@ -576,6 +625,8 @@ impl WorkingModel {
                 },
             );
         }
+        #[cfg(feature = "scaling-experiment")]
+        let order_phase = crate::experiment_profile::scope(7);
         for &id in self.nodes.keys() {
             let dependencies = nodes[&id].dependencies.clone();
             for dependency in dependencies {
@@ -609,6 +660,8 @@ impl WorkingModel {
                     .collect(),
             });
         }
+        #[cfg(feature = "scaling-experiment")]
+        drop(order_phase);
         let snapshot = ModelSnapshot(Arc::new(SnapshotData {
             name: self.name.clone(),
             revision: self.revision,

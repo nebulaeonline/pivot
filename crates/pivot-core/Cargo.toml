@@ -4,5 +4,8 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[features]
+scaling-experiment = []
+
 [dependencies]
 pivot-types = { path = "../pivot-types" }

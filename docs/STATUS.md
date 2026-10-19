@@ -214,8 +214,14 @@ full CI with 210 Rust tests, .NET Release, both parity suites and actual IPC/REP
 The current working tree matched all 215 source hashes from the Mac validation;
 builds and .NET outputs stayed on local APFS, with reports copied back to SMB.
 See the [macOS review](handoffs/2026-10-19-macos-validation.md).
-Stop after this slice for review. The following priority is
-a runnable C# application/session IPC client, subject to review. Relative/absolute
+The parent review accepted Slice B and replaced the following C# priority with a
+mandatory graph/workbook performance-feasibility gate. The opt-in research harness
+now compares optimized baseline and shared-topology/input-overlay behavior at
+1K/10K/100K cells; see the [feasibility assessment](architecture/graph-workbook-scaling-feasibility.md)
+and [research handoff](handoffs/2026-10-19-scaling-feasibility.md). Its recommendation
+is B: viable with architectural restructuring, not production adoption of the
+prototype. Default behavior and small-model production limits remain unchanged.
+C# work is held until this assessment and restructuring scope are reviewed. Relative/absolute
 copy/fill, cross-sheet references, row/column structural edits, ranges/SUM, typed
 blank/text engine values, incremental calculation, workbook files, C# IPC and
 Avalonia rendering remain unimplemented.
@@ -225,4 +231,6 @@ power-loss guarantees separate from this worksheet proof. GUI execution, Native 
 and actual cross-user denial remain unverified.
 Do not expand the experimental file broker or resume optional hosted persistence
 automatically. Production container selection remains a later workbook-driven
-decision; Native AOT and large-workload profiling remain verification backlog.
+decision. Native AOT, native macOS corroboration of this new experiment and
+production-scale validation remain backlog; the earlier Slice B Mac pass is retained
+as historical evidence. Stop after the feasibility review, without new features.

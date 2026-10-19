@@ -115,9 +115,12 @@ not claimed.
 Slice A implements the approved small sparse worksheet/numeric graph proof.
 Slice B now adds the reviewed scalar same-sheet Rust formula parser/binder; see
 [its implementation note](../architecture/spreadsheet-scalar-formulas.md). Stop after
-its handoff for review. The following priority is the executable C# application
-boundary; no further implementation is automatic. Keep ranges, extended reference
-syntax and incremental evaluation behind their own reviewed steps.
+its handoff for review. The parent review accepts Slice B and makes performance
+feasibility the critical path before C# integration. See the
+[bounded research assessment](../architecture/graph-workbook-scaling-feasibility.md):
+shared input/topology roots are an experiment, not an adopted production storage
+policy. Review the assessment and restructuring scope before further implementation.
+Keep ranges and extended reference syntax behind their own reviewed steps.
 
 Require independent-reference semantic oracles, transaction/snapshot isolation tests,
 and measured 10K/100K/1M populated-cell workloads before claiming capacity. Revisit

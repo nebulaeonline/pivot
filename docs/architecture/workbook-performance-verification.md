@@ -1,13 +1,16 @@
 # Workbook performance and verification plan
 
-Status: Verification plan under accepted ADR-0010. Slice A reports small proof costs;
-10K/100K/1M workloads, allocator profiling and scale gates remain unexecuted targets.
+Status: Verification plan under accepted ADR-0010. The
+[feasibility experiment](graph-workbook-scaling-feasibility.md) now measures optimized
+1K/10K/100K workloads, allocator/phase profiles and a shared-state prototype. Broader
+workloads below remain future targets unless that assessment explicitly reports them.
 
 Review clarification: ADR-0010's structural architecture is Accepted. Reference
 transforms, range boundaries/movement, blank/text coercion, reduction order and
 shared writable aliases remain separately reviewable compatibility semantics.
-[Slice A](workbook-projection-foundation.md) implements only the bounded typed
-single-sheet proof; future mechanisms described here are not claimed implemented.
+[Slice A](workbook-projection-foundation.md) implements the bounded typed proof;
+[Slice B](spreadsheet-scalar-formulas.md) adds scalar formula text. Performance
+feasibility now precedes C# work; features below are not thereby implemented.
 
 ## Semantic and transactional oracle
 
@@ -97,27 +100,24 @@ where necessary, replaced by reviewed persistent/chunked definitions, coherent
 dependency indexes, bounded captures and result reuse. Coordinated limit profiles
 are necessary; simply raising a CBOR or IPC limit does not fix them.
 
-Current expression/typed-value boundaries do not support workbook references,
-functions, ranges, general Blank/Text or partial structural-error evaluation.
+Current expression/typed-value boundaries support same-sheet scalar workbook
+references, but not functions, ranges, general Blank/Text or partial structural-error evaluation.
 Their implementation and oracle tests precede any benchmark claiming those features.
 Container-only or sparse-map-only synthetic tests must be labeled as such, not
 reported as end-to-end spreadsheet performance.
 
-## Proposed implementation sequence after review
+## Current decision sequence
 
-1. Implemented Slice A: small in-memory sparse worksheet/graph projection, typed
-   decimal formulas, anchors, clear/move/retire, atomic batches and snapshot tests.
-   Current graph semantics and small-model/full-copy limits remain explicit.
-2. Review shared Rust reference parsing/resolver changes and implement the approved
-   A1/copy/structural subset with explicit expected-state checks. No frontend evaluator.
-3. Validate an executable C# client against real application/session operations,
-   then bounded bulk rectangular reads and later Avalonia virtualization.
-4. Add first-class selections, typed value/error support and range-aware dependency
-   validation in bounded reviewed slices; then incremental calculation and scale gates.
-   Parallel work is possible, but no range syntax should ship without matching semantics.
+1. Slices A/B establish accepted stable-identity projection and scalar Rust formulas.
+2. Review the mandatory [scaling feasibility assessment](graph-workbook-scaling-feasibility.md)
+   and [reproducible experiment](../performance/scaling-experiment.md). Production
+   behavior and limits are preserved; the isolated prototype is not an adoption.
+3. Agree storage/mutation/snapshot restructuring scope and its next correctness,
+   formula-edit, memory and production-admission gates before resuming features.
+4. Resume the executable C# application boundary only after that review authorizes it.
 
-Slice A is implemented and stops for review; this sequence is not automatic
-permission for additional work. Preserve existing core, document, file, protocol,
-decimal and IPC tests throughout. Native macOS validation remains a separate backlog
-item. Only the bounded typed proof has workbook evidence; future parser/range/scale
-behavior still requires implementation and its own verification.
+Ranges, new value kinds, broad UI infrastructure and hosted persistence remain
+excluded. Preserve all decimal, core, document/file, protocol and IPC tests. Prior
+native macOS scalar-formula validation is complete; native Mac corroboration of the
+new scaling experiment remains separate work. Do not infer product capacity from
+experimental cap overrides or bulk setup throughput.

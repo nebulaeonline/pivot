@@ -8,3 +8,14 @@ publish.workspace = true
 pivot-core = { path = "../pivot-core" }
 pivot-types = { path = "../pivot-types" }
 uuid = { version = "1.28.0", features = ["v4"] }
+
+[features]
+scaling-experiment = ["pivot-core/scaling-experiment"]
+
+[[example]]
+name = "scaling"
+required-features = ["scaling-experiment"]
+
+[[example]]
+name = "scaling-random"
+required-features = ["scaling-experiment"]

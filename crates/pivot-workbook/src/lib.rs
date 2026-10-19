@@ -235,10 +235,33 @@ fn graph_error(e: impl std::fmt::Display) -> Error {
     Error::Graph(e.to_string())
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct Record {
     position: Option<Position>,
     content: Option<Content>,
+}
+impl Clone for Record {
+    fn clone(&self) -> Self {
+        #[cfg(feature = "scaling-experiment")]
+        pivot_core::experiment_profile::copy(
+            std::mem::size_of::<Self>()
+                + match &self.content {
+                    Some(Content::Formula { source, tokens }) => {
+                        source.len() + tokens.len() * std::mem::size_of::<Token>()
+                    }
+                    Some(Content::TextFormula(f)) => {
+                        f.original_source.len()
+                            + f.tokens.len() * std::mem::size_of::<Token>()
+                            + f.references.len() * std::mem::size_of::<FormulaReference>()
+                    }
+                    _ => 0,
+                },
+        );
+        Self {
+            position: self.position,
+            content: self.content.clone(),
+        }
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Binding {
@@ -287,14 +310,18 @@ pub struct Workbook {
 }
 impl Workbook {
     pub fn new(name: &str, limits: Limits) -> Result<Self> {
+        Self::new_checked(name, limits, false)
+    }
+    fn new_checked(name: &str, limits: Limits, benchmark: bool) -> Result<Self> {
         if limits.rows == 0
             || limits.columns == 0
             || name.len() > 128
-            || limits.live_cells > 4096
-            || limits.allocated_cells > 8192
+            || (!benchmark
+                && (limits.live_cells > 4096
+                    || limits.allocated_cells > 8192
+                    || limits.bytes > 1_048_576))
             || limits.source_bytes > 4096
             || limits.formula_tokens > 4096
-            || limits.bytes > 1_048_576
         {
             return Err(Error::Limit);
         }
@@ -415,6 +442,8 @@ impl Workbook {
         }
     }
     fn budget(&self) -> Result<()> {
+        #[cfg(feature = "scaling-experiment")]
+        let _phase = pivot_core::experiment_profile::scope(3);
         let stats = self.stats();
         if stats.live_cells > self.limits.live_cells
             || stats.allocated_nodes > self.limits.allocated_cells
@@ -490,8 +519,12 @@ impl Workbook {
         Ok(())
     }
     pub fn apply(&mut self, expected: Expected, edits: &[Edit]) -> Result<Expected> {
+        #[cfg(feature = "scaling-experiment")]
+        let _phase = pivot_core::experiment_profile::scope(4);
         self.check(expected)?;
         self.preflight(edits)?;
+        #[cfg(feature = "scaling-experiment")]
+        let stage_phase = pivot_core::experiment_profile::scope(2);
         let mut candidate = Self {
             session: self.session,
             state: self.state,
@@ -503,6 +536,8 @@ impl Workbook {
             core: self.core.stage(),
             limits: self.limits,
         };
+        #[cfg(feature = "scaling-experiment")]
+        drop(stage_phase);
         for (ordinal, edit) in edits.iter().enumerate() {
             if let Edit::SetFormulaText { position, source } = edit {
                 candidate.edit_text(*position, source, expected, ordinal)?;
@@ -515,6 +550,8 @@ impl Workbook {
             return Ok(self.expected());
         }
         candidate.state = self.state.checked_add(1).ok_or(Error::Exhausted)?;
+        #[cfg(feature = "scaling-experiment")]
+        let _commit_phase = pivot_core::experiment_profile::scope(10);
         *self = candidate;
         Ok(self.expected())
     }
@@ -682,6 +719,8 @@ impl Workbook {
         base: Expected,
         ordinal: usize,
     ) -> Result<()> {
+        #[cfg(feature = "scaling-experiment")]
+        let _phase = pivot_core::experiment_profile::scope(5);
         self.axes_at(position)?;
         let parsed = expression::parse_spreadsheet(source);
         let (mut tokens, references, diagnostic) = self.lower_text(&parsed);
@@ -831,6 +870,8 @@ impl Workbook {
         rectangle: Rectangle,
         max_records: usize,
     ) -> Result<RectangleRead> {
+        #[cfg(feature = "scaling-experiment")]
+        let _phase = pivot_core::experiment_profile::scope(9);
         self.check(expected)?;
         self.axes_at(rectangle.first)?;
         self.axes_at(rectangle.last)?;
@@ -1015,3 +1056,7 @@ mod formula_costs {
         }
     }
 }
+
+/// Isolated benchmark prototype, excluded from default builds.
+#[cfg(feature = "scaling-experiment")]
+pub mod scaling;

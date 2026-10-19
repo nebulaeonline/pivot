@@ -165,5 +165,7 @@ No `$` flags, copy/fill, sheet qualifiers, multiple sheets, names, ranges, SUM o
 functions, comparisons, locale syntax, general text/error values, incremental
 calculation, workbook files, RPC, C# IPC, Avalonia or hosted persistence.
 
-The following priority is a runnable executable C# application/session IPC client,
-subject to parent review. No client or further workbook infrastructure is started.
+Subsequent parent review accepted Slice B and superseded the proposed C# priority
+with a mandatory performance-feasibility gate. See the
+[research handoff](2026-10-19-scaling-feasibility.md). C# remains held; no client or
+additional spreadsheet features were started.

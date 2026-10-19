@@ -1,5 +1,18 @@
 # Linux and macOS validation
 
+## Scaling feasibility research — 2026-10-19
+
+Windows default full CI passes 209 Rust tests plus .NET/parity/IPC; opt-in feature
+checks pass 215 tests and all-targets Clippy. Available WSL2 checks pass default
+210 / opt-in 216 Rust tests, formatting/Clippy and actual IPC. Optimized baseline/
+prototype sweeps at 1K/10K/100K, changing-key controls and allocation profiling ran
+sequentially on the same Ryzen 9 3950X host. Native sampling required recording on
+Linux /var/tmp and offline address resolution; see the
+[research handoff](handoffs/2026-10-19-scaling-feasibility.md) for exact evidence,
+profiler limitations and the incomplete RSS-bounded 1M diagnostic. Native macOS
+corroboration of this experiment remains pending; prior Slice B results below
+are historical. No new Linux .NET, GUI, AOT or durability guarantee is claimed.
+
 ## Spreadsheet scalar formulas Slice B — 2026-10-19
 
 Full Windows CI passes 209 Rust tests, .NET Release, decimal/protocol parity and

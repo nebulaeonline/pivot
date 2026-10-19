@@ -101,3 +101,19 @@ trigger: run the command before handoff or wire it into future CI hosting.
 Formula costs: `cargo test --locked -p pivot-workbook --lib report_text_formula_costs -- --nocapture`
 separates parser and existing-anchor resolution costs from full formula/input edits,
 snapshot capture and evaluation. See the [Slice B note](architecture/spreadsheet-scalar-formulas.md).
+
+## Opt-in scaling research
+
+Default CI retains production behavior and admission limits. Run
+`cargo test --locked --workspace --features pivot-workbook/scaling-experiment`
+and matching workspace Clippy/all-targets for the isolated prototype and six extra
+correctness tests. `python scripts/scaling.py` builds an optimized Release harness
+and writes latency/allocation/phase/environment evidence separately from CI.
+See the [specification](performance/scaling-experiment.md) and
+[assessment](architecture/graph-workbook-scaling-feasibility.md). These are manual
+research runs, not mandatory latency assertions in ordinary CI.
+
+On this Windows machine the pre-existing debug target's generated proc-macro DLLs
+could not be overwritten (LNK1104), even outside the sandbox. A fresh target directory
+`target/scaling-windows-checks` passed the checks; do not weaken tests or delete
+loaded binaries. Set CARGO_TARGET_DIR for CI and its subprocesses when reproducing.

@@ -123,6 +123,8 @@ impl EvaluationContext {
         outputs: &[NodeId],
         inputs: BTreeMap<NodeId, PivotDecimal>,
     ) -> Result<CalculationResult, EvaluationError> {
+        #[cfg(feature = "scaling-experiment")]
+        let _phase = crate::experiment_profile::scope(8);
         let outputs: BTreeSet<_> = outputs.iter().copied().collect();
         let mut required = BTreeSet::new();
         let mut pending: Vec<_> = outputs.iter().copied().collect();
@@ -248,4 +250,37 @@ fn evaluate_expression(
         return Err(invalid());
     }
     stack.pop().ok_or_else(invalid)
+}
+
+/// Experiment-only scheduling adapter. Reuses the production postfix executor;
+/// traverses only the selected closure and reads immutable input overlays.
+#[cfg(feature = "scaling-experiment")]
+pub fn evaluate_shared_inputs(
+    snapshot: &ModelSnapshot,
+    outputs: &[NodeId],
+    input: impl Fn(NodeId) -> Option<PivotDecimal>,
+) -> Result<BTreeMap<NodeId, Result<PivotDecimal, EvaluationError>>, EvaluationError> {
+    let _phase = crate::experiment_profile::scope(8);
+    let mut required = BTreeSet::new();
+    let mut order = Vec::new();
+    let mut pending: Vec<_> = outputs.iter().map(|&n| (n, false)).collect();
+    while let Some((id, visited)) = pending.pop() {
+        let node = snapshot.node(id).ok_or(EvaluationError::UnknownNode(id))?;
+        if visited {
+            order.push(id);
+        } else if required.insert(id) {
+            pending.push((id, true));
+            pending.extend(node.dependencies().iter().map(|&d| (d, false)));
+        }
+    }
+    let mut values = BTreeMap::new();
+    for id in order {
+        let node = snapshot.node(id).expect("validated snapshot closure");
+        let value = match node.definition() {
+            SnapshotDefinition::Input(value) => Ok(input(id).unwrap_or(*value)),
+            SnapshotDefinition::Computed { tokens, .. } => evaluate_expression(id, tokens, &values),
+        };
+        values.insert(id, value);
+    }
+    Ok(values)
 }

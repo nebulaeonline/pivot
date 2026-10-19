@@ -5,6 +5,8 @@ use crate::evaluation::{EvaluationError, evaluate_expression};
 
 mod compatibility;
 mod index;
+#[cfg(feature = "core-integration")]
+mod inspection;
 pub mod memory;
 pub mod reclaim;
 pub use compatibility::{Materialized, NamedCalculation, NamedError, Restored, benchmark_model};
@@ -157,23 +159,31 @@ impl<T> Pages<T> {
         lookup(&self.root, key / PAGE as u64)?.0[(key % PAGE as u64) as usize].as_ref()
     }
     pub fn iter(&self) -> impl Iterator<Item = (u64, &T)> {
+        self.iter_from(0)
+    }
+    pub fn iter_from(&self, start: u64) -> impl Iterator<Item = (u64, &T)> {
+        let start_page = start / PAGE as u64;
         let mut stack: Vec<_> = self
             .root
             .as_ref()
-            .map(|n| vec![(0u64, n)])
+            .map(|n| vec![(0u64, 0usize, n)])
             .unwrap_or_default();
         let mut values = Vec::new().into_iter();
         std::iter::from_fn(move || {
             loop {
-                if let Some(v) = values.next() {
-                    return Some(v);
+                if let Some(value) = values.next() {
+                    return Some(value);
                 }
-                let (prefix, n) = stack.pop()?;
-                match &**n {
+                let (prefix, depth, node) = stack.pop()?;
+                match &**node {
                     Tree::Branch(children) => {
-                        for (i, c) in children.iter().enumerate().rev() {
-                            if let Some(c) = c {
-                                stack.push(((prefix << 4) | i as u64, c));
+                        for (i, child) in children.iter().enumerate().rev() {
+                            let next = (prefix << 4) | i as u64;
+                            if next < (start_page >> ((15 - depth) * 4)) {
+                                continue;
+                            }
+                            if let Some(child) = child {
+                                stack.push((next, depth + 1, child));
                             }
                         }
                     }
@@ -182,8 +192,13 @@ impl<T> Pages<T> {
                             .0
                             .iter()
                             .enumerate()
-                            .filter_map(|(i, v)| {
-                                v.as_ref().map(|v| (prefix * PAGE as u64 + i as u64, &**v))
+                            .filter_map(|(i, value)| {
+                                let key = prefix * PAGE as u64 + i as u64;
+                                if key < start {
+                                    None
+                                } else {
+                                    value.as_ref().map(|v| (key, &**v))
+                                }
                             })
                             .collect::<Vec<_>>()
                             .into_iter();
@@ -290,6 +305,7 @@ pub struct Version {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
+    Cancelled,
     Stale,
     Unknown(NodeId),
     NotInput(NodeId),
@@ -346,8 +362,41 @@ pub struct Graph {
     revision_origin: u64,
     import_invalid: bool,
     max_name: usize,
+    local_validation: bool,
+    proof: Shared<Proof>,
 }
+struct Proof(std::sync::atomic::AtomicBool);
+impl Footprint for Proof {}
 impl Graph {
+    #[cfg(feature = "core-integration")]
+    pub(super) fn live_count(&self) -> usize {
+        self.live
+    }
+    #[cfg(feature = "core-integration")]
+    pub(super) fn node_name(&self, id: NodeId) -> Option<&str> {
+        self.record(id).filter(|r| r.live).map(|r| r.name.as_str())
+    }
+    #[cfg(feature = "core-integration")]
+    pub(super) fn next_port_identity(&self) -> Result<PortId, ModelError> {
+        Ok(PortId {
+            model: self.version.model,
+            sequence: self
+                .next_port
+                .checked_add(1)
+                .ok_or(ModelError::IdentityExhausted)?,
+        })
+    }
+    #[cfg(feature = "core-integration")]
+    pub(super) fn enable_local_validation(&mut self) {
+        self.local_validation = true;
+    }
+    pub(super) fn certified(&self) -> bool {
+        self.proof.0.load(Ordering::Acquire)
+    }
+    #[cfg(feature = "core-integration")]
+    pub(super) fn certify(&self) {
+        self.proof.0.store(true, Ordering::Release);
+    }
     pub fn from_model(model: &WorkingModel, limits: Limits) -> Result<Self, Error> {
         Self::from_model_with_budget(model, limits, 2 * 1024 * 1024 * 1024)
     }
@@ -396,6 +445,10 @@ impl Graph {
         )?;
         let initial_error = model.snapshot().err();
         let mut graph = Self {
+            local_validation: false,
+            proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(
+                initial_error.is_none(),
+            )))?,
             records: Pages::new(memory.clone()),
             values: Pages::new(memory.clone()),
             names: Index::new(memory.clone()),
@@ -650,6 +703,10 @@ impl Graph {
             let _phase = crate::experiment_profile::scope(1);
             self.clone()
         };
+        if candidate.local_validation && self.certified() {
+            candidate.invalid = Index::new(candidate.memory.clone());
+            candidate.import_invalid = false;
+        }
         let mut changed = BTreeSet::new();
         let mut topology = false;
         let mut inputs = false;
@@ -775,7 +832,7 @@ impl Graph {
             }
         }
         candidate.check_quota()?;
-        if candidate.import_invalid && topology {
+        if candidate.import_invalid && topology && !candidate.local_validation {
             let restored = candidate.to_model()?;
             candidate.invalid = Index::new(candidate.memory.clone());
             if let Err(error) = restored.snapshot() {
@@ -791,7 +848,9 @@ impl Graph {
             }
         } else if topology {
             let _phase = crate::experiment_profile::scope(7);
-            changed.extend(candidate.invalid.iter().map(|(id, _)| *id));
+            if !candidate.local_validation {
+                changed.extend(candidate.invalid.iter().map(|(id, _)| *id));
+            }
             let mut budget = candidate.limits.validation_visits;
             for id in changed {
                 if candidate.live_record(id).is_err() {
@@ -811,6 +870,13 @@ impl Graph {
         }
         if !topology && !inputs {
             return Ok(self.version);
+        }
+        if topology {
+            candidate.proof = candidate
+                .memory
+                .alloc(Proof(std::sync::atomic::AtomicBool::new(
+                    !candidate.import_invalid && candidate.invalid.is_empty(),
+                )))?;
         }
         candidate.version.commit = candidate
             .version
@@ -869,6 +935,14 @@ impl Graph {
         }
         Ok(None)
     }
+    #[cfg(feature = "core-integration")]
+    pub(super) fn capture_local(&self) -> Result<Capture, CaptureError> {
+        Ok(Capture(
+            self.memory
+                .alloc(self.clone())
+                .map_err(|_| CaptureError::Admission)?,
+        ))
+    }
     pub fn capture(&self) -> Result<Capture, CaptureError> {
         let _phase = crate::experiment_profile::scope(6);
         if let Some(error) = self.invalid.iter().next().map(|(_, e)| e) {
@@ -891,6 +965,10 @@ pub enum CaptureError {
     Invalid(SnapshotError),
 }
 impl Capture {
+    #[cfg(feature = "core-integration")]
+    pub(super) fn memory(&self) -> Memory {
+        self.0.memory.clone()
+    }
     pub fn version(&self) -> Version {
         self.0.version
     }
@@ -927,15 +1005,22 @@ impl Capture {
         request: &crate::evaluation::InvocationRequest,
         retire: impl FnOnce(CalculationScratch),
     ) -> Result<Calculation, ComputeError> {
+        self.invoke_retiring_cancelled(request, retire, || false)
+    }
+    pub(super) fn invoke_retiring_cancelled(
+        &self,
+        request: &crate::evaluation::InvocationRequest,
+        retire: impl FnOnce(CalculationScratch),
+        cancelled: impl Fn() -> bool,
+    ) -> Result<Calculation, ComputeError> {
+        if cancelled() {
+            return Err(ComputeError::Cancelled);
+        }
         let _phase = crate::experiment_profile::scope(8);
         let mut work = Work::new(self.0.memory.clone());
         work.add(4096 + request.inputs.len() * 512 + request.outputs.len() * 128)?;
-        let mut inputs = crate::evaluation::prepare_inputs(request, |id| {
-            self.0
-                .record(id)
-                .filter(|r| r.live)
-                .map(|r| matches!(*r.definition, Compiled::Input))
-        })?;
+        let mut inputs = BTreeMap::new();
+        let mut active = BTreeSet::new();
         let mut required = BTreeSet::new();
         let mut order = Vec::new();
         // Match the accepted selected-output normalization and unknown-output
@@ -944,23 +1029,68 @@ impl Capture {
         let mut pending: Vec<_> = outputs.iter().map(|&n| (n, false)).collect();
         let mut values = BTreeMap::new();
         let outcome = (|| -> Result<Calculation, ComputeError> {
+            let prepared = crate::evaluation::prepare_inputs_into(
+                request,
+                |id| {
+                    if cancelled() {
+                        return None;
+                    }
+                    self.0
+                        .record(id)
+                        .filter(|r| r.live)
+                        .map(|r| matches!(*r.definition, Compiled::Input))
+                },
+                &mut inputs,
+            );
+            if cancelled() {
+                return Err(ComputeError::Cancelled);
+            }
+            prepared?;
             let mut visits = self.0.limits.validation_visits;
             while let Some((id, exit)) = pending.pop() {
+                if cancelled() {
+                    return Err(ComputeError::Cancelled);
+                }
                 visits = visits.checked_sub(1).ok_or(ComputeError::WorkBudget)?;
                 let record = self.0.live_record(id).map_err(|_| {
                     crate::evaluation::InvocationError::Evaluation(EvaluationError::UnknownNode(id))
                 })?;
                 if exit {
+                    active.remove(&id);
                     order.push(id);
                 } else {
+                    if active.contains(&id) {
+                        return Err(ComputeError::Invalid(SnapshotError::Unorderable {
+                            nodes: active.iter().copied().collect(),
+                        }));
+                    }
+                    if let Compiled::Formula {
+                        binding: Err(error),
+                        ..
+                    } = &*record.definition
+                    {
+                        return Err(ComputeError::Invalid(error.clone()));
+                    }
+                    for &target in record.definition.deps() {
+                        if self.0.live_record(target).is_err() {
+                            return Err(ComputeError::Invalid(SnapshotError::MissingReference {
+                                node: id,
+                                target,
+                            }));
+                        }
+                    }
                     work.add(512 + record.definition.deps().len() * 64)?;
                     if required.insert(id) {
+                        active.insert(id);
                         pending.push((id, true));
                         pending.extend(record.definition.deps().iter().map(|&d| (d, false)));
                     }
                 }
             }
             for &id in &order {
+                if cancelled() {
+                    return Err(ComputeError::Cancelled);
+                }
                 let record = self.0.live_record(id).unwrap();
                 let value = match &*record.definition {
                     Compiled::Input => Ok(inputs
@@ -993,6 +1123,7 @@ impl Capture {
             _inputs: inputs,
             _outputs: outputs,
             _required: required,
+            _active: active,
             _order: order,
             _pending: pending,
             _values: values,
@@ -1004,6 +1135,7 @@ pub(super) struct CalculationScratch {
     _inputs: BTreeMap<NodeId, PivotDecimal>,
     _outputs: BTreeSet<NodeId>,
     _required: BTreeSet<NodeId>,
+    _active: BTreeSet<NodeId>,
     _order: Vec<NodeId>,
     _pending: Vec<(NodeId, bool)>,
     _values: BTreeMap<NodeId, Result<PivotDecimal, EvaluationError>>,
@@ -1035,6 +1167,8 @@ impl std::ops::Deref for Calculation {
 }
 #[derive(Debug, PartialEq, Eq)]
 pub enum ComputeError {
+    Invalid(SnapshotError),
+    Cancelled,
     Admission,
     WorkBudget,
     Invocation(crate::evaluation::InvocationError),

@@ -16,5 +16,9 @@ required-features = ["scaling-experiment"]
 name = "integration"
 required-features = ["core-integration"]
 
+[[example]]
+name = "integration_stage2"
+required-features = ["core-integration"]
+
 [dependencies]
 pivot-types = { path = "../pivot-types" }

@@ -1,5 +1,7 @@
 # Controlled production core integration — Stage 1
 
+Historical Stage 1 record. Its operation/runtime restrictions are superseded by [Stage 2](controlled-core-integration-stage2.md); measurements below remain historical.
+
 Date: 2026-10-19. Status: implemented behind `pivot-core/core-integration`;
 default models remain unchanged. Stop after this stage for review.
 

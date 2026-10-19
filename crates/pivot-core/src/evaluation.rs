@@ -79,6 +79,14 @@ pub(crate) fn prepare_inputs(
     kind: impl Fn(NodeId) -> Option<bool>,
 ) -> Result<BTreeMap<NodeId, PivotDecimal>, InvocationError> {
     let mut inputs = BTreeMap::new();
+    prepare_inputs_into(request, kind, &mut inputs)?;
+    Ok(inputs)
+}
+pub(crate) fn prepare_inputs_into(
+    request: &InvocationRequest,
+    kind: impl Fn(NodeId) -> Option<bool>,
+    inputs: &mut BTreeMap<NodeId, PivotDecimal>,
+) -> Result<(), InvocationError> {
     for &(id, value) in &request.inputs {
         match kind(id) {
             None => return Err(InvocationError::UnknownInput(id)),
@@ -89,7 +97,7 @@ pub(crate) fn prepare_inputs(
             return Err(InvocationError::DuplicateInput(id));
         }
     }
-    Ok(inputs)
+    Ok(())
 }
 
 /// Owns one snapshot. Every evaluate call creates fresh local execution state.

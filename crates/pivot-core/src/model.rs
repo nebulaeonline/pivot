@@ -202,7 +202,7 @@ impl WorkingModel {
     pub fn replace_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            return self.integrated_edit(structural::Edit::ReplaceInput(id, value));
         }
         if !self.nodes.contains_key(&id) {
             return Err(ModelError::UnknownNode(id));
@@ -221,7 +221,17 @@ impl WorkingModel {
     ) -> Result<(), ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            if node.is_none() && requirement.is_none() {
+                if self.interface().inputs().any(|p| p.id() == id) {
+                    return Ok(());
+                }
+                return Err(ModelError::Interface(InterfaceError::UnknownPort(id)));
+            }
+            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Input(
+                id,
+                node,
+                requirement,
+            )));
         }
         let old = self
             .interface
@@ -261,7 +271,11 @@ impl WorkingModel {
     ) -> Result<(), ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Input(
+                id,
+                Some(node),
+                Some(requirement),
+            )));
         }
         let old = self
             .interface
@@ -302,7 +316,9 @@ impl WorkingModel {
     pub fn update_output_port(&mut self, id: PortId, node: NodeId) -> Result<(), ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Output(
+                id, node,
+            )));
         }
         let name = self
             .interface
@@ -407,7 +423,11 @@ impl WorkingModel {
     ) -> Result<PortId, ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            return self.integrated_add_port(structural::PortEdit::AddInput(
+                name.into(),
+                node,
+                requirement,
+            ));
         }
         let name = name.into();
         self.port_name(&name)?;
@@ -448,7 +468,7 @@ impl WorkingModel {
     ) -> Result<PortId, ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            return self.integrated_add_port(structural::PortEdit::AddOutput(name.into(), node));
         }
         let name = name.into();
         self.port_name(&name)?;
@@ -464,7 +484,20 @@ impl WorkingModel {
     pub fn rename_port(&mut self, id: PortId, name: impl Into<String>) -> Result<(), ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            let name = name.into();
+            let old = self
+                .interface()
+                .inputs()
+                .map(|p| (p.id(), p.name()))
+                .chain(self.interface().outputs().map(|p| (p.id(), p.name())))
+                .find(|p| p.0 == id)
+                .ok_or(ModelError::Interface(InterfaceError::UnknownPort(id)))?;
+            if old.1 == name {
+                return Ok(());
+            }
+            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Rename(
+                id, name,
+            )));
         }
         let old = self
             .interface
@@ -498,7 +531,7 @@ impl WorkingModel {
     pub fn remove_port(&mut self, id: PortId) -> Result<(), ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Remove(id)));
         }
         let name = self
             .interface
@@ -634,7 +667,18 @@ impl WorkingModel {
     pub fn rename(&mut self, id: NodeId, name: impl Into<String>) -> Result<(), ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            let name = name.into();
+            let old = self
+                .integrated
+                .as_ref()
+                .unwrap()
+                .graph()
+                .node_name(id)
+                .ok_or(ModelError::UnknownNode(id))?;
+            if old == name {
+                return Ok(());
+            }
+            return self.integrated_edit(structural::Edit::Rename(id, name));
         }
         let old = self
             .nodes
@@ -656,7 +700,7 @@ impl WorkingModel {
     pub fn remove(&mut self, id: NodeId) -> Result<(), ModelError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(ModelError::Backend("operation not integrated in Stage 1"));
+            return self.integrated_edit(structural::Edit::Retire(id));
         }
         if !self.nodes.contains_key(&id) {
             return Err(ModelError::UnknownNode(id));
@@ -672,14 +716,26 @@ impl WorkingModel {
     pub fn snapshot(&self) -> Result<ModelSnapshot, SnapshotError> {
         #[cfg(feature = "core-integration")]
         if self.integrated.is_some() {
-            return Err(SnapshotError::Backend(
-                "full inspection snapshot not integrated; use capture_calculation",
-            ));
+            return self.integrated_snapshot(&integration::CancellationToken::default());
+        }
+        self.snapshot_cancel_check(|| false)
+    }
+    fn snapshot_cancel_check(
+        &self,
+        _cancelled: impl Fn() -> bool,
+    ) -> Result<ModelSnapshot, SnapshotError> {
+        #[cfg(feature = "core-integration")]
+        if _cancelled() {
+            return Err(SnapshotError::Backend("cancelled"));
         }
         #[cfg(feature = "scaling-experiment")]
         let _phase = crate::experiment_profile::scope(6);
         let mut nodes = BTreeMap::new();
         for (&id, node) in &self.nodes {
+            #[cfg(feature = "core-integration")]
+            if _cancelled() {
+                return Err(SnapshotError::Backend("cancelled"));
+            }
             #[cfg(feature = "scaling-experiment")]
             crate::experiment_profile::copy(
                 std::mem::size_of::<SnapshotNode>()
@@ -729,6 +785,10 @@ impl WorkingModel {
         #[cfg(feature = "scaling-experiment")]
         let order_phase = crate::experiment_profile::scope(7);
         for &id in self.nodes.keys() {
+            #[cfg(feature = "core-integration")]
+            if _cancelled() {
+                return Err(SnapshotError::Backend("cancelled"));
+            }
             let dependencies = nodes[&id].dependencies.clone();
             for dependency in dependencies {
                 nodes.get_mut(&dependency).unwrap().dependents.push(id);
@@ -744,6 +804,10 @@ impl WorkingModel {
             .collect();
         let mut order = Vec::new();
         while let Some(id) = ready.pop_first() {
+            #[cfg(feature = "core-integration")]
+            if _cancelled() {
+                return Err(SnapshotError::Backend("cancelled"));
+            }
             order.push(id);
             for dependent in &nodes[&id].dependents {
                 let count = counts.get_mut(dependent).unwrap();
@@ -764,6 +828,8 @@ impl WorkingModel {
         #[cfg(feature = "scaling-experiment")]
         drop(order_phase);
         let snapshot = ModelSnapshot(Arc::new(SnapshotData {
+            #[cfg(feature = "core-integration")]
+            cleanup: None,
             name: self.name.clone(),
             revision: self.revision,
             nodes,
@@ -818,12 +884,28 @@ impl SnapshotNode {
 }
 #[derive(Debug)]
 struct SnapshotData {
+    #[cfg(feature = "core-integration")]
+    cleanup: Option<integration::SnapshotLease>,
     interface: ModelInterface,
     name: String,
     revision: Revision,
     nodes: BTreeMap<NodeId, SnapshotNode>,
     names: BTreeMap<String, NodeId>,
     order: Vec<NodeId>,
+}
+#[cfg(feature = "core-integration")]
+impl Drop for SnapshotData {
+    fn drop(&mut self) {
+        if let Some(lease) = self.cleanup.take() {
+            lease.release((
+                std::mem::take(&mut self.nodes),
+                std::mem::take(&mut self.names),
+                std::mem::take(&mut self.order),
+                std::mem::take(&mut self.name),
+                std::mem::take(&mut self.interface),
+            ));
+        }
+    }
 }
 /// Immutable, owned snapshot; cheap to clone. Does not expose its storage layout.
 #[derive(Debug, Clone)]

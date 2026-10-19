@@ -1,5 +1,7 @@
 # Controlled core integration benchmark
 
+Historical Stage 1 record. Its operation/runtime restrictions are superseded by [Stage 2](../architecture/controlled-core-integration-stage2.md); measurements below remain historical.
+
 This benchmark compares the reference and activated persistent backends through
 the **same WorkingModel facade**. It does not call the public research Graph API.
 See the [architecture/ownership contract](../architecture/controlled-core-integration.md)

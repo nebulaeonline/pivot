@@ -207,27 +207,27 @@ fn activation_preserves_renames_retired_ids_name_reuse_and_source() {
 }
 
 #[test]
-fn unsupported_operations_cannot_silently_edit_empty_reference_storage() {
+fn activated_operations_never_edit_empty_reference_storage() {
     let r = runtime();
     let (_, mut m) = pair(&r);
     let a = m.add_input("a", 1.into()).unwrap();
     let before = m.revision();
-    assert!(matches!(m.rename(a, "z"), Err(ModelError::Backend(_))));
-    assert!(matches!(m.remove(a), Err(ModelError::Backend(_))));
-    assert!(matches!(
-        m.replace_input(a, 2.into()),
-        Err(ModelError::Backend(_))
-    ));
-    assert!(matches!(
-        pivot_core::model::transfer::export(&m, &[a], &[]),
-        Err(ModelError::Backend(_))
-    ));
-    assert!(matches!(m.snapshot(), Err(SnapshotError::Backend(_))));
-    assert_eq!(m.revision(), before);
+    m.rename(a, "z").unwrap();
+    assert_ne!(before, m.revision());
+    let same = m.revision();
+    m.rename(a, "z").unwrap();
+    assert_eq!(same, m.revision());
+    m.replace_input(a, 2.into()).unwrap();
+    let snapshot = m.snapshot().unwrap();
+    assert_eq!(snapshot.revision(), m.revision());
     assert!(m.contains_node(a));
-    assert_eq!(m.node_id("a"), Some(a));
+    assert_eq!(m.node_id("z"), Some(a));
     assert_eq!(m.draft_nodes().count(), 1);
-    drop(m);
+    assert!(pivot_core::model::transfer::export(&m, &[a], &[]).is_ok());
+    m.remove(a).unwrap();
+    assert!(!m.contains_node(a));
+    assert_eq!(snapshot.node_id("z"), Some(a));
+    drop((m, snapshot));
     finish(r);
 }
 
@@ -335,19 +335,11 @@ fn exact_decimal_parts_and_imported_ports_survive_activation() {
     assert_eq!(new.interface().inputs().next().unwrap().id(), port);
     assert_eq!(new.interface().outputs().next().unwrap().name(), "output");
     let before = new.revision();
-    assert!(matches!(
-        new.rename_port(port, "input"),
-        Err(ModelError::Backend(_))
-    ));
-    assert!(matches!(
-        new.patch_input_port(port, None, None),
-        Err(ModelError::Backend(_))
-    ));
-    assert!(matches!(
-        new.add_output_port("other", a),
-        Err(ModelError::Backend(_))
-    ));
+    new.rename_port(port, "input").unwrap();
+    new.patch_input_port(port, None, None).unwrap();
     assert_eq!(before, new.revision());
+    new.add_output_port("other", a).unwrap();
+    assert_ne!(before, new.revision());
     drop((old, new, result));
     finish(r);
 }
@@ -394,7 +386,7 @@ fn import_invalid_parse_unknown_name_order_and_structural_retained_generations()
 #[test]
 fn multiple_runtime_domains_share_known_allocation_admission() {
     use pivot_core::model::integration::AllocationDomain;
-    let domain = AllocationDomain::new(1024 * 1024);
+    let domain = AllocationDomain::new(8 * 1024 * 1024);
     let first = IntegrationRuntime::with_domain(domain.clone(), 4).unwrap();
     let second = IntegrationRuntime::with_domain(domain.clone(), 4).unwrap();
     let mut model = WorkingModel::new("shared domain").unwrap();

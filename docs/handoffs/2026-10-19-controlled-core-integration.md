@@ -1,5 +1,7 @@
 # Controlled Production Core Integration — Stage 1
 
+Historical Stage 1 record. Its operation/runtime restrictions are superseded by [Stage 2](../architecture/controlled-core-integration-stage2.md); measurements below remain historical.
+
 Date: 2026-10-19. Recommendation: **Advance controlled integration** for another
 reviewed bounded slice; do not switch the default backend or raise capacity limits.
 Stop here for parent review.

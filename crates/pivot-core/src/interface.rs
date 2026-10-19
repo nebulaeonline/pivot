@@ -238,7 +238,7 @@ pub(crate) fn prepare_named(
         bindings,
     })
 }
-fn named_result(
+pub(crate) fn named_result(
     result: CalculationResult,
     request: &NamedInvocationRequest,
     interface: &ModelInterface,

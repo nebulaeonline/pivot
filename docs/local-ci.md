@@ -157,3 +157,37 @@ sampling and complete reclamation. Run benchmark processes sequentially and keep
 regression builds separate from measured latency. See the
 [specification](performance/controlled-core-integration.md) and
 [Stage 1 handoff](handoffs/2026-10-19-controlled-core-integration.md).
+
+
+## Controlled core integration — Stage 2
+
+Stage 2 keeps the core-only and combined feature commands above. Also lint the
+research-only configuration to catch accidental feature coupling:
+
+```text
+cargo clippy --locked --workspace --all-targets --features pivot-workbook/scaling-experiment -- -D warnings
+python scripts/integration_stage2.py --output-dir artifacts/stage2
+```
+
+The Stage 2 harness covers standalone editing, ports, initially-invalid repair,
+local capture, bounded inspection, complete diagnosis/snapshots, admitted transfer,
+contention and retained generations. Run all benchmark processes sequentially;
+keep regression builds outside the latency runs. See the
+[Stage 2 report](performance/controlled-core-integration-stage2.md) for final
+platform results, source manifests and proposed budgets. Default CI still checks
+reference behavior and all .NET/parity/real IPC gates. Native macOS requires a
+fresh local APFS source copy; do not run .NET build/tests on the SMB share. Write
+returned evidence to the shared artifacts directory.
+
+Stage 2 final results: 259/260 combined feature tests (Windows/Linux), 209/210 default tests, three strict feature lint configurations, full default CI and all thirty Release processes per platform passed. Native macOS ARM64 Stage 2 passed; see the validation update below.
+
+
+Native macOS Stage 2 validation (20261019T182116Z) passed on Apple M1 ARM64 from
+an isolated internal APFS copy: 210 default, 237 integration-only, 234 research-only
+and 260 combined tests, three strict feature lint configurations, complete .NET/
+parity/real IPC CI and all thirty Release benchmark processes. All copied source
+hashes matched before this documentation update; no product changes were needed.
+All review targets passed and final domain charges were zero. The runner does not
+support macOS RSS; separate sparse native samples do not establish child high-water
+marks. See the [native report](../artifacts/macos-validation-20261019T182116Z/REPORT.md)
+and [Stage 2 performance addendum](performance/controlled-core-integration-stage2.md).

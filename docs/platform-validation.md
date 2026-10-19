@@ -1,19 +1,20 @@
 # Linux and macOS validation
 
-## Latest: controlled core integration Stage 1 (2026-10-19)
+## Latest: controlled core integration Stage 2 (2026-10-19)
 
-The bounded opt-in core integration passes Windows/Linux full default CI and
-combined feature regression (246 Windows / 247 Linux tests), with complete
-optimized 1K/10K/100K facade benchmarks on both platforms. The default production
-backend and advertised limits are unchanged. See the
-[review packet](handoffs/2026-10-19-controlled-core-integration.md) for exact logs,
-source manifests, latency boundaries, retained-memory and reclamation evidence.
+Full default CI and combined feature regression now pass on Windows (259 tests),
+Linux WSL2 (260) and native macOS ARM64 (260). Default Rust counts are 209/210/210.
+All ninety optimized 1K/10K/100K facade benchmark processes passed their correctness
+assertions and review targets. Default backend, capacities and application paths
+remain unchanged. See the [Stage 2 handoff](handoffs/2026-10-19-controlled-core-integration-stage2.md)
+and [performance evidence](performance/controlled-core-integration-stage2.md).
 
-Native macOS has **not** run the new integration feature or these benchmarks.
-Its previous Slice B validation remains historical coverage; a new native ARM64
-run must copy source from SMB to a local APFS volume, especially for .NET, and
-write shared results back under artifacts. No new Mac result is inferred from WSL.
-
+Native macOS used a verified internal APFS copy for source, targets, temporary test
+files and initial reports. Returned evidence is under
+`artifacts/macos-validation-20261019T182116Z`. Native RSS high-water remains
+unavailable from the runner; sparse separate samples are disclosed in the report.
+Earlier milestone sections below remain historical and should not be read as the
+latest Stage 2 platform status.
 
 ## Compatibility foundation - 2026-10-19
 
@@ -228,3 +229,25 @@ wsl.exe -d Ubuntu -- bash -lc 'cd /mnt/j/coding/pivot && export CARGO_TARGET_DIR
 Paths and distro name are specific to this machine. Dependencies and Linux compiler
 tools live inside WSL, while build products remain in the ignored Linux target
 subdirectory. Windows builds continue using their existing target directory.
+
+
+## Controlled core integration — Stage 2 (2026-10-19)
+
+The [Stage 2 report](performance/controlled-core-integration-stage2.md) records
+Windows/Linux feature regression, complete default CI and isolated Release scaling.
+Native macOS ARM64 Stage 2 validation now passed; earlier Mac results remain historical. Copy the source from SMB to local APFS before
+building or testing, especially .NET, then return logs, source hashes and summary
+to the SMB artifacts directory. No native Mac performance claim is made here.
+
+Final Stage 2 Windows/Linux results: full default CI passed, including .NET and real IPC; combined feature regression passed 259/260 tests. All thirty Release processes on each platform passed with matching source manifests. Native macOS ARM64 Stage 2 subsequently passed; see below.
+
+
+Native macOS Stage 2 validation (20261019T182116Z) passed on Apple M1 ARM64 from
+an isolated internal APFS copy: 210 default, 237 integration-only, 234 research-only
+and 260 combined tests, three strict feature lint configurations, complete .NET/
+parity/real IPC CI and all thirty Release benchmark processes. All copied source
+hashes matched before this documentation update; no product changes were needed.
+All review targets passed and final domain charges were zero. The runner does not
+support macOS RSS; separate sparse native samples do not establish child high-water
+marks. See the [native report](../artifacts/macos-validation-20261019T182116Z/REPORT.md)
+and [Stage 2 performance addendum](performance/controlled-core-integration-stage2.md).

@@ -102,7 +102,25 @@ impl Graph {
             interface: (*self.ports).clone(),
         })
     }
+    #[cfg(feature = "core-integration")]
+    pub(crate) fn copy_reservation(&self) -> Result<Charge, Error> {
+        let names = self.names.iter().map(|(name, _)| name.len()).sum::<usize>();
+        Ok(self.memory.reserve(
+            self.live
+                .saturating_mul(2048)
+                .saturating_add(self.bytes.saturating_mul(4))
+                .saturating_add(names.saturating_mul(4))
+                .saturating_add(self.ports.heap_bytes().saturating_mul(4))
+                .saturating_add(65536),
+        )?)
+    }
     pub fn to_model(&self) -> Result<Materialized, Error> {
+        self.to_model_cancelled(|| false)
+    }
+    pub(in crate::model) fn to_model_cancelled(
+        &self,
+        cancelled: impl Fn() -> bool,
+    ) -> Result<Materialized, Error> {
         let name_bytes = self.names.iter().map(|(name, _)| name.len()).sum::<usize>();
         let charge = self.memory.reserve(
             self.live
@@ -113,6 +131,9 @@ impl Graph {
         )?;
         let mut nodes = BTreeMap::new();
         for (slot, record) in self.records.iter().filter(|(_, r)| r.live) {
+            if cancelled() {
+                return Err(Error::Cancelled);
+            }
             let id = NodeId {
                 model: self.version.model,
                 node: slot,
@@ -248,7 +269,7 @@ impl Graph {
         self.ports = self.memory.alloc(proxy.interface)?;
         Ok(true)
     }
-    pub(super) fn validate_ports(&self) -> Result<(), SnapshotError> {
+    pub(crate) fn validate_ports(&self) -> Result<(), SnapshotError> {
         self.ports
             .validate_kinds(|id| {
                 self.record(id)
@@ -291,6 +312,21 @@ impl Capture {
         &self,
         request: &crate::interface::NamedInvocationRequest,
     ) -> Result<NamedCalculation, NamedError> {
+        self.invoke_named_retiring(request, drop, || false)
+    }
+    pub(in crate::model) fn invoke_named_retiring(
+        &self,
+        request: &crate::interface::NamedInvocationRequest,
+        retire: impl FnOnce(CalculationScratch),
+        cancelled: impl Fn() -> bool,
+    ) -> Result<NamedCalculation, NamedError> {
+        if cancelled() {
+            return Err(NamedError::Compute(ComputeError::Cancelled));
+        }
+        self.0.validate_ports().map_err(|e| match e {
+            SnapshotError::Interface(e) => NamedError::Interface(e),
+            _ => unreachable!(),
+        })?;
         let bytes = request
             .inputs
             .iter()
@@ -310,10 +346,12 @@ impl Capture {
             .map_err(|_| NamedError::Compute(ComputeError::Admission))?;
         let prepared = crate::interface::prepare_named(&self.0.ports, request)
             .map_err(NamedError::Interface)?;
-        let calculation = self.invoke(&prepared.request).map_err(|e| match e {
-            ComputeError::Invocation(e) => NamedError::Interface(InterfaceError::Invocation(e)),
-            other => NamedError::Compute(other),
-        })?;
+        let calculation = self
+            .invoke_retiring_cancelled(&prepared.request, retire, cancelled)
+            .map_err(|e| match e {
+                ComputeError::Invocation(e) => NamedError::Interface(InterfaceError::Invocation(e)),
+                other => NamedError::Compute(other),
+            })?;
         let outputs = request
             .outputs
             .iter()

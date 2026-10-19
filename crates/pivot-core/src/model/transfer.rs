@@ -108,7 +108,22 @@ pub fn set_resolved_expression(
 ) -> Result<(), ModelError> {
     #[cfg(feature = "core-integration")]
     if model.integrated.is_some() {
-        return Err(ModelError::Backend("transfer not integrated in Stage 1"));
+        if !model.contains_node(id) {
+            return Err(ModelError::UnknownNode(id));
+        }
+        if source.len() > 4096 || tokens.len() > 1_048_576 {
+            return Err(invalid());
+        }
+        let _copy = model.integrated_request_charge(
+            4096 + tokens
+                .len()
+                .saturating_mul(std::mem::size_of::<ResolvedToken>()),
+        )?;
+        return model.integrated_edit(super::structural::Edit::Resolved(
+            id,
+            source.into(),
+            tokens.to_vec(),
+        ));
     }
     if !model.nodes.contains_key(&id) {
         return Err(ModelError::UnknownNode(id));
@@ -154,7 +169,20 @@ pub fn set_invalid_expression(
 ) -> Result<(), ModelError> {
     #[cfg(feature = "core-integration")]
     if model.integrated.is_some() {
-        return Err(ModelError::Backend("transfer not integrated in Stage 1"));
+        if !model.contains_node(id) {
+            return Err(ModelError::UnknownNode(id));
+        }
+        if source.len() > 4096 || offset > source.len() || !source.is_char_boundary(offset) {
+            return Err(invalid());
+        }
+        return model.integrated_edit(super::structural::Edit::Invalid(
+            id,
+            source.into(),
+            ParseError {
+                offset,
+                message: "unexpected trailing input",
+            },
+        ));
     }
     if !model.nodes.contains_key(&id) {
         return Err(ModelError::UnknownNode(id));
@@ -184,7 +212,7 @@ pub fn export(
 ) -> Result<Image, ModelError> {
     #[cfg(feature = "core-integration")]
     if model.integrated.is_some() {
-        return Err(ModelError::Backend("transfer not integrated in Stage 1"));
+        return model.integrated_export(nodes, ports);
     }
     if nodes.len() > 8192 || ports.len() > 8192 || model.nodes.len() > 4096 {
         return Err(invalid());
@@ -336,7 +364,7 @@ pub fn export_snapshot(
 
 /// Validates before installing private core fields. Invalid *draft semantics*
 /// (cycles, retired targets, computed input-port targets) deliberately survive.
-pub fn import(image: Image) -> Result<Imported, ModelError> {
+pub(super) fn check_header(image: &Image) -> Result<(), ModelError> {
     if image.node_slots > 8192
         || image.port_slots > 8192
         || image.nodes.len() > 4096
@@ -346,6 +374,10 @@ pub fn import(image: Image) -> Result<Imported, ModelError> {
     {
         return Err(invalid());
     }
+    Ok(())
+}
+pub fn import(image: Image) -> Result<Imported, ModelError> {
+    check_header(&image)?;
     let mut model = WorkingModel::new(image.name)?;
     let nodes: Vec<_> = (0..image.node_slots)
         .map(|i| NodeId {
@@ -481,6 +513,15 @@ pub fn import(image: Image) -> Result<Imported, ModelError> {
         nodes,
         ports,
     })
+}
+
+/// Opt-in validated portable import into the persistent standalone backend.
+#[cfg(feature = "core-integration")]
+pub fn import_persistent(
+    image: Image,
+    runtime: &super::integration::IntegrationRuntime,
+) -> Result<Imported, ModelError> {
+    runtime.import_portable(image, &super::integration::CancellationToken::default())
 }
 
 #[cfg(test)]

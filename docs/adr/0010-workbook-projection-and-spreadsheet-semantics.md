@@ -154,3 +154,10 @@ Latest formula implementation packet: [Slice B](../handoffs/2026-10-19-spreadshe
 
 Latest core checkpoint: [Controlled Production Core Integration — Stage 1](../architecture/controlled-core-integration.md).
 This bounded standalone integration does not authorize a workbook backend switch.
+
+
+Stage 2 standalone integration now covers ports, retirement, bounded inspection,
+complete snapshots and portable transfer through WorkingModel; see the
+[contract](../architecture/controlled-core-integration-stage2.md). This does not
+migrate workbook projection transactions or hosted service publication. Those
+remain separate compatibility reviews before backend selection in either layer.

@@ -2,17 +2,18 @@
 
 Date: 2026-10-19
 
-Latest milestone: **Controlled Production Core Integration — Stage 1** is
-implemented behind `pivot-core/core-integration`, following acceptance of the
-persistent compatibility foundation. The selected standalone edits now use
-persistent state through WorkingModel, with exact core revisions, immutable
-calculation captures/results, full invalid-draft diagnostics, shared allocation
-admission and explicit worker ownership. No shadow reference model is maintained.
-The default backend, capacity limits, file codecs and host publication paths stay
-unchanged. Full inspection snapshots, port/retirement/transfer edits and workbook
-transactions are not integrated. Stop for Stage 1 review; see the
-[handoff](handoffs/2026-10-19-controlled-core-integration.md) and
-[compatibility/ownership matrix](architecture/controlled-core-integration.md).
+Latest milestone: **Controlled Production Core Integration — Stage 2** completes
+explicitly activated standalone editing, ports, retirement, transfer, pinned bounded
+inspection and budgeted complete snapshots. Local calculation capture permits
+unrelated invalid drafts; complete global diagnostics remain explicit and exact.
+Fixed mutation, heavy and cleanup lanes separate work classes, with pre-admitted
+last-owner reclamation and tested receiver-failure recovery. Default backend,
+capacity limits, workbook/host paths and frozen formats remain unchanged.
+Full CI, feature regression and all ninety Release benchmark processes now pass
+on Windows, Linux WSL2 and native macOS ARM64/APFS. Stop for Stage 2 review
+and standalone default-selection decision; see the
+[handoff](handoffs/2026-10-19-controlled-core-integration-stage2.md) and
+[compatibility/runtime contract](architecture/controlled-core-integration-stage2.md).
 
 The Rust workspace and .NET 10/Avalonia solution are scaffolded. Architecture
 records live in `docs/adr/` using `ADR-NNNN` identifiers. ADR-0001 records the
@@ -266,3 +267,14 @@ automatically. Production container selection remains a later workbook-driven
 decision. Native AOT, native macOS corroboration of this new experiment and
 production-scale validation remain backlog; the earlier Slice B Mac pass is retained
 as historical evidence. Stop after the controlled-integration Stage 1 review, without new features.
+
+
+Native macOS Stage 2 validation (20261019T182116Z) passed on Apple M1 ARM64 from
+an isolated internal APFS copy: 210 default, 237 integration-only, 234 research-only
+and 260 combined tests, three strict feature lint configurations, complete .NET/
+parity/real IPC CI and all thirty Release benchmark processes. All copied source
+hashes matched before this documentation update; no product changes were needed.
+All review targets passed and final domain charges were zero. The runner does not
+support macOS RSS; separate sparse native samples do not establish child high-water
+marks. See the [native report](../artifacts/macos-validation-20261019T182116Z/REPORT.md)
+and [Stage 2 performance addendum](performance/controlled-core-integration-stage2.md).

@@ -80,6 +80,32 @@ impl<K: Key, V: Clone + Footprint> Index<K, V> {
         self.root = remove(&self.memory, &self.root, key)?;
         Ok(())
     }
+    #[cfg(feature = "core-integration")]
+    pub fn iter_from<Q: Ord + ?Sized>(&self, key: &Q) -> impl Iterator<Item = (&K, &V)>
+    where
+        K: Borrow<Q>,
+    {
+        let mut stack = Vec::new();
+        let mut cursor = self.root.as_ref();
+        while let Some(node) = cursor {
+            if node.key.borrow() >= key {
+                stack.push(node);
+                cursor = node.left.as_ref();
+            } else {
+                cursor = node.right.as_ref();
+            }
+        }
+        let mut next = None;
+        std::iter::from_fn(move || {
+            while let Some(node) = next {
+                stack.push(node);
+                next = node.left.as_ref();
+            }
+            let node = stack.pop()?;
+            next = node.right.as_ref();
+            Some((&node.key, &node.value))
+        })
+    }
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         let mut stack = Vec::new();
         let mut next = self.root.as_ref();

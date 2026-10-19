@@ -124,6 +124,11 @@ policy. The parent accepts assessment B; the bounded
 now tests local formula edits and retained topology generations. Review its
 [handoff](../handoffs/2026-10-19-structural-mutation-feasibility.md) before production
 replacement or further feature implementation.
+The parent accepts the structural research. The subsequent
+[compatibility foundation](../architecture/persistent-core-compatibility-foundation.md)
+adds persistent indexes, general-model adapters and initial memory admission while
+leaving the default backend unchanged. Review its
+[handoff](../handoffs/2026-10-19-compatibility-foundation.md) before a production switch.
 Keep ranges and extended reference syntax behind their own reviewed steps.
 
 Require independent-reference semantic oracles, transaction/snapshot isolation tests,

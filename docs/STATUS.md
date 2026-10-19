@@ -211,7 +211,7 @@ See [grammar and implementation](architecture/spreadsheet-scalar-formulas.md) an
 verification and costs. Full Windows CI passes 209 Rust tests plus .NET/parity/IPC;
 available WSL2 checks pass 210 Rust tests plus IPC. Native macOS ARM64 now passes
 full CI with 210 Rust tests, .NET Release, both parity suites and actual IPC/REPL.
-The current working tree matched all 215 source hashes from the Mac validation;
+At Slice B validation, the working tree matched all 215 Mac source hashes;
 builds and .NET outputs stayed on local APFS, with reports copied back to SMB.
 See the [macOS review](handoffs/2026-10-19-macos-validation.md).
 The parent review accepted Slice B and replaced the following C# priority with a
@@ -228,9 +228,18 @@ See the [representation comparison](architecture/structural-mutation-feasibility
 and [structural handoff](handoffs/2026-10-19-structural-mutation-feasibility.md).
 Matched end-to-end timings include the baseline's deferred validation. Baseline
 and prototype memory workloads run in separate guarded processes. No production
-replacement is adopted; name-index copying, high-degree reverse sets, projection
-mutation coverage and physical retention admission remain integration work.
-C# work stays held pending structural review. Relative/absolute
+replacement is adopted. The parent accepted the structural research and authorized
+Production Graph Representation - Compatibility Foundation. That opt-in slice now
+uses persistent name/reverse-edge indexes, supports ports/invocation and invalid
+restoration, shares accepted binding/validation rules, charges unique core storage
+and candidate work, and provides bounded off-thread reclamation.
+See the [compatibility design](architecture/persistent-core-compatibility-foundation.md)
+and [foundation handoff](handoffs/2026-10-19-compatibility-foundation.md) for matched
+Release results, 32-generation retention, 1M repeats and remaining blockers.
+The recommendation is further focused restructuring before production integration:
+diagnostic/revision adapters, aggregate memory/copy-out policy, full reclamation
+ownership, wide-port/invalid-draft limits and broader workbook projection coverage.
+C# work stays held pending compatibility-foundation review. Relative/absolute
 copy/fill, cross-sheet references, row/column structural edits, ranges/SUM, typed
 blank/text engine values, incremental calculation, workbook files, C# IPC and
 Avalonia rendering remain unimplemented.
@@ -242,4 +251,4 @@ Do not expand the experimental file broker or resume optional hosted persistence
 automatically. Production container selection remains a later workbook-driven
 decision. Native AOT, native macOS corroboration of this new experiment and
 production-scale validation remain backlog; the earlier Slice B Mac pass is retained
-as historical evidence. Stop after the structural feasibility review, without new features.
+as historical evidence. Stop after the compatibility-foundation review, without new features.

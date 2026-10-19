@@ -2,7 +2,7 @@
 
 Date: 2026-10-19
 Disposition: structural sharing is promising for ordinary formula edits; **do not
-replace production structures in this slice**. Parent review pending.
+replace production structures in this slice**. Research accepted by parent review.
 
 ## What changed
 
@@ -249,3 +249,11 @@ Before adoption:
 Stop for review. C#, Avalonia, new syntax/ranges, files and hosted persistence remain
 held. Native macOS corroboration of this prototype is not yet performed; historical
 Scalar Formula Slice B macOS CI remains separate evidence.
+
+## Subsequent compatibility foundation
+
+The parent accepted this research and authorized the
+[compatibility foundation](2026-10-19-compatibility-foundation.md). Current opt-in
+source files extend this initial prototype; historic timing/memory figures above
+refer to their recorded source manifests. The new slice replaces broad-copy name
+and reverse indexes and adds general-model, transfer and memory-policy coverage.

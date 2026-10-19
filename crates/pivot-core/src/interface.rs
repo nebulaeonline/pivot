@@ -78,16 +78,23 @@ impl ModelInterface {
         self.outputs.values()
     }
     pub(crate) fn validate(&self, snapshot: &ModelSnapshot) -> Result<(), InterfaceError> {
+        self.validate_kinds(|id| {
+            snapshot
+                .node(id)
+                .map(|n| matches!(n.definition(), SnapshotDefinition::Input(_)))
+        })
+    }
+    pub(crate) fn validate_kinds(
+        &self,
+        kind: impl Fn(NodeId) -> Option<bool>,
+    ) -> Result<(), InterfaceError> {
         for port in self.inputs.values() {
-            let node = snapshot
-                .node(port.node)
-                .ok_or(InterfaceError::InvalidBinding(port.id))?;
-            if !matches!(node.definition(), SnapshotDefinition::Input(_)) {
+            if kind(port.node) != Some(true) {
                 return Err(InterfaceError::InvalidBinding(port.id));
             }
         }
         for port in self.outputs.values() {
-            if snapshot.node(port.node).is_none() {
+            if kind(port.node).is_none() {
                 return Err(InterfaceError::InvalidBinding(port.id));
             }
         }
@@ -157,65 +164,79 @@ impl EvaluationContext {
         request: &NamedInvocationRequest,
     ) -> Result<NamedCalculationResult, InterfaceError> {
         let interface = self.snapshot().interface();
-        let mut supplied = BTreeMap::new();
-        for (name, value) in &request.inputs {
-            let port = interface
-                .inputs
-                .get(name)
-                .ok_or_else(|| InterfaceError::UnknownInput(name.clone()))?;
-            if value.value_type() != port.value_type() {
+        let prepared = prepare_named(interface, request)?;
+        let result = self
+            .invoke(&prepared.request)
+            .map_err(InterfaceError::Invocation)?;
+        Ok(named_result(result, request, interface, prepared.bindings))
+    }
+}
+pub(crate) struct PreparedNamed {
+    pub request: InvocationRequest,
+    pub bindings: BTreeMap<String, PivotValue>,
+}
+pub(crate) fn prepare_named(
+    interface: &ModelInterface,
+    request: &NamedInvocationRequest,
+) -> Result<PreparedNamed, InterfaceError> {
+    let mut supplied = BTreeMap::new();
+    for (name, value) in &request.inputs {
+        let port = interface
+            .inputs
+            .get(name)
+            .ok_or_else(|| InterfaceError::UnknownInput(name.clone()))?;
+        if value.value_type() != port.value_type() {
+            return Err(InterfaceError::TypeMismatch {
+                name: name.clone(),
+                expected: port.value_type(),
+                actual: value.value_type(),
+            });
+        }
+        if supplied.insert(name.clone(), value.clone()).is_some() {
+            return Err(InterfaceError::DuplicateInput(name.clone()));
+        }
+    }
+    let mut bindings = BTreeMap::new();
+    let mut inputs = Vec::new();
+    for port in interface.inputs.values() {
+        let value = match supplied.remove(&port.name) {
+            Some(value) => value,
+            None => match &port.requirement {
+                InputRequirement::Required => {
+                    return Err(InterfaceError::MissingRequired(port.name.clone()));
+                }
+                InputRequirement::Optional { default } => default.clone(),
+            },
+        };
+        let decimal = match &value {
+            PivotValue::Decimal(value) => *value,
+            _ => {
                 return Err(InterfaceError::TypeMismatch {
-                    name: name.clone(),
-                    expected: port.value_type(),
+                    name: port.name.clone(),
+                    expected: ValueType::Decimal,
                     actual: value.value_type(),
                 });
             }
-            if supplied.insert(name.clone(), value.clone()).is_some() {
-                return Err(InterfaceError::DuplicateInput(name.clone()));
-            }
-        }
-        let mut bindings = BTreeMap::new();
-        let mut inputs = Vec::new();
-        for port in interface.inputs.values() {
-            let value = match supplied.remove(&port.name) {
-                Some(value) => value,
-                None => match &port.requirement {
-                    InputRequirement::Required => {
-                        return Err(InterfaceError::MissingRequired(port.name.clone()));
-                    }
-                    InputRequirement::Optional { default } => default.clone(),
-                },
-            };
-            let decimal = match &value {
-                PivotValue::Decimal(value) => *value,
-                _ => {
-                    return Err(InterfaceError::TypeMismatch {
-                        name: port.name.clone(),
-                        expected: ValueType::Decimal,
-                        actual: value.value_type(),
-                    });
-                }
-            };
-            inputs.push((port.node, decimal));
-            bindings.insert(port.name.clone(), value);
-        }
-        let mut seen = BTreeSet::new();
-        let mut outputs = Vec::new();
-        for name in &request.outputs {
-            let port = interface
-                .outputs
-                .get(name)
-                .ok_or_else(|| InterfaceError::UnknownOutput(name.clone()))?;
-            if !seen.insert(name.clone()) {
-                return Err(InterfaceError::DuplicateOutput(name.clone()));
-            }
-            outputs.push(port.node);
-        }
-        let result = self
-            .invoke(&InvocationRequest { inputs, outputs })
-            .map_err(InterfaceError::Invocation)?;
-        Ok(named_result(result, request, interface, bindings))
+        };
+        inputs.push((port.node, decimal));
+        bindings.insert(port.name.clone(), value);
     }
+    let mut seen = BTreeSet::new();
+    let mut outputs = Vec::new();
+    for name in &request.outputs {
+        let port = interface
+            .outputs
+            .get(name)
+            .ok_or_else(|| InterfaceError::UnknownOutput(name.clone()))?;
+        if !seen.insert(name.clone()) {
+            return Err(InterfaceError::DuplicateOutput(name.clone()));
+        }
+        outputs.push(port.node);
+    }
+    Ok(PreparedNamed {
+        request: InvocationRequest { inputs, outputs },
+        bindings,
+    })
 }
 fn named_result(
     result: CalculationResult,
@@ -223,24 +244,15 @@ fn named_result(
     interface: &ModelInterface,
     bindings: BTreeMap<String, PivotValue>,
 ) -> NamedCalculationResult {
-    use crate::evaluation::EvaluationError;
     let outputs = request
         .outputs
         .iter()
         .map(|name| {
-            let value = match result
-                .value(interface.outputs[name].node)
-                .expect("selected public output was evaluated")
-            {
-                Ok(value) => Ok(PivotValue::Decimal(*value)),
-                Err(EvaluationError::Arithmetic { error, .. }) => {
-                    Err(PublicEvaluationError::Arithmetic(*error))
-                }
-                Err(EvaluationError::DependencyFailed { .. }) => {
-                    Err(PublicEvaluationError::DependencyFailed)
-                }
-                Err(_) => Err(PublicEvaluationError::InvalidExpression),
-            };
+            let value = public_value(
+                result
+                    .value(interface.outputs[name].node)
+                    .expect("selected public output was evaluated"),
+            );
             (name.clone(), value)
         })
         .collect();
@@ -248,5 +260,21 @@ fn named_result(
         revision: result.revision(),
         outputs,
         bindings,
+    }
+}
+
+pub(crate) fn public_value(
+    value: &Result<pivot_types::PivotDecimal, crate::evaluation::EvaluationError>,
+) -> Result<PivotValue, PublicEvaluationError> {
+    use crate::evaluation::EvaluationError;
+    match value {
+        Ok(value) => Ok(PivotValue::Decimal(*value)),
+        Err(EvaluationError::Arithmetic { error, .. }) => {
+            Err(PublicEvaluationError::Arithmetic(*error))
+        }
+        Err(EvaluationError::DependencyFailed { .. }) => {
+            Err(PublicEvaluationError::DependencyFailed)
+        }
+        Err(_) => Err(PublicEvaluationError::InvalidExpression),
     }
 }

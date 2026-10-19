@@ -104,6 +104,13 @@ snapshot capture and evaluation. See the [Slice B note](architecture/spreadsheet
 
 ## Opt-in scaling research
 
+The [compatibility foundation](performance/compatibility-foundation.md) adds
+`python scripts/foundation.py` for process-isolated general-core name, edge, port,
+repair, rejection, churn and reclamation benchmarks. It shares the existing
+scaling-experiment feature and analysis script. It is not a default CI gate or a
+production backend switch. The feature suite currently passes 233 Windows / 234
+Linux tests; default Windows full CI and Linux default/IPC checks are retained.
+
 The newer [structural experiment](performance/structural-experiment.md) runs with
 `python scripts/structural.py`. It isolates baseline and paged implementations in
 separate guarded processes and normalizes the complete formula-edit/validation/

@@ -52,12 +52,13 @@ pub struct StructuralWorkbook {
 pub enum Failure {
     Workbook(Error),
     Graph(graph::Error),
-    Snapshot(SnapshotError),
+    Capture(graph::CaptureError),
 }
 impl StructuralWorkbook {
     pub fn new(mut book: Workbook) -> std::result::Result<Self, Failure> {
         let graph = graph::Graph::from_model(&book.core, graph::Limits::default())
             .map_err(Failure::Graph)?;
+        let memory = graph.memory();
         // The frozen projection needs identities/content, never the old mutable core.
         book.core = WorkingModel::new("Unused projection shell")
             .map_err(|e| Failure::Workbook(Error::Graph(e.to_string())))?;
@@ -79,7 +80,7 @@ impl StructuralWorkbook {
             projection: Projection {
                 book: Arc::new(book),
                 slots: Arc::new(slots),
-                metadata: Pages::default(),
+                metadata: Pages::new(memory),
                 bytes,
             },
         })
@@ -196,7 +197,9 @@ impl StructuralWorkbook {
             if p.bytes > p.book.limits.bytes {
                 return Err(Failure::Workbook(Error::Limit));
             }
-            p.metadata.set(slot, Arc::new(metadata));
+            p.metadata
+                .set(slot, metadata)
+                .map_err(|_| Failure::Graph(graph::Error::Admission))?;
         }
         let version = candidate
             .graph
@@ -208,7 +211,7 @@ impl StructuralWorkbook {
     pub fn capture(&self) -> std::result::Result<Capture, Failure> {
         Ok(Capture {
             version: self.version(),
-            graph: self.graph.capture().map_err(Failure::Snapshot)?,
+            graph: self.graph.capture().map_err(Failure::Capture)?,
             projection: self.projection.clone(),
         })
     }
@@ -264,5 +267,11 @@ impl Capture {
             .map_err(|_| Failure::Workbook(Error::InvalidTarget))?[&id]
             .clone()
             .map_err(|e| Failure::Workbook(Error::Graph(format!("{e}"))))
+    }
+}
+
+impl graph::memory::Footprint for Metadata {
+    fn heap_bytes(&self) -> usize {
+        metadata_bytes(self)
     }
 }

@@ -59,14 +59,17 @@ fn cycles_drafts_and_repairs_never_publish_calculable_cycles() {
         .unwrap();
     assert!(matches!(
         g.capture(),
-        Err(SnapshotError::Unorderable { .. })
+        Err(CaptureError::Invalid(SnapshotError::Unorderable { .. }))
     ));
     g.apply(g.version(), vec![Edit::ReplaceInput(a, 4.into())])
         .unwrap();
     assert_eq!(value(&g.capture().unwrap(), c), 5.into());
     g.apply(g.version(), vec![Edit::Formula(c, "(".into())])
         .unwrap();
-    assert!(matches!(g.capture(), Err(SnapshotError::Parse { .. })));
+    assert!(matches!(
+        g.capture(),
+        Err(CaptureError::Invalid(SnapshotError::Parse { .. }))
+    ));
     g.apply(g.version(), vec![Edit::Formula(c, "a/0".into())])
         .unwrap();
     assert!(g.capture().unwrap().evaluate(&[c]).unwrap()[&c].is_err());
@@ -84,7 +87,7 @@ fn retirement_never_rebinds_and_explicit_resubmission_repairs() {
     assert_ne!(a, replacement);
     assert_eq!(g.dependencies(c).unwrap(), &[a]);
     assert!(
-        matches!(g.capture(), Err(SnapshotError::MissingReference { target, .. }) if target == a)
+        matches!(g.capture(), Err(CaptureError::Invalid(SnapshotError::MissingReference { target, .. })) if target == a)
     );
     assert_eq!(value(&old, c), 3.into());
     g.apply(g.version(), vec![Edit::Formula(c, "a+1".into())])
@@ -103,7 +106,9 @@ fn hard_failures_staleness_and_validation_budget_are_atomic() {
                 Edit::AddFormula("a".into(), "1".into())
             ]
         ),
-        Err(Error::InvalidTransfer)
+        Err(Error::Model(pivot_core::model::ModelError::DuplicateName(
+            "a".into()
+        )))
     );
     assert_eq!(g.version(), version);
     assert_eq!(value(&g.capture().unwrap(), c), 3.into());

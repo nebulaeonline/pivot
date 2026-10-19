@@ -1,5 +1,9 @@
 # Structural mutation feasibility
 
+The parent accepted this initial research milestone. Current feature-gated source
+has since been extended by the [compatibility foundation](persistent-core-compatibility-foundation.md);
+the representation and measured limitations below describe the earlier milestone.
+
 Status: bounded experiment, behind `scaling-experiment`. Production replacement
 requires a separate review. The previous assessment B is accepted; this slice
 investigates its unresolved structural-edit path.

@@ -7,5 +7,9 @@ publish.workspace = true
 [features]
 scaling-experiment = []
 
+[[example]]
+name = "foundation"
+required-features = ["scaling-experiment"]
+
 [dependencies]
 pivot-types = { path = "../pivot-types" }

@@ -74,6 +74,24 @@ impl std::error::Error for InvocationError {
     }
 }
 
+pub(crate) fn prepare_inputs(
+    request: &InvocationRequest,
+    kind: impl Fn(NodeId) -> Option<bool>,
+) -> Result<BTreeMap<NodeId, PivotDecimal>, InvocationError> {
+    let mut inputs = BTreeMap::new();
+    for &(id, value) in &request.inputs {
+        match kind(id) {
+            None => return Err(InvocationError::UnknownInput(id)),
+            Some(false) => return Err(InvocationError::NotInput(id)),
+            _ => {}
+        }
+        if inputs.insert(id, value).is_some() {
+            return Err(InvocationError::DuplicateInput(id));
+        }
+    }
+    Ok(inputs)
+}
+
 /// Owns one snapshot. Every evaluate call creates fresh local execution state.
 /// Invocations reuse bound snapshot expressions without editing captured inputs.
 pub struct EvaluationContext {
@@ -101,19 +119,11 @@ impl EvaluationContext {
         &self,
         request: &InvocationRequest,
     ) -> Result<CalculationResult, InvocationError> {
-        let mut inputs = BTreeMap::new();
-        for &(id, value) in &request.inputs {
-            let node = self
-                .snapshot
+        let inputs = prepare_inputs(request, |id| {
+            self.snapshot
                 .node(id)
-                .ok_or(InvocationError::UnknownInput(id))?;
-            if !matches!(node.definition(), SnapshotDefinition::Input(_)) {
-                return Err(InvocationError::NotInput(id));
-            }
-            if inputs.insert(id, value).is_some() {
-                return Err(InvocationError::DuplicateInput(id));
-            }
-        }
+                .map(|node| matches!(node.definition(), SnapshotDefinition::Input(_)))
+        })?;
         self.evaluate_with_inputs(&request.outputs, inputs)
             .map_err(InvocationError::Evaluation)
     }

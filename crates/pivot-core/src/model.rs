@@ -756,6 +756,13 @@ fn bind(
     expr: &Expr,
     names: &BTreeMap<String, NodeId>,
 ) -> Result<(Vec<BoundToken>, Vec<NodeId>), SnapshotError> {
+    bind_with(id, expr, |name| names.get(name).copied())
+}
+fn bind_with(
+    id: NodeId,
+    expr: &Expr,
+    lookup: impl Fn(&str) -> Option<NodeId>,
+) -> Result<(Vec<BoundToken>, Vec<NodeId>), SnapshotError> {
     let mut stack = vec![(expr, false)];
     let mut tokens = Vec::new();
     let mut dependencies = BTreeSet::new();
@@ -772,7 +779,7 @@ fn bind(
                 });
             }
             Expr::Name(name) => {
-                let target = *names.get(name).ok_or_else(|| SnapshotError::UnknownName {
+                let target = lookup(name).ok_or_else(|| SnapshotError::UnknownName {
                     node: id,
                     name: name.clone(),
                 })?;

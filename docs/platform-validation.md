@@ -1,5 +1,16 @@
 # Linux and macOS validation
 
+## Compatibility foundation - 2026-10-19
+
+Windows default full CI passes 209 Rust tests, .NET Release, decimal/protocol parity
+and actual IPC/REPL. Final feature tests pass 233 on Windows and 234 on Linux, with
+all-target feature Clippy. Linux default passes 210 tests and actual IPC/REPL with
+file tests on disk-backed /var/tmp. No new Linux .NET or native Mac run is claimed.
+See the [foundation handoff](handoffs/2026-10-19-compatibility-foundation.md) for exact
+logs, standalone-core Release distributions, final source manifests, 32-generation
+retention and guarded 1M prototype repeats on both platforms. Prior research results
+below remain historical. Native macOS corroboration must build/test on local APFS.
+
 ## Structural mutation research - 2026-10-19
 
 Windows full default CI passes 209 Rust tests plus .NET Release, decimal/protocol

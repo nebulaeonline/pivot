@@ -117,7 +117,11 @@ reported as end-to-end spreadsheet performance.
    formula changes, immutable generations, isolated process RSS and guarded 1M
    diagnostics. Name/edge indexes, physical admission and production adapters remain
    explicit gates before adopting a representation or resuming features.
-4. Resume the executable C# application boundary only after that review authorizes it.
+4. Review the [compatibility foundation](persistent-core-compatibility-foundation.md)
+   and its [handoff](../handoffs/2026-10-19-compatibility-foundation.md): persistent
+   indexes, general-model/transfer behavior, bounded allocation admission, retention,
+   churn and reclamation. Default ownership remains unchanged pending integration.
+5. Resume the executable C# application boundary only after integration is reviewed.
 
 Ranges, new value kinds, broad UI infrastructure and hosted persistence remain
 excluded. Preserve all decimal, core, document/file, protocol and IPC tests. Prior

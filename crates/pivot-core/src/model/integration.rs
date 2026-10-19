@@ -9,11 +9,14 @@ use structural::{Calculation, Capture, ComputeError, Edit, Graph, Limits, memory
 mod inspection;
 mod reference;
 mod runtime;
+mod standalone;
 pub use inspection::{
     DefinitionView, EdgeCursor, EdgePage, InspectionCursor, InspectionPage, NodeView,
 };
 pub use runtime::{CancellationToken, IntegrationRuntime, RuntimeStats};
 use runtime::{Owned, RuntimeState, Ticket};
+pub use standalone::RuntimeConfig;
+pub(super) use standalone::create_default;
 #[derive(Clone)]
 pub(super) struct Integrated {
     graph: Owned<Graph>,
@@ -209,11 +212,18 @@ fn compute_failure(e: ComputeError) -> CalculationFailure {
 
 impl WorkingModel {
     /// One-time O(N) activation/import bridge. Existing bound tokens and local
-    /// identities survive; no formulas are rebound. The default constructor
-    /// remains the reference backend. No implicit migration in either direction.
+    /// identities survive; no formulas are rebound. Intended for explicit reference
+    /// fallback models. New standalone models start persistent without this bridge.
+    /// Already-persistent models must belong to the same runtime; no rehoming.
     pub fn enable_persistent(&mut self, runtime: &IntegrationRuntime) -> Result<(), ModelError> {
-        if self.integrated.is_some() {
-            return Ok(());
+        if let Some(current) = &self.integrated {
+            return if Arc::ptr_eq(&current.runtime, runtime.state()) {
+                Ok(())
+            } else {
+                Err(ModelError::Backend(
+                    "model belongs to another runtime; construct with new_in",
+                ))
+            };
         }
         let state = runtime.state().clone();
         let root = state.cleanup.reserve().map_err(ModelError::Backend)?;
@@ -732,7 +742,7 @@ mod cancellation_tests {
     #[test]
     fn cancellation_after_partial_traversal_reclaims_scratch_and_preserves_s_t() {
         let runtime = IntegrationRuntime::new(64 * 1024 * 1024, 8).unwrap();
-        let mut model = WorkingModel::new("cancelled closure").unwrap();
+        let mut model = WorkingModel::new_reference("cancelled closure").unwrap();
         let nodes: Vec<_> = (0..1024)
             .map(|i| model.add_input(format!("n{i}"), 1.into()).unwrap())
             .collect();

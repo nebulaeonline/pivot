@@ -368,6 +368,35 @@ pub struct Graph {
 struct Proof(std::sync::atomic::AtomicBool);
 impl Footprint for Proof {}
 impl Graph {
+    /// Empty persistent root, with no legacy import or global snapshot bridge.
+    #[cfg(feature = "core-integration")]
+    pub(super) fn empty(name: String, revision: Revision, memory: Memory) -> Result<Self, Error> {
+        Ok(Self {
+            local_validation: true,
+            proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(true)))?,
+            records: Pages::new(memory.clone()),
+            values: Pages::new(memory.clone()),
+            names: Index::new(memory.clone()),
+            invalid: Index::new(memory.clone()),
+            version: Version {
+                model: revision.model,
+                commit: 0,
+                topology: 0,
+                inputs: 0,
+            },
+            next: 0,
+            live: 0,
+            bytes: 0,
+            limits: Limits::default(),
+            model_name: memory.alloc(name)?,
+            ports: memory.alloc(ModelInterface::default())?,
+            next_port: 0,
+            revision_origin: revision.version,
+            import_invalid: false,
+            memory,
+            max_name: 0,
+        })
+    }
     #[cfg(feature = "core-integration")]
     pub(super) fn live_count(&self) -> usize {
         self.live

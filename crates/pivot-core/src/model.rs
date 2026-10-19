@@ -15,7 +15,7 @@ use std::{
 };
 
 static NEXT_MODEL: AtomicU64 = AtomicU64::new(1);
-/// Controlled opt-in integration through the accepted model facade.
+/// Persistent standalone backend and bounded shared runtime.
 #[cfg(feature = "core-integration")]
 pub mod integration;
 /// Isolated paged structural-mutation research; never used by default models.
@@ -143,6 +143,12 @@ pub struct WorkingModel {
     next_node: u64,
     next_port: u64,
     interface: ModelInterface,
+}
+/// Explicit backend identity for migration diagnostics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackendKind {
+    Reference,
+    Persistent,
 }
 /// Raw editable definitions, including invalid source. Core IDs remain local.
 pub enum DraftDefinition<'a> {
@@ -335,7 +341,20 @@ impl WorkingModel {
         self.interface.outputs.get_mut(&name).unwrap().node = node;
         Ok(())
     }
+    /// Standalone default. With core-integration, shares the process convenience
+    /// runtime; use new_in for application-owned budgets and deterministic shutdown.
     pub fn new(name: impl Into<String>) -> Result<Self, ModelError> {
+        #[cfg(feature = "core-integration")]
+        {
+            integration::create_default(name)
+        }
+        #[cfg(not(feature = "core-integration"))]
+        {
+            Self::new_reference(name)
+        }
+    }
+    /// Explicit migration fallback and downstream compatibility constructor.
+    pub fn new_reference(name: impl Into<String>) -> Result<Self, ModelError> {
         let mut model = NEXT_MODEL.load(Ordering::Relaxed);
         loop {
             let next = model.checked_add(1).ok_or(ModelError::IdentityExhausted)?;
@@ -360,6 +379,14 @@ impl WorkingModel {
             next_port: 0,
             interface: ModelInterface::default(),
         })
+    }
+    /// Observable backend selection, without exposing its representation.
+    pub fn backend(&self) -> BackendKind {
+        #[cfg(feature = "core-integration")]
+        if self.integrated.is_some() {
+            return BackendKind::Persistent;
+        }
+        BackendKind::Reference
     }
     pub fn name(&self) -> &str {
         #[cfg(feature = "core-integration")]

@@ -76,7 +76,7 @@ fn main() {
     let samples: usize = args[3].parse().unwrap();
     assert!(size >= 1000 && samples > 0);
     let runtime = IntegrationRuntime::new(2 * 1024 * 1024 * 1024, 64).unwrap();
-    let mut model = WorkingModel::new("Facade benchmark").unwrap();
+    let mut model = WorkingModel::new_reference("Facade benchmark").unwrap();
     let nodes: Vec<_> = (0..size)
         .map(|i| model.add_input(format!("n{i}"), 1.into()).unwrap())
         .collect();

@@ -96,7 +96,7 @@ fn invalid(model: &WorkingModel, out: NodeId) {
     ));
 }
 fn fixture(size: usize, name: &str) -> (WorkingModel, Vec<NodeId>, usize) {
-    let mut model = WorkingModel::new(name).unwrap();
+    let mut model = WorkingModel::new_reference(name).unwrap();
     let nodes: Vec<_> = (0..size)
         .map(|i| model.add_input(format!("n{i}"), 1.into()).unwrap())
         .collect();

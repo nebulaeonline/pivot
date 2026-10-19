@@ -665,7 +665,7 @@ mod tests {
     #[test]
     fn two_blocked_heavy_jobs_do_not_block_independent_model_mutations() {
         let runtime = IntegrationRuntime::new(64 * 1024 * 1024, 4).unwrap();
-        let mut model = WorkingModel::new("independent").unwrap();
+        let mut model = WorkingModel::new_reference("independent").unwrap();
         model.enable_persistent(&runtime).unwrap();
         let id = model.add_input("x", 1.into()).unwrap();
         let gate = Arc::new((Mutex::new(false), Condvar::new()));
@@ -719,7 +719,7 @@ mod tests {
     #[test]
     fn loss_of_both_cleanup_receivers_preserves_owners_and_can_be_recovered() {
         let mut runtime = IntegrationRuntime::new(32 * 1024 * 1024, 4).unwrap();
-        let mut model = WorkingModel::new("recovery").unwrap();
+        let mut model = WorkingModel::new_reference("recovery").unwrap();
         model.enable_persistent(&runtime).unwrap();
         let id = model.add_input("x", 1.into()).unwrap();
         runtime.flush();
@@ -769,7 +769,7 @@ mod tests {
     #[test]
     fn blocked_cleanup_does_not_occupy_mutation_workers() {
         let runtime = IntegrationRuntime::new(64 * 1024 * 1024, 4).unwrap();
-        let mut model = WorkingModel::new("edit during reclaim").unwrap();
+        let mut model = WorkingModel::new_reference("edit during reclaim").unwrap();
         model.enable_persistent(&runtime).unwrap();
         let id = model.add_input("x", 1.into()).unwrap();
         runtime.flush();

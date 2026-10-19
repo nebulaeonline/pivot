@@ -1,6 +1,21 @@
 # Linux and macOS validation
 
-## Latest: controlled core integration Stage 2 (2026-10-19)
+## Latest: standalone default transition (2026-10-19)
+
+The standalone selection/lifecycle transition now passes full CI on Windows,
+Linux WSL2 and native macOS ARM64: default counts 241/242/242, combined 264/265/265,
+fallback core 21 on every platform, and ninety successful Release children.
+See the [transition report](performance/standalone-default-transition.md) and
+[review handoff](handoffs/2026-10-19-standalone-default-transition.md).
+
+The native run used a fresh internal APFS source/target/temp/report copy; all 274
+source hashes matched before the documentation update. Evidence:
+[macOS transition report](../artifacts/macos-validation-20261019T191136Z/REPORT.md).
+Individual-edit bulk construction and full snapshots retain their measured costs;
+native sparse RSS samples remain distinct from child high-water measurements.
+Earlier native Stage 2 results below remain historical.
+
+## Accepted controlled core integration Stage 2 (2026-10-19)
 
 Full default CI and combined feature regression now pass on Windows (259 tests),
 Linux WSL2 (260) and native macOS ARM64 (260). Default Rust counts are 209/210/210.
@@ -251,3 +266,17 @@ All review targets passed and final domain charges were zero. The runner does no
 support macOS RSS; separate sparse native samples do not establish child high-water
 marks. See the [native report](../artifacts/macos-validation-20261019T182116Z/REPORT.md)
 and [Stage 2 performance addendum](performance/controlled-core-integration-stage2.md).
+
+Standalone transition final Windows/Linux results: full default CI passed (241/242 tests), combined regression passed 264/265, reference-only core passed 21 on both, all strict lint configurations passed and all sixty verified Release children passed the interactive targets. Native macOS transition subsequently passed (242 default, 265 combined and 21 fallback tests, full CI and thirty more Release children); see the transition handoff for current three-platform results and the retained bulk-construction tradeoff.
+
+
+Native standalone transition follow-up (20261019T191136Z): all requested gates
+passed on internal APFS, with no product changes or reruns. Full CI included .NET,
+10,099 decimal vectors, protocol compatibility and actual Unix-socket IPC; all
+thirty native benchmark children passed with zero convenience/session final domain
+charges. Native 100K p95 input/capture was 0.013 ms, input/chain 0.331 ms, tail
+formula 0.491 ms and bounded inspection 0.007 ms. Bulk fixture construction still
+cost 1.300 seconds versus 0.0467 reference; full snapshot 48.748 ms versus 30.313
+reference. Native RSS guard/high-water support remains unavailable; separate
+monitoring is sampled evidence only. All three-platform validation gates are now
+satisfied for parent review; no downstream backend migration is included.

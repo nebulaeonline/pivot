@@ -11,7 +11,7 @@ fn model() -> (
     pivot_core::model::NodeId,
     pivot_core::model::NodeId,
 ) {
-    let mut m = WorkingModel::new("Foundation").unwrap();
+    let mut m = WorkingModel::new_reference("Foundation").unwrap();
     let a = m.add_input("a", 2.into()).unwrap();
     let b = m.add_input("b", 3.into()).unwrap();
     let c = m.add_computed("c", "a+b").unwrap();
@@ -408,7 +408,7 @@ fn trusted_token_and_port_payloads_reserve_headroom_before_construction() {
 
 #[test]
 fn wide_existing_dependencies_and_retirement_reserve_structural_headroom() {
-    let mut m = WorkingModel::new("Wide").unwrap();
+    let mut m = WorkingModel::new_reference("Wide").unwrap();
     let inputs: Vec<_> = (0..5000)
         .map(|i| m.add_input(format!("n{i}"), 1.into()).unwrap())
         .collect();

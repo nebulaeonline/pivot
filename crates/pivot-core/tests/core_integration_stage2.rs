@@ -17,7 +17,7 @@ fn finish(r: IntegrationRuntime) {
     assert!(r.finish().is_ok());
 }
 fn pair(r: &IntegrationRuntime) -> (WorkingModel, WorkingModel) {
-    let a = WorkingModel::new("Stage 2").unwrap();
+    let a = WorkingModel::new_reference("Stage 2").unwrap();
     let mut b = a.stage();
     b.enable_persistent(r).unwrap();
     (a, b)
@@ -337,7 +337,7 @@ fn pinned_inspection_pages_reverse_edges_and_full_snapshot_preserve_provenance()
 #[test]
 fn transfer_preserves_retired_ledgers_binding_source_ports_and_exact_parts() {
     let r = runtime();
-    let mut m = WorkingModel::new("portable").unwrap();
+    let mut m = WorkingModel::new_reference("portable").unwrap();
     m.enable_persistent(&r).unwrap();
     let value = PivotDecimal::from_parts(12300, 0, 0, true, 4).unwrap();
     let x = m.add_input("x", value).unwrap();

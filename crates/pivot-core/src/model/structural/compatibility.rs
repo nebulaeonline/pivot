@@ -5,7 +5,7 @@ use std::ops::Deref;
 /// Trusted bulk fixture construction, not an import-throughput claim.
 pub fn benchmark_model(size: usize, degree: usize) -> (WorkingModel, Vec<NodeId>, PortId) {
     assert!((1000..=1_000_000).contains(&size) && degree <= size - 2);
-    let mut m = WorkingModel::new("Compatibility benchmark").unwrap();
+    let mut m = WorkingModel::new_reference("Compatibility benchmark").unwrap();
     let nodes: Vec<_> = (0..size)
         .map(|i| m.add_input(format!("n{i}"), PivotDecimal::ONE).unwrap())
         .collect();

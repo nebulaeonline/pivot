@@ -11,7 +11,7 @@ fn setup() -> (
     pivot_core::model::NodeId,
     pivot_core::model::NodeId,
 ) {
-    let mut m = WorkingModel::new("Structural").unwrap();
+    let mut m = WorkingModel::new_reference("Structural").unwrap();
     let a = m.add_input("a", 2.into()).unwrap();
     let b = m.add_input("b", 3.into()).unwrap();
     let c = m.add_computed("c", "a+1").unwrap();
@@ -179,7 +179,7 @@ fn resolved_transfer_uses_existing_executor_and_rejects_bad_stack_or_foreign_ids
 }
 #[test]
 fn retained_generations_many_pages_changing_formulas_and_independent_oracle() {
-    let mut m = WorkingModel::new("Many").unwrap();
+    let mut m = WorkingModel::new_reference("Many").unwrap();
     let a = m.add_input("a", 3.into()).unwrap();
     let b = m.add_input("b", 7.into()).unwrap();
     let ids: Vec<_> = (0..256)

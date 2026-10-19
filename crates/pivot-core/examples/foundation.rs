@@ -198,7 +198,7 @@ fn node_edit(run: &Run, nodes: &[NodeId], degree: usize, i: usize) -> (NodeId, S
 fn baseline(run: &Run, mut model: WorkingModel, nodes: &[NodeId], port: PortId, degree: usize) {
     let old = model.snapshot().unwrap();
     let stale = model.revision();
-    let mut other = WorkingModel::new("Other").unwrap();
+    let mut other = WorkingModel::new_reference("Other").unwrap();
     let foreign = other.add_input("foreign", 1.into()).unwrap();
     drop(measure(run, "capture", run.samples, |_| {
         model.snapshot().unwrap()
@@ -317,7 +317,7 @@ fn request() -> NamedInvocationRequest {
 fn paged(run: &Run, mut graph: Graph, nodes: &[NodeId], port: PortId, degree: usize) {
     let old = graph.capture().unwrap();
     let memory = graph.memory();
-    let mut other = WorkingModel::new("Other").unwrap();
+    let mut other = WorkingModel::new_reference("Other").unwrap();
     let foreign = other.add_input("foreign", 1.into()).unwrap();
     drop(measure(run, "capture", run.samples, |_| {
         graph.capture().unwrap()

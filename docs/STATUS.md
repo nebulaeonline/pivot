@@ -2,18 +2,19 @@
 
 Date: 2026-10-19
 
-Latest milestone: **Controlled Production Core Integration — Stage 2** completes
-explicitly activated standalone editing, ports, retirement, transfer, pinned bounded
-inspection and budgeted complete snapshots. Local calculation capture permits
-unrelated invalid drafts; complete global diagnostics remain explicit and exact.
-Fixed mutation, heavy and cleanup lanes separate work classes, with pre-admitted
-last-owner reclamation and tested receiver-failure recovery. Default backend,
-capacity limits, workbook/host paths and frozen formats remain unchanged.
-Full CI, feature regression and all ninety Release benchmark processes now pass
-on Windows, Linux WSL2 and native macOS ARM64/APFS. Stop for Stage 2 review
-and standalone default-selection decision; see the
-[handoff](handoffs/2026-10-19-controlled-core-integration-stage2.md) and
-[compatibility/runtime contract](architecture/controlled-core-integration-stage2.md).
+Latest milestone: **Persistent Core — Standalone Default Transition** is implemented.
+Default-feature standalone WorkingModel::new now starts directly on persistent
+state with a shared convenience runtime; application/session owners can use new_in
+and an explicit runtime with aggregate admission and deterministic shutdown.
+Reference fallback is explicit. Host, storage, workbook, legacy import and daemon
+constructors deliberately retain their reference paths; frozen formats and limits
+are unchanged. Stop for transition review. See
+[ADR-0011](adr/0011-standalone-persistent-default.md),
+[constructor/lifecycle policy](architecture/standalone-default-transition.md) and
+[handoff](handoffs/2026-10-19-standalone-default-transition.md).
+Native macOS transition validation also passed from a fresh APFS copy. Current
+Windows/Linux/macOS default counts are 241/242/242 and combined counts 264/265/265;
+all ninety transition Release processes passed. Parent acceptance remains pending.
 
 The Rust workspace and .NET 10/Avalonia solution are scaffolded. Architecture
 records live in `docs/adr/` using `ADR-NNNN` identifiers. ADR-0001 records the
@@ -278,3 +279,17 @@ All review targets passed and final domain charges were zero. The runner does no
 support macOS RSS; separate sparse native samples do not establish child high-water
 marks. See the [native report](../artifacts/macos-validation-20261019T182116Z/REPORT.md)
 and [Stage 2 performance addendum](performance/controlled-core-integration-stage2.md).
+
+Standalone transition final Windows/Linux results: full default CI passed (241/242 tests), combined regression passed 264/265, reference-only core passed 21 on both, all strict lint configurations passed and all sixty verified Release children passed the interactive targets. Native macOS transition subsequently passed (242 default, 265 combined and 21 fallback tests, full CI and thirty more Release children); see the transition handoff for current three-platform results and the retained bulk-construction tradeoff.
+
+
+Native standalone transition follow-up (20261019T191136Z): all requested gates
+passed on internal APFS, with no product changes or reruns. Full CI included .NET,
+10,099 decimal vectors, protocol compatibility and actual Unix-socket IPC; all
+thirty native benchmark children passed with zero convenience/session final domain
+charges. Native 100K p95 input/capture was 0.013 ms, input/chain 0.331 ms, tail
+formula 0.491 ms and bounded inspection 0.007 ms. Bulk fixture construction still
+cost 1.300 seconds versus 0.0467 reference; full snapshot 48.748 ms versus 30.313
+reference. Native RSS guard/high-water support remains unavailable; separate
+monitoring is sampled evidence only. All three-platform validation gates are now
+satisfied for parent review; no downstream backend migration is included.

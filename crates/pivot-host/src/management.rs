@@ -310,7 +310,7 @@ impl WorkingModelService {
     }
     pub fn create(&mut self, principal: &str, request: CreateRequest) -> Result<Created, Error> {
         self.create_prepared(principal, request, |name| {
-            WorkingModel::new(name).map_err(|_| Error::CoreInitializationFailed)
+            WorkingModel::new_reference(name).map_err(|_| Error::CoreInitializationFailed)
         })
     }
     fn create_prepared(
@@ -579,6 +579,15 @@ mod tests {
 
     #[test]
     fn discovery_multiple_attachments_and_disconnect_do_not_own_model() {
+        let mut boundary = service(Limits::default());
+        boundary
+            .create("alice", request(&boundary, "backend", "Boundary"))
+            .unwrap();
+        assert_eq!(
+            boundary.resources[0].graph.backend(),
+            pivot_core::model::BackendKind::Reference
+        );
+
         let mut s = service(Limits::default());
         let info = s.info();
         assert_eq!(info.durability, Durability::MemoryOnly);
@@ -726,7 +735,7 @@ mod tests {
         assert_eq!(
             s.create_prepared("alice", req, |name| {
                 deny.store(true, Ordering::SeqCst);
-                WorkingModel::new(name).map_err(|_| Error::CoreInitializationFailed)
+                WorkingModel::new_reference(name).map_err(|_| Error::CoreInitializationFailed)
             }),
             Err(Error::Denied)
         );

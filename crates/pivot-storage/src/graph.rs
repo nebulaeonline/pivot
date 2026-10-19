@@ -381,7 +381,7 @@ impl EditableGraph {
         if name.len() > 128 {
             return Err(Error::Limit);
         }
-        let core = WorkingModel::new(name).map_err(|_| Error::Malformed)?;
+        let core = WorkingModel::new_reference(name).map_err(|_| Error::Malformed)?;
         let record = capture_graph(
             &core,
             &BTreeMap::new(),
@@ -772,6 +772,7 @@ mod tests {
     #[test]
     fn repeated_import_allocates_independent_node_and_port_handles() {
         let mut a = EditableGraph::new("Example", Limits::default()).unwrap();
+        assert_eq!(a.core.backend(), pivot_core::model::BackendKind::Reference);
         let node = Uuid::new_v4();
         let port = Uuid::new_v4();
         a.add_input(node, "N", Decimal96::from_parts(1, 0, 0, false, 0).unwrap())
@@ -779,6 +780,8 @@ mod tests {
         a.add_port(port, "Output", node, PortKind::Output).unwrap();
         let b = EditableGraph::load(a.record().clone(), Limits::default()).unwrap();
         let c = EditableGraph::load(a.record().clone(), Limits::default()).unwrap();
+        assert_eq!(b.core.backend(), pivot_core::model::BackendKind::Reference);
+        assert_eq!(c.core.backend(), pivot_core::model::BackendKind::Reference);
         assert_ne!(a.nodes[&node], b.nodes[&node]);
         assert_ne!(b.nodes[&node], c.nodes[&node]);
         assert_ne!(a.ports[&port], b.ports[&port]);

@@ -15,7 +15,7 @@ fn finish(r: IntegrationRuntime) {
     assert!(r.finish().is_ok());
 }
 fn pair(r: &IntegrationRuntime) -> (WorkingModel, WorkingModel) {
-    let old = WorkingModel::new("integration").unwrap();
+    let old = WorkingModel::new_reference("integration").unwrap();
     let mut new = old.stage();
     new.enable_persistent(r).unwrap();
     (old, new)
@@ -164,7 +164,7 @@ fn exact_diagnostics_multiple_cycles_blocked_nodes_and_explicit_repair() {
 #[test]
 fn activation_preserves_renames_retired_ids_name_reuse_and_source() {
     let r = runtime();
-    let mut old = WorkingModel::new("history").unwrap();
+    let mut old = WorkingModel::new_reference("history").unwrap();
     let a = old.add_input("a", 5.into()).unwrap();
     let b = old.add_computed("b", "a+2").unwrap();
     old.rename(a, "renamed").unwrap();
@@ -268,7 +268,7 @@ fn arithmetic_failures_unknown_outputs_and_repeated_formula_revisions() {
     let c = old.add_computed("c", "b+1").unwrap();
     new.add_computed("c", "b+1").unwrap();
     equal(&old, &new, &[a, b, c]);
-    let unknown = WorkingModel::new("other")
+    let unknown = WorkingModel::new_reference("other")
         .unwrap()
         .add_input("x", 1.into())
         .unwrap();
@@ -285,7 +285,7 @@ fn arithmetic_failures_unknown_outputs_and_repeated_formula_revisions() {
         .evaluate(&[unknown])
         .err();
     assert_eq!(x, y);
-    let other = WorkingModel::new("another")
+    let other = WorkingModel::new_reference("another")
         .unwrap()
         .add_input("y", 1.into())
         .unwrap();
@@ -321,7 +321,7 @@ fn arithmetic_failures_unknown_outputs_and_repeated_formula_revisions() {
 fn exact_decimal_parts_and_imported_ports_survive_activation() {
     use pivot_core::interface::InputRequirement;
     let r = runtime();
-    let mut old = WorkingModel::new("parts").unwrap();
+    let mut old = WorkingModel::new_reference("parts").unwrap();
     let value = PivotDecimal::from_parts(0, 0, 0, true, 12).unwrap();
     let a = old.add_input("a", value).unwrap();
     let port = old
@@ -347,7 +347,7 @@ fn exact_decimal_parts_and_imported_ports_survive_activation() {
 #[test]
 fn import_invalid_parse_unknown_name_order_and_structural_retained_generations() {
     let r = runtime();
-    let mut old = WorkingModel::new("drafts").unwrap();
+    let mut old = WorkingModel::new_reference("drafts").unwrap();
     let a = old.add_computed("a", "missing").unwrap();
     let b = old.add_computed("b", "(").unwrap();
     let mut new = old.stage();
@@ -389,7 +389,7 @@ fn multiple_runtime_domains_share_known_allocation_admission() {
     let domain = AllocationDomain::new(8 * 1024 * 1024);
     let first = IntegrationRuntime::with_domain(domain.clone(), 4).unwrap();
     let second = IntegrationRuntime::with_domain(domain.clone(), 4).unwrap();
-    let mut model = WorkingModel::new("shared domain").unwrap();
+    let mut model = WorkingModel::new_reference("shared domain").unwrap();
     model.enable_persistent(&first).unwrap();
     model.add_input("x", 1.into()).unwrap();
     assert!(domain.stats().charged > 512 * 1024);
@@ -404,7 +404,7 @@ fn multiple_runtime_domains_share_known_allocation_admission() {
 fn partial_calculation_admission_failure_reclaims_scratch_without_editing_capture() {
     let r = runtime();
     let memory = r.memory();
-    let mut model = WorkingModel::new("partial calculation").unwrap();
+    let mut model = WorkingModel::new_reference("partial calculation").unwrap();
     let nodes: Vec<_> = (0..1024)
         .map(|i| model.add_input(format!("n{i}"), 1.into()).unwrap())
         .collect();

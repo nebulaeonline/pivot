@@ -60,7 +60,7 @@ impl StructuralWorkbook {
             .map_err(Failure::Graph)?;
         let memory = graph.memory();
         // The frozen projection needs identities/content, never the old mutable core.
-        book.core = WorkingModel::new("Unused projection shell")
+        book.core = WorkingModel::new_reference("Unused projection shell")
             .map_err(|e| Failure::Workbook(Error::Graph(e.to_string())))?;
         let slots = book
             .data

@@ -339,7 +339,7 @@ impl Workbook {
                 length: limits.columns,
             },
             data: SheetState::default(),
-            core: WorkingModel::new(name).map_err(graph_error)?,
+            core: WorkingModel::new_reference(name).map_err(graph_error)?,
             limits,
         })
     }
@@ -1062,3 +1062,20 @@ mod formula_costs {
 pub mod scaling;
 #[cfg(feature = "scaling-experiment")]
 pub mod structural;
+
+#[cfg(test)]
+mod backend_boundary_tests {
+    use super::*;
+    #[test]
+    fn workbook_construction_retains_reference_until_separate_migration() {
+        let book = Workbook::new("Boundary", Limits::default()).unwrap();
+        assert_eq!(
+            book.core.backend(),
+            pivot_core::model::BackendKind::Reference
+        );
+        assert_eq!(
+            book.core.stage().backend(),
+            pivot_core::model::BackendKind::Reference
+        );
+    }
+}

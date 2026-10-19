@@ -20,6 +20,7 @@ decisions, not implementation suggestions.
 
 - [ADR-0009: Portable documents and local lifecycle](0009-portable-documents-and-local-lifecycle.md) — Accepted
 - [ADR-0010: Workbook projection and spreadsheet semantics](0010-workbook-projection-and-spreadsheet-semantics.md) — Accepted
+- [ADR-0011: Standalone persistent default and shared runtime lifecycle](0011-standalone-persistent-default.md) — Implemented; pending transition review.
 
 Authoring protocol, daemon integration and the minimal REPL are implemented.
 ADR-0008 remains Accepted for optional durable hosted storage; further provider,

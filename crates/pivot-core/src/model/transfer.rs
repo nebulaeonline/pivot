@@ -378,7 +378,7 @@ pub(super) fn check_header(image: &Image) -> Result<(), ModelError> {
 }
 pub fn import(image: Image) -> Result<Imported, ModelError> {
     check_header(&image)?;
-    let mut model = WorkingModel::new(image.name)?;
+    let mut model = WorkingModel::new_reference(image.name)?;
     let nodes: Vec<_> = (0..image.node_slots)
         .map(|i| NodeId {
             model: model.revision.model,
@@ -529,10 +529,10 @@ mod tests {
     use super::*;
     #[test]
     fn rejected_drafts_validate_before_mutation_and_retired_references_remain_bound() {
-        let mut m = WorkingModel::new("Seam").unwrap();
+        let mut m = WorkingModel::new_reference("Seam").unwrap();
         let a = m.add_input("A", PivotDecimal::ONE).unwrap();
         let b = m.add_input("B", PivotDecimal::ZERO).unwrap();
-        let mut other = WorkingModel::new("Other").unwrap();
+        let mut other = WorkingModel::new_reference("Other").unwrap();
         let foreign = other.add_input("X", PivotDecimal::ZERO).unwrap();
         let revision = m.revision();
         for (target, source, offset) in [(foreign, "=1", 0), (b, "=1", 3), (b, "=é", 2)] {
@@ -552,10 +552,10 @@ mod tests {
     }
     #[test]
     fn trusted_projection_setter_validates_before_mutating_without_parsing() {
-        let mut model = WorkingModel::new("Proof").unwrap();
+        let mut model = WorkingModel::new_reference("Proof").unwrap();
         let a = model.add_input("A", PivotDecimal::ONE).unwrap();
         let b = model.add_input("B", PivotDecimal::ZERO).unwrap();
-        let mut other = WorkingModel::new("Other").unwrap();
+        let mut other = WorkingModel::new_reference("Other").unwrap();
         let foreign = other.add_input("A", PivotDecimal::ONE).unwrap();
         let initial = model.revision();
         for tokens in [

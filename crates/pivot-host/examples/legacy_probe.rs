@@ -6,7 +6,7 @@ use prost::Message;
 use std::{collections::BTreeMap, fs, sync::Arc};
 fn main() {
     let dir = std::path::PathBuf::from(std::env::args().nth(1).unwrap());
-    let mut model = WorkingModel::new("Legacy").unwrap();
+    let mut model = WorkingModel::new_reference("Legacy").unwrap();
     let revenue = model.add_input("Revenue", "1".parse().unwrap()).unwrap();
     let net = model.add_computed("Net", "Revenue - 1").unwrap();
     model

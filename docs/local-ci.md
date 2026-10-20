@@ -1,5 +1,32 @@
 # Local CI
 
+## Current canonical runtime
+
+The old `core-integration` and `persistent-core` selectors and reference runtime are
+removed. Default and no-default builds use the same canonical graph/workbook.
+`scaling-experiment` enables measurement/low-level tests only. Run:
+
+```sh
+python scripts/ci.py
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-features
+```
+
+Current Windows/Linux/macOS counts: 275/276/276 default, 291/292/292 all-feature. All full CI gates
+pass, including .NET/parity/frozen codecs/real IPC. Linux .NET uses an isolated source
+copy to avoid sharing Windows bin/obj. Run Release measurements after correctness
+builds finish, following [canonical evidence](performance/canonical-engine-consolidation.md).
+All 99 matrix children pass correctness/resources; one original Linux viewport p95
+miss remains recorded alongside a passing targeted repeat. The
+[fresh native APFS run](../artifacts/macos-validation-20261020T015824Z/REPORT.md)
+passes all 33 children/native targets and 62 canonical core no-default-feature tests,
+with 280 matching copied source hashes before documentation edits and no fixes/reruns.
+The [APFS packet](handoffs/2026-10-19-macos-canonical-engine-instructions.md) remains
+the reproduction procedure. Native normal-pressure samples do not establish live
+RSS enforcement or a capacity increase.
+Earlier feature-selection commands and prototype runners below are historical;
+recover them at the baseline revision recorded in ADR-0013 when reproducing old work.
+
 Run from the repository root:
 
 ```text

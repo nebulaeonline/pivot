@@ -1,6 +1,28 @@
 # Linux and macOS validation
 
-## Current: persistent workbook readiness (2026-10-19)
+## Current: canonical engine consolidation
+
+Windows, isolated WSL2 Linux and native macOS full CI pass (275/276/276 default
+tests), along with 291/292/292 all-feature tests, strict feature lint, .NET Release, 10,099 decimal vectors,
+frozen portable/protocol fixtures, document Save/Open and real daemon/CLI/REPL.
+The Linux source copy isolates .NET bin/obj outputs; 113 product/test/harness hashes
+match the workspace. Thirty-three sequential Release cases per platform (99 total) pass
+correctness/resource assertions; all final charges are zero. One Linux viewport
+p95 misses 5 ms at 5.343 ms; the single matched repeat is 3.381 ms. Both remain
+reported, with no threshold relaxation. Fresh native macOS passes all targets.
+The [native report](../artifacts/macos-validation-20261020T015824Z/REPORT.md) uses
+internal APFS, matches 280 copied-file hashes before documentation edits, and records
+no fixes/reruns. Native core no-default tests pass 62, using the canonical engine.
+All eight native pressure samples were normal; maximum wait4 child high-water is
+312.34 MiB, distinct from sampled RSS and unavailable native live RSS guarding.
+All 100 children including the Linux diagnostic repeat finish with zero charges.
+
+See [current handoff](handoffs/2026-10-19-canonical-engine-consolidation.md),
+[performance evidence](performance/canonical-engine-consolidation.md) and
+[native APFS instructions](handoffs/2026-10-19-macos-canonical-engine-instructions.md).
+All earlier sections describe historical milestones and constructor policies.
+
+## Historical: persistent workbook readiness (2026-10-19)
 
 The [readiness follow-up](handoffs/2026-10-19-persistent-workbook-readiness.md)
 profiles construction and tests private-index reuse. Source-matched Windows/Linux/macOS

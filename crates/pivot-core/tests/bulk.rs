@@ -1,4 +1,3 @@
-#![cfg(feature = "core-integration")]
 use pivot_core::model::{
     SnapshotError,
     integration::{CancellationToken, IntegrationRuntime},

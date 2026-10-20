@@ -2,7 +2,30 @@
 
 Date: 2026-10-19
 
-Latest milestone: **Persistent Workbook Production Readiness and Construction Profiling**
+Latest milestone: **Canonical Engine Consolidation** implements the owner direction
+in [ADR-0013](adr/0013-canonical-engine-consolidation.md). WorkingModel and Workbook
+now always use persistent storage. Convenience constructors share the lazy runtime;
+new_in retains application ownership. Reference backends/constructors, activation,
+selector enums/features and obsolete comparison prototypes are removed. Host,
+document/storage and daemon paths use the same canonical graph; codecs and product
+caps are unchanged. See [architecture](architecture/canonical-engine-consolidation.md),
+[evidence](performance/canonical-engine-consolidation.md) and
+[review handoff](handoffs/2026-10-19-canonical-engine-consolidation.md).
+
+Windows/isolated WSL2 Linux/native macOS CI passes 275/276/276 default tests and
+291/292/292 all-feature tests, strict lint, .NET/parity and actual IPC. All 99 matrix children pass correctness,
+resource guards and zero final charges. Existing construction/bulk targets pass;
+one Linux 1K-start fan-out viewport p95 misses 5 ms at 5.343 ms. Its single matched
+repeat passes at 3.381 ms; preserve the original miss as a review limitation.
+The [fresh native APFS report](../artifacts/macos-validation-20261020T015824Z/REPORT.md)
+passes 33 cases and all native targets, with all 280 copied source hashes matching
+before documentation edits and no fixes/reruns. All eight pressure samples were
+normal; completed-child high-water is not live RSS guarding. Including the Linux
+diagnostic repeat, all 100 children finish with zero domain charge.
+Implementation acceptance remains pending; do not begin application integration yet.
+
+Historical readiness milestone (constructor policy superseded by ADR-0013):
+Previous milestone: **Persistent Workbook Production Readiness and Construction Profiling**
 is implemented with Windows/Linux/native macOS validation complete. A bounded private-index insertion optimization reuses uniquely
 owned candidate nodes while preserving shared roots, admission and atomic rollback.
 Production Workbook remains reference; explicit new_in remains the application-owned

@@ -1,5 +1,9 @@
 # Persistent workbook production readiness
 
+Historical milestone: the subsequent owner decision in [ADR-0013](../adr/0013-canonical-engine-consolidation.md)
+retires the reference runtime. Constructor-selection recommendations and source
+links below describe the pre-consolidation revision; benchmarks remain evidence.
+
 Date: 2026-10-19. Parent accepted ADR-0012 and the bounded bulk foundation. This
 follow-up investigates construction costs and recommends selection policy; it does
 not switch production Workbook, host, document or storage constructors.

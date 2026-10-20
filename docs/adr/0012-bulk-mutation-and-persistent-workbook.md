@@ -1,5 +1,9 @@
 # ADR-0012: Atomic bulk mutation and opt-in persistent workbook integration
 
+Selection-policy update: [ADR-0013](0013-canonical-engine-consolidation.md) retires
+the reference backend and makes graph/workbook construction canonical. The original
+implementation and validation record below remains historical.
+
 Status: Accepted. Date: 2026-10-19. Implementation: foundation implemented;
 verification evidence is recorded separately in the handoff. Production workbook
 backend selection remains reference pending review.

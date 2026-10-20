@@ -167,24 +167,9 @@ fn core(
     for sample in 0..samples {
         drop(final_model.take());
         runtime.flush();
-        let mut model = if backend == "reference" {
-            WorkingModel::new_reference("bulk")
-        } else {
-            runtime.create_model("bulk")
-        }
-        .unwrap();
+        let mut model = runtime.create_model("bulk").unwrap();
         let old = if existing {
-            populate(
-                &mut model,
-                n,
-                0,
-                if backend == "reference" {
-                    "reference"
-                } else {
-                    "batch"
-                },
-                "independent",
-            );
+            populate(&mut model, n, 0, "batch", "independent");
             Some(model.capture_local().unwrap())
         } else {
             None
@@ -247,7 +232,7 @@ fn core(
         check(&next.capture_local().unwrap(), scratch, 33 + i as i64 + 1);
         model = next;
     });
-    if backend != "reference" {
+    {
         measure("bounded_inspection", |_| {
             let v = model.inspect().unwrap();
             assert!(!v.nodes(None, 256, 4096).unwrap().nodes().is_empty());
@@ -283,7 +268,7 @@ fn core(
     println!("ROOT_DROP,{}", start.elapsed().as_nanos());
 }
 fn position(i: usize) -> Position {
-    pivot_workbook::scaling::position(i)
+    Position::new((i / 100 * 2 + 1) as u32, (i % 100 * 2 + 1) as u32)
 }
 fn wb_formula(n: usize, i: usize, shape: &str) -> Option<String> {
     formula(n, i, 0, shape).map(|source| {
@@ -294,7 +279,7 @@ fn wb_formula(n: usize, i: usize, shape: &str) -> Option<String> {
             .unwrap()
             .parse()
             .unwrap();
-        format!("={}+1", pivot_workbook::scaling::address(position(id)))
+        format!("={}+1", address(position(id)))
     })
 }
 fn input(i: usize, value: u32) -> Edit {
@@ -303,7 +288,7 @@ fn input(i: usize, value: u32) -> Edit {
         value: DecimalInput::from_parts(value, 0, 0, false, 0).unwrap(),
     }
 }
-fn workbook(runtime: &IntegrationRuntime, n: usize, backend: &str, shape: &str, samples: usize) {
+fn workbook(runtime: &IntegrationRuntime, n: usize, _backend: &str, shape: &str, samples: usize) {
     let limits = Limits {
         rows: ((n + 60000) / 100 * 2 + 10) as u32,
         columns: 202,
@@ -326,12 +311,7 @@ fn workbook(runtime: &IntegrationRuntime, n: usize, backend: &str, shape: &str, 
         }
         let start = Instant::now();
         let request_profile = pivot_core::experiment_profile::construction::scope(1);
-        let mut book = if backend == "reference" {
-            Workbook::new_reference_experiment("bulk", limits)
-        } else {
-            Workbook::new_persistent_experiment("bulk", limits, runtime)
-        }
-        .unwrap();
+        let mut book = Workbook::new_persistent_experiment("bulk", limits, runtime).unwrap();
         let edits = (0..n)
             .map(|i| {
                 if let Some(source) = wb_formula(n, i, shape) {
@@ -552,15 +532,17 @@ fn main() {
     let shape = &args[3];
     let layer = &args[4];
     let samples: usize = args[5].parse().unwrap();
-    assert!(n >= 1000 && n % 100 == 0 && samples > 0);
+    assert!(samples > 0 && (layer == "small" || (n >= 1000 && n % 100 == 0)));
     assert!(["independent", "mixed", "chain", "fanout", "long-chain"].contains(&shape.as_str()));
     assert!(if layer == "workbook" {
-        ["reference", "persistent"].contains(&backend.as_str())
+        ["persistent"].contains(&backend.as_str())
     } else {
-        ["reference", "individual", "batch"].contains(&backend.as_str())
+        ["individual", "batch"].contains(&backend.as_str())
     });
     let runtime = IntegrationRuntime::standalone().unwrap();
-    if layer == "workbook" {
+    if layer == "small" {
+        small(&runtime, n);
+    } else if layer == "workbook" {
         workbook(&runtime, n, backend, shape, samples)
     } else {
         core(&runtime, n, backend, shape, layer == "existing", samples)
@@ -597,4 +579,44 @@ fn main() {
         start.elapsed().as_nanos(),
         memory.stats().charged
     );
+}
+
+pub fn address(pos: Position) -> String {
+    let mut c = pos.column;
+    let mut letters = Vec::new();
+    while c > 0 {
+        c -= 1;
+        letters.push((b'A' + (c % 26) as u8) as char);
+        c /= 26;
+    }
+    format!(
+        "{}{}",
+        letters.into_iter().rev().collect::<String>(),
+        pos.row
+    )
+}
+
+fn small(runtime: &IntegrationRuntime, n: usize) {
+    assert!((1..=32).contains(&n));
+    measure("small_model_create_capture_evaluate_drop", |_| {
+        let mut model = WorkingModel::new_in("small", runtime).unwrap();
+        let mut output = model.add_input("x", 3.into()).unwrap();
+        for i in 1..n {
+            output = model
+                .add_computed(
+                    format!("n{i}"),
+                    if i == 1 {
+                        "x+1".to_string()
+                    } else {
+                        format!("n{}+1", i - 1)
+                    },
+                )
+                .unwrap();
+        }
+        let capture = model.capture_local().unwrap();
+        assert_eq!(
+            capture.evaluate(&[output]).unwrap().values()[&output],
+            Ok((n as i64 + 2).into())
+        );
+    });
 }

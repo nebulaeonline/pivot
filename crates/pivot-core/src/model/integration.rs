@@ -1,7 +1,7 @@
 //! Controlled integration through WorkingModel, not a second model facade.
 //! Explicit local capture, bounded inspection and complete standalone operations.
 use super::*;
-use crate::evaluation::{CalculationResult, EvaluationContext, EvaluationError};
+use crate::evaluation::EvaluationError;
 use std::{any::Any, sync::mpsc, thread};
 pub use structural::memory::{Memory as AllocationDomain, MemoryStats as AllocationStats};
 use structural::{Calculation, Capture, ComputeError, Edit, Graph, Limits, memory::Memory};
@@ -9,7 +9,6 @@ use structural::{Calculation, Capture, ComputeError, Edit, Graph, Limits, memory
 #[doc(hidden)]
 pub mod batch;
 mod inspection;
-mod reference;
 #[doc(hidden)]
 pub mod resources;
 mod runtime;
@@ -69,49 +68,30 @@ struct PersistentCapture {
     value: Owned<Capture>,
     runtime: Arc<RuntimeState>,
 }
-enum State {
-    Reference(ModelSnapshot),
-    Draft(Arc<WorkingModel>),
-    Persistent(PersistentCapture),
-}
-/// Calculation state is separate from the legacy full-inspection snapshot API.
+
+/// Calculation state is separate from the explicit complete-inspection snapshot API.
 pub struct CalculationCapture {
     revision: Revision,
-    state: State,
+    state: PersistentCapture,
 }
-enum ResultState {
-    Reference(CalculationResult),
-    Draft {
-        value: CalculationResult,
-        _capture: Arc<WorkingModel>,
-    },
-    Persistent(Owned<Calculation>),
-}
+
 pub struct CapturedResult {
     revision: Revision,
-    state: ResultState,
+    state: Owned<Calculation>,
 }
 impl CapturedResult {
     pub fn revision(&self) -> Revision {
         self.revision
     }
     pub fn values(&self) -> &BTreeMap<NodeId, Result<PivotDecimal, EvaluationError>> {
-        match &self.state {
-            ResultState::Reference(r) => r.values(),
-            ResultState::Draft { value, .. } => value.values(),
-            ResultState::Persistent(r) => r.get().values(),
-        }
+        self.state.get().values()
     }
 }
 impl Clone for CalculationCapture {
     fn clone(&self) -> Self {
         Self {
             revision: self.revision,
-            state: match &self.state {
-                State::Reference(s) => State::Reference(s.clone()),
-                State::Draft(s) => State::Draft(s.clone()),
-                State::Persistent(s) => State::Persistent(s.clone()),
-            },
+            state: self.state.clone(),
         }
     }
 }
@@ -120,8 +100,9 @@ impl CalculationCapture {
         self.revision
     }
     pub fn evaluate(&self, outputs: &[NodeId]) -> Result<CapturedResult, CalculationFailure> {
-        let _copy = match &self.state {
-            State::Persistent(s) => Some(
+        let _copy = {
+            let s = &self.state;
+            Some(
                 s.value
                     .get()
                     .memory()
@@ -132,8 +113,7 @@ impl CalculationCapture {
                             .saturating_add(128),
                     )
                     .map_err(|_| CalculationFailure::Resource("request copy admission"))?,
-            ),
-            _ => None,
+            )
         };
         self.invoke(&crate::evaluation::InvocationRequest {
             inputs: Vec::new(),
@@ -154,47 +134,28 @@ impl CalculationCapture {
         if cancel.is_cancelled() {
             return Err(CalculationFailure::Cancelled);
         }
-        let state = match &self.state {
-            State::Draft(source) => ResultState::Draft {
-                value: reference::evaluate(source, request, cancel)?,
-                _capture: source.clone(),
-            },
-            State::Reference(s) => {
-                ResultState::Reference(EvaluationContext::new(s.clone()).invoke(request).map_err(
-                    |e| match e {
-                        crate::evaluation::InvocationError::Evaluation(e) => {
-                            CalculationFailure::Evaluation(e)
-                        }
-                        other => CalculationFailure::Invocation(other),
-                    },
-                )?)
+        let state = {
+            let s = &self.state;
+            let result = s
+                .runtime
+                .cleanup
+                .reserve()
+                .map_err(CalculationFailure::Resource)?;
+            let scratch = s
+                .runtime
+                .cleanup
+                .reserve()
+                .map_err(CalculationFailure::Resource)?;
+            let value = s
+                .value
+                .get()
+                .invoke_retiring_cancelled(request, |v| scratch.retire(v), || cancel.is_cancelled())
+                .map_err(compute_failure)?;
+            if cancel.is_cancelled() {
+                result.retire(value);
+                return Err(CalculationFailure::Cancelled);
             }
-            State::Persistent(s) => {
-                let result = s
-                    .runtime
-                    .cleanup
-                    .reserve()
-                    .map_err(CalculationFailure::Resource)?;
-                let scratch = s
-                    .runtime
-                    .cleanup
-                    .reserve()
-                    .map_err(CalculationFailure::Resource)?;
-                let value = s
-                    .value
-                    .get()
-                    .invoke_retiring_cancelled(
-                        request,
-                        |v| scratch.retire(v),
-                        || cancel.is_cancelled(),
-                    )
-                    .map_err(compute_failure)?;
-                if cancel.is_cancelled() {
-                    result.retire(value);
-                    return Err(CalculationFailure::Cancelled);
-                }
-                ResultState::Persistent(result.own(value))
-            }
+            result.own(value)
         };
         Ok(CapturedResult {
             revision: self.revision,
@@ -215,69 +176,6 @@ fn compute_failure(e: ComputeError) -> CalculationFailure {
 }
 
 impl WorkingModel {
-    /// One-time O(N) activation/import bridge. Existing bound tokens and local
-    /// identities survive; no formulas are rebound. Intended for explicit reference
-    /// fallback models. New standalone models start persistent without this bridge.
-    /// Already-persistent models must belong to the same runtime; no rehoming.
-    pub fn enable_persistent(&mut self, runtime: &IntegrationRuntime) -> Result<(), ModelError> {
-        if let Some(current) = &self.integrated {
-            return if Arc::ptr_eq(&current.runtime, runtime.state()) {
-                Ok(())
-            } else {
-                Err(ModelError::Backend(
-                    "model belongs to another runtime; construct with new_in",
-                ))
-            };
-        }
-        let state = runtime.state().clone();
-        let root = state.cleanup.reserve().map_err(ModelError::Backend)?;
-        let original = state.cleanup.reserve().map_err(ModelError::Backend)?;
-        // Move the source into a shared rollback guard; no full source clone.
-        let shell = WorkingModel {
-            integrated: None,
-            name: String::new(),
-            revision: self.revision,
-            nodes: BTreeMap::new(),
-            names: BTreeMap::new(),
-            next_node: self.next_node,
-            next_port: self.next_port,
-            interface: ModelInterface::default(),
-        };
-        let source = Arc::new(std::mem::replace(self, shell));
-        let borrowed = source.clone();
-        let memory = runtime.memory();
-        let outcome = state
-            .heavy
-            .run(&state.cleanup, &CancellationToken::default(), move || {
-                Graph::from_model_in(&borrowed, Limits::default(), memory).map(|mut g| {
-                    g.enable_local_validation();
-                    g
-                })
-            });
-        match outcome {
-            Ok(Ok(graph)) => {
-                self.integrated = Some(Integrated {
-                    graph: root.own(graph),
-                    runtime: state.clone(),
-                });
-                original.retire(source);
-            }
-            other => {
-                // A rejected queued task may still own an Arc to the source.
-                // Activation is an explicit heavy operation; drain that cleanup
-                // before restoring the exact original model on failure.
-                state.cleanup.wait_payloads();
-                *self = Arc::try_unwrap(source)
-                    .unwrap_or_else(|_| unreachable!("activation source still borrowed"));
-                return Err(match other {
-                    Ok(Err(e)) => map_error(e),
-                    Err(e) => ModelError::Backend(e),
-                    _ => unreachable!(),
-                });
-            }
-        }
-        Ok(())
-    }
     /// Compare the real core revision, independently of hosted publication IDs.
     /// A branch keeps ordinary per-operation revision increments; installation
     /// remains serialized by its owner, as with the accepted stage method.
@@ -293,7 +191,7 @@ impl WorkingModel {
         value: Option<PivotDecimal>,
         source: Option<String>,
     ) -> Result<NodeId, ModelError> {
-        let id = self.integrated.as_ref().unwrap().graph().next_identity();
+        let id = self.integrated.graph().next_identity();
         self.integrated_edit(match value {
             Some(v) => Edit::AddInput(name, v),
             None => Edit::AddFormula(name, source.unwrap()),
@@ -305,8 +203,6 @@ impl WorkingModel {
         bytes: usize,
     ) -> Result<structural::memory::Charge, ModelError> {
         self.integrated
-            .as_ref()
-            .unwrap()
             .graph()
             .memory()
             .reserve(bytes)
@@ -316,17 +212,12 @@ impl WorkingModel {
         &mut self,
         edit: structural::PortEdit,
     ) -> Result<PortId, ModelError> {
-        let id = self
-            .integrated
-            .as_ref()
-            .unwrap()
-            .graph()
-            .next_port_identity()?;
+        let id = self.integrated.graph().next_port_identity()?;
         self.integrated_edit(Edit::Port(edit))?;
         Ok(id)
     }
     pub(super) fn integrated_edit(&mut self, edit: Edit) -> Result<(), ModelError> {
-        let i = self.integrated.as_mut().unwrap();
+        let i = &mut self.integrated;
         let state = i.runtime.clone();
         let root = state.cleanup.reserve().map_err(ModelError::Backend)?;
         let mut candidate = i.graph().clone();
@@ -363,7 +254,8 @@ impl WorkingModel {
     /// drafts use the explicitly guarded O(N) compatibility diagnostic bridge,
     /// preserving the accepted full Kahn error and first-error ordering.
     pub fn capture_calculation(&self) -> Result<CalculationCapture, CaptureFailure> {
-        let state = if let Some(i) = &self.integrated {
+        let i = &self.integrated;
+        let state = {
             if !i.graph().certified() {
                 let graph = i.graph().clone();
                 let diagnosis = i
@@ -388,7 +280,7 @@ impl WorkingModel {
             i.graph()
                 .validate_ports()
                 .map_err(CaptureFailure::Invalid)?;
-            State::Persistent(PersistentCapture {
+            PersistentCapture {
                 value: i
                     .runtime
                     .cleanup
@@ -396,9 +288,7 @@ impl WorkingModel {
                     .map_err(CaptureFailure::Resource)?
                     .own(capture),
                 runtime: i.runtime.clone(),
-            })
-        } else {
-            State::Reference(self.snapshot().map_err(CaptureFailure::Invalid)?)
+            }
         };
         Ok(CalculationCapture {
             revision: self.revision,
@@ -426,27 +316,22 @@ impl WorkingModel {
     /// Requested closures are checked during evaluation; full global diagnosis
     /// remains available through capture_calculation and snapshot.
     pub fn capture_local(&self) -> Result<CalculationCapture, CaptureFailure> {
-        if let Some(i) = &self.integrated {
-            let ticket = i
-                .runtime
-                .cleanup
-                .reserve()
-                .map_err(CaptureFailure::Resource)?;
-            let capture = i
-                .graph()
-                .capture_local()
-                .map_err(|_| CaptureFailure::Resource("capture admission"))?;
-            return Ok(CalculationCapture {
-                revision: self.revision,
-                state: State::Persistent(PersistentCapture {
-                    value: ticket.own(capture),
-                    runtime: i.runtime.clone(),
-                }),
-            });
-        }
+        let i = &self.integrated;
+        let ticket = i
+            .runtime
+            .cleanup
+            .reserve()
+            .map_err(CaptureFailure::Resource)?;
+        let capture = i
+            .graph()
+            .capture_local()
+            .map_err(|_| CaptureFailure::Resource("capture admission"))?;
         Ok(CalculationCapture {
             revision: self.revision,
-            state: State::Draft(Arc::new(self.stage())),
+            state: PersistentCapture {
+                value: ticket.own(capture),
+                runtime: i.runtime.clone(),
+            },
         })
     }
 }
@@ -470,7 +355,7 @@ impl WorkingModel {
         &self,
         cancel: &CancellationToken,
     ) -> Result<ModelSnapshot, SnapshotError> {
-        let i = self.integrated.as_ref().unwrap();
+        let i = &self.integrated;
         materialize_snapshot(i.graph().clone(), self.revision, &i.runtime, cancel)
     }
 
@@ -479,18 +364,14 @@ impl WorkingModel {
         &self,
         cancel: &CancellationToken,
     ) -> Result<ModelSnapshot, SnapshotError> {
-        if self.integrated.is_some() {
-            self.integrated_snapshot(cancel)
-        } else {
-            self.snapshot_cancel_check(|| cancel.is_cancelled())
-        }
+        self.integrated_snapshot(cancel)
     }
     pub(super) fn integrated_export(
         &self,
         nodes: &[NodeId],
         ports: &[PortId],
     ) -> Result<transfer::Image, ModelError> {
-        let i = self.integrated.as_ref().unwrap();
+        let i = &self.integrated;
         if i.graph().live_count() > 4096 || nodes.len() > 8192 || ports.len() > 8192 {
             return Err(ModelError::InvalidName("invalid graph transfer".into()));
         }
@@ -566,41 +447,30 @@ impl IntegrationRuntime {
                 let _copy = memory
                     .reserve(bytes)
                     .map_err(|_| ModelError::Backend("transfer copy-in admission"))?;
-                let mut imported = transfer::import(image)?;
-                let mut graph = Graph::from_model_in(&imported.model, Limits::default(), memory)
+                let imported = transfer::decode(image)?;
+                let mut graph = Graph::from_image_in(&imported.model, Limits::default(), memory)
                     .map_err(map_error)?;
                 graph.enable_local_validation();
-                let shell = WorkingModel {
-                    integrated: Some(Integrated {
+                let model = WorkingModel {
+                    integrated: Integrated {
                         graph: root.own(graph),
                         runtime,
-                    }),
-                    name: String::new(),
+                    },
                     revision: imported.model.revision,
-                    nodes: BTreeMap::new(),
-                    names: BTreeMap::new(),
-                    next_node: imported.model.next_node,
-                    next_port: imported.model.next_port,
-                    interface: ModelInterface::default(),
                 };
-                drop(std::mem::replace(&mut imported.model, shell));
-                Ok(imported)
+                Ok(transfer::Imported {
+                    model,
+                    nodes: imported.nodes,
+                    ports: imported.ports,
+                })
             })
             .map_err(ModelError::Backend)?
     }
 }
 
-enum NamedState {
-    Reference(crate::interface::NamedCalculationResult),
-    Draft {
-        value: crate::interface::NamedCalculationResult,
-        _capture: Arc<WorkingModel>,
-    },
-    Persistent(Owned<structural::NamedCalculation>),
-}
 pub struct CapturedNamedResult {
     revision: Revision,
-    state: NamedState,
+    state: Owned<structural::NamedCalculation>,
 }
 impl CapturedNamedResult {
     pub fn revision(&self) -> Revision {
@@ -610,27 +480,15 @@ impl CapturedNamedResult {
         &self,
     ) -> &BTreeMap<String, Result<pivot_types::PivotValue, crate::interface::PublicEvaluationError>>
     {
-        match &self.state {
-            NamedState::Reference(r) => r.outputs(),
-            NamedState::Draft { value, .. } => value.outputs(),
-            NamedState::Persistent(r) => r.get().outputs(),
-        }
+        self.state.get().outputs()
     }
     pub fn inputs(&self) -> &BTreeMap<String, pivot_types::PivotValue> {
-        match &self.state {
-            NamedState::Reference(r) => r.inputs(),
-            NamedState::Draft { value, .. } => value.inputs(),
-            NamedState::Persistent(r) => r.get().bindings(),
-        }
+        self.state.get().bindings()
     }
 }
 impl CapturedResult {
     pub fn input_overrides(&self) -> &BTreeMap<NodeId, PivotDecimal> {
-        match &self.state {
-            ResultState::Reference(r) => r.input_overrides(),
-            ResultState::Draft { value, .. } => value.input_overrides(),
-            ResultState::Persistent(r) => r.get().input_overrides(),
-        }
+        self.state.get().input_overrides()
     }
 }
 impl CalculationCapture {
@@ -648,60 +506,31 @@ impl CalculationCapture {
         if cancel.is_cancelled() {
             return Err(CalculationFailure::Cancelled);
         }
-        let state = match &self.state {
-            State::Draft(source) => {
-                source
-                    .interface
-                    .validate_kinds(|id| {
-                        source
-                            .nodes
-                            .get(&id)
-                            .map(|node| matches!(node.definition, Definition::Input(_)))
-                    })
-                    .map_err(CalculationFailure::Interface)?;
-                let prepared = crate::interface::prepare_named(&source.interface, request)
-                    .map_err(CalculationFailure::Interface)?;
-                let value = reference::evaluate(source, &prepared.request, cancel)?;
-                NamedState::Draft {
-                    value: crate::interface::named_result(
-                        value,
-                        request,
-                        &source.interface,
-                        prepared.bindings,
-                    ),
-                    _capture: source.clone(),
-                }
+        let state = {
+            let s = &self.state;
+            let result = s
+                .runtime
+                .cleanup
+                .reserve()
+                .map_err(CalculationFailure::Resource)?;
+            let scratch = s
+                .runtime
+                .cleanup
+                .reserve()
+                .map_err(CalculationFailure::Resource)?;
+            let value = s
+                .value
+                .get()
+                .invoke_named_retiring(request, |v| scratch.retire(v), || cancel.is_cancelled())
+                .map_err(|e| match e {
+                    structural::NamedError::Interface(e) => CalculationFailure::Interface(e),
+                    structural::NamedError::Compute(e) => compute_failure(e),
+                })?;
+            if cancel.is_cancelled() {
+                result.retire(value);
+                return Err(CalculationFailure::Cancelled);
             }
-            State::Reference(s) => NamedState::Reference(
-                EvaluationContext::new(s.clone())
-                    .invoke_named(request)
-                    .map_err(CalculationFailure::Interface)?,
-            ),
-            State::Persistent(s) => {
-                let result = s
-                    .runtime
-                    .cleanup
-                    .reserve()
-                    .map_err(CalculationFailure::Resource)?;
-                let scratch = s
-                    .runtime
-                    .cleanup
-                    .reserve()
-                    .map_err(CalculationFailure::Resource)?;
-                let value = s
-                    .value
-                    .get()
-                    .invoke_named_retiring(request, |v| scratch.retire(v), || cancel.is_cancelled())
-                    .map_err(|e| match e {
-                        structural::NamedError::Interface(e) => CalculationFailure::Interface(e),
-                        structural::NamedError::Compute(e) => compute_failure(e),
-                    })?;
-                if cancel.is_cancelled() {
-                    result.retire(value);
-                    return Err(CalculationFailure::Cancelled);
-                }
-                NamedState::Persistent(result.own(value))
-            }
+            result.own(value)
         };
         Ok(CapturedNamedResult {
             revision: self.revision,
@@ -725,7 +554,7 @@ fn materialize_snapshot(
                 .copy_reservation()
                 .map_err(|_| SnapshotError::Backend("snapshot copy-out admission"))?;
             let model = graph
-                .to_model_cancelled(|| token.is_cancelled())
+                .materialize_cancelled(|| token.is_cancelled())
                 .map_err(|error| match error {
                     structural::Error::Cancelled => SnapshotError::Backend("cancelled"),
                     _ => SnapshotError::Backend("snapshot materialization admission"),
@@ -746,7 +575,7 @@ mod cancellation_tests {
     #[test]
     fn cancellation_after_partial_traversal_reclaims_scratch_and_preserves_s_t() {
         let runtime = IntegrationRuntime::new(64 * 1024 * 1024, 8).unwrap();
-        let mut model = WorkingModel::new_reference("cancelled closure").unwrap();
+        let mut model = WorkingModel::new_in("cancelled closure", &runtime).unwrap();
         let nodes: Vec<_> = (0..1024)
             .map(|i| model.add_input(format!("n{i}"), 1.into()).unwrap())
             .collect();
@@ -755,14 +584,12 @@ mod cancellation_tests {
                 .set_expression(id, format!("n{}+1", index - 1))
                 .unwrap();
         }
-        model.enable_persistent(&runtime).unwrap();
+
         let capture = model.capture_local().unwrap();
         let revision = model.revision();
         runtime.flush();
         let baseline = runtime.memory().stats().charged;
-        let State::Persistent(state) = &capture.state else {
-            unreachable!()
-        };
+        let state = &capture.state;
         let ticket = state.runtime.cleanup.reserve().unwrap();
         let polls = std::sync::atomic::AtomicUsize::new(0);
         let result = state.value.get().invoke_retiring_cancelled(

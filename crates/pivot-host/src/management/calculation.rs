@@ -662,7 +662,7 @@ mod tests {
         // Inject a preexisting incompatible lineage via the private registry to
         // exercise a real registration failure, not a mocked insert outcome.
         let lineage = s.resources[0].lineage;
-        let mut foreign = WorkingModel::new_reference("Foreign").unwrap();
+        let mut foreign = WorkingModel::new("Foreign").unwrap();
         let n = foreign
             .add_input(
                 "Other",

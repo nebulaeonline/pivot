@@ -2,36 +2,14 @@
 use super::*;
 use std::ops::Deref;
 
-/// Trusted bulk fixture construction, not an import-throughput claim.
-pub fn benchmark_model(size: usize, degree: usize) -> (WorkingModel, Vec<NodeId>, PortId) {
-    assert!((1000..=1_000_000).contains(&size) && degree <= size - 2);
-    let mut m = WorkingModel::new_reference("Compatibility benchmark").unwrap();
-    let nodes: Vec<_> = (0..size)
-        .map(|i| m.add_input(format!("n{i}"), PivotDecimal::ONE).unwrap())
-        .collect();
-    for &id in nodes.iter().skip(2).take(degree) {
-        m.set_expression(id, "n0+1").unwrap();
-    }
-    m.add_input_port("required", nodes[0], InputRequirement::Required)
-        .unwrap();
-    m.add_input_port(
-        "optional",
-        nodes[1],
-        InputRequirement::Optional {
-            default: pivot_types::PivotValue::Decimal(7.into()),
-        },
-    )
-    .unwrap();
-    let output = m.add_output_port("out", nodes[2]).unwrap();
-    (m, nodes, output)
-}
-pub struct Materialized {
-    model: WorkingModel,
+/// Admitted complete definition image for diagnostics and codecs.
+pub struct MaterializedImage {
+    model: GraphImage,
     _charge: Charge,
 }
-impl Deref for Materialized {
-    type Target = WorkingModel;
-    fn deref(&self) -> &WorkingModel {
+impl Deref for MaterializedImage {
+    type Target = GraphImage;
+    fn deref(&self) -> &GraphImage {
         &self.model
     }
 }
@@ -86,10 +64,8 @@ impl Graph {
         self.live += 1;
         Ok(id)
     }
-    fn working(&self, nodes: BTreeMap<NodeId, WorkingNode>) -> Result<WorkingModel, Error> {
-        Ok(WorkingModel {
-            #[cfg(feature = "core-integration")]
-            integrated: None,
+    fn working(&self, nodes: BTreeMap<NodeId, WorkingNode>) -> Result<GraphImage, Error> {
+        Ok(GraphImage {
             name: self.model_name.to_string(),
             revision: Revision {
                 model: self.version.model,
@@ -105,7 +81,6 @@ impl Graph {
             interface: (*self.ports).clone(),
         })
     }
-    #[cfg(feature = "core-integration")]
     pub(crate) fn copy_reservation(&self) -> Result<Charge, Error> {
         let names = self.names.iter().map(|(name, _)| name.len()).sum::<usize>();
         Ok(self.memory.reserve(
@@ -117,13 +92,13 @@ impl Graph {
                 .saturating_add(65536),
         )?)
     }
-    pub fn to_model(&self) -> Result<Materialized, Error> {
-        self.to_model_cancelled(|| false)
+    pub fn materialize(&self) -> Result<MaterializedImage, Error> {
+        self.materialize_cancelled(|| false)
     }
-    pub(in crate::model) fn to_model_cancelled(
+    pub(in crate::model) fn materialize_cancelled(
         &self,
         cancelled: impl Fn() -> bool,
-    ) -> Result<Materialized, Error> {
+    ) -> Result<MaterializedImage, Error> {
         let name_bytes = self.names.iter().map(|(name, _)| name.len()).sum::<usize>();
         let charge = self.memory.reserve(
             self.live
@@ -158,14 +133,14 @@ impl Graph {
         }
         let mut model = self.working(nodes)?;
         model.names = self.names.iter().map(|(n, id)| (n.clone(), *id)).collect();
-        Ok(Materialized {
+        Ok(MaterializedImage {
             model,
             _charge: charge,
         })
     }
     pub fn export(&self, nodes: &[NodeId], ports: &[PortId]) -> Result<transfer::Image, Error> {
-        let model = self.to_model()?;
-        Ok(transfer::export(&model, nodes, ports)?)
+        let model = self.materialize()?;
+        Ok(transfer::export_image(&model, nodes, ports)?)
     }
     pub fn restore(
         image: transfer::Image,
@@ -196,8 +171,8 @@ impl Graph {
                 .saturating_add(image.nodes.len() * 2048)
                 .saturating_add(image.ports.len() * 1024),
         )?;
-        let imported = transfer::import(image)?;
-        let graph = Self::from_model_in(&imported.model, limits, memory.clone())?;
+        let imported = transfer::decode(image)?;
+        let graph = Self::from_image_in(&imported.model, limits, memory.clone())?;
         Ok(Restored {
             graph,
             nodes: imported.nodes,
@@ -207,7 +182,7 @@ impl Graph {
     /// Expensive diagnostic path reproduces accepted complete affected-node lists.
     /// Calculation capture stays O(roots) for valid generations.
     pub fn diagnose(&self) -> Result<Result<(), SnapshotError>, Error> {
-        Ok(self.to_model()?.snapshot().map(|_| ()))
+        Ok(self.materialize()?.snapshot().map(|_| ()))
     }
     pub(super) fn edit_port(&mut self, edit: PortEdit) -> Result<bool, Error> {
         let _scratch = self

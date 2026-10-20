@@ -1,5 +1,9 @@
 # Persistent Workbook Production Readiness and Construction Profiling
 
+Historical milestone: the subsequent owner decision in [ADR-0013](../adr/0013-canonical-engine-consolidation.md)
+retires the reference runtime. Constructor-selection recommendations and source
+links below describe the pre-consolidation revision; benchmarks remain evidence.
+
 Date: 2026-10-19. Base: d2e2a8b82504d4ac904c7e0609fe19b0d91a1653.
 The parent accepted ADR-0012 and the opt-in bulk foundation. This follow-up profiles
 the remaining construction gap and tests one compatible optimization. No production

@@ -11,7 +11,7 @@ fn model() -> (
     pivot_core::model::NodeId,
     pivot_core::model::NodeId,
 ) {
-    let mut m = WorkingModel::new_reference("Foundation").unwrap();
+    let mut m = WorkingModel::new("Foundation").unwrap();
     let a = m.add_input("a", 2.into()).unwrap();
     let b = m.add_input("b", 3.into()).unwrap();
     let c = m.add_computed("c", "a+b").unwrap();
@@ -138,7 +138,7 @@ fn transfer_round_trip_never_rebinds_historical_source_and_preserves_drafts_port
     .unwrap();
     assert_eq!(value(&g.capture().unwrap(), restored.nodes[2]), 101.into());
     assert_eq!(
-        g.to_model()
+        g.materialize()
             .unwrap()
             .draft_nodes()
             .find(|(id, _, _)| *id == restored.nodes[5])
@@ -408,7 +408,7 @@ fn trusted_token_and_port_payloads_reserve_headroom_before_construction() {
 
 #[test]
 fn wide_existing_dependencies_and_retirement_reserve_structural_headroom() {
-    let mut m = WorkingModel::new_reference("Wide").unwrap();
+    let mut m = WorkingModel::new("Wide").unwrap();
     let inputs: Vec<_> = (0..5000)
         .map(|i| m.add_input(format!("n{i}"), 1.into()).unwrap())
         .collect();
@@ -442,7 +442,13 @@ fn wide_existing_dependencies_and_retirement_reserve_structural_headroom() {
     drop(held);
     assert_eq!(g.version(), version);
     assert_eq!(value(&g.capture().unwrap(), output), 5000.into());
-    let (m, nodes, _) = benchmark_model(1000, 998);
+    let mut m = WorkingModel::new("fanout").unwrap();
+    let nodes: Vec<_> = (0..1000)
+        .map(|i| m.add_input(format!("n{i}"), 1.into()).unwrap())
+        .collect();
+    for &id in nodes.iter().skip(2) {
+        m.set_expression(id, "n0+1").unwrap();
+    }
     let mut g = Graph::from_model(&m, Limits::default()).unwrap();
     let memory = g.memory();
     let version = g.version();

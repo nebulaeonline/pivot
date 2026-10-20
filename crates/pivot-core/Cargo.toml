@@ -5,25 +5,7 @@ edition.workspace = true
 publish.workspace = true
 
 [features]
-default = ["core-integration"]
 scaling-experiment = []
-core-integration = []
-
-[[example]]
-name = "foundation"
-required-features = ["scaling-experiment"]
-
-[[example]]
-name = "integration"
-required-features = ["core-integration"]
-
-[[example]]
-name = "integration_stage2"
-required-features = ["core-integration"]
-
-[[example]]
-name = "standalone_transition"
-required-features = ["core-integration"]
 
 [dependencies]
 pivot-types = { path = "../pivot-types" }

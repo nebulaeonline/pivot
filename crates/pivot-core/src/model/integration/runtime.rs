@@ -227,16 +227,7 @@ impl Cleanup {
             Ok(())
         }
     }
-    pub(super) fn wait_payloads(&self) {
-        let mut pool = lock(&self.slots.pool);
-        while pool.pending != 0 || pool.recovery_queued {
-            pool = self
-                .slots
-                .changed
-                .wait(pool)
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-        }
-    }
+
     fn live(&self) -> usize {
         lock(&self.slots.pool).live
     }
@@ -723,8 +714,8 @@ mod tests {
     #[test]
     fn two_blocked_heavy_jobs_do_not_block_independent_model_mutations() {
         let runtime = IntegrationRuntime::new(64 * 1024 * 1024, 4).unwrap();
-        let mut model = WorkingModel::new_reference("independent").unwrap();
-        model.enable_persistent(&runtime).unwrap();
+        let mut model = WorkingModel::new_in("independent", &runtime).unwrap();
+
         let id = model.add_input("x", 1.into()).unwrap();
         let gate = Arc::new((Mutex::new(false), Condvar::new()));
         let (ready, started) = mpsc::channel();
@@ -777,8 +768,8 @@ mod tests {
     #[test]
     fn loss_of_both_cleanup_receivers_preserves_owners_and_can_be_recovered() {
         let mut runtime = IntegrationRuntime::new(32 * 1024 * 1024, 4).unwrap();
-        let mut model = WorkingModel::new_reference("recovery").unwrap();
-        model.enable_persistent(&runtime).unwrap();
+        let mut model = WorkingModel::new_in("recovery", &runtime).unwrap();
+
         let id = model.add_input("x", 1.into()).unwrap();
         runtime.flush();
         let cleanup = runtime.state().cleanup.clone();
@@ -827,8 +818,8 @@ mod tests {
     #[test]
     fn blocked_cleanup_does_not_occupy_mutation_workers() {
         let runtime = IntegrationRuntime::new(64 * 1024 * 1024, 4).unwrap();
-        let mut model = WorkingModel::new_reference("edit during reclaim").unwrap();
-        model.enable_persistent(&runtime).unwrap();
+        let mut model = WorkingModel::new_in("edit during reclaim", &runtime).unwrap();
+
         let id = model.add_input("x", 1.into()).unwrap();
         runtime.flush();
         struct Gate {

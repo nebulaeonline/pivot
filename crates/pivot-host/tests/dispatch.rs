@@ -24,7 +24,7 @@ fn reference(revision: &str) -> ModelRef {
     }
 }
 fn fixture() -> (ModelHost, WorkingModel, pivot_core::model::NodeId) {
-    let mut m = WorkingModel::new_reference("Profit").unwrap();
+    let mut m = WorkingModel::new("Profit").unwrap();
     let revenue = m.add_input("GrossSales", d("100")).unwrap();
     let costs = m.add_input("COGS", d("999")).unwrap();
     let net = m.add_computed("Net", "GrossSales - COGS").unwrap();

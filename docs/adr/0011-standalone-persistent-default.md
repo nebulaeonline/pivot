@@ -1,5 +1,9 @@
 # ADR-0011: Standalone persistent default and shared runtime lifecycle
 
+Selection-policy update: [ADR-0013](0013-canonical-engine-consolidation.md) retires
+the reference backend and makes graph/workbook construction canonical. The original
+implementation and validation record below remains historical.
+
 Date: 2026-10-19. Status: Accepted. Implementation: complete; verified on Windows, Linux and native macOS.
 
 ## Context

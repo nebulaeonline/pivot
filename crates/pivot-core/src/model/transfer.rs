@@ -106,56 +106,22 @@ pub fn set_resolved_expression(
     source: &str,
     tokens: &[ResolvedToken],
 ) -> Result<(), ModelError> {
-    #[cfg(feature = "core-integration")]
-    if model.integrated.is_some() {
-        if !model.contains_node(id) {
-            return Err(ModelError::UnknownNode(id));
-        }
-        if source.len() > 4096 || tokens.len() > 1_048_576 {
-            return Err(invalid());
-        }
-        let _copy = model.integrated_request_charge(
-            4096 + tokens
-                .len()
-                .saturating_mul(std::mem::size_of::<ResolvedToken>()),
-        )?;
-        return model.integrated_edit(super::structural::Edit::Resolved(
-            id,
-            source.into(),
-            tokens.to_vec(),
-        ));
-    }
-    if !model.nodes.contains_key(&id) {
+    if !model.contains_node(id) {
         return Err(ModelError::UnknownNode(id));
     }
     if source.len() > 4096 || tokens.len() > 1_048_576 {
         return Err(invalid());
     }
-    let mut bound = Vec::with_capacity(tokens.len());
-    for token in tokens {
-        bound.push(match token {
-            ResolvedToken::Decimal(v) => BoundToken::Decimal(*v),
-            ResolvedToken::Node(target) => {
-                if target.model != model.revision.model || target.node >= model.next_node {
-                    return Err(invalid());
-                }
-                BoundToken::Node(*target)
-            }
-            ResolvedToken::Unary(op) => BoundToken::Unary(*op),
-            ResolvedToken::Binary(op) => BoundToken::Binary(*op),
-        });
-    }
-    let dependencies = checked_dependencies(&bound)?;
-    model.advance()?;
-    model
-        .nodes
-        .get_mut(&id)
-        .expect("validated target")
-        .definition = Definition::Computed {
-        source: source.into(),
-        binding: Ok((bound, dependencies)),
-    };
-    Ok(())
+    let _copy = model.integrated_request_charge(
+        4096 + tokens
+            .len()
+            .saturating_mul(std::mem::size_of::<ResolvedToken>()),
+    )?;
+    model.integrated_edit(super::structural::Edit::Resolved(
+        id,
+        source.into(),
+        tokens.to_vec(),
+    ))
 }
 
 /// Internal rejected-formula seam. The workbook retains its richer diagnostic;
@@ -167,41 +133,20 @@ pub fn set_invalid_expression(
     source: &str,
     offset: usize,
 ) -> Result<(), ModelError> {
-    #[cfg(feature = "core-integration")]
-    if model.integrated.is_some() {
-        if !model.contains_node(id) {
-            return Err(ModelError::UnknownNode(id));
-        }
-        if source.len() > 4096 || offset > source.len() || !source.is_char_boundary(offset) {
-            return Err(invalid());
-        }
-        return model.integrated_edit(super::structural::Edit::Invalid(
-            id,
-            source.into(),
-            ParseError {
-                offset,
-                message: "unexpected trailing input",
-            },
-        ));
-    }
-    if !model.nodes.contains_key(&id) {
+    if !model.contains_node(id) {
         return Err(ModelError::UnknownNode(id));
     }
     if source.len() > 4096 || offset > source.len() || !source.is_char_boundary(offset) {
         return Err(invalid());
     }
-    model.advance()?;
-    model.nodes.get_mut(&id).unwrap().definition = Definition::Computed {
-        source: source.into(),
-        binding: Err(SnapshotError::Parse {
-            node: id,
-            error: ParseError {
-                offset,
-                message: "unexpected trailing input",
-            },
-        }),
-    };
-    Ok(())
+    model.integrated_edit(super::structural::Edit::Invalid(
+        id,
+        source.into(),
+        ParseError {
+            offset,
+            message: "unexpected trailing input",
+        },
+    ))
 }
 
 /// Caller supplies complete allocated identity ledgers, including retired IDs.
@@ -210,10 +155,13 @@ pub fn export(
     nodes: &[NodeId],
     ports: &[PortId],
 ) -> Result<Image, ModelError> {
-    #[cfg(feature = "core-integration")]
-    if model.integrated.is_some() {
-        return model.integrated_export(nodes, ports);
-    }
+    model.integrated_export(nodes, ports)
+}
+pub(super) fn export_image(
+    model: &GraphImage,
+    nodes: &[NodeId],
+    ports: &[PortId],
+) -> Result<Image, ModelError> {
     if nodes.len() > 8192 || ports.len() > 8192 || model.nodes.len() > 4096 {
         return Err(invalid());
     }
@@ -332,9 +280,7 @@ pub fn export_snapshot(
             return Err(invalid());
         }
     }
-    let mut working = WorkingModel {
-        #[cfg(feature = "core-integration")]
-        integrated: None,
+    let mut working = GraphImage {
         name: data.name.clone(),
         revision: data.revision,
         nodes: BTreeMap::new(),
@@ -359,7 +305,7 @@ pub fn export_snapshot(
             },
         );
     }
-    export(&working, nodes, ports)
+    export_image(&working, nodes, ports)
 }
 
 /// Validates before installing private core fields. Invalid *draft semantics*
@@ -377,8 +323,18 @@ pub(super) fn check_header(image: &Image) -> Result<(), ModelError> {
     Ok(())
 }
 pub fn import(image: Image) -> Result<Imported, ModelError> {
+    integration::IntegrationRuntime::with_convenience(|runtime| {
+        runtime.import_portable(image, &integration::CancellationToken::default())
+    })?
+}
+pub(super) struct Decoded {
+    pub model: GraphImage,
+    pub nodes: Vec<NodeId>,
+    pub ports: Vec<PortId>,
+}
+pub(super) fn decode(image: Image) -> Result<Decoded, ModelError> {
     check_header(&image)?;
-    let mut model = WorkingModel::new_reference(image.name)?;
+    let mut model = GraphImage::empty(image.name)?;
     let nodes: Vec<_> = (0..image.node_slots)
         .map(|i| NodeId {
             model: model.revision.model,
@@ -508,20 +464,11 @@ pub fn import(image: Image) -> Result<Imported, ModelError> {
     }
     model.next_node = nodes.len() as u64;
     model.next_port = ports.len() as u64;
-    Ok(Imported {
+    Ok(Decoded {
         model,
         nodes,
         ports,
     })
-}
-
-/// Opt-in validated portable import into the persistent standalone backend.
-#[cfg(feature = "core-integration")]
-pub fn import_persistent(
-    image: Image,
-    runtime: &super::integration::IntegrationRuntime,
-) -> Result<Imported, ModelError> {
-    runtime.import_portable(image, &super::integration::CancellationToken::default())
 }
 
 #[cfg(test)]
@@ -529,10 +476,10 @@ mod tests {
     use super::*;
     #[test]
     fn rejected_drafts_validate_before_mutation_and_retired_references_remain_bound() {
-        let mut m = WorkingModel::new_reference("Seam").unwrap();
+        let mut m = WorkingModel::new("Seam").unwrap();
         let a = m.add_input("A", PivotDecimal::ONE).unwrap();
         let b = m.add_input("B", PivotDecimal::ZERO).unwrap();
-        let mut other = WorkingModel::new_reference("Other").unwrap();
+        let mut other = WorkingModel::new("Other").unwrap();
         let foreign = other.add_input("X", PivotDecimal::ZERO).unwrap();
         let revision = m.revision();
         for (target, source, offset) in [(foreign, "=1", 0), (b, "=1", 3), (b, "=é", 2)] {
@@ -552,10 +499,10 @@ mod tests {
     }
     #[test]
     fn trusted_projection_setter_validates_before_mutating_without_parsing() {
-        let mut model = WorkingModel::new_reference("Proof").unwrap();
+        let mut model = WorkingModel::new("Proof").unwrap();
         let a = model.add_input("A", PivotDecimal::ONE).unwrap();
         let b = model.add_input("B", PivotDecimal::ZERO).unwrap();
-        let mut other = WorkingModel::new_reference("Other").unwrap();
+        let mut other = WorkingModel::new("Other").unwrap();
         let foreign = other.add_input("A", PivotDecimal::ONE).unwrap();
         let initial = model.revision();
         for tokens in [

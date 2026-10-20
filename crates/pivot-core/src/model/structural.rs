@@ -3,14 +3,13 @@
 use super::*;
 use crate::evaluation::{EvaluationError, evaluate_expression};
 
-mod compatibility;
 mod index;
-#[cfg(feature = "core-integration")]
 mod inspection;
+mod materialization;
 pub mod memory;
 pub mod reclaim;
-pub use compatibility::{Materialized, NamedCalculation, NamedError, Restored, benchmark_model};
 pub use index::{Index, Key};
+pub use materialization::{MaterializedImage, NamedCalculation, NamedError, Restored};
 use memory::{Admission, Charge, Footprint, Memory, Shared};
 impl From<Admission> for Error {
     fn from(_: Admission) -> Self {
@@ -391,7 +390,6 @@ struct Proof(std::sync::atomic::AtomicBool);
 impl Footprint for Proof {}
 impl Graph {
     /// Empty persistent root, with no legacy import or global snapshot bridge.
-    #[cfg(feature = "core-integration")]
     pub(super) fn empty(name: String, revision: Revision, memory: Memory) -> Result<Self, Error> {
         Ok(Self {
             local_validation: true,
@@ -419,15 +417,12 @@ impl Graph {
             max_name: 0,
         })
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn live_count(&self) -> usize {
         self.live
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn node_name(&self, id: NodeId) -> Option<&str> {
         self.record(id).filter(|r| r.live).map(|r| r.name.as_str())
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn next_port_identity(&self) -> Result<PortId, ModelError> {
         Ok(PortId {
             model: self.version.model,
@@ -437,36 +432,34 @@ impl Graph {
                 .ok_or(ModelError::IdentityExhausted)?,
         })
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn enable_local_validation(&mut self) {
         self.local_validation = true;
     }
     pub(super) fn certified(&self) -> bool {
         self.proof.0.load(Ordering::Acquire)
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn certify(&self) {
         self.proof.0.store(true, Ordering::Release);
     }
     pub fn from_model(model: &WorkingModel, limits: Limits) -> Result<Self, Error> {
-        Self::from_model_with_budget(model, limits, 2 * 1024 * 1024 * 1024)
+        let mut graph = model.integrated.graph().clone();
+        graph.limits = limits;
+        graph.check_quota()?;
+        Ok(graph)
     }
     pub fn from_model_with_budget(
         model: &WorkingModel,
         limits: Limits,
         budget: usize,
     ) -> Result<Self, Error> {
-        Self::from_model_in(model, limits, Memory::new(budget))
+        let image = model.integrated.graph().materialize()?;
+        Self::from_image_in(&image, limits, Memory::new(budget))
     }
-    pub(super) fn from_model_in(
-        model: &WorkingModel,
+    pub(super) fn from_image_in(
+        model: &GraphImage,
         limits: Limits,
         memory: Memory,
     ) -> Result<Self, Error> {
-        #[cfg(feature = "core-integration")]
-        if model.integrated.is_some() {
-            return Err(ModelError::Backend("model already owns persistent state").into());
-        }
         let payload = model
             .nodes
             .values()
@@ -577,18 +570,15 @@ impl Graph {
         graph.check_quota()?;
         Ok(graph)
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn contains_node(&self, id: NodeId) -> bool {
         self.record(id).is_some_and(|r| r.live)
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn next_identity(&self) -> NodeId {
         NodeId {
             model: self.version.model,
             node: self.next,
         }
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn draft_nodes(&self) -> impl Iterator<Item = (NodeId, &str, DraftDefinition<'_>)> {
         self.records
             .iter()
@@ -692,7 +682,6 @@ impl Graph {
     pub fn apply(&mut self, expected: Version, edits: Vec<Edit>) -> Result<Version, Error> {
         self.apply_mode(expected, edits, None, None)
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn apply_bulk(
         &mut self,
         expected: Version,
@@ -960,7 +949,7 @@ impl Graph {
         let validation_profile = crate::experiment_profile::construction::scope(7);
         candidate.check_quota()?;
         if candidate.import_invalid && topology && !candidate.local_validation {
-            let restored = candidate.to_model()?;
+            let restored = candidate.materialize()?;
             candidate.invalid = Index::new(candidate.memory.clone());
             if let Err(error) = restored.snapshot() {
                 let id = error_node(&error).unwrap_or(NodeId {
@@ -1130,7 +1119,6 @@ impl Graph {
         }
         Ok(None)
     }
-    #[cfg(feature = "core-integration")]
     pub(super) fn capture_local(&self) -> Result<Capture, CaptureError> {
         Ok(Capture(
             self.memory
@@ -1160,7 +1148,6 @@ pub enum CaptureError {
     Invalid(SnapshotError),
 }
 impl Capture {
-    #[cfg(feature = "core-integration")]
     pub(super) fn memory(&self) -> Memory {
         self.0.memory.clone()
     }

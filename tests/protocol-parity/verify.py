@@ -20,7 +20,7 @@ def main():
     run("cargo", "run", "--locked", "--quiet", "-p", "pivot-protocol", "--example", "authoring_parity", "--", "write", str(output))
     run("dotnet", "build", "tests/protocol-parity/legacy/LegacyProtocol.csproj", "-c", "Release", "--disable-build-servers", "-warnaserror")
     run("dotnet", "tests/protocol-parity/legacy/bin/Release/net10.0/LegacyProtocol.dll", str(output))
-    run("cargo", "run", "--locked", "--quiet", "-p", "pivot-host", "--example", "legacy_probe", "--", str(output))
+    run("cargo", "run", "--locked", "--quiet", "-p", "pivot-host", "--example", "canonical_probe", "--", str(output))
     run("dotnet", "tests/protocol-parity/legacy/bin/Release/net10.0/LegacyProtocol.dll", str(output))
     run("dotnet", "build", "tests/protocol-parity/ProtocolParity.csproj", "-c", "Release", "--disable-build-servers", "-warnaserror")
     run("dotnet", "tests/protocol-parity/bin/Release/net10.0/ProtocolParity.dll", str(output))

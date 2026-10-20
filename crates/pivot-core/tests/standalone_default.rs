@@ -1,8 +1,7 @@
-#![cfg(feature = "core-integration")]
 use pivot_core::{
     interface::{InputRequirement, NamedInvocationRequest},
     model::{
-        BackendKind, WorkingModel,
+        WorkingModel,
         integration::{CancellationToken, IntegrationRuntime, RuntimeConfig},
         transfer,
     },
@@ -13,8 +12,6 @@ use pivot_types::PivotValue;
 fn ordinary_default_shares_resources_and_allows_explicit_shutdown_and_restart() {
     let mut a = WorkingModel::new("ordinary").unwrap();
     let b = WorkingModel::new("second").unwrap();
-    assert_eq!(a.backend(), BackendKind::Persistent);
-    assert_eq!(b.backend(), BackendKind::Persistent);
     let x = a.add_input("x", 4.into()).unwrap();
     let y = a.add_computed("y", "x*2+1").unwrap();
     let s = a.capture_local().unwrap();
@@ -34,7 +31,6 @@ fn ordinary_default_shares_resources_and_allows_explicit_shutdown_and_restart() 
     IntegrationRuntime::shutdown_convenience().unwrap();
     assert_eq!(domain.stats().charged, 0);
     let restarted = WorkingModel::new("restart").unwrap();
-    assert_eq!(restarted.backend(), BackendKind::Persistent);
     drop(restarted);
     IntegrationRuntime::with_convenience(|r| r.flush()).unwrap();
     IntegrationRuntime::shutdown_convenience().unwrap();
@@ -49,13 +45,6 @@ fn session_models_share_admission_and_old_generations_without_activation() {
     );
     let mut a = WorkingModel::new_in("a", &runtime).unwrap();
     let mut b = WorkingModel::new_in("b", &runtime).unwrap();
-    assert_eq!(a.backend(), BackendKind::Persistent);
-    a.enable_persistent(&runtime).unwrap();
-    let other_runtime = IntegrationRuntime::standalone().unwrap();
-    let unchanged = a.revision();
-    assert!(a.enable_persistent(&other_runtime).is_err());
-    assert_eq!(a.revision(), unchanged);
-    assert!(other_runtime.finish().is_ok());
     let x = a.add_input("x", 1.into()).unwrap();
     let other = b.add_input("x", 2.into()).unwrap();
     assert_ne!(x, other);
@@ -131,7 +120,6 @@ fn direct_default_ports_local_and_complete_contracts_and_transfer_are_preserved(
     let imported = runtime
         .import_portable(image, &CancellationToken::default())
         .unwrap();
-    assert_eq!(imported.model.backend(), BackendKind::Persistent);
     assert!(imported.model.snapshot().is_ok());
     let mut malformed = transfer::export(
         &m,
@@ -159,11 +147,7 @@ fn direct_default_ports_local_and_complete_contracts_and_transfer_are_preserved(
 }
 
 #[test]
-fn explicit_reference_remains_available_and_runtime_admission_is_recoverable() {
-    assert_eq!(
-        WorkingModel::new_reference("fallback").unwrap().backend(),
-        BackendKind::Reference
-    );
+fn runtime_admission_is_recoverable() {
     assert!(
         IntegrationRuntime::configured(RuntimeConfig {
             allocation_budget: 1024,

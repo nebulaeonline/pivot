@@ -76,16 +76,8 @@ impl<K: Key, V: Clone + Footprint> Index<K, V> {
     /// Internal private-candidate insertion. A failure requires discarding the candidate.
     /// Published/shared nodes remain immutable. Inline payloads can reuse unique nodes;
     /// heap-owning payloads retain the ordinary charged functional insertion.
-    #[cfg(feature = "core-integration")]
     #[doc(hidden)]
     pub fn insert_private(&mut self, key: K, value: V) -> Result<(), Admission> {
-        #[cfg(feature = "scaling-experiment")]
-        {
-            static IMMUTABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-            if *IMMUTABLE.get_or_init(|| std::env::var_os("PIVOT_IMMUTABLE_INDEX").is_some()) {
-                return self.insert(key, value);
-            }
-        }
         if key.heap_bytes() != 0 || value.heap_bytes() != 0 {
             return self.insert(key, value);
         }
@@ -98,7 +90,6 @@ impl<K: Key, V: Clone + Footprint> Index<K, V> {
         self.root = remove(&self.memory, &self.root, key)?;
         Ok(())
     }
-    #[cfg(feature = "core-integration")]
     pub fn iter_from<Q: Ord + ?Sized>(&self, key: &Q) -> impl Iterator<Item = (&K, &V)>
     where
         K: Borrow<Q>,
@@ -251,7 +242,6 @@ fn put<K: Key, V: Clone + Footprint>(
         )?,
     }))
 }
-#[cfg(feature = "core-integration")]
 fn unique<K: Key, V: Clone + Footprint>(
     m: &Memory,
     root: &mut Shared<Node<K, V>>,
@@ -267,12 +257,10 @@ fn unique<K: Key, V: Clone + Footprint>(
     }
     Ok(())
 }
-#[cfg(feature = "core-integration")]
 fn refresh<K, V>(n: &mut Node<K, V>) {
     n.height = 1 + height(&n.left).max(height(&n.right));
     n.len = 1 + len(&n.left) + len(&n.right);
 }
-#[cfg(feature = "core-integration")]
 fn rotate_private<K: Key, V: Clone + Footprint>(
     m: &Memory,
     root: &mut Link<K, V>,
@@ -313,7 +301,6 @@ fn rotate_private<K: Key, V: Clone + Footprint>(
     *root = Some(b);
     Ok(())
 }
-#[cfg(feature = "core-integration")]
 fn put_private<K: Key, V: Clone + Footprint>(
     m: &Memory,
     root: &mut Link<K, V>,
@@ -410,12 +397,9 @@ mod tests {
         assert_eq!(n.len, 1 + ll + rl);
         (n.len, n.height)
     }
-    #[cfg(feature = "core-integration")]
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     struct Inline(u64);
-    #[cfg(feature = "core-integration")]
     impl Key for Inline {}
-    #[cfg(feature = "core-integration")]
     #[test]
     fn private_rotations_shared_generations_and_deletions_match_ordered_map() {
         let memory = Memory::new(32 * 1024 * 1024);
@@ -452,7 +436,6 @@ mod tests {
         drop(index);
         assert_eq!(memory.stats().charged, 0);
     }
-    #[cfg(feature = "core-integration")]
     #[test]
     fn private_admission_failure_preserves_published_root_and_releases_partial_candidate() {
         let memory = Memory::new(1024 * 1024);
@@ -472,7 +455,6 @@ mod tests {
         drop(published);
         assert_eq!(memory.stats().charged, 0);
     }
-    #[cfg(feature = "core-integration")]
     #[test]
     fn heap_payload_replacement_preserves_exact_charge_by_functional_fallback() {
         let memory = Memory::new(1024 * 1024);

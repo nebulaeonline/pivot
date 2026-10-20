@@ -15,14 +15,24 @@ use std::{
 };
 
 static NEXT_MODEL: AtomicU64 = AtomicU64::new(1);
+fn fresh_revision() -> Result<Revision, ModelError> {
+    let mut model = NEXT_MODEL.load(Ordering::Relaxed);
+    loop {
+        let next = model.checked_add(1).ok_or(ModelError::IdentityExhausted)?;
+        match NEXT_MODEL.compare_exchange_weak(model, next, Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => break,
+            Err(current) => model = current,
+        }
+    }
+    Ok(Revision { model, version: 0 })
+}
 /// Persistent standalone backend and bounded shared runtime.
-#[cfg(feature = "core-integration")]
 pub mod integration;
 /// Public research surface over the canonical paged implementation.
 #[cfg(feature = "scaling-experiment")]
 pub mod structural;
-#[cfg(all(feature = "core-integration", not(feature = "scaling-experiment")))]
-#[allow(dead_code, unused_imports)] // research-only adapters await later migration stages
+#[cfg(not(feature = "scaling-experiment"))]
+#[allow(dead_code, unused_imports)] // optional low-level profiling and diagnostic helpers
 mod structural;
 /// Internal validated transfer boundary; not a persistent format or client API.
 #[doc(hidden)]
@@ -44,7 +54,6 @@ pub struct Revision {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelError {
-    #[cfg(feature = "core-integration")]
     Backend(&'static str),
     Interface(InterfaceError),
     InvalidName(String),
@@ -62,7 +71,6 @@ impl std::error::Error for ModelError {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SnapshotError {
-    #[cfg(feature = "core-integration")]
     Backend(&'static str),
     Interface(InterfaceError),
     Parse {
@@ -130,12 +138,14 @@ impl Clone for WorkingNode {
     }
 }
 
-/// Mutations require exclusive access. Invalid formulas may be saved while
-/// editing; validation occurs at snapshot capture. Not implicitly cloneable.
 #[derive(Debug)]
 pub struct WorkingModel {
-    #[cfg(feature = "core-integration")]
-    integrated: Option<integration::Integrated>,
+    integrated: integration::Integrated,
+    revision: Revision,
+}
+/// Owned materialization for complete validation and portable codecs, not an editable backend.
+#[derive(Debug)]
+pub struct GraphImage {
     name: String,
     revision: Revision,
     nodes: BTreeMap<NodeId, WorkingNode>,
@@ -143,12 +153,6 @@ pub struct WorkingModel {
     next_node: u64,
     next_port: u64,
     interface: ModelInterface,
-}
-/// Explicit backend identity for migration diagnostics.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BackendKind {
-    Reference,
-    Persistent,
 }
 /// Raw editable definitions, including invalid source. Core IDs remain local.
 pub enum DraftDefinition<'a> {
@@ -159,27 +163,161 @@ pub enum DraftDefinition<'a> {
     },
 }
 impl WorkingModel {
-    /// Explicit private transaction branch preserving existing bound identities.
-    /// The caller must serialize installation and discard failed branches. This
-    /// is not a new independent model: do not publish competing branches as one
-    /// mutable resource. Allocated branch IDs must not escape before commit.
+    /// Private transaction branch; failed branches must be discarded.
     pub fn stage(&self) -> Self {
-        #[cfg(feature = "scaling-experiment")]
-        let _phase = crate::experiment_profile::scope(1);
         Self {
-            #[cfg(feature = "core-integration")]
             integrated: self.integrated.clone(),
-            name: self.name.clone(),
             revision: self.revision,
-            nodes: self.nodes.clone(),
-            names: self.names.clone(),
-            next_node: self.next_node,
-            next_port: self.next_port,
-            interface: self.interface.clone(),
         }
     }
+    pub fn new(name: impl Into<String>) -> Result<Self, ModelError> {
+        integration::create_default(name)
+    }
     pub fn draft_nodes(&self) -> impl Iterator<Item = (NodeId, &str, DraftDefinition<'_>)> {
-        let legacy = self.nodes.iter().map(|(&id, n)| {
+        self.integrated.graph().draft_nodes()
+    }
+    pub fn contains_node(&self, id: NodeId) -> bool {
+        self.integrated.graph().contains_node(id)
+    }
+    pub fn name(&self) -> &str {
+        self.integrated.graph().name()
+    }
+    pub fn revision(&self) -> Revision {
+        self.revision
+    }
+    pub fn node_id(&self, name: &str) -> Option<NodeId> {
+        self.integrated.graph().node_id(name)
+    }
+    pub fn interface(&self) -> &ModelInterface {
+        self.integrated.graph().interface()
+    }
+    pub fn replace_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
+        self.integrated_edit(structural::Edit::ReplaceInput(id, value))
+    }
+    pub fn patch_input_port(
+        &mut self,
+        id: PortId,
+        node: Option<NodeId>,
+        requirement: Option<InputRequirement>,
+    ) -> Result<(), ModelError> {
+        if node.is_none() && requirement.is_none() {
+            if self.interface().inputs().any(|p| p.id() == id) {
+                return Ok(());
+            }
+            return Err(ModelError::Interface(InterfaceError::UnknownPort(id)));
+        }
+        self.integrated_edit(structural::Edit::Port(structural::PortEdit::Input(
+            id,
+            node,
+            requirement,
+        )))
+    }
+    pub fn update_input_port(
+        &mut self,
+        id: PortId,
+        node: NodeId,
+        requirement: InputRequirement,
+    ) -> Result<(), ModelError> {
+        self.integrated_edit(structural::Edit::Port(structural::PortEdit::Input(
+            id,
+            Some(node),
+            Some(requirement),
+        )))
+    }
+    pub fn update_output_port(&mut self, id: PortId, node: NodeId) -> Result<(), ModelError> {
+        self.integrated_edit(structural::Edit::Port(structural::PortEdit::Output(
+            id, node,
+        )))
+    }
+    pub fn add_input_port(
+        &mut self,
+        name: impl Into<String>,
+        node: NodeId,
+        requirement: InputRequirement,
+    ) -> Result<PortId, ModelError> {
+        self.integrated_add_port(structural::PortEdit::AddInput(
+            name.into(),
+            node,
+            requirement,
+        ))
+    }
+    pub fn add_output_port(
+        &mut self,
+        name: impl Into<String>,
+        node: NodeId,
+    ) -> Result<PortId, ModelError> {
+        self.integrated_add_port(structural::PortEdit::AddOutput(name.into(), node))
+    }
+    pub fn rename_port(&mut self, id: PortId, name: impl Into<String>) -> Result<(), ModelError> {
+        let name = name.into();
+        let old = self
+            .interface()
+            .inputs()
+            .map(|p| (p.id(), p.name()))
+            .chain(self.interface().outputs().map(|p| (p.id(), p.name())))
+            .find(|p| p.0 == id)
+            .ok_or(ModelError::Interface(InterfaceError::UnknownPort(id)))?;
+        if old.1 == name {
+            return Ok(());
+        }
+        self.integrated_edit(structural::Edit::Port(structural::PortEdit::Rename(
+            id, name,
+        )))
+    }
+    pub fn remove_port(&mut self, id: PortId) -> Result<(), ModelError> {
+        self.integrated_edit(structural::Edit::Port(structural::PortEdit::Remove(id)))
+    }
+    pub fn add_input(
+        &mut self,
+        name: impl Into<String>,
+        value: PivotDecimal,
+    ) -> Result<NodeId, ModelError> {
+        let name = name.into();
+
+        self.integrated_add(name, Some(value), None)
+    }
+    pub fn add_computed(
+        &mut self,
+        name: impl Into<String>,
+        source: impl Into<String>,
+    ) -> Result<NodeId, ModelError> {
+        let name = name.into();
+        let source = source.into();
+
+        self.integrated_add(name, None, Some(source))
+    }
+    pub fn set_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
+        self.integrated_edit(structural::Edit::Input(id, value))
+    }
+    pub fn set_expression(
+        &mut self,
+        id: NodeId,
+        source: impl Into<String>,
+    ) -> Result<(), ModelError> {
+        self.integrated_edit(structural::Edit::Formula(id, source.into()))
+    }
+    pub fn rename(&mut self, id: NodeId, name: impl Into<String>) -> Result<(), ModelError> {
+        let name = name.into();
+        let old = self
+            .integrated
+            .graph()
+            .node_name(id)
+            .ok_or(ModelError::UnknownNode(id))?;
+        if old == name {
+            return Ok(());
+        }
+        self.integrated_edit(structural::Edit::Rename(id, name))
+    }
+    pub fn remove(&mut self, id: NodeId) -> Result<(), ModelError> {
+        self.integrated_edit(structural::Edit::Retire(id))
+    }
+    pub fn snapshot(&self) -> Result<ModelSnapshot, SnapshotError> {
+        self.integrated_snapshot(&integration::CancellationToken::default())
+    }
+}
+impl GraphImage {
+    pub fn draft_nodes(&self) -> impl Iterator<Item = (NodeId, &str, DraftDefinition<'_>)> {
+        self.nodes.iter().map(|(&id, n)| {
             (
                 id,
                 n.name.as_str(),
@@ -187,58 +325,75 @@ impl WorkingModel {
                     Definition::Input(v) => DraftDefinition::Input(*v),
                     Definition::Computed { source, binding } => DraftDefinition::Computed {
                         source,
-                        binding: binding.as_ref().map(|(_, deps)| deps.as_slice()),
+                        binding: binding.as_ref().map(|(_, d)| d.as_slice()),
                     },
                 },
             )
-        });
-        #[cfg(feature = "core-integration")]
-        let legacy = legacy.chain(self.integrated.iter().flat_map(|i| i.graph().draft_nodes()));
-        legacy
+        })
     }
-    pub fn contains_node(&self, id: NodeId) -> bool {
-        #[cfg(feature = "core-integration")]
-        if let Some(i) = &self.integrated {
-            return i.graph().contains_node(id);
-        }
-        self.nodes.contains_key(&id)
+
+    fn empty(name: impl Into<String>) -> Result<Self, ModelError> {
+        let revision = fresh_revision()?;
+        Ok(Self {
+            name: name.into(),
+            revision,
+            nodes: BTreeMap::new(),
+            names: BTreeMap::new(),
+            next_node: 0,
+            next_port: 0,
+            interface: ModelInterface::default(),
+        })
     }
-    /// Replace either definition kind without changing node identity. Existing
-    /// input ports may become invalid drafts when converting to computed.
-    pub fn replace_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_edit(structural::Edit::ReplaceInput(id, value));
+    fn port_name(&self, name: &str) -> Result<(), ModelError> {
+        let mut bytes = name.bytes();
+        if !bytes
+            .next()
+            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
+            || !bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err(ModelError::Interface(InterfaceError::InvalidName(
+                name.into(),
+            )));
         }
-        if !self.nodes.contains_key(&id) {
-            return Err(ModelError::UnknownNode(id));
+        if self.interface.inputs.contains_key(name) || self.interface.outputs.contains_key(name) {
+            return Err(ModelError::Interface(InterfaceError::DuplicateName(
+                name.into(),
+            )));
         }
-        self.advance()?;
-        self.nodes.get_mut(&id).unwrap().definition = Definition::Input(value);
         Ok(())
     }
-    /// Update an input port in place, preserving its core and public identity.
-    /// Omitted fields stay unchanged, including an already-invalid saved target.
-    pub fn patch_input_port(
+    fn validate_name(&self, name: &str) -> Result<(), ModelError> {
+        let mut chars = name.bytes();
+        if !chars
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == b'_')
+            || !chars.all(|c| c.is_ascii_alphanumeric() || c == b'_')
+        {
+            return Err(ModelError::InvalidName(name.into()));
+        }
+        if self.names.contains_key(name) {
+            return Err(ModelError::DuplicateName(name.into()));
+        }
+        Ok(())
+    }
+    fn allocate_port(&mut self) -> Result<PortId, ModelError> {
+        let sequence = self
+            .next_port
+            .checked_add(1)
+            .ok_or(ModelError::IdentityExhausted)?;
+        self.advance()?;
+        self.next_port = sequence;
+        Ok(PortId {
+            model: self.revision.model,
+            sequence,
+        })
+    }
+    fn patch_input_port(
         &mut self,
         id: PortId,
         node: Option<NodeId>,
         requirement: Option<InputRequirement>,
     ) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            if node.is_none() && requirement.is_none() {
-                if self.interface().inputs().any(|p| p.id() == id) {
-                    return Ok(());
-                }
-                return Err(ModelError::Interface(InterfaceError::UnknownPort(id)));
-            }
-            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Input(
-                id,
-                node,
-                requirement,
-            )));
-        }
         let old = self
             .interface
             .inputs
@@ -268,21 +423,12 @@ impl WorkingModel {
         }
         Ok(())
     }
-    /// Complete replacement, retained for existing in-process callers.
-    pub fn update_input_port(
+    fn update_input_port(
         &mut self,
         id: PortId,
         node: NodeId,
         requirement: InputRequirement,
     ) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Input(
-                id,
-                Some(node),
-                Some(requirement),
-            )));
-        }
         let old = self
             .interface
             .inputs
@@ -319,13 +465,7 @@ impl WorkingModel {
         port.requirement = requirement;
         Ok(())
     }
-    pub fn update_output_port(&mut self, id: PortId, node: NodeId) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Output(
-                id, node,
-            )));
-        }
+    fn update_output_port(&mut self, id: PortId, node: NodeId) -> Result<(), ModelError> {
         let name = self
             .interface
             .outputs
@@ -341,121 +481,12 @@ impl WorkingModel {
         self.interface.outputs.get_mut(&name).unwrap().node = node;
         Ok(())
     }
-    /// Standalone default. With core-integration, shares the process convenience
-    /// runtime; use new_in for application-owned budgets and deterministic shutdown.
-    pub fn new(name: impl Into<String>) -> Result<Self, ModelError> {
-        #[cfg(feature = "core-integration")]
-        {
-            integration::create_default(name)
-        }
-        #[cfg(not(feature = "core-integration"))]
-        {
-            Self::new_reference(name)
-        }
-    }
-    /// Explicit migration fallback and downstream compatibility constructor.
-    pub fn new_reference(name: impl Into<String>) -> Result<Self, ModelError> {
-        let mut model = NEXT_MODEL.load(Ordering::Relaxed);
-        loop {
-            let next = model.checked_add(1).ok_or(ModelError::IdentityExhausted)?;
-            match NEXT_MODEL.compare_exchange_weak(
-                model,
-                next,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
-                Ok(_) => break,
-                Err(current) => model = current,
-            }
-        }
-        Ok(Self {
-            #[cfg(feature = "core-integration")]
-            integrated: None,
-            name: name.into(),
-            revision: Revision { model, version: 0 },
-            nodes: BTreeMap::new(),
-            names: BTreeMap::new(),
-            next_node: 0,
-            next_port: 0,
-            interface: ModelInterface::default(),
-        })
-    }
-    /// Observable backend selection, without exposing its representation.
-    pub fn backend(&self) -> BackendKind {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return BackendKind::Persistent;
-        }
-        BackendKind::Reference
-    }
-    pub fn name(&self) -> &str {
-        #[cfg(feature = "core-integration")]
-        if let Some(i) = &self.integrated {
-            return i.graph().name();
-        }
-        &self.name
-    }
-    pub fn revision(&self) -> Revision {
-        self.revision
-    }
-    pub fn node_id(&self, name: &str) -> Option<NodeId> {
-        #[cfg(feature = "core-integration")]
-        if let Some(i) = &self.integrated {
-            return i.graph().node_id(name);
-        }
-        self.names.get(name).copied()
-    }
-    pub fn interface(&self) -> &ModelInterface {
-        #[cfg(feature = "core-integration")]
-        if let Some(i) = &self.integrated {
-            return i.graph().interface();
-        }
-        &self.interface
-    }
-    fn port_name(&self, name: &str) -> Result<(), ModelError> {
-        let mut bytes = name.bytes();
-        if !bytes
-            .next()
-            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
-            || !bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
-        {
-            return Err(ModelError::Interface(InterfaceError::InvalidName(
-                name.into(),
-            )));
-        }
-        if self.interface.inputs.contains_key(name) || self.interface.outputs.contains_key(name) {
-            return Err(ModelError::Interface(InterfaceError::DuplicateName(
-                name.into(),
-            )));
-        }
-        Ok(())
-    }
-    fn allocate_port(&mut self) -> Result<PortId, ModelError> {
-        let sequence = self
-            .next_port
-            .checked_add(1)
-            .ok_or(ModelError::IdentityExhausted)?;
-        self.advance()?;
-        self.next_port = sequence;
-        Ok(PortId {
-            model: self.revision.model,
-            sequence,
-        })
-    }
-    pub fn add_input_port(
+    fn add_input_port(
         &mut self,
         name: impl Into<String>,
         node: NodeId,
         requirement: InputRequirement,
     ) -> Result<PortId, ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_add_port(structural::PortEdit::AddInput(
-                name.into(),
-                node,
-                requirement,
-            ));
-        }
         let name = name.into();
         self.port_name(&name)?;
         let target = self.nodes.get(&node).ok_or(ModelError::UnknownNode(node))?;
@@ -488,15 +519,11 @@ impl WorkingModel {
         );
         Ok(id)
     }
-    pub fn add_output_port(
+    fn add_output_port(
         &mut self,
         name: impl Into<String>,
         node: NodeId,
     ) -> Result<PortId, ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_add_port(structural::PortEdit::AddOutput(name.into(), node));
-        }
         let name = name.into();
         self.port_name(&name)?;
         if !self.nodes.contains_key(&node) {
@@ -508,24 +535,7 @@ impl WorkingModel {
             .insert(name.clone(), OutputPort { id, name, node });
         Ok(id)
     }
-    pub fn rename_port(&mut self, id: PortId, name: impl Into<String>) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            let name = name.into();
-            let old = self
-                .interface()
-                .inputs()
-                .map(|p| (p.id(), p.name()))
-                .chain(self.interface().outputs().map(|p| (p.id(), p.name())))
-                .find(|p| p.0 == id)
-                .ok_or(ModelError::Interface(InterfaceError::UnknownPort(id)))?;
-            if old.1 == name {
-                return Ok(());
-            }
-            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Rename(
-                id, name,
-            )));
-        }
+    fn rename_port(&mut self, id: PortId, name: impl Into<String>) -> Result<(), ModelError> {
         let old = self
             .interface
             .inputs
@@ -555,11 +565,7 @@ impl WorkingModel {
         }
         Ok(())
     }
-    pub fn remove_port(&mut self, id: PortId) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_edit(structural::Edit::Port(structural::PortEdit::Remove(id)));
-        }
+    fn remove_port(&mut self, id: PortId) -> Result<(), ModelError> {
         let name = self
             .interface
             .inputs
@@ -587,171 +593,10 @@ impl WorkingModel {
             .ok_or(ModelError::IdentityExhausted)?;
         Ok(())
     }
-    fn validate_name(&self, name: &str) -> Result<(), ModelError> {
-        let mut chars = name.bytes();
-        if !chars
-            .next()
-            .is_some_and(|c| c.is_ascii_alphabetic() || c == b'_')
-            || !chars.all(|c| c.is_ascii_alphanumeric() || c == b'_')
-        {
-            return Err(ModelError::InvalidName(name.into()));
-        }
-        if self.names.contains_key(name) {
-            return Err(ModelError::DuplicateName(name.into()));
-        }
-        Ok(())
-    }
-    fn add(&mut self, name: String, definition: Definition) -> Result<NodeId, ModelError> {
-        self.validate_name(&name)?;
-        let next = self
-            .next_node
-            .checked_add(1)
-            .ok_or(ModelError::IdentityExhausted)?;
-        self.advance()?;
-        let id = NodeId {
-            model: self.revision.model,
-            node: self.next_node,
-        };
-        self.next_node = next;
-        self.names.insert(name.clone(), id);
-        self.nodes.insert(id, WorkingNode { name, definition });
-        Ok(id)
-    }
-    pub fn add_input(
-        &mut self,
-        name: impl Into<String>,
-        value: PivotDecimal,
-    ) -> Result<NodeId, ModelError> {
-        let name = name.into();
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_add(name, Some(value), None);
-        }
-        self.add(name, Definition::Input(value))
-    }
-    pub fn add_computed(
-        &mut self,
-        name: impl Into<String>,
-        source: impl Into<String>,
-    ) -> Result<NodeId, ModelError> {
-        let name = name.into();
-        let source = source.into();
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_add(name, None, Some(source));
-        }
-        self.validate_name(&name)?;
-        let id = NodeId {
-            model: self.revision.model,
-            node: self.next_node,
-        };
-        // Include self for self-reference binding, then use normal insertion.
-        let mut directory = self.names.clone();
-        directory.insert(name.clone(), id);
-        let binding = expression::parse(&source)
-            .map_err(|error| SnapshotError::Parse { node: id, error })
-            .and_then(|expr| bind(id, &expr, &directory));
-        self.add(name, Definition::Computed { source, binding })
-    }
-
-    pub fn set_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_edit(structural::Edit::Input(id, value));
-        }
-        let node = self.nodes.get(&id).ok_or(ModelError::UnknownNode(id))?;
-        if !matches!(node.definition, Definition::Input(_)) {
-            return Err(ModelError::NotInput(id));
-        }
-        self.advance()?;
-        self.nodes.get_mut(&id).unwrap().definition = Definition::Input(value);
-        Ok(())
-    }
-    /// Replace a definition, including converting an input to a computed node.
-    pub fn set_expression(
-        &mut self,
-        id: NodeId,
-        source: impl Into<String>,
-    ) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_edit(structural::Edit::Formula(id, source.into()));
-        }
-        if !self.nodes.contains_key(&id) {
-            return Err(ModelError::UnknownNode(id));
-        }
-        let source = source.into();
-        self.advance()?;
-        self.compile(id, source);
-        Ok(())
-    }
-    fn compile(&mut self, id: NodeId, source: String) {
-        let binding = expression::parse(&source)
-            .map_err(|error| SnapshotError::Parse { node: id, error })
-            .and_then(|expr| bind(id, &expr, &self.names));
-        self.nodes.get_mut(&id).unwrap().definition = Definition::Computed { source, binding };
-    }
-    pub fn rename(&mut self, id: NodeId, name: impl Into<String>) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            let name = name.into();
-            let old = self
-                .integrated
-                .as_ref()
-                .unwrap()
-                .graph()
-                .node_name(id)
-                .ok_or(ModelError::UnknownNode(id))?;
-            if old == name {
-                return Ok(());
-            }
-            return self.integrated_edit(structural::Edit::Rename(id, name));
-        }
-        let old = self
-            .nodes
-            .get(&id)
-            .ok_or(ModelError::UnknownNode(id))?
-            .name
-            .clone();
-        let name = name.into();
-        if old == name {
-            return Ok(());
-        }
-        self.validate_name(&name)?;
-        self.advance()?;
-        self.names.remove(&old);
-        self.names.insert(name.clone(), id);
-        self.nodes.get_mut(&id).unwrap().name = name;
-        Ok(())
-    }
-    pub fn remove(&mut self, id: NodeId) -> Result<(), ModelError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_edit(structural::Edit::Retire(id));
-        }
-        if !self.nodes.contains_key(&id) {
-            return Err(ModelError::UnknownNode(id));
-        }
-        self.advance()?;
-        let node = self.nodes.remove(&id).unwrap();
-        self.names.remove(&node.name);
-        Ok(())
-    }
-    /// Captures definitions and inputs under one shared borrow. In safe Rust
-    /// edits cannot overlap capture. After return, the working model is free
-    /// to change while the owned snapshot is used elsewhere.
-    pub fn snapshot(&self) -> Result<ModelSnapshot, SnapshotError> {
-        #[cfg(feature = "core-integration")]
-        if self.integrated.is_some() {
-            return self.integrated_snapshot(&integration::CancellationToken::default());
-        }
-        self.snapshot_cancel_check(|| false)
-    }
     fn snapshot_cancel_check(
         &self,
         _cancelled: impl Fn() -> bool,
     ) -> Result<ModelSnapshot, SnapshotError> {
-        #[cfg(feature = "core-integration")]
         if _cancelled() {
             return Err(SnapshotError::Backend("cancelled"));
         }
@@ -759,7 +604,6 @@ impl WorkingModel {
         let _phase = crate::experiment_profile::scope(6);
         let mut nodes = BTreeMap::new();
         for (&id, node) in &self.nodes {
-            #[cfg(feature = "core-integration")]
             if _cancelled() {
                 return Err(SnapshotError::Backend("cancelled"));
             }
@@ -812,7 +656,6 @@ impl WorkingModel {
         #[cfg(feature = "scaling-experiment")]
         let order_phase = crate::experiment_profile::scope(7);
         for &id in self.nodes.keys() {
-            #[cfg(feature = "core-integration")]
             if _cancelled() {
                 return Err(SnapshotError::Backend("cancelled"));
             }
@@ -831,7 +674,6 @@ impl WorkingModel {
             .collect();
         let mut order = Vec::new();
         while let Some(id) = ready.pop_first() {
-            #[cfg(feature = "core-integration")]
             if _cancelled() {
                 return Err(SnapshotError::Backend("cancelled"));
             }
@@ -855,7 +697,6 @@ impl WorkingModel {
         #[cfg(feature = "scaling-experiment")]
         drop(order_phase);
         let snapshot = ModelSnapshot(Arc::new(SnapshotData {
-            #[cfg(feature = "core-integration")]
             cleanup: None,
             name: self.name.clone(),
             revision: self.revision,
@@ -870,9 +711,13 @@ impl WorkingModel {
             .map_err(SnapshotError::Interface)?;
         Ok(snapshot)
     }
+    fn revision(&self) -> Revision {
+        self.revision
+    }
+    pub fn snapshot(&self) -> Result<ModelSnapshot, SnapshotError> {
+        self.snapshot_cancel_check(|| false)
+    }
 }
-
-/// Bound postfix expression. Names have been replaced with concrete node IDs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BoundToken {
     Decimal(PivotDecimal),
@@ -911,7 +756,6 @@ impl SnapshotNode {
 }
 #[derive(Debug)]
 struct SnapshotData {
-    #[cfg(feature = "core-integration")]
     cleanup: Option<integration::SnapshotLease>,
     interface: ModelInterface,
     name: String,
@@ -920,7 +764,6 @@ struct SnapshotData {
     names: BTreeMap<String, NodeId>,
     order: Vec<NodeId>,
 }
-#[cfg(feature = "core-integration")]
 impl Drop for SnapshotData {
     fn drop(&mut self) {
         if let Some(lease) = self.cleanup.take() {
@@ -958,13 +801,6 @@ impl ModelSnapshot {
     }
 }
 
-fn bind(
-    id: NodeId,
-    expr: &Expr,
-    names: &BTreeMap<String, NodeId>,
-) -> Result<(Vec<BoundToken>, Vec<NodeId>), SnapshotError> {
-    bind_with(id, expr, |name| names.get(name).copied())
-}
 fn bind_with(
     id: NodeId,
     expr: &Expr,

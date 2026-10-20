@@ -1,4 +1,3 @@
-#![cfg(feature = "persistent-core")]
 fn build_book(
     name: &str,
     limits: pivot_workbook::Limits,

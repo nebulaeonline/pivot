@@ -1,4 +1,3 @@
-#![cfg(feature = "persistent-core")]
 use pivot_core::model::integration::{CancellationToken, IntegrationRuntime};
 use pivot_workbook::*;
 const A: Position = Position::new(1, 1);

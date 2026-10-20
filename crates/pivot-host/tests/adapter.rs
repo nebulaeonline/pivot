@@ -123,7 +123,7 @@ fn ordinary() -> Fixture {
 #[test]
 fn daemon_router_preserves_small_negotiated_limits_for_invocation() {
     let f = ordinary();
-    let mut graph = pivot_core::model::WorkingModel::new_reference("ManyPorts").unwrap();
+    let mut graph = pivot_core::model::WorkingModel::new("ManyPorts").unwrap();
     let node = graph.add_input("Value", "42".parse().unwrap()).unwrap();
     let mut ports = BTreeMap::new();
     for n in 0..40 {

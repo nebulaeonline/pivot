@@ -351,7 +351,7 @@ struct Source {
     ports: BTreeMap<Uuid, PortId>,
 }
 fn source() -> Source {
-    let mut core = WorkingModel::new_reference("Profit").unwrap();
+    let mut core = WorkingModel::new("Profit").unwrap();
     let revenue = core
         .add_input("Revenue", "100.00".parse().unwrap())
         .unwrap();

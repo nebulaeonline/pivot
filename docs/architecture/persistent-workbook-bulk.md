@@ -1,5 +1,9 @@
 # Persistent workbook integration and bulk foundation
 
+Historical milestone: the subsequent owner decision in [ADR-0013](../adr/0013-canonical-engine-consolidation.md)
+retires the reference runtime. Constructor-selection recommendations and source
+links below describe the pre-consolidation revision; benchmarks remain evidence.
+
 Date: 2026-10-19. [ADR-0012](../adr/0012-bulk-mutation-and-persistent-workbook.md)
 defines the internal batch/revision/resource contract. This is an explicit opt-in
 worksheet path, not a production backend switch or document format migration.

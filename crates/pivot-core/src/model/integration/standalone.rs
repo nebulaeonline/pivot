@@ -29,18 +29,15 @@ impl IntegrationRuntime {
     pub fn create_model(&self, name: impl Into<String>) -> Result<WorkingModel, ModelError> {
         let state = self.state().clone();
         let ticket = state.cleanup.reserve().map_err(ModelError::Backend)?;
-        let mut model = WorkingModel::new_reference(name)?;
-        let graph = Graph::empty(
-            std::mem::take(&mut model.name),
-            model.revision,
-            self.memory(),
-        )
-        .map_err(map_error)?;
-        model.integrated = Some(Integrated {
-            graph: ticket.own(graph),
-            runtime: state,
-        });
-        Ok(model)
+        let revision = fresh_revision()?;
+        let graph = Graph::empty(name.into(), revision, self.memory()).map_err(map_error)?;
+        Ok(WorkingModel {
+            integrated: Integrated {
+                graph: ticket.own(graph),
+                runtime: state,
+            },
+            revision,
+        })
     }
 }
 impl WorkingModel {

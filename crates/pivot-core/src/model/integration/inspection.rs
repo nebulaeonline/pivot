@@ -164,20 +164,17 @@ impl DefinitionView {
             .map_err(|_| CaptureFailure::Resource("capture admission"))?;
         Ok(CalculationCapture {
             revision: self.revision,
-            state: State::Persistent(PersistentCapture {
+            state: PersistentCapture {
                 value: ticket.own(value),
                 runtime: self.runtime.clone(),
-            }),
+            },
         })
     }
 }
 impl WorkingModel {
-    /// Only activation chooses the persistent representation; inspection never
-    /// implicitly converts or copies a reference model.
+    /// Pin the current canonical definitions without whole-graph materialization.
     pub fn inspect(&self) -> Result<DefinitionView, ModelError> {
-        let i = self.integrated.as_ref().ok_or(ModelError::Backend(
-            "bounded view requires explicit persistent activation",
-        ))?;
+        let i = &self.integrated;
         static NEXT_VIEW: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let view = NEXT_VIEW
             .try_update(

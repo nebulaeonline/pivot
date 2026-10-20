@@ -1,4 +1,3 @@
-#![cfg(feature = "core-integration")]
 use pivot_core::{
     evaluation::{EvaluationContext, InvocationRequest},
     interface::{InputRequirement, NamedInvocationRequest},
@@ -17,9 +16,9 @@ fn finish(r: IntegrationRuntime) {
     assert!(r.finish().is_ok());
 }
 fn pair(r: &IntegrationRuntime) -> (WorkingModel, WorkingModel) {
-    let a = WorkingModel::new_reference("Stage 2").unwrap();
-    let mut b = a.stage();
-    b.enable_persistent(r).unwrap();
+    let a = WorkingModel::new_in("Stage 2", r).unwrap();
+    let b = a.stage();
+
     (a, b)
 }
 fn drafts(m: &WorkingModel) -> Vec<(NodeId, String, String)> {
@@ -337,8 +336,8 @@ fn pinned_inspection_pages_reverse_edges_and_full_snapshot_preserve_provenance()
 #[test]
 fn transfer_preserves_retired_ledgers_binding_source_ports_and_exact_parts() {
     let r = runtime();
-    let mut m = WorkingModel::new_reference("portable").unwrap();
-    m.enable_persistent(&r).unwrap();
+    let mut m = WorkingModel::new_in("portable", &r).unwrap();
+
     let value = PivotDecimal::from_parts(12300, 0, 0, true, 4).unwrap();
     let x = m.add_input("x", value).unwrap();
     let y = m.add_computed("y", "x+1").unwrap();
@@ -357,7 +356,9 @@ fn transfer_preserves_retired_ledgers_binding_source_ports_and_exact_parts() {
     m.remove(x).unwrap();
     let reused = m.add_input("x", 9.into()).unwrap();
     let image = transfer::export(&m, &[x, y, reused], &[p, q]).unwrap();
-    let imported = transfer::import_persistent(image.clone(), &r).unwrap();
+    let imported = r
+        .import_portable(image.clone(), &CancellationToken::default())
+        .unwrap();
     let next = transfer::export(&imported.model, &imported.nodes, &imported.ports).unwrap();
     assert_eq!(format!("{image:?}"), format!("{next:?}"));
     assert!(
@@ -376,7 +377,10 @@ fn transfer_preserves_retired_ledgers_binding_source_ports_and_exact_parts() {
     );
     let mut malformed = image.clone();
     malformed.nodes[1].slot = malformed.nodes[0].slot;
-    assert!(transfer::import_persistent(malformed, &r).is_err());
+    assert!(
+        r.import_portable(malformed, &CancellationToken::default())
+            .is_err()
+    );
     let cancelled = CancellationToken::default();
     cancelled.cancel();
     assert!(r.import_portable(image, &cancelled).is_err());
@@ -385,7 +389,7 @@ fn transfer_preserves_retired_ledgers_binding_source_ports_and_exact_parts() {
 }
 
 #[test]
-fn deterministic_differential_edits_staging_rollback_and_invalid_models() {
+fn deterministic_branch_edits_staging_rollback_and_invalid_models() {
     let r = runtime();
     let (mut a, mut b) = pair(&r);
     let mut nodes = Vec::new();

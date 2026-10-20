@@ -17,7 +17,7 @@ use std::{
 };
 
 fn demo(host: &mut management::WorkingModelService) -> Result<(), Box<dyn Error>> {
-    let mut model = WorkingModel::new_reference("RestaurantProfit")?;
+    let mut model = WorkingModel::new("RestaurantProfit")?;
     let revenue = model.add_input("Revenue", "250000".parse()?)?;
     let costs = model.add_input("Costs", "85000".parse()?)?;
     let net = model.add_computed("Net", "Revenue - Costs")?;

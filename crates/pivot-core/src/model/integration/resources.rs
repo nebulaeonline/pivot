@@ -57,25 +57,16 @@ impl WorkingModel {
         &self,
         value: T,
     ) -> Result<Reclaimable<T>, ModelError> {
-        let i = self
-            .integrated
-            .as_ref()
-            .ok_or(ModelError::Backend("persistent model required"))?;
+        let i = &self.integrated;
         let ticket = i.runtime.cleanup.reserve().map_err(ModelError::Backend)?;
         Ok(Reclaimable::new(value, ticket))
     }
 
     pub fn allocation_domain(&self) -> Result<Memory, ModelError> {
-        self.integrated
-            .as_ref()
-            .map(|i| i.graph().memory())
-            .ok_or(ModelError::Backend("persistent model required"))
+        Ok(self.integrated.graph().memory())
     }
     pub fn retain_resource<T: Send + 'static>(&self, value: T) -> Result<Retained<T>, ModelError> {
-        let i = self
-            .integrated
-            .as_ref()
-            .ok_or(ModelError::Backend("persistent model required"))?;
+        let i = &self.integrated;
         Ok(Retained(
             i.runtime
                 .cleanup
@@ -88,10 +79,7 @@ impl WorkingModel {
         &self,
         value: &Retained<T>,
     ) -> Result<Reclaimable<T>, ModelError> {
-        let i = self
-            .integrated
-            .as_ref()
-            .ok_or(ModelError::Backend("persistent model required"))?;
+        let i = &self.integrated;
         let ticket = i.runtime.cleanup.reserve().map_err(ModelError::Backend)?;
         Ok(Reclaimable::new((**value).clone(), ticket))
     }

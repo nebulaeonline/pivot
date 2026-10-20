@@ -40,3 +40,5 @@ bounded Slice A now implements one sparse worksheet/graph proof with typed refer
 Scalar A1 parsing and stable binding are implemented. Persistent workbook integration
 is opt-in under accepted ADR-0012; production workbook selection stays reference.
 Ranges, GUI, new protocol and production workbook files remain future work.
+
+- [ADR-0013: One canonical persistent graph and workbook](0013-canonical-engine-consolidation.md) — Accepted owner direction; implementation review pending.

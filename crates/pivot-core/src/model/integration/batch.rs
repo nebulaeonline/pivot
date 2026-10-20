@@ -159,9 +159,7 @@ impl WorkingModel {
         if capacity > MAX_OPERATIONS || source_bytes > MAX_SOURCE_BYTES {
             return Err(ModelError::Backend("batch request limit"));
         }
-        let i = self.integrated.as_ref().ok_or(ModelError::Backend(
-            "persistent batch requires explicit runtime",
-        ))?;
+        let i = &self.integrated;
         let ticket = i.runtime.cleanup.reserve().map_err(ModelError::Backend)?;
         let charge = i
             .graph()
@@ -188,10 +186,7 @@ impl WorkingModel {
         mut batch: Batch,
         cancel: &CancellationToken,
     ) -> Result<Revision, ModelError> {
-        let i = self
-            .integrated
-            .as_mut()
-            .ok_or(ModelError::Backend("persistent batch required"))?;
+        let i = &mut self.integrated;
         if self.revision != batch.revision
             || !i.graph.same(&batch.base)
             || !Arc::ptr_eq(&i.runtime, &batch.runtime)
@@ -269,7 +264,7 @@ mod tests {
         }
         let runtime = IntegrationRuntime::standalone().unwrap();
         let model = runtime.create_model("partial").unwrap();
-        let mut graph = model.integrated.as_ref().unwrap().graph().clone();
+        let mut graph = model.integrated.graph().clone();
         let before = graph.version();
         let edits = (0..10000)
             .map(|i| Edit::AddInput(format!("n{i}"), 1.into()))

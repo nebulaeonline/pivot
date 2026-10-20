@@ -1,5 +1,9 @@
 # Persistent workbook construction profile and readiness evidence
 
+Historical milestone: the subsequent owner decision in [ADR-0013](../adr/0013-canonical-engine-consolidation.md)
+retires the reference runtime. Constructor-selection recommendations and source
+links below describe the pre-consolidation revision; benchmarks remain evidence.
+
 Date: 2026-10-19. Base commit: d2e2a8b82504d4ac904c7e0609fe19b0d91a1653.
 ADR-0012 foundation is accepted. This record compares a bounded private-index
 improvement with its unchanged functional-insertion control; product constructor

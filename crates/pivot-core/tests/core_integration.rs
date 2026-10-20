@@ -1,4 +1,3 @@
-#![cfg(feature = "core-integration")]
 use pivot_core::{
     evaluation::EvaluationError,
     model::{
@@ -15,9 +14,9 @@ fn finish(r: IntegrationRuntime) {
     assert!(r.finish().is_ok());
 }
 fn pair(r: &IntegrationRuntime) -> (WorkingModel, WorkingModel) {
-    let old = WorkingModel::new_reference("integration").unwrap();
-    let mut new = old.stage();
-    new.enable_persistent(r).unwrap();
+    let old = WorkingModel::new_in("integration", r).unwrap();
+    let new = old.stage();
+
     (old, new)
 }
 fn equal(old: &WorkingModel, new: &WorkingModel, outputs: &[pivot_core::model::NodeId]) {
@@ -28,6 +27,12 @@ fn equal(old: &WorkingModel, new: &WorkingModel, outputs: &[pivot_core::model::N
     let a = a.evaluate(outputs).ok().unwrap();
     let b = b.evaluate(outputs).ok().unwrap();
     assert_eq!(a.values(), b.values());
+    let snapshot = pivot_core::evaluation::EvaluationContext::new(old.snapshot().unwrap())
+        .evaluate(outputs)
+        .unwrap();
+    for id in outputs {
+        assert_eq!(&a.values()[id], snapshot.value(*id).unwrap());
+    }
     assert_eq!(a.revision(), b.revision());
 }
 
@@ -105,15 +110,6 @@ fn failed_edits_equal_assignments_empty_stages_and_resource_rejection() {
         Err(ModelError::Backend(_))
     ));
     assert_eq!(before, new.revision());
-    let mut source = old.stage();
-    assert!(matches!(
-        source.enable_persistent(&r),
-        Err(ModelError::Backend(_))
-    ));
-    assert_eq!(source.revision(), old.revision());
-    assert_eq!(source.node_id("a"), Some(a));
-    assert!(source.snapshot().is_ok());
-    drop(source);
     drop(hold);
     equal(&old, &new, &[a]);
     drop((old, new));
@@ -164,13 +160,13 @@ fn exact_diagnostics_multiple_cycles_blocked_nodes_and_explicit_repair() {
 #[test]
 fn activation_preserves_renames_retired_ids_name_reuse_and_source() {
     let r = runtime();
-    let mut old = WorkingModel::new_reference("history").unwrap();
+    let mut old = WorkingModel::new_in("history", &r).unwrap();
     let a = old.add_input("a", 5.into()).unwrap();
     let b = old.add_computed("b", "a+2").unwrap();
     old.rename(a, "renamed").unwrap();
     let replacement = old.add_input("a", 100.into()).unwrap();
-    let mut new = old.stage();
-    new.enable_persistent(&r).unwrap();
+    let new = old.stage();
+
     equal(&old, &new, &[b]);
     let sources: Vec<_> = new
         .draft_nodes()
@@ -186,7 +182,7 @@ fn activation_preserves_renames_retired_ids_name_reuse_and_source() {
     old.remove(a).unwrap();
     drop(new);
     let mut new = old.stage();
-    new.enable_persistent(&r).unwrap();
+
     assert_eq!(
         new.capture_calculation().err(),
         Some(CaptureFailure::Invalid(old.snapshot().unwrap_err()))
@@ -268,7 +264,7 @@ fn arithmetic_failures_unknown_outputs_and_repeated_formula_revisions() {
     let c = old.add_computed("c", "b+1").unwrap();
     new.add_computed("c", "b+1").unwrap();
     equal(&old, &new, &[a, b, c]);
-    let unknown = WorkingModel::new_reference("other")
+    let unknown = WorkingModel::new("other")
         .unwrap()
         .add_input("x", 1.into())
         .unwrap();
@@ -285,7 +281,7 @@ fn arithmetic_failures_unknown_outputs_and_repeated_formula_revisions() {
         .evaluate(&[unknown])
         .err();
     assert_eq!(x, y);
-    let other = WorkingModel::new_reference("another")
+    let other = WorkingModel::new("another")
         .unwrap()
         .add_input("y", 1.into())
         .unwrap();
@@ -321,7 +317,7 @@ fn arithmetic_failures_unknown_outputs_and_repeated_formula_revisions() {
 fn exact_decimal_parts_and_imported_ports_survive_activation() {
     use pivot_core::interface::InputRequirement;
     let r = runtime();
-    let mut old = WorkingModel::new_reference("parts").unwrap();
+    let mut old = WorkingModel::new_in("parts", &r).unwrap();
     let value = PivotDecimal::from_parts(0, 0, 0, true, 12).unwrap();
     let a = old.add_input("a", value).unwrap();
     let port = old
@@ -329,7 +325,7 @@ fn exact_decimal_parts_and_imported_ports_survive_activation() {
         .unwrap();
     old.add_output_port("output", a).unwrap();
     let mut new = old.stage();
-    new.enable_persistent(&r).unwrap();
+
     let result = new.capture_calculation().unwrap().evaluate(&[a]).unwrap();
     assert_eq!(result.values()[&a].as_ref().unwrap().parts(), value.parts());
     assert_eq!(new.interface().inputs().next().unwrap().id(), port);
@@ -347,11 +343,11 @@ fn exact_decimal_parts_and_imported_ports_survive_activation() {
 #[test]
 fn import_invalid_parse_unknown_name_order_and_structural_retained_generations() {
     let r = runtime();
-    let mut old = WorkingModel::new_reference("drafts").unwrap();
+    let mut old = WorkingModel::new_in("drafts", &r).unwrap();
     let a = old.add_computed("a", "missing").unwrap();
     let b = old.add_computed("b", "(").unwrap();
     let mut new = old.stage();
-    new.enable_persistent(&r).unwrap();
+
     assert_eq!(
         new.capture_calculation().err(),
         Some(CaptureFailure::Invalid(old.snapshot().unwrap_err()))
@@ -389,8 +385,8 @@ fn multiple_runtime_domains_share_known_allocation_admission() {
     let domain = AllocationDomain::new(8 * 1024 * 1024);
     let first = IntegrationRuntime::with_domain(domain.clone(), 4).unwrap();
     let second = IntegrationRuntime::with_domain(domain.clone(), 4).unwrap();
-    let mut model = WorkingModel::new_reference("shared domain").unwrap();
-    model.enable_persistent(&first).unwrap();
+    let mut model = WorkingModel::new_in("shared domain", &first).unwrap();
+
     model.add_input("x", 1.into()).unwrap();
     assert!(domain.stats().charged > 512 * 1024);
     assert!(IntegrationRuntime::with_domain(domain.clone(), 8192).is_err());
@@ -404,14 +400,14 @@ fn multiple_runtime_domains_share_known_allocation_admission() {
 fn partial_calculation_admission_failure_reclaims_scratch_without_editing_capture() {
     let r = runtime();
     let memory = r.memory();
-    let mut model = WorkingModel::new_reference("partial calculation").unwrap();
+    let mut model = WorkingModel::new_in("partial calculation", &r).unwrap();
     let nodes: Vec<_> = (0..1024)
         .map(|i| model.add_input(format!("n{i}"), 1.into()).unwrap())
         .collect();
     for (i, &id) in nodes.iter().enumerate().skip(1) {
         model.set_expression(id, format!("n{}+1", i - 1)).unwrap();
     }
-    model.enable_persistent(&r).unwrap();
+
     let revision = model.revision();
     let capture = model.capture_calculation().unwrap();
     r.flush();

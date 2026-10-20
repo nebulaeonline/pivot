@@ -1,5 +1,9 @@
 # Persistent core — standalone default transition
 
+Historical milestone: the subsequent owner decision in [ADR-0013](../adr/0013-canonical-engine-consolidation.md)
+retires the reference runtime. Constructor-selection recommendations and source
+links below describe the pre-consolidation revision; benchmarks remain evidence.
+
 Date: 2026-10-19. Implements [ADR-0011](../adr/0011-standalone-persistent-default.md).
 The accepted Stage 2 engine, parser, binder and arithmetic executor remain canonical.
 

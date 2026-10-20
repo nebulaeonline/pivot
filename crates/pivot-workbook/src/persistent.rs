@@ -95,7 +95,7 @@ impl Data {
     }
 }
 impl Workbook {
-    /// Explicit bounded integration; production new remains reference until review.
+    /// Application-owned bounded runtime.
     pub fn new_in(name: &str, limits: Limits, runtime: &IntegrationRuntime) -> Result<Self> {
         Self::persistent_checked(name, limits, runtime, false)
     }
@@ -114,34 +114,43 @@ impl Workbook {
         runtime: &IntegrationRuntime,
         benchmark: bool,
     ) -> Result<Self> {
-        let mut book = Self::new_checked(name, limits, benchmark)?;
+        if limits.rows == 0
+            || limits.columns == 0
+            || name.len() > 128
+            || (!benchmark
+                && (limits.live_cells > 4096
+                    || limits.allocated_cells > 8192
+                    || limits.bytes > 1_048_576))
+            || limits.source_bytes > 4096
+            || limits.formula_tokens > 4096
+        {
+            return Err(Error::Limit);
+        }
         let core = WorkingModel::new_in(name, runtime).map_err(graph_error)?;
-        let data = Data::new(runtime.memory());
-        book.persistent = Some(core.retain_resource(data).map_err(graph_error)?);
-        book.core = core;
-        Ok(book)
+        let data = core
+            .retain_resource(Data::new(runtime.memory()))
+            .map_err(graph_error)?;
+        Ok(Self {
+            session: Uuid::new_v4(),
+            state: 0,
+            worksheet: WorksheetId::fresh(),
+            graph_id: Uuid::new_v4(),
+            rows: Axis {
+                namespace: Uuid::new_v4(),
+                length: limits.rows,
+            },
+            columns: Axis {
+                namespace: Uuid::new_v4(),
+                length: limits.columns,
+            },
+            persistent: data,
+            core,
+            limits,
+        })
     }
     /// Requested-closure capture, not certification that the whole worksheet is valid.
     pub fn capture_local(&self, expected: Expected) -> Result<CalculationCapture> {
-        if self.persistent.is_some() {
-            return capture(self, expected, true);
-        }
-        self.check(expected)?;
-        Ok(CalculationCapture {
-            expected,
-            worksheet: self.worksheet,
-            context: None,
-            cells: self
-                .data
-                .positions
-                .values()
-                .map(|id| (*id, self.data.bindings[id].runtime))
-                .collect(),
-            positions: self.data.positions.clone(),
-            limit: self.limits.read_records,
-            pinned: None,
-            local_core: Some(self.core.capture_local().map_err(graph_error)?),
-        })
+        capture(self, expected, true)
     }
     pub fn apply_cancelled(
         &mut self,
@@ -149,17 +158,11 @@ impl Workbook {
         edits: &[Edit],
         cancel: &CancellationToken,
     ) -> Result<Expected> {
-        if self.persistent.is_none() {
-            if cancel.is_cancelled() {
-                return Err(Error::Graph("cancelled".into()));
-            }
-            return self.apply(expected, edits);
-        }
         apply(self, expected, edits, cancel)
     }
 }
 fn state(book: &Workbook) -> &Data {
-    book.persistent.as_ref().unwrap()
+    &book.persistent
 }
 fn cell_ref(book: &Workbook, id: CellId) -> CellRef {
     CellRef {
@@ -517,9 +520,7 @@ fn apply(
         .map_err(|_| Error::Limit)?;
     let mut tx = Transaction {
         book,
-        data: core
-            .stage_resource(book.persistent.as_ref().unwrap())
-            .map_err(graph_error)?,
+        data: core.stage_resource(&book.persistent).map_err(graph_error)?,
         batch: core
             .begin_batch(units, units.saturating_mul(32).saturating_add(text))
             .map_err(graph_error)?,
@@ -553,7 +554,7 @@ fn apply(
     let _profile = profile::scope(9);
     let data = data.freeze();
     book.core = core;
-    book.persistent = Some(data);
+    book.persistent = data;
     book.state = next;
     Ok(book.expected())
 }
@@ -623,12 +624,9 @@ pub(super) fn capture(
     Ok(CalculationCapture {
         expected,
         worksheet: book.worksheet,
-        context: None,
-        cells: BTreeMap::new(),
-        positions: BTreeMap::new(),
         limit: book.limits.read_records,
         pinned: book.persistent.clone(),
-        local_core: Some(core),
+        local_core: core,
     })
 }
 pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Result<Calculation> {
@@ -641,32 +639,21 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
             if r.worksheet != capture.worksheet {
                 return Err(Error::InvalidTarget);
             }
-            if let Some(p) = &capture.pinned {
-                if p.records
-                    .get(&r.cell)
-                    .is_none_or(|record| record.position.is_none())
-                {
-                    return Err(Error::InvalidTarget);
-                }
-                p.bindings
-                    .get(&r.cell)
-                    .map(|b| b.runtime)
-                    .ok_or(Error::InvalidTarget)
-            } else {
-                capture
-                    .cells
-                    .get(&r.cell)
-                    .copied()
-                    .ok_or(Error::InvalidTarget)
+            let p = &capture.pinned;
+
+            if p.records
+                .get(&r.cell)
+                .is_none_or(|record| record.position.is_none())
+            {
+                return Err(Error::InvalidTarget);
             }
+            p.bindings
+                .get(&r.cell)
+                .map(|b| b.runtime)
+                .ok_or(Error::InvalidTarget)
         })
         .collect::<Result<Vec<_>>>()?;
-    let result = capture
-        .local_core
-        .as_ref()
-        .unwrap()
-        .evaluate(&nodes)
-        .map_err(graph_error)?;
+    let result = capture.local_core.evaluate(&nodes).map_err(graph_error)?;
     let values = outputs
         .iter()
         .zip(nodes)
@@ -760,12 +747,8 @@ pub(super) fn validate(book: &Workbook, expected: Expected) -> Result<Vec<Diagno
 
 impl CalculationCapture {
     /// Bounded point definition read from the persistent capture's original generation.
-    /// Legacy compatibility captures do not carry worksheet definition metadata.
     pub fn pinned_content(&self, position: Position) -> Result<Option<CellView>> {
-        let p = self
-            .pinned
-            .as_ref()
-            .ok_or_else(|| Error::Graph("persistent capture required".into()))?;
+        let p = &self.pinned;
         let Some(id) = p.positions.get(&position) else {
             return Ok(None);
         };
@@ -783,126 +766,5 @@ impl CalculationCapture {
             position,
             content: record.content.as_ref().unwrap().clone(),
         }))
-    }
-}
-
-#[cfg(test)]
-mod differential {
-    use super::*;
-    #[test]
-    fn accepted_reference_and_persistent_transactions_have_exact_metadata_and_revisions() {
-        let runtime = IntegrationRuntime::standalone().unwrap();
-        let mut reference = Workbook::new("oracle", Limits::default()).unwrap();
-        let seed = (1..=32)
-            .flat_map(|row| {
-                [
-                    Edit::SetDecimal {
-                        position: Position::new(row, 1),
-                        value: DecimalInput::from_decimal(1.into()),
-                    },
-                    Edit::SetDecimal {
-                        position: Position::new(row, 2),
-                        value: DecimalInput::from_decimal(0.into()),
-                    },
-                ]
-            })
-            .collect::<Vec<_>>();
-        reference.apply(reference.expected(), &seed).unwrap();
-        // Test-only identity-preserving branch: the public opt-in constructor
-        // remains direct; no production legacy activation API is added.
-        let mut core = reference.core.stage();
-        core.enable_persistent(&runtime).unwrap();
-        let mut data = Data::new(runtime.memory());
-        for (id, record) in &reference.data.records {
-            data.record(*id, record.clone()).unwrap();
-        }
-        for (pos, id) in &reference.data.positions {
-            data.positions.insert(*pos, *id).unwrap();
-        }
-        for (id, binding) in &reference.data.bindings {
-            data.bindings.insert(*id, binding.clone()).unwrap();
-            data.nodes.insert(binding.runtime, *id).unwrap();
-        }
-        data.live = reference.data.positions.len();
-        let data = core.retain_resource(data).unwrap();
-        let mut candidate = Workbook {
-            session: reference.session,
-            state: reference.state,
-            worksheet: reference.worksheet,
-            graph_id: reference.graph_id,
-            rows: reference.rows.clone(),
-            columns: reference.columns.clone(),
-            data: SheetState::default(),
-            persistent: Some(data),
-            core,
-            limits: reference.limits,
-            #[cfg(feature = "scaling-experiment")]
-            budget_once: false,
-        };
-        let mut random = 19u64;
-        for step in 0..256 {
-            random = random.wrapping_mul(6364136223846793005).wrapping_add(1);
-            let row = (random % 32 + 1) as u32;
-            let input = Position::new(row, 1);
-            let output = Position::new(row, 2);
-            let first = if step % 5 == 0 {
-                Edit::Clear(input)
-            } else {
-                Edit::SetDecimal {
-                    position: input,
-                    value: DecimalInput::from_parts((step + 1) * 100, 0, 0, false, 2).unwrap(),
-                }
-            };
-            let second = if step % 17 == 0 {
-                Edit::SetFormula {
-                    position: output,
-                    source: "malformed".into(),
-                    tokens: vec![Token::Binary(BinaryOp::Add)],
-                }
-            } else {
-                Edit::SetFormulaText {
-                    position: output,
-                    source: if step % 13 == 0 {
-                        format!("=B{row}+1")
-                    } else {
-                        format!("=A{row}+{}", step % 9)
-                    },
-                }
-            };
-            let edits = [first, second];
-            let left = reference.apply(reference.expected(), &edits);
-            let right = candidate.apply(candidate.expected(), &edits);
-            assert_eq!(left, right, "step {step}");
-            assert_eq!(reference.expected(), candidate.expected());
-            assert_eq!(reference.stats(), candidate.stats());
-            for row in 1..=32 {
-                for col in 1..=2 {
-                    let p = Position::new(row, col);
-                    assert_eq!(
-                        reference.cell_at(p),
-                        candidate.cell_at(p),
-                        "step {step}, {p:?}"
-                    );
-                }
-            }
-            assert_eq!(
-                reference.validate(reference.expected()),
-                candidate.validate(candidate.expected())
-            );
-            match (reference.core.snapshot(), candidate.core.snapshot()) {
-                (Ok(a), Ok(b)) => {
-                    assert_eq!(a.revision(), b.revision());
-                    let a = EvaluationContext::new(a).evaluate_all();
-                    let b = EvaluationContext::new(b).evaluate_all();
-                    assert_eq!(a.values(), b.values());
-                }
-                (Err(a), Err(b)) => assert_eq!(a, b),
-                _ => panic!("global validity differs"),
-            }
-        }
-        drop((reference, candidate));
-        let memory = runtime.memory();
-        assert!(runtime.finish().is_ok());
-        assert_eq!(memory.stats().charged, 0);
     }
 }

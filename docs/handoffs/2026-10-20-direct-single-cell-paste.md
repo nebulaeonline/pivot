@@ -2,8 +2,9 @@
 
 Date: 2026-10-20. User authorized implementation after the parent accepted the
 [in-place editing milestone](2026-10-20-in-place-editing-review.md). This focused
-correction is ready for parent review: three-platform automated validation and
-user-confirmed manual checks pass. Parent implementation acceptance remains pending. No additional spreadsheet feature is started.
+correction is accepted by the parent review received 2026-10-20; the workstream is
+closed. Three-platform automated validation and user-confirmed manual checks pass.
+[Acceptance and next scope](2026-10-20-direct-paste-review.md). No additional spreadsheet feature is started.
 
 ## Result
 
@@ -143,3 +144,9 @@ multiple selection and text-value support remain future scope. Do not broaden th
 acceptance request or infer production capacity from sparse geometry. Historical
 clipboard failures, the hidden-editor probe and filesystem/platform limitations
 remain retained. Submit for parent review and stop before subsequent feature work.
+
+## Parent acceptance — 2026-10-20
+
+The parent accepts the focused implementation and closes this milestone. Rectangular
+UI selection/navigation is the recommended next scope, separate from computational
+ranges. No multi-cell clipboard or copy/fill work is implied by this acceptance.

@@ -40,7 +40,8 @@ With Rust, .NET 10 and Python installed, run from the repository root:
 python scripts/run_desktop.py
 ```
 
-Select a cell and type a number or `=A1+B1`. F2 or double-click edits in place;
+Drag or use Shift+click/arrows to select a rectangle. Editing and clipboard actions
+currently target only its active cell. Select a cell and type a number or `=A1+B1`. F2 or double-click edits in place;
 Enter/Tab commits and moves, and Escape cancels. The formula bar is optional.
 Copy/Paste buttons and Ctrl+C/V (Cmd+C/V on Mac) operate on a cell or selected
 editor text. Cell paste commits immediately; paste while editing inserts text.

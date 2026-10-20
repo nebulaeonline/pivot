@@ -40,7 +40,11 @@ public partial class MainWindow : Window
         SetEditing(false);
         Sheet.SelectionChanged += () => { ++interactionVersion; SelectCell(); };
         Sheet.ViewportChanged += () => { ++interactionVersion; frameReady = false; PositionEditor(); _ = RefreshAsync(); };
-        Sheet.CellPressed += async (at, extend) => { if (await SelectAsync(at) && extend) BeginCellEdit(false); };
+        Sheet.SelectionRequested = async (at, extend, edit, current) => {
+            bool accepted=await SelectAsync(at,extend,current);
+            if(accepted && edit) BeginCellEdit(false);
+            return accepted;
+        };
         FormulaEntry.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) FormulaChanged(); };
         CellEditor.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) CellEditorChanged(); };
         AddHandler(KeyDownEvent, ShortcutKeyDown, RoutingStrategies.Tunnel);
@@ -56,7 +60,7 @@ public partial class MainWindow : Window
             input.LostFocus += (_, _) => UpdateFocusAppearance();
         }
         Activated += (_, _) => UpdateFocusAppearance();
-        Deactivated += (_, _) => { shortcutModifiers=KeyModifiers.None; UpdateFocusAppearance(); };
+        Deactivated += (_, _) => { Sheet.EndPointerSelection(false); shortcutModifiers=KeyModifiers.None; UpdateFocusAppearance(); };
         Sheet.KeyDown += GridKeyDown;
         Sheet.TextInput += GridTextInput;
         CellEditor.AddHandler(KeyDownEvent, EntryKeyDown, RoutingStrategies.Tunnel);
@@ -97,7 +101,7 @@ public partial class MainWindow : Window
         if (focused!=Sheet && focused!=CellEditor && focused!=FormulaEntry) return;
         if (e.Key==Key.A && focused is TextBox box) { e.Handled=true; box.SelectAll(); return; }
         if (e.Key is Key.C or Key.V) {
-            e.Handled=true; await ClipboardAsync(e.Key==Key.V);
+            Sheet.EndPointerSelection(false); e.Handled=true; await ClipboardAsync(e.Key==Key.V);
         }
     }
     private async void CopyClick(object? sender,RoutedEventArgs e) => await ClipboardAsync(false);
@@ -206,25 +210,28 @@ public partial class MainWindow : Window
     private async void SaveAsClick(object? sender,RoutedEventArgs e) => await FileActionAsync(async()=>{await SaveDocumentAsync(true);});
     private async void NewClick(object? sender,RoutedEventArgs e) => await FileActionAsync(async()=>{
         if (!await ConfirmDiscardAsync()) return;
-        refresh?.Cancel(); ++displayRequest; await session!.NewAsync(session.Revision,discard:true); await RefreshAsync();
+        refresh?.Cancel(); ++displayRequest; await session!.NewAsync(session.Revision,discard:true); Sheet.Select(new Position{Row=1,Column=1}); await RefreshAsync();
     });
     private async void OpenClick(object? sender,RoutedEventArgs e) => await FileActionAsync(async()=>{
         var files=await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions { Title="Open Pivot workbook", AllowMultiple=false });
         var path=files.Count==1 ? files[0].TryGetLocalPath() : null; if(path is null || !await ConfirmDiscardAsync()) return;
         refresh?.Cancel(); ++displayRequest; await OpenDocumentAsync(path);
     });
-    private async Task OpenDocumentAsync(string path) { await session!.OpenAsync(session.Revision,path,discard:true); await RefreshAsync(); }
+    private async Task OpenDocumentAsync(string path) { await session!.OpenAsync(session.Revision,path,discard:true); Sheet.Select(new Position{Row=1,Column=1}); await RefreshAsync(); }
     private async void CloseDocumentClick(object? sender,RoutedEventArgs e) => await FileActionAsync(async()=>{
         if (!await ConfirmDiscardAsync()) return;
         refresh?.Cancel(); ++displayRequest; await session!.CloseDocumentAsync(session.Revision,discard:true);
         displayedRevision="";displayedGeneration="";Sheet.SetCells([]);FormulaEntry.Text="";StatusLabel.Text="Workbook closed. Choose New or Open.";
     });
     private void SetEditing(bool enabled) {
-        ClearButton.IsEnabled = MoveButton.IsEnabled = FormulaEntry.IsEnabled = CellEditor.IsEnabled = Sheet.IsEnabled = enabled && !shuttingDown && !fileAction;
+        ClearButton.IsEnabled = MoveButton.IsEnabled = FormulaEntry.IsEnabled = CellEditor.IsEnabled = enabled && !shuttingDown && !fileAction;
+        // Pointer capture survives the asynchronous commit preceding a selection.
+        Sheet.IsEnabled=(enabled || editing) && !shuttingDown && !fileAction;
     }
     private void SelectCell()
     {
         AddressLabel.Text = Pivot.Avalonia.WorksheetView.Address(Sheet.Selected);
+        SelectionLabel.Text=$"Selection {Pivot.Avalonia.WorksheetView.Address(Sheet.SelectionFirst)}:{Pivot.Avalonia.WorksheetView.Address(Sheet.SelectionLast)} · Active {AddressLabel.Text} · Edit/Copy/Paste/Clear/Move target active cell only";
         if (draftCell is not null) { PositionEditor(); return; }
         synchronizing = true;
         FormulaEntry.Text = CellSource();
@@ -271,6 +278,7 @@ public partial class MainWindow : Window
     private void CaptureDraft()
     {
         if (draftCell is not null) return;
+        if(Sheet.HasRegion) Sheet.Select(Sheet.Selected);
         ++interactionVersion; draftCell = Sheet.Selected.Clone(); draftRevision = displayedRevision; draftOriginal = CellSource(); draftReplace = false;
     }
     private void FormulaChanged()
@@ -297,7 +305,7 @@ public partial class MainWindow : Window
     private void BeginCellEdit(bool replace, string text = "")
     {
         if (session is null || editing || fileAction || shuttingDown || !frameReady || displayedRevision.Length == 0 || session.DocumentId.Length == 0) return;
-        CaptureDraft(); inlineEditing = true;
+        Sheet.EndPointerSelection(false); CaptureDraft(); inlineEditing = true;
         synchronizing = true;
         if (replace) { FormulaEntry.Text = text; draftReplace = true; }
         CellEditor.Text = FormulaEntry.Text;
@@ -330,30 +338,49 @@ public partial class MainWindow : Window
         if (!await EditAsync(edit, draftRevision)) return false;
         CancelDraft(); UpdateDocument(); return true;
     }
-    private async Task<bool> SelectAsync(Position at)
+    private async Task<bool> SelectAsync(Position at, bool extend=false, Func<bool>? current=null)
     {
         if (editing || fileAction || shuttingDown || !await CommitAsync()) return false;
-        Sheet.Select(at);
+        if(current is not null && !current()) return false;
+        Sheet.Select(at,extend);
         uint firstRow = Sheet.FirstRow, firstColumn = Sheet.FirstColumn;
         Sheet.Reveal(at);
         if (firstRow != Sheet.FirstRow || firstColumn != Sheet.FirstColumn || displayedRevision != session?.Revision) await RefreshAsync();
+        if(current is not null && !current()) return false;
         Sheet.Focus(); return true;
     }
-    private async Task NavigateAsync(int rows, int columns)
+    private async Task NavigateAsync(int rows, int columns, bool extend=false)
     {
         var at = Sheet.Selected;
-        await SelectAsync(new Position { Row=(uint)Math.Clamp((int)at.Row+rows,1,1024), Column=(uint)Math.Clamp((int)at.Column+columns,1,1024) });
+        await SelectAsync(new Position { Row=(uint)Math.Clamp((int)at.Row+rows,1,1024), Column=(uint)Math.Clamp((int)at.Column+columns,1,1024) },extend);
     }
     private async void GridKeyDown(object? sender, KeyEventArgs e)
     {
-        if (editing || fileAction || shuttingDown || !frameReady) return;
-        if (e.Key==Key.Escape) { ++clipboardRequest; e.Handled=true; }
-        else if (e.Key is Key.F2 or Key.Enter) { BeginCellEdit(false); e.Handled=true; }
+        if(e.Key==Key.Escape && (Sheet.IsSelecting || Sheet.IsSelectionPending)) {
+            ++clipboardRequest; Sheet.EndPointerSelection(true); e.Handled=true; return;
+        }
+        if (editing || fileAction || shuttingDown) return;
+        if (e.Key==Key.Escape) {
+            ++clipboardRequest;
+            if(Sheet.IsSelecting) Sheet.EndPointerSelection(true); else Sheet.Select(Sheet.Selected);
+            e.Handled=true; return;
+        }
+        Sheet.EndPointerSelection(false);
+        if (!frameReady && (e.Key is Key.F2 or Key.Enter or Key.Delete)) return;
+        if (e.Key is Key.F2 or Key.Enter) { BeginCellEdit(false); e.Handled=true; }
         else if (e.Key == Key.Delete) { e.Handled=true; await EditAsync(new Edit { At=Sheet.Selected.Clone(), Clear=true }); }
+        else if(e.Key is Key.Home or Key.End or Key.PageUp or Key.PageDown) {
+            e.Handled=true;
+            var at=Sheet.Selected;
+            bool whole=e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+            if(e.Key is Key.Home or Key.End) await SelectAsync(new Position {Row=whole ? (e.Key==Key.Home ? 1u : 1024u) : at.Row, Column=e.Key==Key.Home ? 1u : 1024u},e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            else await NavigateAsync(e.Key==Key.PageUp ? -Sheet.VisibleRows : Sheet.VisibleRows,0,e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+        }
         else if (e.Key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Tab) {
             e.Handled=true;
             await NavigateAsync(e.Key==Key.Up ? -1 : e.Key==Key.Down ? 1 : 0,
-                e.Key==Key.Left || (e.Key==Key.Tab && e.KeyModifiers.HasFlag(KeyModifiers.Shift)) ? -1 : e.Key is Key.Right or Key.Tab ? 1 : 0);
+                e.Key==Key.Left || (e.Key==Key.Tab && e.KeyModifiers.HasFlag(KeyModifiers.Shift)) ? -1 : e.Key is Key.Right or Key.Tab ? 1 : 0,
+                e.Key!=Key.Tab && e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         }
     }
     private void GridTextInput(object? sender, TextInputEventArgs e)
@@ -388,6 +415,76 @@ public partial class MainWindow : Window
         void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
         Position P(uint r, uint c) => new() { Row = r, Column = c };
         var timings = new System.Collections.Generic.List<object>();
+        var mouse=new Pointer(987,PointerType.Mouse,true);
+        var held=new PointerPointProperties(global::Avalonia.Input.RawInputModifiers.LeftMouseButton,PointerUpdateKind.LeftButtonPressed);
+        var released=new PointerPointProperties(global::Avalonia.Input.RawInputModifiers.None,PointerUpdateKind.LeftButtonReleased);
+        async Task Press(Position at,KeyModifiers modifiers=KeyModifiers.None,int clicks=1) {
+            Sheet.RaiseEvent(new PointerPressedEventArgs(Sheet,mouse,this,Sheet.TranslatePoint(Sheet.CellBounds(at).Center,this)!.Value,0,held,modifiers,clicks));
+            await WaitFor(()=>Sheet.Selected.Row==at.Row && Sheet.Selected.Column==at.Column);
+        }
+        void MovePointer(Point point) => Sheet.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent,Sheet,mouse,this,Sheet.TranslatePoint(point,this)!.Value,0,held,KeyModifiers.None));
+        void ReleasePointer(Point point) => Sheet.RaiseEvent(new PointerReleasedEventArgs(Sheet,mouse,this,Sheet.TranslatePoint(point,this)!.Value,0,released,KeyModifiers.None,MouseButton.Left));
+        string selectionRevision=session!.Revision;bool selectionDirty=session.IsDirty;
+        await SelectAsync(P(2,2));
+        Key(Sheet,global::Avalonia.Input.Key.Right,KeyModifiers.Shift);
+        Key(Sheet,global::Avalonia.Input.Key.Down,KeyModifiers.Shift);
+        Check(Sheet.Anchor.Row==2 && Sheet.Anchor.Column==2 && Sheet.Selected.Row==3 && Sheet.Selected.Column==3,"Shift arrows preserve anchor and extend active corner");
+        await Press(P(2,2));MovePointer(Sheet.CellBounds(P(5,4)).Center);ReleasePointer(Sheet.CellBounds(P(5,4)).Center);
+        Check(Sheet.SelectionFirst.Row==2 && Sheet.SelectionLast.Row==5 && Sheet.SelectionLast.Column==4 && !Sheet.IsSelecting,"Routed drag selects B2:D5 and releases capture");
+        await Press(P(7,6),KeyModifiers.Shift);ReleasePointer(Sheet.CellBounds(P(7,6)).Center);
+        Check(Sheet.Anchor.Row==2 && Sheet.Anchor.Column==2 && Sheet.Selected.Row==7 && Sheet.Selected.Column==6,"Shift click extends from prior anchor");
+        await Press(P(3,3));MovePointer(Sheet.CellBounds(P(6,5)).Center);Key(Sheet,global::Avalonia.Input.Key.Escape);
+        Check(Sheet.Anchor.Row==2 && Sheet.Anchor.Column==2 && Sheet.Selected.Row==7 && Sheet.Selected.Column==6 && !Sheet.IsSelecting,"Escape restores pre-drag selection");
+        await Press(P(2,2));MovePointer(Sheet.CellBounds(P(4,3)).Center);mouse.Capture(null);
+        Check(!Sheet.IsSelecting && Sheet.Selected.Row==4 && Sheet.Selected.Column==3,"Lost capture stops drag and retains last selection");
+        int initialRows=Sheet.VisibleRows;
+        await Press(P((uint)initialRows,9));
+        MovePointer(new Point(Sheet.Bounds.Width+20,Sheet.CellBounds(P((uint)initialRows,1)).Bottom+30));
+        await WaitFor(()=>Sheet.FirstRow>=3 && Sheet.FirstColumn>=2);
+        Check(Sheet.Selected.Row>(uint)initialRows && Sheet.Selected.Column>10,"Captured extension auto-scrolls both axes");
+        Key(Sheet,global::Avalonia.Input.Key.Escape);Check(!Sheet.IsSelecting,"Escape stops auto-scroll even with a pending viewport");await RefreshAsync();
+        Sheet.Scroll(-5000,-5000);await RefreshAsync();await SelectAsync(P(3,3));
+        Key(Sheet,global::Avalonia.Input.Key.End,KeyModifiers.Shift);await WaitFor(()=>Sheet.Selected.Column==1024);await RefreshAsync();
+        Check(Sheet.Anchor.Column==3 && Sheet.SelectionLast.Column==1024,"Shift End extends to bounded row end");
+        Key(Sheet,global::Avalonia.Input.Key.Home);await WaitFor(()=>Sheet.Selected.Column==1);await RefreshAsync();
+        Check(!Sheet.HasRegion && Sheet.Selected.Row==3,"Home collapses selection at column one");
+        Key(Sheet,global::Avalonia.Input.Key.End,KeyModifiers.Control);await WaitFor(()=>Sheet.Selected.Row==1024 && Sheet.Selected.Column==1024);await RefreshAsync();
+        Check(Sheet.FirstRow+(uint)Sheet.VisibleRows-1==1024 && Sheet.FirstColumn+9==1024,"Whole-sheet End reveals bounded bottom-right cell");
+        Key(Sheet,global::Avalonia.Input.Key.Home,KeyModifiers.Control);await WaitFor(()=>Sheet.Selected.Row==1 && Sheet.Selected.Column==1);await RefreshAsync();
+        Key(Sheet,global::Avalonia.Input.Key.PageDown,KeyModifiers.Shift);await RefreshAsync();
+        Check(Sheet.Anchor.Row==1 && Sheet.Selected.Row==(uint)Sheet.VisibleRows+1,"Shift PageDown extends by visible rows");
+        Sheet.Scroll(-5000,-5000);await RefreshAsync();await SelectAsync(P(2,2));await SelectAsync(P(5,4),true);
+        var anchorBefore=Sheet.Anchor;var activeBefore=Sheet.Selected;
+        Height+=40;await Task.Delay(60);await RefreshAsync();Height-=40;await Task.Delay(60);await RefreshAsync();
+        MoveTarget.Focus();UpdateFocusAppearance();
+        Check(!Sheet.ActiveFocus && Sheet.Anchor.Equals(anchorBefore) && Sheet.Selected.Equals(activeBefore),"Resize, refresh and focus preserve rectangle");
+        Sheet.Focus();UpdateFocusAppearance();
+        using(var selectionImage=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height))) {
+            selectionImage.Render(this);selectionImage.Save(Path.ChangeExtension(report,"selection.png"),PngBitmapEncoderOptions.Default);
+        }
+        Check(session.Revision==selectionRevision && session.IsDirty==selectionDirty,"Selection-only mouse/keyboard/viewport actions do not mutate workbook or dirty state");
+        var selectionFrame=await session.ReadAsync(P(1,1),P(1,1));
+        Check(selectionFrame.SelectionStats.Selections==0 && selectionFrame.SelectionStats.Points==0,"UI rectangles allocate no computational selections or content");
+        var selectionRead=new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var selectionPaste=ClipboardAsync(true,()=>selectionRead.Task);Sheet.Select(Sheet.Selected);
+        selectionRead.SetResult("77");await selectionPaste;
+        Check(session.Revision==selectionRevision && draftCell is null,"Changing only the rectangular extent invalidates a late clipboard read");
+        await SelectAsync(P(2,2));await SelectAsync(P(5,4),true);Key(Sheet,global::Avalonia.Input.Key.F2);
+        Check(!Sheet.HasRegion && draftCell?.Row==5 && draftCell.Column==4,"Editing collapses rectangle to the active cell without a model mutation");CancelDraft();
+        Check(session.Revision==selectionRevision,"Editor transition alone leaves model unchanged");
+        BeginCellEdit(true,"3");
+        Sheet.RaiseEvent(new PointerPressedEventArgs(Sheet,mouse,this,Sheet.TranslatePoint(Sheet.CellBounds(P(2,2)).Center,this)!.Value,0,held,KeyModifiers.None,1));
+        Key(Sheet,global::Avalonia.Input.Key.Escape);
+        await WaitFor(()=>!editing && draftCell is null);
+        Check(Sheet.Selected.Row==5 && Sheet.Selected.Column==4 && !Sheet.IsSelecting,"Escape invalidates pending pointer selection after asynchronous edit commit");
+        Check(WorkbookSession.Decode(Sheet.CellAt(P(5,4))!.Value)==3m,"Cancelling selection does not pretend to undo an already dispatched cell edit");
+        BeginCellEdit(true,"4");
+        Sheet.RaiseEvent(new PointerPressedEventArgs(Sheet,mouse,this,Sheet.TranslatePoint(Sheet.CellBounds(P(2,2)).Center,this)!.Value,0,held,KeyModifiers.None,1));
+        ReleasePointer(Sheet.CellBounds(P(2,2)).Center);
+        await WaitFor(()=>!editing && draftCell is null && Sheet.Selected.Row==2 && Sheet.Selected.Column==2);
+        Check(!Sheet.IsSelecting && WorkbookSession.Decode(Sheet.CellAt(P(5,4))!.Value)==4m,"Normal release preserves a pending click after committing the previous edit");
+        await EditAsync(new Edit{At=P(5,4),Clear=true});
+        await SelectAsync(P(1,1));
         var nativeClipboard=Clipboard ?? throw new InvalidOperationException("Native clipboard is unavailable");
         // Preserve the user clipboard where it contains text; non-text formats are not copied by this check.
         string? previousClipboard=await nativeClipboard.TryGetTextAsync();
@@ -575,7 +672,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { status="passed", backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, explicit multi-cell rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, new JsonSerializerOptions { WriteIndented=true }));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { status="passed", backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, explicit multi-cell rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, new JsonSerializerOptions { WriteIndented=true }));
         allowClose = true; Close();
     }
 }

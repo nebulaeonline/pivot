@@ -1,6 +1,25 @@
 # Linux and macOS validation
 
-## Current: direct single-cell paste — ready for review
+## Current: rectangular worksheet selection — ready for review
+
+[Interaction specification and evidence](handoffs/2026-10-20-rectangular-selection.md),
+[fresh native APFS report](../artifacts/macos-validation-20261020T222305Z/REPORT.md).
+Windows/Linux/native Mac full CI passes (290/291/291 default Rust tests), with
+actual-window capture/drag, navigation, auto-scroll, cancellation and editor checks
+and zero-charge close. Mac strict all-feature lint and 307 all-feature tests pass.
+Pure UI selection leaves Rust revision/dirty state unchanged and creates no graph
+selections or content. All 327 copied Mac source hashes and 168 reference build
+inputs match; 368 returned reports are transfer-verified, without product fixes,
+setup failures or gate reruns. Native source/builds/tests used internal APFS.
+
+Windows/WSLg manual checks passed per user confirmation. The Mac report's final
+user-reported manual acceptance supersedes its earlier pending notes. Rectangular
+cut/copy/paste is absent as expected and remains future scope; clipboard commands
+still target the active cell. No additional Fn/IME/clipboard-manager coverage is
+inferred. Static PNGs show active selection, not an independent visual certification
+of gray inactive state. Prior platform/filesystem defects remain unresolved.
+
+## Accepted: direct single-cell paste
 
 Windows/Linux/native Mac full CI passes (290/291/291 default Rust tests), with final
 actual-window paste checks and zero-charge close. Mac also passes strict all-feature

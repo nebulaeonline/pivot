@@ -2,7 +2,22 @@
 
 Date: 2026-10-20
 
-Current work: **Direct single-cell paste commit — ready for parent review**.
+Current work: **Rectangular Worksheet Selection and Navigation — ready for parent review**.
+Anchor/active/extent live only in C# UI state. Drag and Shift extension, bounded
+keyboard navigation, auto-scroll and active/region/inactive visuals are implemented.
+Selection-only checks leave Rust revisions/dirty state unchanged and create no
+computational selections or worksheet content. Editing/clipboard still target the
+active cell only. [Interaction specification and checks](handoffs/2026-10-20-rectangular-selection.md),
+[fresh APFS packet](handoffs/2026-10-20-macos-rectangular-selection-instructions.md).
+Windows/Linux/native Mac full CI (290/291/291 default Rust tests) and actual-window
+checks pass with zero-charge cleanup. Mac strict all-feature lint and 307 all-feature
+tests pass. All 327 Mac copied source hashes and 168 reference build inputs match;
+368 returned reports are transfer-verified without fixes/reruns. User-confirmed
+manual tests pass on all three platforms. Rectangular cut/copy/paste is deliberately
+not implemented; selection/navigation and active-cell operations are the current
+scope. Parent implementation acceptance remains pending.
+
+Latest accepted milestone: **Direct single-cell paste commit — accepted; workstream closed**.
 Grid paste submits immediately through Rust and retains selection; editor/formula-bar
 paste remains uncommitted text insertion. Invalid numbers/conflicts retain a
 correctable draft; late/cancelled clipboard reads do not overwrite newer state.
@@ -13,9 +28,15 @@ checks pass with zero-charge cleanup. Mac strict all-feature lint and 307 all-fe
 tests pass. All 324 copied Mac source hashes and 168 build inputs match; 367 returned
 reports are transfer-verified, with no fixes/reruns. The user confirms manual
 functionality across all three platforms works as intended. Broader paste features
-remain future scope; this correction is not yet accepted by parent review. No engine, protocol, WB2 or capacity changes are included.
+remain future scope. The parent review received 2026-10-20 accepts this correction.
+[Acceptance and next scope](handoffs/2026-10-20-direct-paste-review.md). No engine,
+protocol, WB2 or capacity changes are included.
 
-Latest accepted milestone: **In-place worksheet editing — accepted; workstream closed**.
+The accepted review selected **Rectangular Worksheet Selection and Navigation** next.
+The user authorized implementation; see current work above. Multi-cell clipboard,
+copy/fill and reference translation remain outside this scope.
+
+Accepted preceding milestone: **In-place worksheet editing — accepted; workstream closed**.
 [Review packet](handoffs/2026-10-20-in-place-editing-review-packet.md),
 [implementation and checks](handoffs/2026-10-20-in-place-editing.md).
 The editor, synchronized formula bar, clipboard commands and focus/caret feedback

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Pivot.Client;
 using Pivot.Protocol.Application.V1;
 
@@ -25,13 +26,28 @@ public sealed class WorksheetView : Control
     public uint FirstRow { get; private set; } = 1;
     public uint FirstColumn { get; private set; } = 1;
     public int VisibleRows => Math.Clamp((int)(Bounds.Height / HeightPerCell) - 1, 1, Rows);
-    public Position Selected { get; private set; } = new() { Row = 1, Column = 1 };
+    private Position active = new() { Row=1, Column=1 }, anchor = new() { Row=1, Column=1 };
+    public Position Selected => active.Clone();
+    public Position Anchor => anchor.Clone();
+    public Position SelectionFirst => new() { Row=Math.Min(anchor.Row,active.Row), Column=Math.Min(anchor.Column,active.Column) };
+    public Position SelectionLast => new() { Row=Math.Max(anchor.Row,active.Row), Column=Math.Max(anchor.Column,active.Column) };
+    public bool HasRegion => anchor.Row!=active.Row || anchor.Column!=active.Column;
+    private readonly DispatcherTimer dragTimer = new() { Interval=TimeSpan.FromMilliseconds(75) };
+    private IPointer? dragPointer;
+    private Point dragPoint;
+    private bool dragReady, selectionPending;
+    private long gesture;
+    private Position previousAnchor = new() { Row=1,Column=1 }, previousActive = new() { Row=1,Column=1 };
+    public bool IsSelecting => dragPointer is not null;
+    public bool IsSelectionPending => selectionPending;
     public event Action? ViewportChanged;
     public event Action? SelectionChanged;
-    public event Action<Position, bool>? CellPressed;
+    public Func<Position, bool, bool, Func<bool>, Task<bool>>? SelectionRequested { get; set; }
     public Cell? SelectedCell => cells.GetValueOrDefault((Selected.Row, Selected.Column));
     public WorksheetView() {
         MinHeight = 260; MaxHeight = (Rows + 1) * HeightPerCell; MinWidth = Header + Columns * WidthPerCell; Focusable = true; ClipToBounds = true;
+        dragTimer.Tick += (_, _) => UpdateDrag();
+        DetachedFromVisualTree += (_, _) => EndPointerSelection(false);
         SizeChanged += (_, _) => {
             FirstRow = Math.Min(FirstRow, (uint)(1025 - VisibleRows));
             cells.Clear(); ViewportChanged?.Invoke();
@@ -60,15 +76,73 @@ public sealed class WorksheetView : Control
         else Scroll(e.Delta.Y > 0 ? -3 : 3);
         e.Handled = true;
     }
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    private Position PositionAt(Point point) => new() {
+        Row=(uint)Math.Clamp((int)FirstRow+(int)Math.Floor(point.Y/HeightPerCell)-1,1,1024),
+        Column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,1024)
+    };
+    protected override async void OnPointerPressed(PointerPressedEventArgs e)
     {
-        base.OnPointerPressed(e); var p = e.GetPosition(this);
-        int c = (int)Math.Floor((p.X - Header) / WidthPerCell), r = (int)Math.Floor(p.Y / HeightPerCell) - 1;
-        if (c is < 0 or >= Columns || r < 0 || r >= VisibleRows) return;
-        Focus();
-        CellPressed?.Invoke(new Position { Row = FirstRow + (uint)r, Column = FirstColumn + (uint)c }, e.ClickCount == 2); e.Handled = true;
+        base.OnPointerPressed(e);
+        var point=e.GetPosition(this);
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || point.X<Header || point.X>=Header+Columns*WidthPerCell
+            || point.Y<HeightPerCell || point.Y>=(VisibleRows+1)*HeightPerCell) return;
+        EndPointerSelection(false);
+        previousAnchor=Anchor; previousActive=Selected;
+        long current=++gesture;
+        dragPointer=e.Pointer; dragPoint=point; dragReady=false;
+        e.Pointer.Capture(this); Focus(); e.Handled=true;
+        bool extend=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        bool doubleClick=e.ClickCount==2 && !extend;
+        selectionPending=true;
+        bool accepted=SelectionRequested is not null && await SelectionRequested(PositionAt(point),extend,doubleClick,()=>gesture==current);
+        if(gesture==current) selectionPending=false;
+        if (gesture!=current || dragPointer!=e.Pointer) return;
+        if (!accepted || doubleClick) { EndPointerSelection(false); return; }
+        dragReady=true; UpdateDrag(); dragTimer.Start();
     }
-    public void Select(Position at) { Selected = at.Clone(); InvalidateVisual(); SelectionChanged?.Invoke(); }
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        if (dragPointer!=e.Pointer) return;
+        dragPoint=e.GetPosition(this); if(dragReady) UpdateDrag(); e.Handled=true;
+    }
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        if (dragPointer!=e.Pointer || e.InitialPressMouseButton!=MouseButton.Left) return;
+        dragPoint=e.GetPosition(this); if(dragReady) UpdateDrag();
+        EndPointerSelection(false,true); e.Handled=true;
+    }
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e); if(dragPointer is not null) EndPointerSelection(false);
+    }
+    private void UpdateDrag()
+    {
+        if (!dragReady || dragPointer is null) return;
+        int rows=dragPoint.Y<HeightPerCell ? -1 : dragPoint.Y>=(VisibleRows+1)*HeightPerCell ? 1 : 0;
+        int columns=dragPoint.X<Header ? -1 : dragPoint.X>=Header+Columns*WidthPerCell ? 1 : 0;
+        Scroll(rows,columns);
+        // Beyond-edge distance must not create a large coordinate jump per tick.
+        var clamped=new Point(Math.Clamp(dragPoint.X,Header,Header+Columns*WidthPerCell-1),
+            Math.Clamp(dragPoint.Y,HeightPerCell,(VisibleRows+1)*HeightPerCell-1));
+        Select(PositionAt(clamped),true);
+    }
+    public void EndPointerSelection(bool cancel, bool allowPending=false)
+    {
+        var pointer=dragPointer; bool restore=cancel && (pointer is not null || selectionPending);
+        dragPointer=null; dragReady=false; dragTimer.Stop();
+        if(!allowPending) { ++gesture; selectionPending=false; }
+        pointer?.Capture(null);
+        if(restore) { anchor=previousAnchor.Clone(); active=previousActive.Clone(); InvalidateVisual(); SelectionChanged?.Invoke(); Reveal(active); }
+    }
+    public void Select(Position at, bool extend=false)
+    {
+        if(at.Row is <1 or >1024 || at.Column is <1 or >1024) throw new ArgumentOutOfRangeException(nameof(at));
+        if(!extend) anchor=at.Clone();
+        if(active.Row==at.Row && active.Column==at.Column && extend) return;
+        active=at.Clone(); InvalidateVisual(); SelectionChanged?.Invoke();
+    }
     public Rect CellBounds(Position at) => new(Header + ((int)at.Column - FirstColumn) * WidthPerCell,
         (1 + (int)at.Row - FirstRow) * HeightPerCell, WidthPerCell, HeightPerCell);
     public bool IsVisibleCell(Position at) => at.Row >= FirstRow && at.Row < FirstRow + VisibleRows
@@ -81,13 +155,16 @@ public sealed class WorksheetView : Control
         base.Render(context);
         var border = new Pen(Brushes.LightGray, 1);
         context.FillRectangle(Brushes.White, new Rect(Bounds.Size));
+        var first=SelectionFirst; var last=SelectionLast;
         for (int row = -1; row < VisibleRows; row++) for (int col = -1; col < Columns; col++) {
             double x = col < 0 ? 0 : Header + col * WidthPerCell;
             double y = (row + 1) * HeightPerCell;
             var rect = new Rect(x, y, col < 0 ? Header : WidthPerCell, HeightPerCell);
             uint r = FirstRow + (uint)Math.Max(row, 0), c = FirstColumn + (uint)Math.Max(col, 0);
-            bool selected = row >= 0 && col >= 0 && r == Selected.Row && c == Selected.Column;
-            context.DrawRectangle(row < 0 || col < 0 ? Brushes.WhiteSmoke : selected && ActiveFocus ? Brushes.AliceBlue : Brushes.White, selected ? new Pen(ActiveFocus ? Brushes.DodgerBlue : Brushes.SlateGray, 2) : border, rect);
+            bool selected = row >= 0 && col >= 0 && r == active.Row && c == active.Column;
+            bool region = row >= 0 && col >= 0 && r>=first.Row && r<=last.Row && c>=first.Column && c<=last.Column;
+            var fill=row<0 || col<0 ? Brushes.WhiteSmoke : selected ? Brushes.White : region ? ActiveFocus ? Brushes.AliceBlue : Brushes.WhiteSmoke : Brushes.White;
+            context.DrawRectangle(fill, selected ? new Pen(ActiveFocus ? Brushes.DodgerBlue : Brushes.SlateGray,2) : border,rect);
             string text = ""; IBrush ink = Brushes.Black;
             if (row < 0 && col >= 0) text = Address(new Position { Row = 1, Column = c }).TrimEnd('1');
             else if (row >= 0 && col < 0) text = r.ToString(CultureInfo.InvariantCulture);
@@ -97,6 +174,11 @@ public sealed class WorksheetView : Control
             }
             using (context.PushClip(rect.Deflate(3)))
                 context.DrawText(new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Inter"), 13, ink), new Point(x + 5, y + 4));
+        }
+        if(HasRegion) {
+            var begin=CellBounds(first); var end=CellBounds(last);
+            using(context.PushClip(new Rect(Header,HeightPerCell,Columns*WidthPerCell,VisibleRows*HeightPerCell)))
+                context.DrawRectangle(null,new Pen(ActiveFocus ? Brushes.DodgerBlue : Brushes.SlateGray,1),new Rect(begin.TopLeft,end.BottomRight));
         }
         if (awaitingPaint) { awaitingPaint = false; paint?.TrySetResult(Stopwatch.GetElapsedTime(paintStart)); }
     }

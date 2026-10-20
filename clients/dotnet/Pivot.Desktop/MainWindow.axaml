@@ -31,7 +31,8 @@
         <TextBox x:Name="MoveTarget" Width="100" PlaceholderText="Move to B22" />
         <Button x:Name="MoveButton" Content="Move selected" Click="MoveClick" />
       </StackPanel>
-      <TextBlock Text="Type to replace · F2/double-click to edit · Enter/Tab to commit · Escape to cancel" />
+      <TextBlock x:Name="SelectionLabel" FontSize="11" TextWrapping="Wrap" />
+      <TextBlock Text="Drag or Shift+click/arrows to select · Type to replace · F2/double-click to edit · Enter/Tab to commit · Escape to cancel" />
     </StackPanel>
     <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" Spacing="5">
       <TextBlock x:Name="StatusLabel" Text="Starting Rust session…" TextWrapping="Wrap" />

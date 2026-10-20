@@ -296,6 +296,39 @@ impl Session {
             return Err("expected-state conflict".into());
         }
         match operation {
+            Op::CopyBlock => {
+                let rectangle = Rectangle {
+                    first: pos(q.first.as_ref())?,
+                    last: pos(q.last.as_ref())?,
+                };
+                let copied = book
+                    .copy_block(book.expected(), rectangle)
+                    .map_err(|e| e.to_string())?;
+                r.clipboard = copied.native;
+                r.clipboard_text = copied.text;
+            }
+            Op::PasteBlock => {
+                let rectangle = Rectangle {
+                    first: pos(q.first.as_ref())?,
+                    last: pos(q.last.as_ref())?,
+                };
+                let before = book.expected();
+                let pasted = book
+                    .paste_block(
+                        before,
+                        rectangle,
+                        &q.clipboard,
+                        q.native_clipboard,
+                        &Default::default(),
+                    )
+                    .map_err(|e| e.to_string())?;
+                if book.expected() != before {
+                    self.revision = Uuid::new_v4().to_string();
+                }
+                r.revision = self.revision.clone();
+                r.pasted_first = Some(location(pasted.first));
+                r.pasted_last = Some(location(pasted.last));
+            }
             Op::Apply => {
                 if q.edits.is_empty() || q.edits.len() > 256 {
                     return Err("1..256 edits required".into());

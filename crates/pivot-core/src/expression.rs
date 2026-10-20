@@ -11,10 +11,14 @@ pub enum Expr {
         first: (u32, u32),
         last: (u32, u32),
         span: std::ops::Range<usize>,
+        first_reference: ReferenceSyntax,
+        last_reference: ReferenceSyntax,
     },
     CellReference {
         row: u32,
         column: u32,
+        absolute_row: bool,
+        absolute_column: bool,
         span: std::ops::Range<usize>,
     },
     Unary {
@@ -26,6 +30,15 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
+}
+/// Copy-axis flags and exact UTF-8 source span for one spreadsheet address.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReferenceSyntax {
+    pub row: u32,
+    pub column: u32,
+    pub absolute_row: bool,
+    pub absolute_column: bool,
+    pub span: std::ops::Range<usize>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnaryOp {
@@ -63,35 +76,51 @@ pub fn parse(source: &str) -> Result<Expr, ParseError> {
 pub fn parse_spreadsheet(source: &str) -> Result<Expr, ParseError> {
     parse_mode(source, true)
 }
+/// Bounded parser work, including attempts made before a syntax error.
+/// Parenthesized subexpressions count conservatively as additional work.
+pub fn parse_spreadsheet_counted(source: &str) -> (Result<Expr, ParseError>, usize) {
+    parse_mode_counted(source, true)
+}
 fn parse_mode(source: &str, spreadsheet: bool) -> Result<Expr, ParseError> {
+    parse_mode_counted(source, spreadsheet).0
+}
+fn parse_mode_counted(source: &str, spreadsheet: bool) -> (Result<Expr, ParseError>, usize) {
     if source.len() > 4096 {
-        return Err(ParseError {
-            offset: 4096,
-            message: "expression too long",
-        });
+        return (
+            Err(ParseError {
+                offset: 4096,
+                message: "expression too long",
+            }),
+            0,
+        );
     }
     let mut p = Parser {
         source,
         pos: 0,
         spreadsheet,
+        work: 0,
     };
-    if spreadsheet {
-        p.space();
-        if p.peek() == Some(b'=') {
-            p.pos += 1;
+    let result = (|| {
+        if spreadsheet {
+            p.space();
+            if p.peek() == Some(b'=') {
+                p.pos += 1;
+            }
         }
-    }
-    let result = p.expr(0, 0)?;
-    p.space();
-    if p.pos != source.len() {
-        return Err(p.error("unexpected trailing input"));
-    }
-    Ok(result)
+        let result = p.expr(0, 0)?;
+        p.space();
+        if p.pos != source.len() {
+            return Err(p.error("unexpected trailing input"));
+        }
+        Ok(result)
+    })();
+    (result, p.work)
 }
 struct Parser<'a> {
     source: &'a str,
     pos: usize,
     spreadsheet: bool,
+    work: usize,
 }
 impl Parser<'_> {
     fn error(&self, message: &'static str) -> ParseError {
@@ -108,33 +137,76 @@ impl Parser<'_> {
             self.pos += 1;
         }
     }
-    fn range_cell(&mut self) -> Result<(u32, u32), ParseError> {
+    fn range_cell(&mut self) -> Result<ReferenceSyntax, ParseError> {
         self.space();
         let start = self.pos;
+        let absolute_column = self.peek() == Some(b'$');
+        if absolute_column {
+            self.pos += 1;
+        }
+        let letters = self.pos;
         let mut column = 0u32;
         while let Some(b) = self.peek().filter(u8::is_ascii_alphabetic) {
             column = column
                 .checked_mul(26)
                 .and_then(|c| c.checked_add((b.to_ascii_uppercase() - b'A' + 1).into()))
-                .ok_or_else(|| self.error("invalid cell reference"))?;
+                .ok_or(ParseError {
+                    offset: start,
+                    message: "invalid cell reference",
+                })?;
             self.pos += 1;
         }
-        let split = self.pos;
-        if split == start || self.peek() == Some(b'0') {
-            return Err(self.error("invalid cell reference"));
+        if self.pos == letters {
+            return Err(ParseError {
+                offset: start,
+                message: "invalid cell reference",
+            });
+        }
+        let absolute_row = self.peek() == Some(b'$');
+        if absolute_row {
+            self.pos += 1;
+        }
+        let digits = self.pos;
+        if self.peek() == Some(b'0') {
+            return Err(ParseError {
+                offset: start,
+                message: "invalid cell reference",
+            });
         }
         while self.peek().is_some_and(|b| b.is_ascii_digit()) {
             self.pos += 1;
         }
-        let row = self.source[split..self.pos]
+        let row = self.source[digits..self.pos]
             .parse::<u32>()
-            .map_err(|_| self.error("invalid cell reference"))?;
+            .map_err(|_| ParseError {
+                offset: start,
+                message: "invalid cell reference",
+            })?;
         if row == 0 {
-            return Err(self.error("invalid cell reference"));
+            return Err(ParseError {
+                offset: start,
+                message: "invalid cell reference",
+            });
         }
-        Ok((row, column))
+        if self
+            .peek()
+            .is_some_and(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err(ParseError {
+                offset: start,
+                message: "invalid cell reference",
+            });
+        }
+        Ok(ReferenceSyntax {
+            row,
+            column,
+            absolute_row,
+            absolute_column,
+            span: start..self.pos,
+        })
     }
     fn expr(&mut self, min: u8, depth: usize) -> Result<Expr, ParseError> {
+        self.work += 1;
         if depth >= 64 {
             return Err(self.error("expression nesting too deep"));
         }
@@ -181,7 +253,9 @@ impl Parser<'_> {
                     })?;
                 Expr::Decimal(value)
             }
-            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') => {
+            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') | Some(b'$')
+                if self.spreadsheet || self.peek() != Some(b'$') =>
+            {
                 let start = self.pos;
                 while self
                     .peek()
@@ -208,32 +282,21 @@ impl Parser<'_> {
                     }
                     self.pos += 1;
                     Expr::SumRange {
-                        first,
-                        last,
+                        first: (first.row, first.column),
+                        last: (last.row, last.column),
                         span: start..self.pos,
+                        first_reference: first,
+                        last_reference: last,
                     }
                 } else if self.spreadsheet {
-                    let text = &self.source[start..self.pos];
-                    let split = text.bytes().take_while(u8::is_ascii_alphabetic).count();
-                    let invalid = || ParseError {
-                        offset: start,
-                        message: "invalid cell reference",
-                    };
-                    if split == 0 || split == text.len() || text.as_bytes()[split] == b'0' {
-                        return Err(invalid());
-                    }
-                    let mut column = 0u32;
-                    for b in text[..split].bytes() {
-                        column = column
-                            .checked_mul(26)
-                            .and_then(|n| n.checked_add((b.to_ascii_uppercase() - b'A' + 1) as u32))
-                            .ok_or_else(invalid)?;
-                    }
-                    let row = text[split..].parse::<u32>().map_err(|_| invalid())?;
+                    self.pos = start;
+                    let reference = self.range_cell()?;
                     Expr::CellReference {
-                        row,
-                        column,
-                        span: start..self.pos,
+                        row: reference.row,
+                        column: reference.column,
+                        absolute_row: reference.absolute_row,
+                        absolute_column: reference.absolute_column,
+                        span: reference.span,
                     }
                 } else {
                     Expr::Name(self.source[start..self.pos].to_owned())
@@ -254,6 +317,7 @@ impl Parser<'_> {
                 break;
             }
             self.pos += 1;
+            self.work += 1;
             let right = self.expr(power + 1, depth + 1)?;
             left = Expr::Binary {
                 op,
@@ -356,5 +420,65 @@ mod tests {
         assert!(parse(&"-".repeat(100)).is_err());
         assert!(parse(&format!("{}1{}", "(".repeat(100), ")".repeat(100))).is_err());
         assert!(parse(&"1".repeat(4097)).is_err());
+    }
+}
+
+#[cfg(test)]
+mod copy_syntax_tests {
+    use super::*;
+    #[test]
+    fn scalar_axes_and_exact_spans() {
+        for (text, row_lock, column_lock) in [
+            ("A2", false, false),
+            ("$A2", false, true),
+            ("A$2", true, false),
+            ("$A$2", true, true),
+        ] {
+            let source = format!("=  {text} + 1");
+            let Expr::Binary { left, .. } = parse_spreadsheet(&source).unwrap() else {
+                panic!()
+            };
+            let Expr::CellReference {
+                row,
+                column,
+                absolute_row,
+                absolute_column,
+                span,
+            } = *left
+            else {
+                panic!()
+            };
+            assert_eq!(
+                (row, column, absolute_row, absolute_column),
+                (2, 1, row_lock, column_lock)
+            );
+            assert_eq!(&source[span], text);
+            assert!(parse(&source).is_err());
+        }
+        for invalid in [
+            "=$A", "=A$", "=$$A1", "=A$$1", "=$A$0", "=$A$01", "=A1$", "=$1",
+        ] {
+            assert!(parse_spreadsheet(invalid).is_err(), "{invalid}");
+        }
+        assert_eq!(parse("A1").unwrap(), Expr::Name("A1".into()));
+    }
+    #[test]
+    fn range_endpoints_keep_orientation_axes_and_spans() {
+        let source = "=sum( a$3 : $B$1 )";
+        let Expr::SumRange {
+            first,
+            last,
+            first_reference,
+            last_reference,
+            ..
+        } = parse_spreadsheet(source).unwrap()
+        else {
+            panic!()
+        };
+        assert_eq!((first, last), ((3, 1), (1, 2)));
+        assert_eq!(&source[first_reference.span], "a$3");
+        assert_eq!(&source[last_reference.span], "$B$1");
+        assert!(first_reference.absolute_row && !first_reference.absolute_column);
+        assert!(last_reference.absolute_row && last_reference.absolute_column);
     }
 }

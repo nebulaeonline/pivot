@@ -7,6 +7,14 @@ References below to future/unimplemented SUM describe the earlier design state;
 SUM and WB2 are now implemented and validated on Windows, Linux and native macOS.
 
 
+Current clipboard semantics are governed by [ADR-0017](../adr/0017-rectangular-clipboard-and-formula-copy.md)
+and the [implementation handoff](../handoffs/2026-10-20-rectangular-clipboard.md).
+Dollar-axis parsing, effective-binding native scalar/SUM copy, literal external TSV,
+one bounded atomic paste and the WB3 format cut are now implemented; fresh Mac/manual
+validation and parent implementation acceptance remain pending. WB1/WB2 readers are
+not retained. Future/unimplemented statements below are historical design context.
+
+
 Status: Semantic candidates under accepted ADR-0010 architecture, not compatibility
 contracts. Same-sheet scalar A1 parsing/binding is implemented in
 [Slice B](spreadsheet-scalar-formulas.md). Copy/fill, extended reference syntax,

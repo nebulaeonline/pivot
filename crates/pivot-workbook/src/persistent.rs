@@ -404,11 +404,25 @@ impl Transaction<'_> {
                     self.set(id, content)?;
                 }
             }
-            Edit::SetFormulaText { position, source } => {
+            Edit::SetFormulaText { position, source }
+            | Edit::PreserveRejectedFormula { position, source } => {
                 self.book.axes_at(*position)?;
                 let parse_profile = profile::scope(4);
-                let parsed = expression::parse_spreadsheet(source);
-                let (mut tokens, references, diagnostic) = self.book.lower_text(&parsed);
+                let parsed = if matches!(edit, Edit::PreserveRejectedFormula { .. }) {
+                    Err(ParseError {
+                        offset: 0,
+                        message: clipboard::PRESERVED_REJECTION,
+                    })
+                } else {
+                    expression::parse_spreadsheet(source)
+                };
+                let (mut tokens, references, mut diagnostic) = self.book.lower_text(&parsed);
+                if matches!(edit, Edit::PreserveRejectedFormula { .. }) {
+                    diagnostic = Some(ParseError {
+                        offset: 0,
+                        message: clipboard::PRESERVED_REJECTION,
+                    });
+                }
                 drop(parse_profile);
                 if tokens.len() > self.book.limits.formula_tokens {
                     return Err(Error::Limit);
@@ -560,7 +574,7 @@ fn apply(
     let mut work = edits.len().saturating_mul(512);
     for edit in edits {
         match edit {
-            Edit::SetFormulaText { source, .. } => {
+            Edit::SetFormulaText { source, .. } | Edit::PreserveRejectedFormula { source, .. } => {
                 units = units.saturating_add(source.len());
                 text = text.saturating_add(source.len());
                 work = work.saturating_add(source.len().saturating_mul(512));

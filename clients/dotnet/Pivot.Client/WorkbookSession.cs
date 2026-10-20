@@ -63,6 +63,17 @@ public sealed class WorkbookSession : IAsyncDisposable
         request.Edits.AddRange(batch);
         return CallAsync(request, cancellation);
     }
+    public Task<Response> CopyBlockAsync(string expected, Position first, Position last, CancellationToken cancellation = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(expected);
+        return CallAsync(new Request {Operation=Request.Types.Operation.CopyBlock,Revision=expected,First=first.Clone(),Last=last.Clone()},cancellation);
+    }
+    public Task<Response> PasteBlockAsync(string expected, Position first, Position last, byte[] payload, bool native, CancellationToken cancellation = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(expected);
+        if(payload.Length>262144) throw new WorkbookSessionException("Clipboard payload exceeds 256 KiB.");
+        return CallAsync(new Request {Operation=Request.Types.Operation.PasteBlock,Revision=expected,First=first.Clone(),Last=last.Clone(),Clipboard=ByteString.CopyFrom(payload),NativeClipboard=native},cancellation);
+    }
     public Task<Response> ReadAsync(Position first, Position last, CancellationToken cancellation = default) =>
         CallAsync(new Request { Operation = Request.Types.Operation.Read, First = first.Clone(), Last = last.Clone() }, cancellation);
     public Task<Response> CaptureAsync(CancellationToken cancellation = default) =>

@@ -1,5 +1,19 @@
 # Linux and macOS validation
 
+## Current: rectangular clipboard and WB3
+
+[Implementation and evidence](handoffs/2026-10-20-rectangular-clipboard.md),
+[fresh APFS packet](handoffs/2026-10-20-macos-rectangular-clipboard-instructions.md).
+Windows/Linux full CI passes (309/310 default Rust tests), with strict all-feature
+lint and 325/326 all-feature tests. Final actual-window typed clipboard/TSV/translation
+and C#–Rust boundary checks pass with zero-charge close. All 172 final build/test
+input hashes match; Linux source and .NET outputs used a fresh ext4 copy. Explicit
+nonempty client revision guards received final boundary/window follow-ups.
+Fresh native Mac/APFS and user-confirmed manual checks remain pending; the accepted
+prior three-platform WB2/active-cell results do not certify this new clipboard/WB3
+slice. Historical results below retain their original milestone scope.
+
+
 ## Accepted: rectangular worksheet selection
 
 [Interaction specification and evidence](handoffs/2026-10-20-rectangular-selection.md),

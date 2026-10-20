@@ -1,12 +1,13 @@
 # Rectangular clipboard and formula copy — design review packet
 
-Date: 2026-10-20. **Proposal only; no implementation or feature tests yet.**
-[ADR-0017](../adr/0017-rectangular-clipboard-and-formula-copy.md) is Proposed.
-The parent explicitly requires semantic review before formula translation is built.
+Date: 2026-10-20. **Design approved with compatibility revision; implementation delivered; fresh platform/manual validation pending.**
+[ADR-0017](../adr/0017-rectangular-clipboard-and-formula-copy.md) is Accepted.
+[Parent review and revised format policy](2026-10-20-rectangular-clipboard-review.md).
+Semantic review is complete; the bounded implementation is authorized.
 The accepted rectangular-selection milestone and existing active-cell operations
 remain unchanged.
 
-## Decisions requested
+## Approved decisions
 
 1. Admit at most 256 coordinate slots per copied/pasted block. A single destination
    cell expands to the source shape; an already selected region must match exactly.
@@ -31,15 +32,15 @@ remain unchanged.
    literal supplied coordinates because no reliable source origin exists.
 7. Preserve exact decimal parts and formula bytes outside rewritten references.
    Use reviewed bounded payload/token/scratch ceilings, not unbounded blank-area
-   enumeration. No new durable clipboard roots, schema migration or evaluator.
+   enumeration. No new durable clipboard roots or evaluator; use a clean WB3 format cut.
 
 The ADR specifies examples, TSV blank-row rules, destination selection behavior,
-error policies and exact proposed admission ceilings. The difference between native
+error policies and exact provisional admission ceilings. The difference between native
 relative copy and literal external text must be clear in the implementation/manual
 checks. Existing native single-cell formula copy intentionally adopts the reviewed
 new translation policy; external single-cell text behavior remains literal.
 
-## Source findings and implementation plan (after approval)
+## Source findings and authorized implementation plan
 
 The workbook already has immutable captures, stable-position metadata and atomic
 apply. Limits remain 256 edits, 1024 live / 8192 allocated cells, 4096 source bytes/
@@ -68,16 +69,18 @@ syntax is currently rejected. These are the real extension points, not a new gra
    CI and fresh native APFS validation with source hashes, manual acceptance and
    zero-charge cleanup. Produce the implementation handoff, then stop for review.
 
-### Compatibility gate identified during design
+### Revised compatibility policy: clean WB3 cut
 
-WB2 decodes an invalid formula by recomputing its diagnostic. A previously saved
-`=$A$1` invalid draft would become valid syntax under the proposed grammar. The
-plan must preserve its stored invalid/non-executable state on reopen **and native
-copy**, until explicit resubmission by the user. The ADR proposes a legacy diagnostic
-mode of the same parser and an internal rejected-draft batch path, with fixtures,
-not silent promotion or weaker marker validation. Current valid bindings still
-receive full source/token/selection consistency validation. If a format revision
-is actually necessary, stop and obtain review rather than casually changing WB2.
+WB2 recomputes invalid-formula diagnostics with the parser. The new dollar grammar
+would reinterpret formerly rejected sources. Use PIVOTWB3 rather than introducing
+a permanent legacy parser/diagnostic mode. WB3 uses the current grammar; explicitly
+reject WB1/WB2, retain/freeze their rejection fixtures, and add no migration reader.
+Frozen hosted storage/protocol v1 is unchanged.
+
+Preserve current-session and native-copied invalid drafts as non-executable until
+explicit resubmission, independently of the file-version cut. Use a validated
+Rust-internal rejected-draft batch path; retain full source/token/binding and combined
+graph/selection-image validation. Do not allow arbitrary invalid markers.
 
 ## Required evidence
 
@@ -86,10 +89,20 @@ SUM reversed/mixed-absolute bounds, overlap, native cross-workbook/process copy,
 external TSV, exact signed-zero/scale, provenance/spans, invalid drafts, out-of-bounds
 rollback, shape mismatch and all profile quotas. Test late clipboard context changes,
 stale destination revisions, cancellation before versus after dispatch and no split
-commits. Include WB2 reopened `$` formulas, old invalid-dollar drafts, hosted
-capability rejection and no leaked roots/captures after failure.
+commits. Include WB3 reopened `$` formulas and non-executable drafts, explicit
+WB1/WB2 rejection fixtures, hosted capability rejection and no leaked roots/captures
+after failure. Mandatory tests cover references to destination cells created later
+in row-major order and forged native shape/span/reference/value annotations. Enforce
+native and TSV limits as well as their combined copy-output ceiling.
 
 No existing feature/performance behavior is claimed from this proposal. Retain
 WSL mounted-path uncertain installation, historical native SIGABRT, Linux viewport
 p95 exception and earlier validation failures. Multi-cell clipboard is not delivered
-until the proposal is approved and separately implemented/validated.
+until the approved design is separately implemented and validated.
+
+## Implementation follow-up
+
+The [implementation handoff](2026-10-20-rectangular-clipboard.md) now records the
+bounded feature, WB3 cut, constrained rejected-draft state, OS format mapping,
+validation and remaining manual/native Mac work. This packet retains the design
+plan; it is not a claim of implementation acceptance.

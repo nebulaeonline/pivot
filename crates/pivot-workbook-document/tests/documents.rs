@@ -112,7 +112,7 @@ fn independent_restore_preserves_projection_bound_graph_and_retired_ledgers() {
         );
     }
     let mut version = export.bytes.clone();
-    version[7] = b'3';
+    version[7] = b'4';
     assert!(
         pivot_workbook_document::Document::open_document(&version, Limits::default(), &runtime)
             .is_err()
@@ -191,7 +191,7 @@ fn sum_document_keeps_bound_geometry_identity_and_member_affinity() {
     .unwrap();
     let formula = book.cell_at(p(1, 4)).unwrap().unwrap();
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&bytes.bytes[..8], b"PIVOTWB2");
+    assert_eq!(&bytes.bytes[..8], b"PIVOTWB3");
     let (mut restored, _) =
         pivot_workbook_document::Document::open_document(&bytes.bytes, Limits::default(), &runtime)
             .unwrap();
@@ -257,7 +257,7 @@ fn wb1_is_an_explicit_unsupported_version_not_a_migration_reader() {
 }
 
 #[test]
-fn wb2_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
+fn wb3_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
     use sha2::{Digest, Sha256};
     let runtime = IntegrationRuntime::standalone().unwrap();
     let mut book = Workbook::new_in("Corruption", Limits::default(), &runtime).unwrap();
@@ -275,7 +275,7 @@ fn wb2_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected())
         .unwrap()
         .bytes;
-    // WB2 fixed worksheet/axis/state header, then length-prefixed graph.
+    // WB3 fixed worksheet/axis/state header, then length-prefixed graph.
     let graph_length = u64::from_le_bytes(bytes[120..128].try_into().unwrap()) as usize;
     let policy = 128 + graph_length;
     for (at, value) in [(policy, 2u64), (policy + 8, 8193), (policy + 8 + 8 + 16, 9)] {
@@ -292,4 +292,26 @@ fn wb2_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
     let memory = runtime.memory();
     assert!(runtime.finish().is_ok());
     assert_eq!(memory.stats().charged, 0);
+}
+
+#[test]
+fn wb2_is_explicitly_rejected() {
+    let text = include_str!("fixtures/wb2.hex").trim();
+    let bytes = (0..text.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).unwrap())
+        .collect::<Vec<_>>();
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    let error =
+        match pivot_workbook_document::Document::open_document(&bytes, Limits::default(), &runtime)
+        {
+            Err(error) => error,
+            Ok(_) => panic!("WB2 must be unsupported"),
+        };
+    assert!(
+        error
+            .to_string()
+            .contains("unsupported native workbook version WB2")
+    );
+    assert!(runtime.finish().is_ok());
 }

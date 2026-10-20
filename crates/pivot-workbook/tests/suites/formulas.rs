@@ -137,7 +137,6 @@ fn malformed_and_out_of_bounds_references_are_editable_drafts() {
         ("=ZZZ1", 1),
         ("=A1+)", 4),
         ("=A1+💰", 4),
-        ("=$A$1", 1),
         ("=A1:B2", 3),
         ("=Sheet!A1", 1),
         ("=SUM(A1)", 7),
@@ -250,7 +249,7 @@ fn hard_failures_roll_back_and_stale_states_are_rejected() {
 fn standalone_grammar_unchanged_and_typed_spans_use_original_source() {
     assert_eq!(expression::parse("A1").unwrap(), Expr::Name("A1".into()));
     assert!(expression::parse("=A1").is_err());
-    let Expr::CellReference { row, column, span } =
+    let Expr::CellReference { row, column, span, .. } =
         expression::parse_spreadsheet("  = aa22 ").unwrap()
     else {
         panic!()

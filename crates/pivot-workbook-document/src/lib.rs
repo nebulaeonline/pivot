@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 4 * 1024 * 1024;
-const MAGIC: &[u8; 8] = b"PIVOTWB2";
+const MAGIC: &[u8; 8] = b"PIVOTWB3";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -383,7 +383,16 @@ impl Document {
                         w.n(3);
                         w.text(&f.original_source);
                         w.tokens(&f.tokens);
-                        w.n(u64::from(f.diagnostic.is_some()));
+                        w.n(match &f.diagnostic {
+                            None => 0,
+                            Some(error)
+                                if error.message
+                                    == pivot_workbook::clipboard::PRESERVED_REJECTION =>
+                            {
+                                2
+                            }
+                            Some(_) => 1,
+                        });
                         w.id(f.transaction_base.session);
                         w.n(f.transaction_base.state);
                         w.rev(f.transaction_base.graph);
@@ -439,10 +448,12 @@ impl Document {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Limit);
         }
-        if bytes.starts_with(b"PIVOTWB1") {
-            return Err(Error::Graph(
-                "unsupported native workbook version WB1; WB2 required".into(),
-            ));
+        for version in ["WB1", "WB2"] {
+            if bytes.starts_with(format!("PIVOT{version}").as_bytes()) {
+                return Err(Error::Graph(format!(
+                    "unsupported native workbook version {version}; WB3 required"
+                )));
+            }
         }
         if bytes.len() < 48 || &bytes[..8] != MAGIC {
             return Err(malformed());
@@ -568,6 +579,10 @@ impl Document {
                                     .2
                                     .ok_or_else(malformed)?,
                                 ),
+                                2 => Some(expression::ParseError {
+                                    offset: 0,
+                                    message: pivot_workbook::clipboard::PRESERVED_REJECTION,
+                                }),
                                 _ => return Err(malformed()),
                             };
                             let transaction_base = Expected {

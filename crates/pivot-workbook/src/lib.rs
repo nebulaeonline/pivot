@@ -7,6 +7,7 @@ use pivot_core::{
 use pivot_types::{DecimalError, PivotDecimal};
 use std::collections::BTreeSet;
 use uuid::Uuid;
+pub mod clipboard;
 mod persistent;
 pub mod transfer;
 
@@ -167,6 +168,12 @@ pub struct CellView {
 
 #[derive(Clone, Debug)]
 pub enum Edit {
+    /// Preserve a non-executable clipboard draft; only explicit SetFormulaText resubmits it.
+    #[doc(hidden)]
+    PreserveRejectedFormula {
+        position: Position,
+        source: String,
+    },
     SetFormulaText {
         position: Position,
         source: String,
@@ -355,7 +362,9 @@ impl Workbook {
         }
         let mut work = 0usize;
         for edit in edits {
-            if let Edit::SetFormulaText { source, .. } = edit {
+            if let Edit::SetFormulaText { source, .. }
+            | Edit::PreserveRejectedFormula { source, .. } = edit
+            {
                 if source.len() > self.limits.source_bytes {
                     return Err(Error::Limit);
                 }
@@ -414,7 +423,9 @@ impl Workbook {
             let mut stack = vec![(expr, false)];
             while let Some((expr, visited)) = stack.pop() {
                 match expr {
-                    Expr::SumRange { first, last, span } => {
+                    Expr::SumRange {
+                        first, last, span, ..
+                    } => {
                         let first = Position::new(first.0, first.1);
                         let last = Position::new(last.0, last.1);
                         if rows.at(first.row).is_err()
@@ -435,7 +446,9 @@ impl Workbook {
                         });
                     }
                     Expr::Decimal(v) => tokens.push(Token::Decimal(DecimalInput::from_decimal(*v))),
-                    Expr::CellReference { row, column, span } => {
+                    Expr::CellReference {
+                        row, column, span, ..
+                    } => {
                         let pos = Position::new(*row, *column);
                         if rows.at(pos.row).is_err() || columns.at(pos.column).is_err() {
                             diagnostic = Some(ParseError {

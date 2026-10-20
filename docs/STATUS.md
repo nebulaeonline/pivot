@@ -2,14 +2,21 @@
 
 Date: 2026-10-20
 
-Current work: **Rectangular Clipboard and Formula Copy Semantics — proposal ready for review**.
-[ADR-0017](adr/0017-rectangular-clipboard-and-formula-copy.md) is Proposed;
-[review packet/implementation plan](handoffs/2026-10-20-rectangular-clipboard-design.md).
-Policies cover native effective-binding translation, `$` copy-axis markers, SUM,
-external TSV, blanks/overlap/identity/rollback and explicit limits within 256 slots.
-A WB2 old-invalid-dollar compatibility gate is identified. No product/parser/codec/
-protocol behavior or test assertions have changed. Obtain parent semantic review
-before implementation; no rectangular clipboard feature is claimed.
+Current work: **Rectangular Clipboard and Formula Copy — implemented; platform/manual validation and implementation review pending**.
+[ADR-0017](adr/0017-rectangular-clipboard-and-formula-copy.md),
+[implementation/evidence/manual checklist](handoffs/2026-10-20-rectangular-clipboard.md),
+[fresh Mac/APFS packet](handoffs/2026-10-20-macos-rectangular-clipboard-instructions.md).
+Rust now supplies bounded typed native copy, effective-binding scalar/SUM translation,
+dollar-axis syntax, exact external TSV and one atomic paste within 256 slots.
+Desktop clipboard transport highlights successful destinations; editor paste stays
+text insertion. PIVOTWB3 replaces WB2 with explicit WB1/WB2 rejection, no legacy
+reader/parser mode. Preserved rejected drafts remain non-executable until explicit
+resubmission. Frozen hosted v1 and capacity limits remain unchanged.
+Windows/Linux full CI (309/310 default Rust tests), strict all-feature lint and
+325/326 all-feature tests pass. Final actual-window and C#–Rust boundary workflows
+pass with zero-charge close; all 172 final build/test input hashes match. Fresh native Mac and
+user-confirmed manual acceptance remain pending. The design is approved; this is
+not yet parent acceptance of the implementation.
 
 Latest accepted milestone: **Rectangular Worksheet Selection and Navigation — accepted; workstream closed**.
 Anchor/active/extent live only in C# UI state. Drag and Shift extension, bounded
@@ -27,11 +34,8 @@ not implemented; selection/navigation and active-cell operations are the current
 scope. The parent review received 2026-10-20 accepts the implementation.
 [Acceptance and next design scope](handoffs/2026-10-20-rectangular-selection-review.md).
 
-Next priority: **Rectangular Clipboard and Formula Copy Semantics — design first**.
-Prepare source/destination, reference transformation, blank/overlap/failure and
-admission policies for review before formula translation is implemented. Rust
-remains authoritative; no C# translation engine or capacity increase is requested.
-The proposal is now prepared in ADR-0017; implementation has not begun.
+Next priority: finish fresh platform/manual validation for the bounded clipboard
+slice, integrate the evidence and stop for parent implementation review.
 
 Accepted preceding milestone: **Direct single-cell paste commit — accepted; workstream closed**.
 Grid paste submits immediately through Rust and retains selection; editor/formula-bar

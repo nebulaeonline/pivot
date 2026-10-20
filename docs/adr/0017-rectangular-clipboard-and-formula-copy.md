@@ -1,6 +1,7 @@
 # ADR-0017: Bounded rectangular clipboard and formula copy
 
-Status: **Proposed — requires parent review before implementation**.
+Status: **Accepted with compatibility revision — implemented; platform/manual validation and implementation review pending**.
+[Review decision](../handoffs/2026-10-20-rectangular-clipboard-review.md).
 Date: 2026-10-20.
 
 ## Context
@@ -16,7 +17,7 @@ Copy must deliberately create new bindings; move must retain existing identities
 The existing workbook already supplies atomic batches of at most 256 edits. This
 proposal reuses that path and the canonical Rust engine, without raising capacity.
 
-## Proposed decision
+## Decision
 
 ### 1. Rectangle correspondence and UI behavior
 
@@ -64,7 +65,7 @@ those resulting coordinates in the candidate destination workbook through Rust.
 If B1's `=A1+1` follows its target when that cell moves to A5, copying B1 to B2
 produces `=A6+1`, **not** `=A2+1`. For an absolute `=$A$1` whose bound target has
 moved to A5, the copied source uses `=$A$5`. The original formula/source stays
-unchanged. This effective-binding rule is a deliberate policy requiring review.
+unchanged. This effective-binding rule is the approved copy policy.
 A formula moved from B1 to B3 still uses B3 as its new copy origin; its existing
 bindings are not silently changed by that move.
 
@@ -178,7 +179,7 @@ the accepted late-response protection. Escape before dispatch cancels; after dis
 drain the authoritative response without claiming undo or automatic replay. A stale
 revision is an explicit conflict. UI changes its selection only after success.
 
-### 7. Initial admission profile (proposed ceilings)
+### 7. Initial admission profile (provisional ceilings)
 
 | Resource | Ceiling |
 | --- | ---: |
@@ -215,26 +216,28 @@ clipboard representations; it must not build a separate translator/evaluator.
 
 Extend spreadsheet parsing with dollar-axis markers and endpoint spans. Validate
 copy annotations against parsed source and authoritative captured bindings. Preserve
-the general model grammar. Use existing WB2 logical records and formula source/spans;
-copy flags can be recovered from validated source syntax without new persisted graph
-identities or fields. Readers predating dollar syntax must reject unsupported syntax,
-not reinterpret bindings. Verify this against the actual codec before implementation;
-if an unavoidable format/capability change emerges, return for review instead of
-silently changing WB2 or frozen hosted behavior.
+the general model grammar. Treat received native bytes as untrusted: validate shape,
+source spans, reference annotations, arithmetic types, sizes and admission limits.
+Claimed source provenance is neither proof nor authorization; create all bindings
+from destination-local state. Deliberately tampered annotations require tests.
 
-A concrete compatibility case already exists: WB2's invalid marker currently
-recomputes diagnostics using parse_spreadsheet, and `=$A$1` can be an existing
-invalid saved draft. The new grammar must not auto-promote it on reopen or native
-copy. Preserve the stored non-executable state. Use the same parser with a legacy
-no-dollar diagnostic mode when necessary to validate that old rejected source;
-this is diagnostic/provenance validation, not a WB1 reader or another evaluator.
-Valid records still undergo full current syntax/token/binding consistency checks.
-Native opaque-invalid paste needs an explicit Rust-internal rejected-draft batch
-path, rather than blindly resubmitting its text through the new parser. The user
-can explicitly resubmit it to adopt new syntax. Do not just accept arbitrary markers
-or weaken the combined graph/selection-image checks. Add the old-invalid-dollar
-WB2/native-copy case before claiming compatibility; return for review if this cannot
-be implemented safely without a format revision.
+**Use PIVOTWB3 for this implementation.** WB2 invalid-formula restoration currently
+recomputes diagnostics with the parser: an old rejected `=$A$1` draft would become
+valid under the expanded grammar. Preserving that validation contract would require
+historical parsing behavior. The approved clean format cut avoids permanent legacy
+grammar/diagnostic modes for undeployed files. WB3 uses the current grammar
+consistently; reject WB1 and WB2 with explicit unsupported-version errors. Retain
+the WB1 rejection fixture and freeze a WB2 rejection fixture. Add no compatibility
+reader or migration path. Frozen hosted storage/protocol v1 remains unchanged.
+
+Current-session and native-copied invalid drafts must remain non-executable until
+explicit user resubmission, even if their text becomes valid under expanded grammar.
+Use an explicit Rust-internal rejected-draft batch path rather than blindly
+resubmitting copied text. This runtime-state rule is separate from historical file
+compatibility. Validate supported draft states and their restoration consistently;
+do not accept arbitrary invalid markers or weaken combined graph/selection-image
+validation. Verify WB3 reopen, non-executable draft preservation and explicit
+historical-version rejection.
 
 ## Alternatives considered
 
@@ -252,11 +255,33 @@ targets, retired/blank targets, reversed/mixed-absolute SUM endpoints, overlap a
 cross-document native copy. Check exact signed-zero/scale, UTF-8 spans, opaque invalid
 drafts, translated bounds failures, shape/TSV rules, quota exhaustion, late admission/
 cancellation rollback, S/T source captures, same-revision failures, source/destination
-identity behavior, WB2 reopen and explicit unsupported-format handling.
+identity behavior, WB3 reopen and explicit WB1/WB2 rejection. Tests must include
+references to destination cells created later in row-major order and tampered native
+annotations. Enforce both representation limits and combined copy-output limits.
 
 Run actual Rust/C# application workflows on Windows, WSLg and native APFS/macOS,
 including private clipboard plus external TSV, manual shortcuts, selection/focus,
 late clipboard reads, normal zero-charge close and unchanged prior milestones.
 Retain historical platform/filesystem failures. Revisit policy if missing bindings,
 external-text expectations, identity/provenance needs or codecs require a semantic
-exception. Stop for review before implementation and again after the bounded slice.
+exception. Design review is complete; stop for implementation review after the
+bounded slice and its validation.
+
+## Implementation notes
+
+[Implementation and evidence](../handoffs/2026-10-20-rectangular-clipboard.md).
+The private payload derives source spans and dollar flags from validated formula
+syntax rather than accepting redundant claimed spans/flags. Each ordered effective
+coordinate annotation must correspond to one parsed occurrence; all bindings remain
+destination-local. Copied rejected drafts use a constrained non-executable state,
+not an asserted historical parser diagnostic: zero tokens/references, fixed diagnostic,
+and an exact matching rejected graph definition. WB3 distinguishes this state from
+ordinary parser-rejected source, whose diagnostic is still recomputed and validated.
+Explicit formula resubmission alone adopts executable syntax.
+
+The OS format is `application/x-pivot-cell-block-v1` on Windows/Linux and the equivalent
+UTI `org.pivot.cell-block-v1` on macOS. Avalonia's platform-format API requires a UTI
+on macOS; its application-format API rejects MIME slashes. Native formula source is
+preserved outside rewritten spans. Plain TSV renders tab/CR/LF whitespace inside a
+formula as spaces to avoid ambiguous table delimiters; it cannot preserve all native
+source provenance. Exact signed zero is preserved in both numeric representations.

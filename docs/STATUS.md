@@ -2,7 +2,16 @@
 
 Date: 2026-10-20
 
-Current work: **Rectangular Worksheet Selection and Navigation — ready for parent review**.
+Current work: **Rectangular Clipboard and Formula Copy Semantics — proposal ready for review**.
+[ADR-0017](adr/0017-rectangular-clipboard-and-formula-copy.md) is Proposed;
+[review packet/implementation plan](handoffs/2026-10-20-rectangular-clipboard-design.md).
+Policies cover native effective-binding translation, `$` copy-axis markers, SUM,
+external TSV, blanks/overlap/identity/rollback and explicit limits within 256 slots.
+A WB2 old-invalid-dollar compatibility gate is identified. No product/parser/codec/
+protocol behavior or test assertions have changed. Obtain parent semantic review
+before implementation; no rectangular clipboard feature is claimed.
+
+Latest accepted milestone: **Rectangular Worksheet Selection and Navigation — accepted; workstream closed**.
 Anchor/active/extent live only in C# UI state. Drag and Shift extension, bounded
 keyboard navigation, auto-scroll and active/region/inactive visuals are implemented.
 Selection-only checks leave Rust revisions/dirty state unchanged and create no
@@ -15,9 +24,16 @@ tests pass. All 327 Mac copied source hashes and 168 reference build inputs matc
 368 returned reports are transfer-verified without fixes/reruns. User-confirmed
 manual tests pass on all three platforms. Rectangular cut/copy/paste is deliberately
 not implemented; selection/navigation and active-cell operations are the current
-scope. Parent implementation acceptance remains pending.
+scope. The parent review received 2026-10-20 accepts the implementation.
+[Acceptance and next design scope](handoffs/2026-10-20-rectangular-selection-review.md).
 
-Latest accepted milestone: **Direct single-cell paste commit — accepted; workstream closed**.
+Next priority: **Rectangular Clipboard and Formula Copy Semantics — design first**.
+Prepare source/destination, reference transformation, blank/overlap/failure and
+admission policies for review before formula translation is implemented. Rust
+remains authoritative; no C# translation engine or capacity increase is requested.
+The proposal is now prepared in ADR-0017; implementation has not begun.
+
+Accepted preceding milestone: **Direct single-cell paste commit — accepted; workstream closed**.
 Grid paste submits immediately through Rust and retains selection; editor/formula-bar
 paste remains uncommitted text insertion. Invalid numbers/conflicts retain a
 correctable draft; late/cancelled clipboard reads do not overwrite newer state.

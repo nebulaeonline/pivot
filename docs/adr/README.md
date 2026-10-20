@@ -47,4 +47,6 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0015: Native workbook documents and local application lifecycle](0015-native-workbook-documents.md) — Accepted (Slice B; validation limitations retained).
 
-- [ADR-0016: First-class rectangular selections and SUM](0016-first-class-ranges-and-sum.md) — Accepted; bounded Slice C implementation authorized, not yet implemented.
+- [ADR-0016: First-class rectangular selections and SUM](0016-first-class-ranges-and-sum.md) — Accepted; Slice C implementation accepted (2026-10-20).
+
+- [ADR-0017: Bounded rectangular clipboard and formula copy](0017-rectangular-clipboard-and-formula-copy.md) — Proposed; semantic review required before implementation.

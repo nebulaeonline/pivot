@@ -1,6 +1,6 @@
 # Linux and macOS validation
 
-## Current: rectangular worksheet selection — ready for review
+## Accepted: rectangular worksheet selection
 
 [Interaction specification and evidence](handoffs/2026-10-20-rectangular-selection.md),
 [fresh native APFS report](../artifacts/macos-validation-20261020T222305Z/REPORT.md).

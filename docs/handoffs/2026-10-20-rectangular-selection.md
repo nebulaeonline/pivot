@@ -2,7 +2,8 @@
 
 Date: 2026-10-20. User authorized implementation after the parent accepted direct
 single-cell paste. Three-platform automated/manual validation is complete and the
-implementation is ready for parent review; parent acceptance remains pending.
+implementation is accepted by the parent review received 2026-10-20.
+[Acceptance and next design priority](2026-10-20-rectangular-selection-review.md).
 [Reviewed scope](2026-10-20-direct-paste-review.md).
 
 ## Interaction specification
@@ -180,3 +181,10 @@ Windows/Linux/native Mac automated evidence and user-confirmed manual acceptance
 now complete for the bounded scope. Preserve original failures and platform limits;
 request parent implementation review and stop before rectangular clipboard or other
 feature work. No product code changed during this result integration.
+
+## Parent acceptance — 2026-10-20
+
+The parent accepts this implementation and closes the rectangular-selection
+workstream. Rectangular clipboard and formula-copy semantics are the next design
+priority; obtain review of the semantic proposal before implementing translation.
+No rectangular clipboard behavior is introduced by this acceptance record.

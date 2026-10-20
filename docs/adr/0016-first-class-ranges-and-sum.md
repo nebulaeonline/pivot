@@ -1,6 +1,7 @@
 # ADR-0016: First-class rectangular selections and SUM
 
-Status: Accepted — parent design review received 2026-10-20. Not yet implemented.
+Status: Accepted — design and bounded Slice C implementation accepted by parent reviews
+received 2026-10-20. [Implementation acceptance](../handoffs/2026-10-20-ranges-and-sum-review.md).
 Governing policy for same-sheet rectangular ranges; ADR-0010 history is preserved.
 
 ## Review boundary

@@ -15,13 +15,15 @@
         <Button Content="Save" Click="SaveClick" />
         <Button Content="Save As…" Click="SaveAsClick" />
         <Button Content="Close workbook" Click="CloseDocumentClick" />
+        <Button Content="Copy" Click="CopyClick" ToolTip.Tip="Copy selected text, or the active cell’s original number/formula" />
+        <Button Content="Paste" Click="PasteClick" ToolTip.Tip="Paste text into the editor or active cell" />
+        <CheckBox x:Name="BlinkCaret" Content="Blink caret" IsChecked="True" IsCheckedChanged="CaretOptionChanged" VerticalAlignment="Center" />
       </StackPanel>
       <TextBlock Text="Pivot" FontSize="22" FontWeight="Bold" />
-      <Grid ColumnDefinitions="60,*,80,80" ColumnSpacing="8">
+      <Grid ColumnDefinitions="60,*,80" ColumnSpacing="8">
         <TextBlock x:Name="AddressLabel" Text="A1" VerticalAlignment="Center" />
         <TextBox x:Name="FormulaEntry" Grid.Column="1" MaxLength="4096" PlaceholderText="Enter a number or =A1+B1" KeyDown="EntryKeyDown" />
-        <Button x:Name="CommitButton" Grid.Column="2" Content="Commit" Click="CommitClick" />
-        <Button x:Name="ClearButton" Grid.Column="3" Content="Clear" Click="ClearClick" />
+        <Button x:Name="ClearButton" Grid.Column="2" Content="Clear" Click="ClearClick" />
       </Grid>
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="↑ Rows" Click="UpClick" /><Button Content="↓ Rows" Click="DownClick" />
@@ -29,13 +31,19 @@
         <TextBox x:Name="MoveTarget" Width="100" PlaceholderText="Move to B22" />
         <Button x:Name="MoveButton" Content="Move selected" Click="MoveClick" />
       </StackPanel>
-      <TextBlock Text="Click a cell to edit. Enter commits. Wheel scrolls rows; Shift+wheel scrolls columns." />
+      <TextBlock Text="Type to replace · F2/double-click to edit · Enter/Tab to commit · Escape to cancel" />
     </StackPanel>
     <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" Spacing="5">
       <TextBlock x:Name="StatusLabel" Text="Starting Rust session…" TextWrapping="Wrap" />
       <TextBlock x:Name="TimingLabel" TextWrapping="Wrap" FontSize="11" />
       <TextBlock x:Name="DocumentLabel" Text="New unsaved workbook" FontSize="11" />
     </StackPanel>
-    <sheet:WorksheetView x:Name="Sheet" VerticalAlignment="Top" />
+    <Grid VerticalAlignment="Top">
+      <sheet:WorksheetView x:Name="Sheet" />
+      <Canvas x:Name="EditorLayer" IsHitTestVisible="False">
+        <TextBox x:Name="CellEditor" IsVisible="False" MaxLength="4096" Padding="3,1"
+                 MinHeight="26" FontSize="13" />
+      </Canvas>
+    </Grid>
   </DockPanel>
 </Window>

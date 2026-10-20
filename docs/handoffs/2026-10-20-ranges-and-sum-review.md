@@ -90,3 +90,23 @@ or production-million-cell capacity increase is authorized.
 
 [Submitted design packet](2026-10-20-ranges-and-sum-design.md),
 [accepted persistence review](2026-10-20-workbook-persistence-review.md).
+
+## Implementation acceptance — 2026-10-20
+
+The subsequent parent review accepts Slice C as the implementation of ADR-0016
+and closes the bounded range/SUM milestone. This is separate from the design
+acceptance above. The assessment was based on supplied implementation/status/
+validation reports, not an independent source audit.
+
+Retain admission ceilings, canonical typed selections, row-major Decimal96 semantics,
+immutable captures, combined WB2-image validation (including non-executable skeleton
+markers), explicit WB1/hosted-v1 rejection and all three-platform evidence. Preserve
+the mounted-Windows-path uncertain save, historical WSLg SIGABRT and Linux viewport
+p95 exception. Sparse indexing does not establish output-optimal traversal or fully
+incremental topology validation. Future graph explorers must use complete typed
+edges, not the older scalar-only binding view.
+
+The next feature is a focused worksheet-usability decision. No automatic graph
+optimization, persistence-provider, migration or general-function milestone is
+authorized. The user subsequently approved the focused in-place grid editing scope.
+[Current usability handoff](2026-10-20-in-place-editing.md).

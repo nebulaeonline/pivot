@@ -40,7 +40,10 @@ With Rust, .NET 10 and Python installed, run from the repository root:
 python scripts/run_desktop.py
 ```
 
-Select a cell, enter a number or `=A1+B1`, and commit with Enter or the button.
+Select a cell and type a number or `=A1+B1`. F2 or double-click edits in place;
+Enter/Tab commits and moves, and Escape cancels. The formula bar is optional.
+Copy/Paste buttons and Ctrl+C/V (Cmd+C/V on Mac) operate on a cell or selected
+editor text. The active outline dims when unfocused; caret blinking is configurable.
 See the [application handoff](docs/handoffs/2026-10-20-ranges-and-sum-slice-c.md)
 for workflow, limits and validation status.
 

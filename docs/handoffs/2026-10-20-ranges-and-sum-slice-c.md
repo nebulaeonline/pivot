@@ -1,7 +1,8 @@
 # First-class ranges and SUM — Slice C implementation
 
-Date: 2026-10-20. Implementation ready for parent review; three-platform validation is complete.
-Parent implementation acceptance remains pending. [ADR-0016](../adr/0016-first-class-ranges-and-sum.md)
+Date: 2026-10-20. Implementation accepted by the parent review received 2026-10-20; three-platform
+validation is complete and the bounded workstream is closed.
+[Acceptance record](2026-10-20-ranges-and-sum-review.md). [ADR-0016](../adr/0016-first-class-ranges-and-sum.md)
 is accepted. No new milestone is started.
 
 ## Behavior
@@ -122,7 +123,7 @@ Save/Discard/Cancel and untouched close. Evidence sources remain distinct.
 [Native report](../../artifacts/macos-validation-20261020T130207Z/REPORT.md).
 
 The [validation note](2026-10-20-ranges-validation.md) contains the three-platform
-measurements, provenance and retained limitations. Submit this note with ADR-0016
-and the validation note for parent implementation review. The
+measurements, provenance and retained limitations. The parent implementation review accepts this work separately from ADR-0016 design
+acceptance. The
 [APFS packet](2026-10-20-macos-ranges-instructions.md) is retained as the executed
 validation procedure; no new milestone is started.

@@ -2,7 +2,25 @@
 
 Date: 2026-10-20
 
-Current work: **First-Class Ranges and SUM — Slice C ready for parent implementation review**.
+Current milestone: **In-place worksheet editing — accepted; workstream closed**.
+[Review packet](handoffs/2026-10-20-in-place-editing-review-packet.md),
+[implementation and checks](handoffs/2026-10-20-in-place-editing.md).
+The editor, synchronized formula bar, clipboard commands and focus/caret feedback
+are implemented. Windows/WSLg window checks and the fresh native Mac automated
+run pass; Mac has 291 default / 307 all-feature tests, 320 matching source hashes,
+168 matching build inputs and 366 verified returned reports, without fixes/reruns.
+The user subsequently confirmed manual acceptance of clipboard key presses:
+copy/paste shortcuts work. The earlier failed outcome and the report’s original
+pending status remain historical evidence; clipboard usability is not yet complete.
+
+The parent review received 2026-10-20 accepts the editor/clipboard/focus milestone.
+[Acceptance and next scope](handoffs/2026-10-20-in-place-editing-review.md).
+The recommended next assignment is direct single-cell paste commit: selected-grid
+paste submits one checked Rust edit immediately; active-editor paste remains text
+insertion. No engine, protocol, WB2 or capacity changes are requested. Implementation
+has not begun; no behavior/test change is made by this review record.
+
+Accepted preceding milestone: **First-Class Ranges and SUM — Slice C accepted; workstream closed**.
 [Implementation and exact quotas](handoffs/2026-10-20-ranges-and-sum-slice-c.md),
 [validation evidence](handoffs/2026-10-20-ranges-validation.md),
 [native APFS packet](handoffs/2026-10-20-macos-ranges-instructions.md).
@@ -18,9 +36,11 @@ The user confirmed WSLg Save-on-close passes on local WSL2 storage and an untouc
 workbook closes without prompting. WSLg Windows-volume Save-on-close reported
 installation uncertainty; that mounted-path limitation and the historical native
 abort remain unresolved.
-Parent acceptance applies to the design, not yet this implementation.
+The parent review received 2026-10-20 accepts the implementation separately from
+the ADR-0016 design. [Acceptance record](handoffs/2026-10-20-ranges-and-sum-review.md).
+The user authorized focused in-place worksheet editing after discussing scope.
 
-Latest accepted milestone: **Native Workbook Persistence and Application Lifecycle — Slice B**.
+Accepted preceding milestone: **Native Workbook Persistence and Application Lifecycle — Slice B**.
 [ADR-0015](adr/0015-native-workbook-documents.md) and the
 [implementation handoff](handoffs/2026-10-20-workbook-persistence-slice-b.md) describe
 native workbook files, validated stable-identity restoration, safe staged Save,

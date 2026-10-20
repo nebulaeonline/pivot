@@ -1,6 +1,22 @@
 # Linux and macOS validation
 
-## Current: ranges and SUM Slice C — ready for review
+## Current: in-place worksheet editing — progress review
+
+See the [review packet](handoffs/2026-10-20-in-place-editing-review-packet.md) and
+[implementation handoff](handoffs/2026-10-20-in-place-editing.md).
+Windows/WSLg final clipboard/focus window checks pass. The
+[fresh native APFS follow-up](../artifacts/macos-validation-20261020T170901Z/REPORT.md)
+passes full CI, strict lint, 291 default / 307 all-feature Rust tests, .NET/parity/
+IPC/application and actual-window editor/clipboard/focus checks. All 320 source
+hashes and 168 build inputs match; 366 returned files are transfer-verified. No
+product fixes or validation-gate reruns occurred. The report originally marked physical-key/manual acceptance pending. The user
+subsequently confirmed that copy/paste key presses work and authorized manual
+acceptance of those checks. The prior failure is retained as history; deferred
+paste UX remains open.
+The user deferred immediate grid-cell paste commit to the next round; current
+paste-as-draft behavior is documented, not changed before parent review.
+
+## Accepted: ranges and SUM Slice C
 
 Full Windows/Linux/native macOS CI passes (290/291/291 default Rust tests,
 306/307/307 all-feature), with strict lint, .NET/parity/IPC, real session and

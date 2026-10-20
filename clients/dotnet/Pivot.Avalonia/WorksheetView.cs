@@ -13,6 +13,7 @@ namespace Pivot.Avalonia;
 /// no worksheet-sized control collection or client calculation model.</summary>
 public sealed class WorksheetView : Control
 {
+    public bool ActiveFocus { get; set; }
     public const int Rows = 20, Columns = 10;
     private const double Header = 48, WidthPerCell = 94, HeightPerCell = 26;
     private readonly Dictionary<(uint, uint), Cell> cells = [];
@@ -27,6 +28,7 @@ public sealed class WorksheetView : Control
     public Position Selected { get; private set; } = new() { Row = 1, Column = 1 };
     public event Action? ViewportChanged;
     public event Action? SelectionChanged;
+    public event Action<Position, bool>? CellPressed;
     public Cell? SelectedCell => cells.GetValueOrDefault((Selected.Row, Selected.Column));
     public WorksheetView() {
         MinHeight = 260; MaxHeight = (Rows + 1) * HeightPerCell; MinWidth = Header + Columns * WidthPerCell; Focusable = true; ClipToBounds = true;
@@ -63,9 +65,17 @@ public sealed class WorksheetView : Control
         base.OnPointerPressed(e); var p = e.GetPosition(this);
         int c = (int)Math.Floor((p.X - Header) / WidthPerCell), r = (int)Math.Floor(p.Y / HeightPerCell) - 1;
         if (c is < 0 or >= Columns || r < 0 || r >= VisibleRows) return;
-        Select(new Position { Row = FirstRow + (uint)r, Column = FirstColumn + (uint)c }); e.Handled = true;
+        Focus();
+        CellPressed?.Invoke(new Position { Row = FirstRow + (uint)r, Column = FirstColumn + (uint)c }, e.ClickCount == 2); e.Handled = true;
     }
     public void Select(Position at) { Selected = at.Clone(); InvalidateVisual(); SelectionChanged?.Invoke(); }
+    public Rect CellBounds(Position at) => new(Header + ((int)at.Column - FirstColumn) * WidthPerCell,
+        (1 + (int)at.Row - FirstRow) * HeightPerCell, WidthPerCell, HeightPerCell);
+    public bool IsVisibleCell(Position at) => at.Row >= FirstRow && at.Row < FirstRow + VisibleRows
+        && at.Column >= FirstColumn && at.Column < FirstColumn + Columns;
+    public void Reveal(Position at) => Scroll(
+        at.Row < FirstRow ? (int)at.Row - (int)FirstRow : at.Row >= FirstRow + VisibleRows ? (int)at.Row - (int)FirstRow - VisibleRows + 1 : 0,
+        at.Column < FirstColumn ? (int)at.Column - (int)FirstColumn : at.Column >= FirstColumn + Columns ? (int)at.Column - (int)FirstColumn - Columns + 1 : 0);
     public override void Render(DrawingContext context)
     {
         base.Render(context);
@@ -77,7 +87,7 @@ public sealed class WorksheetView : Control
             var rect = new Rect(x, y, col < 0 ? Header : WidthPerCell, HeightPerCell);
             uint r = FirstRow + (uint)Math.Max(row, 0), c = FirstColumn + (uint)Math.Max(col, 0);
             bool selected = row >= 0 && col >= 0 && r == Selected.Row && c == Selected.Column;
-            context.DrawRectangle(row < 0 || col < 0 ? Brushes.WhiteSmoke : selected ? Brushes.AliceBlue : Brushes.White, selected ? new Pen(Brushes.DodgerBlue, 2) : border, rect);
+            context.DrawRectangle(row < 0 || col < 0 ? Brushes.WhiteSmoke : selected && ActiveFocus ? Brushes.AliceBlue : Brushes.White, selected ? new Pen(ActiveFocus ? Brushes.DodgerBlue : Brushes.SlateGray, 2) : border, rect);
             string text = ""; IBrush ink = Brushes.Black;
             if (row < 0 && col >= 0) text = Address(new Position { Row = 1, Column = c }).TrimEnd('1');
             else if (row >= 0 && col < 0) text = r.ToString(CultureInfo.InvariantCulture);

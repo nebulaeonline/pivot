@@ -1,6 +1,6 @@
 # Slice C validation and performance
 
-Date: 2026-10-20. Three-platform validation complete; parent implementation review pending.
+Date: 2026-10-20. Three-platform validation complete; parent implementation acceptance received.
 
 ## Automated results
 
@@ -121,8 +121,8 @@ automated window check and timing measurements.
 Native APFS success does not resolve uncertain installation on WSL mounted Windows
 paths, explain the historical WSLg allocator abort or establish power-loss durability.
 Small cross-platform timings are observations, not controlled hardware comparisons.
-The [implementation note](2026-10-20-ranges-and-sum-slice-c.md) is ready for parent
-review; design acceptance does not imply implementation acceptance. No next
+The [implementation note](2026-10-20-ranges-and-sum-slice-c.md) was accepted by the parent implementation review received 2026-10-20, separately
+from design acceptance. No next
 milestone or broader capacity claim is made.
 
 All 168 final build/test/resource input hashes match the isolated Linux copy:

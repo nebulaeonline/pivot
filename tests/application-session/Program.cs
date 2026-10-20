@@ -19,6 +19,7 @@ static async Task Cancelled(Task action)
     try { await action; throw new Exception("Expected cancellation."); }
     catch (OperationCanceledException) { }
 }
+await PersistenceChecks.Run(args[0], args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 var clock = Stopwatch.StartNew();
 var session = await WorkbookSession.StartAsync(args[0]);
 double startup = clock.Elapsed.TotalMilliseconds;
@@ -113,6 +114,10 @@ foreach(string operation in new[]{"edit","viewport","calculate"}) {
     times.Sort();rust.Sort();encode.Sort();residual.Sort();
     metrics.Add(new {operation,samples=31,median_ms=times[15],p95_ms=times[29],max_ms=times[30],rust_median_ms=rust[15],serialization_probe_median_ms=encode[15],framing_transport_scheduling_residual_median_ms=residual[15]});
 }
+await PersistenceChecks.Measure(session,args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
+// Bounded larger diagnostic through the same production session, with caps unchanged.
+for(int column=9;column<=10;column++) await session.ApplyAsync(session.Revision,Enumerable.Range(400,256).Select(row=>N((uint)row,(uint)column,row)));
+await PersistenceChecks.Measure(session,args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath(),larger:true);
 clock.Restart();await session.DisposeAsync();double shutdown=clock.Elapsed.TotalMilliseconds;
 Check(session.FinalCharge==0,"Explicit close joins runtime and releases all retained captures");
 await session.DisposeAsync();

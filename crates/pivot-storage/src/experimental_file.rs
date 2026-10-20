@@ -595,3 +595,121 @@ impl FileDocument {
         Ok(())
     }
 }
+
+/// Shared local-file safety broker for caller-validated native document envelopes.
+/// This does not wrap bytes in the experimental model-file format.
+pub mod native {
+    use super::*;
+    const LIMITS: FileLimits = FileLimits {
+        payload_bytes: 4 * 1024 * 1024,
+        graph: Limits {
+            bytes: 1_048_576,
+            depth: 16,
+            items: 100_000,
+            nodes: 1024,
+            ports: 256,
+            identities: 8192,
+            work: 1_048_576,
+        },
+    };
+    #[derive(Clone, Debug)]
+    pub struct Location {
+        pub path: PathBuf,
+        pub fingerprint: Option<Fingerprint>,
+    }
+    pub fn destination(path: &Path) -> Result<Location> {
+        let path = target(path)?;
+        let fingerprint = match fs::symlink_metadata(&path) {
+            Ok(_) => Some(read_target(&path, LIMITS)?.1),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+            Err(e) => return Err(e.into()),
+        };
+        Ok(Location { path, fingerprint })
+    }
+    pub fn read(path: &Path) -> Result<(Vec<u8>, Location)> {
+        let path = target(path)?;
+        let (bytes, fingerprint) = read_target(&path, LIMITS)?;
+        Ok((
+            bytes,
+            Location {
+                path,
+                fingerprint: Some(fingerprint),
+            },
+        ))
+    }
+    pub fn install(location: &Location, bytes: &[u8]) -> Result<Location> {
+        install_with(location, bytes, |_| Ok(()))
+    }
+    /// Failure seam shares the existing file-broker fault points.
+    #[doc(hidden)]
+    pub fn install_with(
+        location: &Location,
+        bytes: &[u8],
+        mut hook: impl FnMut(SavePoint) -> io::Result<()>,
+    ) -> Result<Location> {
+        if bytes.len() > 4 * 1024 * 1024 {
+            return Err(Error::Limit);
+        }
+        let parent = location.path.parent().ok_or(Error::Malformed)?;
+        let _reservation = reserve(parent)?;
+        let check = || -> Result<()> {
+            match &location.fingerprint {
+                Some(expected) => {
+                    if &read_target(&location.path, LIMITS)
+                        .map_err(|_| Error::Conflict)?
+                        .1
+                        != expected
+                    {
+                        return Err(Error::Conflict);
+                    }
+                }
+                None => match fs::symlink_metadata(&location.path) {
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => (),
+                    Ok(_) => return Err(Error::Conflict),
+                    Err(e) => return Err(e.into()),
+                },
+            }
+            Ok(())
+        };
+        check()?;
+        let path = parent.join(format!(".pivot-exp-{}.tmp", Uuid::new_v4()));
+        let mut temporary = Temporary {
+            file: platform::private_new(&path)?,
+            path,
+        };
+        hook(SavePoint::BeforeWrite)?;
+        temporary.file.write_all(&bytes[..bytes.len() / 2])?;
+        hook(SavePoint::PartialWrite)?;
+        temporary.file.write_all(&bytes[bytes.len() / 2..])?;
+        if let Some(old) = &location.fingerprint {
+            platform::set_mode(&temporary.file, old.mode)?;
+        }
+        temporary.file.sync_all()?;
+        if read_target(&temporary.path, LIMITS)?.0 != bytes {
+            return Err(Error::Integrity);
+        }
+        hook(SavePoint::BeforeInstall)?;
+        check()?;
+        // A replace error is conservatively uncertain once installation is attempted.
+        let installed = (|| -> Result<Location> {
+            if location.fingerprint.is_some() {
+                fs::rename(&temporary.path, &location.path)?;
+            } else {
+                fs::hard_link(&temporary.path, &location.path)?;
+                fs::remove_file(&temporary.path)?;
+            }
+            hook(SavePoint::AfterInstall)?;
+            platform::sync_parent(parent)?;
+            hook(SavePoint::BeforeVerify)?;
+            let (actual, fingerprint) = read_target(&location.path, LIMITS)?;
+            if actual != bytes {
+                return Err(Error::Integrity);
+            }
+            Ok(Location {
+                path: location.path.clone(),
+                fingerprint: Some(fingerprint),
+            })
+        })();
+        installed.map_err(|e| Error::Uncertain(Box::new(e)))
+    }
+}

@@ -43,4 +43,6 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0013: One canonical persistent graph and workbook](0013-canonical-engine-consolidation.md) — Accepted.
 
-- [ADR-0014: Owned local application session and bounded worksheet](0014-application-session-and-worksheet.md) — Implemented for Slice A review.
+- [ADR-0014: Owned local application session and bounded worksheet](0014-application-session-and-worksheet.md) — Accepted (Slice A; unresolved WSLg startup defect retained).
+
+- [ADR-0015: Native workbook documents and local application lifecycle](0015-native-workbook-documents.md) — Implemented for Slice B review.

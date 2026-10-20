@@ -1,6 +1,6 @@
 # Runnable application: C# session and worksheet Slice A
 
-Status: runnable Slice A implemented; Windows/WSL2 Linux CI and final application
+Status: Slice A and ADR-0014 accepted by parent review received 2026-10-20; Windows/WSL2 Linux CI and final application
 checks pass. Native macOS full CI, boundary and actual GUI checks also pass. An initial WSLg native startup abort remains
 an explicit reliability limitation despite later successful runs.
 The parent accepts ADR-0013/consolidation and closes the engine migration workstream.
@@ -152,7 +152,9 @@ No archival duplicate source tree or new migration milestone is introduced.
 No new engine, persistence provider/container, ranges/SUM, copy/fill, advanced formatting,
 hosted persistence or capacity increase is included. Stop for review after Slice A.
 The [native APFS packet](2026-10-19-macos-application-slice-a-instructions.md) was completed;
-Slice A is ready for parent review. ADR-0014 remains implemented for review, not accepted.
+Slice A and ADR-0014 are accepted. The
+[next assignment](2026-10-20-application-slice-a-review.md) is native workbook
+Save/Open and application lifecycle; its implementation is not part of this slice.
 
 ## Native macOS follow-up — 2026-10-20
 

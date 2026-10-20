@@ -511,7 +511,7 @@ pub fn decode(bytes: &[u8], limits: Limits) -> Result<Record> {
 }
 
 // Experimental document payload only; hosted-v1 layout is unchanged.
-pub(crate) fn encode_document(
+pub fn encode_document(
     document: &crate::document::ModelDocument,
     limits: Limits,
 ) -> Result<Vec<u8>> {
@@ -538,10 +538,7 @@ pub(crate) fn encode_document(
     })?;
     Ok(writer.out)
 }
-pub(crate) fn decode_document(
-    bytes: &[u8],
-    limits: Limits,
-) -> Result<crate::document::ModelDocument> {
+pub fn decode_document(bytes: &[u8], limits: Limits) -> Result<crate::document::ModelDocument> {
     if bytes.len() > limits.bytes || limits.depth > 64 {
         return Err(Error::Limit);
     }

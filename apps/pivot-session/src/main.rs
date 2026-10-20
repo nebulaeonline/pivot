@@ -19,7 +19,18 @@ struct Capture {
     value: CalculationCapture,
     revision: String,
 }
+struct PendingSave {
+    ticket: String,
+    revision: String,
+    export: pivot_workbook_document::Export,
+    location: pivot_storage::experimental_file::native::Location,
+}
 struct Session {
+    location: Option<pivot_storage::experimental_file::native::Location>,
+    saved: Option<pivot_workbook::Expected>,
+    checkpoint: String,
+    pending: Option<PendingSave>,
+    uncertain: bool,
     runtime: Option<IntegrationRuntime>,
     book: Option<Workbook>,
     revision: String,
@@ -61,9 +72,24 @@ fn readable_error(error: impl std::fmt::Display) -> String {
         "Formula could not be calculated.".into()
     }
 }
+fn file_error(error: pivot_storage::experimental_file::Error) -> String {
+    use pivot_storage::experimental_file::Error;
+    match error {
+        Error::Conflict=>"The file changed outside Pivot or is not a supported regular file. Open it to review changes, or Save As to a new file.".into(),
+        Error::Busy=>"Another Pivot writer is using this directory. Wait for it to finish, then save again.".into(),
+        Error::Uncertain(cause)=>format!("Save installation is uncertain ({cause}). Reopen to verify the file, or Save As to a new file to preserve current work."),
+        Error::Io(cause)=>format!("Could not access the workbook file: {cause}. Check the path and permissions."),
+        error=>format!("Workbook file operation failed: {error}. Choose a supported local file or a different destination."),
+    }
+}
 impl Session {
     fn new() -> Result<Self, String> {
         Ok(Self {
+            location: None,
+            saved: None,
+            checkpoint: String::new(),
+            pending: None,
+            uncertain: false,
             runtime: Some(IntegrationRuntime::standalone().map_err(|e| e.to_string())?),
             book: None,
             revision: String::new(),
@@ -71,6 +97,7 @@ impl Session {
         })
     }
     fn close(&mut self) -> Result<u64, String> {
+        self.pending.take();
         self.captures.clear();
         self.book.take();
         if let Some(runtime) = self.runtime.take() {
@@ -107,6 +134,160 @@ impl Session {
             );
             self.revision = Uuid::new_v4().to_string();
             r.revision = self.revision.clone();
+            return Ok(());
+        }
+        if matches!(
+            operation,
+            Op::New | Op::Open | Op::CloseDocument | Op::PrepareSave | Op::Save
+        ) {
+            use pivot_storage::experimental_file::native;
+            let captured_authority = operation == Op::Save
+                && self
+                    .pending
+                    .as_ref()
+                    .is_some_and(|p| p.ticket == q.save_ticket && p.revision == q.revision);
+            if q.revision != self.revision && !captured_authority {
+                r.conflict = true;
+                return Err("expected-state conflict".into());
+            }
+            if q.path.len() > 4096 {
+                return Err("path too long".into());
+            }
+            if matches!(operation, Op::New | Op::Open | Op::CloseDocument) {
+                if self
+                    .book
+                    .as_ref()
+                    .is_some_and(|b| Some(b.expected()) != self.saved)
+                    && !q.discard
+                {
+                    return Err("Unsaved changes: save or explicitly discard before replacing the workbook.".into());
+                }
+                // Validate the entire candidate before changing the current document.
+                let candidate = if operation == Op::Open {
+                    let start = Instant::now();
+                    let (bytes, location) =
+                        native::read(std::path::Path::new(&q.path)).map_err(|e| e.to_string())?;
+                    r.file_ns = start.elapsed().as_nanos() as u64;
+                    let mut timings = pivot_workbook_document::Timings::default();
+                    let (book, checkpoint) =
+                        pivot_workbook_document::Document::open_document_measured(
+                            &bytes,
+                            Limits::default(),
+                            self.runtime.as_ref().ok_or("closed")?,
+                            &mut timings,
+                        )
+                        .map_err(|e| e.to_string())?;
+                    r.decode_ns = timings.decode_ns;
+                    r.restore_ns = timings.restore_ns;
+                    Some((book, Some(location), checkpoint.to_string()))
+                } else if operation == Op::New {
+                    Some((
+                        Workbook::new_in(
+                            "Pivot",
+                            Limits::default(),
+                            self.runtime.as_ref().ok_or("closed")?,
+                        )
+                        .map_err(|e| e.to_string())?,
+                        None,
+                        String::new(),
+                    ))
+                } else {
+                    None
+                };
+                self.pending.take();
+                self.captures.clear();
+                self.book.take();
+                self.location = None;
+                self.saved = None;
+                self.checkpoint.clear();
+                self.uncertain = false;
+                if let Some((book, location, checkpoint)) = candidate {
+                    if location.is_some() {
+                        self.saved = Some(book.expected());
+                    }
+                    self.book = Some(book);
+                    self.location = location;
+                    self.checkpoint = checkpoint;
+                }
+                self.revision = Uuid::new_v4().to_string();
+                r.revision = self.revision.clone();
+                return Ok(());
+            }
+            if operation == Op::PrepareSave {
+                if self.pending.is_some() {
+                    return Err("A save is already prepared; finish or cancel it first.".into());
+                }
+                let location = if q.path.is_empty() {
+                    self.location.clone().ok_or("Save As requires a path")?
+                } else {
+                    {
+                        let observed = native::destination(std::path::Path::new(&q.path))
+                            .map_err(file_error)?;
+                        if let Some(current) =
+                            self.location.as_ref().filter(|l| l.path == observed.path)
+                        {
+                            current.clone()
+                        } else {
+                            observed
+                        }
+                    }
+                };
+                if self.uncertain
+                    && (location.fingerprint.is_some()
+                        || self
+                            .location
+                            .as_ref()
+                            .is_some_and(|l| l.path == location.path))
+                {
+                    return Err("Previous save installation is uncertain. Reopen to verify it, or Save As to a new file to preserve current work.".into());
+                }
+                let book = self.book.as_ref().ok_or("No workbook open")?;
+                let start = Instant::now();
+                let export =
+                    pivot_workbook_document::Document::export_document(book, book.expected())
+                        .map_err(|e| e.to_string())?;
+                r.export_ns = start.elapsed().as_nanos() as u64;
+                r.capture_ns = export.timings.capture_ns;
+                r.encode_ns = export.timings.encode_ns;
+                let ticket = Uuid::new_v4().to_string();
+                r.save_ticket = ticket.clone();
+                self.pending = Some(PendingSave {
+                    revision: self.revision.clone(),
+                    ticket,
+                    export,
+                    location,
+                });
+                return Ok(());
+            }
+            if q.save_ticket.is_empty()
+                || self
+                    .pending
+                    .as_ref()
+                    .is_none_or(|p| p.ticket != q.save_ticket)
+            {
+                return Err("Unknown save ticket".into());
+            }
+            let pending = self.pending.take().unwrap();
+            if q.discard {
+                return Ok(());
+            } // Explicitly abandon a prepared save, without writing.
+            let start = Instant::now();
+            let outcome = native::install(&pending.location, &pending.export.bytes);
+            r.file_ns = start.elapsed().as_nanos() as u64;
+            match outcome {
+                Ok(location) => {
+                    self.uncertain = false;
+                    self.location = Some(location);
+                    self.saved = Some(pending.export.expected);
+                    self.checkpoint = pending.export.checkpoint.to_string();
+                }
+                Err(e) => {
+                    self.uncertain |=
+                        matches!(e, pivot_storage::experimental_file::Error::Uncertain(_));
+                    r.uncertain = self.uncertain;
+                    return Err(file_error(e));
+                }
+            }
             return Ok(());
         }
         let book = self.book.as_mut().ok_or("create workbook first")?;
@@ -290,6 +471,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Err(e) = session.handle(&q, &mut r) {
             r.error = e
         }
+        r.document_id = session
+            .book
+            .as_ref()
+            .map(|b| b.graph_id().to_string())
+            .unwrap_or_default();
+        r.path = session
+            .location
+            .as_ref()
+            .map(|l| l.path.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        r.saved_checkpoint = session.checkpoint.clone();
+        r.dirty = session
+            .book
+            .as_ref()
+            .is_some_and(|b| Some(b.expected()) != session.saved);
+        r.uncertain = session.uncertain;
         r.execution_ns = start.elapsed().as_nanos() as u64;
         let start = Instant::now();
         let _ = r.encode_to_vec();

@@ -22,7 +22,7 @@ pub struct GraphPayload {
     pub ports: Vec<Port>,
 }
 #[derive(Clone, Copy)]
-pub(crate) struct GraphHeader {
+pub struct GraphHeader {
     pub model: Uuid,
     pub revision: Uuid,
 }
@@ -154,7 +154,7 @@ pub(crate) fn capture_graph_snapshot(
         limits,
     )
 }
-fn from_image(
+pub fn from_image(
     image: t::Image,
     node_ids: Vec<Uuid>,
     port_ids: Vec<Uuid>,
@@ -256,6 +256,34 @@ fn import_graph(
     limits: Limits,
     logical_budget: bool,
 ) -> Result<EditableGraph> {
+    let imported = t::import(image_body(&record)?).map_err(|_| Error::Malformed)?;
+    let nodes = record
+        .node_ids
+        .iter()
+        .copied()
+        .zip(imported.nodes)
+        .collect();
+    let ports = record
+        .port_ids
+        .iter()
+        .copied()
+        .zip(imported.ports)
+        .collect();
+    Ok(EditableGraph {
+        record,
+        logical_budget,
+        core: imported.model,
+        nodes,
+        ports,
+        limits,
+    })
+}
+/// Validated portable transfer; importing remains the canonical core importer.
+pub fn to_image(record: &GraphPayload, limits: Limits) -> Result<t::Image> {
+    record.validate(limits)?;
+    image_body(record)
+}
+fn image_body(record: &GraphPayload) -> Result<t::Image> {
     let slots: BTreeMap<_, _> = record
         .node_ids
         .iter()
@@ -339,35 +367,15 @@ fn import_graph(
             })
         })
         .collect::<Result<_>>()?;
-    let imported = t::import(t::Image {
+    Ok(t::Image {
         name: record.name.clone(),
         node_slots: record.node_ids.len(),
         port_slots: record.port_ids.len(),
         nodes,
         ports,
     })
-    .map_err(|_| Error::Malformed)?;
-    let nodes = record
-        .node_ids
-        .iter()
-        .copied()
-        .zip(imported.nodes)
-        .collect();
-    let ports = record
-        .port_ids
-        .iter()
-        .copied()
-        .zip(imported.ports)
-        .collect();
-    Ok(EditableGraph {
-        record,
-        logical_budget,
-        core: imported.model,
-        nodes,
-        ports,
-        limits,
-    })
 }
+
 fn public_error(e: &EvaluationError) -> PublicEvaluationError {
     match e {
         EvaluationError::Arithmetic { error, .. } => PublicEvaluationError::Arithmetic(*error),

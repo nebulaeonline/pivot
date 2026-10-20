@@ -8,6 +8,7 @@ use pivot_types::{DecimalError, PivotDecimal};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 mod persistent;
+pub mod transfer;
 
 macro_rules! identity {
     ($name:ident) => {
@@ -135,7 +136,7 @@ pub struct TextFormula {
     pub transaction_base: Expected,
     pub edit_ordinal: usize,
     pub resolved_graph: Revision,
-    tokens: Vec<Token>,
+    pub tokens: Vec<Token>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Content {
@@ -283,7 +284,7 @@ pub struct Stats {
     pub estimated_owned_bytes: usize,
 }
 
-type LoweredFormula = (
+pub type LoweredFormula = (
     Vec<Token>,
     Vec<(std::ops::Range<usize>, Position)>,
     Option<ParseError>,
@@ -369,6 +370,30 @@ impl Workbook {
         Ok(())
     }
     fn lower_text(&self, parsed: &std::result::Result<Expr, ParseError>) -> LoweredFormula {
+        Self::lower_text_axes(&self.rows, &self.columns, parsed)
+    }
+    pub fn lower_text_bounds(
+        rows: u32,
+        columns: u32,
+        parsed: &std::result::Result<Expr, ParseError>,
+    ) -> LoweredFormula {
+        Self::lower_text_axes(
+            &Axis {
+                namespace: Uuid::nil(),
+                length: rows,
+            },
+            &Axis {
+                namespace: Uuid::nil(),
+                length: columns,
+            },
+            parsed,
+        )
+    }
+    fn lower_text_axes(
+        rows: &Axis,
+        columns: &Axis,
+        parsed: &std::result::Result<Expr, ParseError>,
+    ) -> LoweredFormula {
         let mut references = vec![];
         let mut tokens = vec![];
         // Validate all coordinate syntax/bounds before materializing any targets.
@@ -380,7 +405,7 @@ impl Workbook {
                     Expr::Decimal(v) => tokens.push(Token::Decimal(DecimalInput::from_decimal(*v))),
                     Expr::CellReference { row, column, span } => {
                         let pos = Position::new(*row, *column);
-                        if self.axes_at(pos).is_err() {
+                        if rows.at(pos.row).is_err() || columns.at(pos.column).is_err() {
                             diagnostic = Some(ParseError {
                                 offset: span.start,
                                 message: "cell reference outside worksheet",

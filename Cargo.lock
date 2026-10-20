@@ -445,8 +445,10 @@ version = "0.1.0"
 dependencies = [
  "pivot-core",
  "pivot-protocol",
+ "pivot-storage",
  "pivot-types",
  "pivot-workbook",
+ "pivot-workbook-document",
  "prost",
  "uuid",
 ]
@@ -487,6 +489,18 @@ version = "0.1.0"
 dependencies = [
  "pivot-core",
  "pivot-types",
+ "uuid",
+]
+
+[[package]]
+name = "pivot-workbook-document"
+version = "0.1.0"
+dependencies = [
+ "pivot-core",
+ "pivot-storage",
+ "pivot-types",
+ "pivot-workbook",
+ "sha2",
  "uuid",
 ]
 

@@ -6,8 +6,10 @@ publish.workspace = true
 
 [dependencies]
 pivot-core = { path = "../../crates/pivot-core" }
+pivot-workbook-document = { path = "../../crates/pivot-workbook-document" }
 pivot-workbook = { path = "../../crates/pivot-workbook" }
 pivot-protocol = { path = "../../crates/pivot-protocol" }
+pivot-storage = { path = "../../crates/pivot-storage" }
 pivot-types = { path = "../../crates/pivot-types" }
 prost = "0.14.4"
 uuid = { version = "1.28.0", features = ["v4"] }

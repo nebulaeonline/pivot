@@ -1,7 +1,7 @@
 # ADR-0014: Owned local application session and bounded worksheet
 
-Status: Implemented for Slice A review. The owner authorized a runnable application
-following acceptance of ADR-0013; this implementation has not yet been reviewed.
+Status: Accepted — parent review received 2026-10-20 accepts Slice A and ADR-0014.
+The initial WSLg native startup abort remains an unresolved reliability defect.
 
 ## Decision
 

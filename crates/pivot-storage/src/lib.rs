@@ -5,7 +5,10 @@ pub mod experimental_file;
 mod graph;
 mod runtime;
 pub use codec::{decode, encode};
-pub use graph::{EditableGraph, GraphPayload, NamedValues, Values};
+pub use codec::{decode_document, encode_document};
+pub use graph::{
+    EditableGraph, GraphHeader, GraphPayload, NamedValues, Values, from_image, to_image,
+};
 pub use runtime::{
     Diagnostic, DiagnosticKind, RestoredModel, capture, capture_snapshot, restore, restore_all,
 };

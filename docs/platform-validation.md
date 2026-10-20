@@ -1,6 +1,20 @@
 # Linux and macOS validation
 
-## Current: runnable application/session and worksheet Slice A
+## Current: native workbook persistence Slice B
+
+The [Slice B handoff](handoffs/2026-10-20-workbook-persistence-slice-b.md) records
+new document, native file-failure, cross-process Save/Open and actual-window evidence.
+Windows/Linux/native macOS CI and actual Save/Open window checks pass (280/281/281
+default and 296/297/297 all-feature Rust tests, six .NET projects, zero-charge normal
+close). The fresh [native report](../artifacts/macos-validation-20261020T111827Z/REPORT.md)
+validates this source on internal APFS: all 305 copied-file hashes match, no fixes
+or reruns, 356 returned report files transfer-verified. APFS file-failure and
+independent-process restoration tests pass; the rendered window was inspected.
+OS pickers and dirty-close dialog choices were not manually exercised. The
+[APFS packet](handoffs/2026-10-20-macos-workbook-persistence-instructions.md) is complete.
+The unresolved initial WSLg startup defect remains on record.
+
+## Accepted historical: runnable application/session and worksheet Slice A
 
 The desktop now uses the real canonical Rust child-session boundary. Full CI adds
 Rust/C# application semantic/lifecycle checks. Actual GUI execution is checked

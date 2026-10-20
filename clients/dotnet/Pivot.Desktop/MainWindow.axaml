@@ -9,6 +9,13 @@
         Title="Pivot">
   <DockPanel Margin="16">
     <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="New" Click="NewClick" />
+        <Button Content="Open…" Click="OpenClick" />
+        <Button Content="Save" Click="SaveClick" />
+        <Button Content="Save As…" Click="SaveAsClick" />
+        <Button Content="Close workbook" Click="CloseDocumentClick" />
+      </StackPanel>
       <TextBlock Text="Pivot" FontSize="22" FontWeight="Bold" />
       <Grid ColumnDefinitions="60,*,80,80" ColumnSpacing="8">
         <TextBlock x:Name="AddressLabel" Text="A1" VerticalAlignment="Center" />
@@ -27,7 +34,7 @@
     <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" Spacing="5">
       <TextBlock x:Name="StatusLabel" Text="Starting Rust session…" TextWrapping="Wrap" />
       <TextBlock x:Name="TimingLabel" TextWrapping="Wrap" FontSize="11" />
-      <TextBlock Text="Unsaved worksheet · local session · closing Pivot discards this workbook" FontSize="11" />
+      <TextBlock x:Name="DocumentLabel" Text="New unsaved workbook" FontSize="11" />
     </StackPanel>
     <sheet:WorksheetView x:Name="Sheet" VerticalAlignment="Top" />
   </DockPanel>

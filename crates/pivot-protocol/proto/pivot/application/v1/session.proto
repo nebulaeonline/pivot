@@ -19,13 +19,16 @@ message Request {
   uint64 id = 2;
   // Opaque exact Expected identity, including session, sheet state and graph revision.
   string revision = 3;
-  enum Operation { UNSPECIFIED = 0; CREATE = 1; APPLY = 2; READ = 3; CAPTURE = 4; CALCULATE = 5; RELEASE = 6; CLOSE = 7; }
+  enum Operation { UNSPECIFIED = 0; CREATE = 1; APPLY = 2; READ = 3; CAPTURE = 4; CALCULATE = 5; RELEASE = 6; CLOSE = 7; NEW = 8; OPEN = 9; PREPARE_SAVE = 10; SAVE = 11; CLOSE_DOCUMENT = 12; }
   Operation operation = 4;
   repeated Edit edits = 5;
   Position first = 6;
   Position last = 7;
   string capture = 8;
   repeated Position outputs = 9;
+  string path = 10;
+  string save_ticket = 11;
+  bool discard = 12;
 }
 message Cell {
   Position at = 1;
@@ -49,4 +52,16 @@ message Response {
   // CLOSE proves explicit runtime disposal; EOF also disposes but has no receipt.
   bool closed = 11;
   uint64 remaining_charge = 12;
+  string document_id = 13;
+  string path = 14;
+  string saved_checkpoint = 15;
+  bool dirty = 16;
+  string save_ticket = 17;
+  bool uncertain = 18;
+  uint64 export_ns = 19;
+  uint64 file_ns = 20;
+  uint64 capture_ns = 21;
+  uint64 encode_ns = 22;
+  uint64 decode_ns = 23;
+  uint64 restore_ns = 24;
 }

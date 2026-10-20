@@ -1,6 +1,29 @@
 # Local CI
 
-## Application/session Slice A
+## Workbook persistence Slice B
+
+The existing application-session gate now also runs independent-process workbook
+Save/Open, conflict/dirty/cancellation/failure assertions and production-sized
+Save/Open timing loops. Inspect `persistence.json` and `persistence-production.json`
+alongside `results.json`. Rust tests add document round trips and native staged-file
+fault/terminated-writer evidence. Keep PIVOT_FILE_TEST_ROOT on the filesystem being
+validated: NTFS, Linux disk storage or local APFS. Native permission/locking tests
+need ordinary user filesystem access, not restricted sandbox staging permissions.
+
+The actual-window self-check additionally exercises Save As, New, Open, edit and
+Save; inspect its image. It supplies a destination directly and does not certify
+OS file-picker or discard-dialog interaction. See the
+[handoff](handoffs/2026-10-20-workbook-persistence-slice-b.md) and
+[native macOS instructions](handoffs/2026-10-20-macos-workbook-persistence-instructions.md).
+
+Current Slice B Windows/Linux/native macOS full CI passes 280/281/281 default and
+296/297/297 all-feature Rust tests, plus six .NET projects, parity/real IPC, native
+file-failure and actual-window persistence checks. Normal close charges are zero.
+The [fresh native APFS report](../artifacts/macos-validation-20261020T111827Z/REPORT.md)
+records source-matched execution without fixes or reruns. OS file-picker and dirty-close
+dialog choices were not manually tested; the self-check supplies its destination.
+
+## Accepted application/session Slice A
 
 `python scripts/ci.py` now also builds pivot-session in Release and runs the actual
 C# owned-process integration suite. Its results.json records boundary semantics,

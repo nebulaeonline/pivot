@@ -2,7 +2,21 @@
 
 Date: 2026-10-20
 
-Latest milestone: **Runnable Application — C# Session and Worksheet Slice A**.
+Latest milestone: **Native Workbook Persistence and Application Lifecycle — Slice B**.
+[ADR-0015](adr/0015-native-workbook-documents.md) and the
+[implementation handoff](handoffs/2026-10-20-workbook-persistence-slice-b.md) describe
+native workbook files, validated stable-identity restoration, safe staged Save,
+external conflicts, exact saved-generation acknowledgement and Avalonia file actions.
+The document codec is separate from the storage-independent workbook; the canonical
+engine, product limits and frozen hosted format remain intact. Windows/Linux/native macOS full CI passes (280/281/281 default Rust tests,
+296/297/297 all-feature), with .NET/parity/real IPC and actual Save/Open window
+checks, zero-charge normal close and matching source hashes. The fresh native
+APFS run needed no fixes or reruns; all 305 copied-file hashes match. Native file
+pickers and dirty-close dialog choices remain untested manually. Slice B and
+ADR-0015 await parent review.
+[Native report](../artifacts/macos-validation-20261020T111827Z/REPORT.md).
+
+Accepted preceding milestone: **Runnable Application — C# Session and Worksheet Slice A**.
 A real Avalonia worksheet edits an owned Rust Workbook through asynchronous framed
 Protobuf pipes. Numeric/formula entry, clear/move, bounded scrolling, readable draft
 errors, exact revision/generation tracking and orderly session disposal are implemented.
@@ -26,7 +40,9 @@ actual Avalonia execution now pass from a source-matched internal APFS copy, wit
 No fixes or reruns were needed. Boundary p95 edit/viewport/calculation is
 0.117/0.220/0.119 ms; eight UI observations span 39.45–108.56 ms.
 [Native report](../artifacts/macos-validation-20261020T101213Z/REPORT.md).
-Slice A awaits parent review; ADR-0014 is not yet accepted.
+Slice A and ADR-0014 are accepted by the parent review received 2026-10-20.
+Next assignment: Native Workbook Persistence and Application Lifecycle — Slice B.
+See the [review decision and scope](handoffs/2026-10-20-application-slice-a-review.md).
 
 Accepted preceding milestone: **Canonical Engine Consolidation** implements the owner direction
 in [ADR-0013](adr/0013-canonical-engine-consolidation.md). WorkingModel and Workbook

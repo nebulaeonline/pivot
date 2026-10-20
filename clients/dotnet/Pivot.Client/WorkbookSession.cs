@@ -25,6 +25,11 @@ public sealed class WorkbookSession : IAsyncDisposable
     private int closing;
     private Task? disposal;
     private string revision = "";
+    public string DocumentId { get; private set; } = "";
+    public string DocumentPath { get; private set; } = "";
+    public string SavedCheckpoint { get; private set; } = "";
+    public bool IsDirty { get; private set; }
+    public bool InstallationUncertain { get; private set; }
     public string Revision => Volatile.Read(ref revision);
     public TimeSpan LastRoundTrip { get; private set; }
     public TimeSpan LastClientSerialization { get; private set; }
@@ -73,6 +78,36 @@ public sealed class WorkbookSession : IAsyncDisposable
     public Task<Response> ReleaseAsync(string capture, CancellationToken cancellation = default) =>
         CallAsync(new Request { Operation = Request.Types.Operation.Release, Capture = capture }, cancellation);
 
+    public Task<Response> NewAsync(string expected, bool discard = false, CancellationToken cancellation = default) =>
+        LifecycleAsync(Request.Types.Operation.New, expected, "", discard, cancellation);
+    public Task<Response> OpenAsync(string expected, string path, bool discard = false, CancellationToken cancellation = default) =>
+        LifecycleAsync(Request.Types.Operation.Open, expected, Path.GetFullPath(path), discard, cancellation);
+    public Task<Response> CloseDocumentAsync(string expected, bool discard = false, CancellationToken cancellation = default) =>
+        LifecycleAsync(Request.Types.Operation.CloseDocument, expected, "", discard, cancellation);
+    public Task<Response> PrepareSaveAsync(string expected, string? path = null, CancellationToken cancellation = default) =>
+        LifecycleAsync(Request.Types.Operation.PrepareSave, expected, path is null ? "" : Path.GetFullPath(path), false, cancellation);
+    private Task<Response> LifecycleAsync(Request.Types.Operation operation, string expected, string path, bool discard, CancellationToken cancellation)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(expected);
+        return CallAsync(new Request { Operation = operation, Revision = expected, Path = path, Discard = discard }, cancellation);
+    }
+    public Task<Response> CommitSaveAsync(string expected, string ticket, bool abandon = false, CancellationToken cancellation = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(expected); ArgumentException.ThrowIfNullOrEmpty(ticket);
+        return CallAsync(new Request { Operation = Request.Types.Operation.Save, Revision = expected, SaveTicket = ticket, Discard = abandon }, cancellation);
+    }
+    public async Task<Response> SaveAsync(string expected, string? path = null, CancellationToken cancellation = default)
+    {
+        var prepared = await PrepareSaveAsync(expected, path, cancellation);
+        try { return await CommitSaveAsync(prepared.Revision, prepared.SaveTicket, cancellation: cancellation); }
+        catch {
+            // If cancellation or a stale revision prevented commit dispatch, release the retained export.
+            try { await CommitSaveAsync(Revision, prepared.SaveTicket, abandon: true); }
+            catch (WorkbookSessionException) { } // Already consumed by a drained commit.
+            throw;
+        }
+    }
+
     private async Task<Response> CallAsync(Request request, CancellationToken cancellation)
     {
         // Reserve envelope space before accepting a queued request, so the queue
@@ -84,6 +119,7 @@ public sealed class WorkbookSession : IAsyncDisposable
         }
         bool acquired = false;
         string? abandonedCapture = null;
+        string? abandonedSave = null;
         try {
             await gate.WaitAsync(cancellation).ConfigureAwait(false); acquired = true;
             ObjectDisposedException.ThrowIf(closed, this);
@@ -122,8 +158,12 @@ public sealed class WorkbookSession : IAsyncDisposable
             LastCompletedRequestId = response.Id;
             LastRustExecutionNs = response.ExecutionNs;
             LastRustSerializationNs = response.SerializationNs;
-            if (request.Operation is Request.Types.Operation.Create or Request.Types.Operation.Apply or Request.Types.Operation.Read)
+            if (request.Operation is not (Request.Types.Operation.Calculate or Request.Types.Operation.Release))
                 Volatile.Write(ref revision, response.Revision);
+            DocumentId = response.DocumentId; DocumentPath = response.Path;
+            SavedCheckpoint = response.SavedCheckpoint; IsDirty = response.Dirty;
+            InstallationUncertain = response.Uncertain;
+            if (cancellation.IsCancellationRequested && response.SaveTicket.Length != 0) abandonedSave = response.SaveTicket;
             if (response.Closed) { FinalCharge = response.RemainingCharge; closed = true; }
             if (cancellation.IsCancellationRequested && response.Capture.Length != 0) abandonedCapture = response.Capture;
             cancellation.ThrowIfCancellationRequested();
@@ -132,6 +172,10 @@ public sealed class WorkbookSession : IAsyncDisposable
         }
         finally {
             if (acquired) gate.Release(); Interlocked.Decrement(ref outstanding);
+            if (abandonedSave is not null && !closed) {
+                try { await CommitSaveAsync(Revision, abandonedSave, abandon: true).ConfigureAwait(false); }
+                catch (Exception e) when (e is IOException or WorkbookSessionException or ObjectDisposedException) { closed = true; StopChild(); }
+            }
             if (abandonedCapture is not null && !closed) {
                 try { await ReleaseAsync(abandonedCapture).ConfigureAwait(false); }
                 catch (Exception e) when (e is IOException or WorkbookSessionException or ObjectDisposedException) { closed = true; StopChild(); }

@@ -10,14 +10,14 @@ pub(super) type State = Retained<Data>;
 #[derive(Clone)]
 pub(super) struct Data {
     pub(super) positions: Index<Position, CellId>,
-    records: Index<CellId, Shared<Record>>,
-    bindings: Index<CellId, Binding>,
-    nodes: Index<NodeId, CellId>,
+    pub(super) records: Index<CellId, Shared<Record>>,
+    pub(super) bindings: Index<CellId, Binding>,
+    pub(super) nodes: Index<NodeId, CellId>,
     memory: Memory,
     tokens: usize,
     source: usize,
     metadata: usize,
-    live: usize,
+    pub(super) live: usize,
 }
 impl Key for Position {}
 impl Key for CellId {}
@@ -50,7 +50,7 @@ impl Footprint for Record {
     }
 }
 impl Data {
-    fn new(memory: Memory) -> Self {
+    pub(super) fn new(memory: Memory) -> Self {
         Self {
             positions: Index::new(memory.clone()),
             records: Index::new(memory.clone()),
@@ -77,7 +77,7 @@ impl Data {
                 + self.metadata,
         }
     }
-    fn record(&mut self, id: CellId, record: Record) -> Result<()> {
+    pub(super) fn record(&mut self, id: CellId, record: Record) -> Result<()> {
         let _profile = profile::scope(3);
         let old = self
             .records
@@ -358,7 +358,14 @@ impl Transaction<'_> {
                     tokens.clear();
                     resolved_graph = self.batch.revision().map_err(graph_error)?;
                     self.batch
-                        .set_invalid(node, source, error.clone())
+                        .set_invalid(
+                            node,
+                            source,
+                            ParseError {
+                                offset: error.offset,
+                                message: "unexpected trailing input",
+                            },
+                        )
                         .map_err(graph_error)?;
                 } else {
                     let (bound, normalized) = self.resolve(&tokens)?;

@@ -51,6 +51,15 @@ pub struct Revision {
     model: u64,
     version: u64,
 }
+impl Revision {
+    /// Historical provenance only. A restored pair grants no current model authority.
+    pub fn provenance(self) -> (u64, u64) {
+        (self.model, self.version)
+    }
+    pub fn from_provenance(model: u64, version: u64) -> Self {
+        Self { model, version }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelError {

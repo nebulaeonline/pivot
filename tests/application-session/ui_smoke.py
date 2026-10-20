@@ -1,0 +1,23 @@
+"""Run the actual Avalonia window self-check; requires a working desktop/display."""
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parents[2]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--output-dir', type=Path, default=ROOT/'artifacts/application-ui')
+args = parser.parse_args()
+output = args.output_dir.resolve()
+output.mkdir(parents=True, exist_ok=True)
+subprocess.run(['cargo','build','--locked','--release','-p','pivot-session'],cwd=ROOT,check=True)
+subprocess.run(['dotnet','build','clients/dotnet/Pivot.Desktop','-c','Release','--disable-build-servers','-warnaserror'],cwd=ROOT,check=True)
+metadata = json.loads(subprocess.check_output(['cargo','metadata','--no-deps','--format-version','1'],cwd=ROOT,text=True))
+env = os.environ.copy()
+env['PIVOT_SESSION_PATH'] = str(Path(metadata['target_directory'])/'release'/('pivot-session.exe' if os.name=='nt' else 'pivot-session'))
+env['PIVOT_UI_SMOKE_REPORT'] = str(output/'results.json')
+subprocess.run(['dotnet','clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'],cwd=ROOT,env=env,check=True,timeout=90)
+report = json.loads((output/'results.json').read_text(encoding='utf-8'))
+if report['status'] != 'passed': raise SystemExit(json.dumps(report,indent=2))
+print(json.dumps(report,indent=2))

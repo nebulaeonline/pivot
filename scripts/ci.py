@@ -64,6 +64,7 @@ def main():
             ("decimal-parity", [sys.executable, "tests/decimal-parity/verify.py", "--configuration", "Release", "--output-dir", str(output / "decimal-parity")]),
             ("protocol-parity", [sys.executable, "tests/protocol-parity/verify.py", "--output-dir", str(output / "protocol-parity")]),
             ("local-ipc", [sys.executable, "tests/ipc/verify.py", "--output-dir", str(output / "ipc")]),
+            ("application-session", [sys.executable, "tests/application-session/verify.py", "--output-dir", str(output / "application-session")]),
         ]
         for name, command in commands:
             steps.append(run_step(name, command, output))

@@ -1,8 +1,34 @@
 # Pivot implementation status
 
-Date: 2026-10-19
+Date: 2026-10-20
 
-Latest milestone: **Canonical Engine Consolidation** implements the owner direction
+Latest milestone: **Runnable Application — C# Session and Worksheet Slice A**.
+A real Avalonia worksheet edits an owned Rust Workbook through asynchronous framed
+Protobuf pipes. Numeric/formula entry, clear/move, bounded scrolling, readable draft
+errors, exact revision/generation tracking and orderly session disposal are implemented.
+The backend retains production limits; no C# evaluator, file container or new engine
+is introduced. [ADR-0014](adr/0014-application-session-and-worksheet.md),
+[run/verification handoff](handoffs/2026-10-19-application-worksheet-slice-a.md),
+[native APFS packet](handoffs/2026-10-19-macos-application-slice-a-instructions.md).
+Windows/isolated Linux full CI passes (275/276 default Rust tests, 291/292 all-feature),
+.NET Release and real boundary tests. Final application checks include queue-byte
+admission, exact input, stale-display conflicts, viewport bounds, cancellation and
+zero-charge disposal. Both final Windows/WSLg window checks and image inspection
+pass. The initial WSLg native startup abort remains unresolved; no unconditional
+Linux startup-reliability claim is made. Boundary p95 edit/viewport/selected-chain
+is 0.130/0.308/0.281 ms Windows and 0.387/0.907/0.326 ms Linux; UI refresh includes
+35 ms coalescing. See the handoff for actual timings and limits.
+
+Run `python scripts/run_desktop.py` from the repository root. This is a volatile,
+unsaved worksheet; closing the application discards it. Native macOS full CI and
+actual Avalonia execution now pass from a source-matched internal APFS copy, with
+276 default / 292 all-feature Rust tests, six .NET projects and zero final Rust charge.
+No fixes or reruns were needed. Boundary p95 edit/viewport/calculation is
+0.117/0.220/0.119 ms; eight UI observations span 39.45–108.56 ms.
+[Native report](../artifacts/macos-validation-20261020T101213Z/REPORT.md).
+Slice A awaits parent review; ADR-0014 is not yet accepted.
+
+Accepted preceding milestone: **Canonical Engine Consolidation** implements the owner direction
 in [ADR-0013](adr/0013-canonical-engine-consolidation.md). WorkingModel and Workbook
 now always use persistent storage. Convenience constructors share the lazy runtime;
 new_in retains application ownership. Reference backends/constructors, activation,
@@ -22,7 +48,8 @@ passes 33 cases and all native targets, with all 280 copied source hashes matchi
 before documentation edits and no fixes/reruns. All eight pressure samples were
 normal; completed-child high-water is not live RSS guarding. Including the Linux
 diagnostic repeat, all 100 children finish with zero domain charge.
-Implementation acceptance remains pending; do not begin application integration yet.
+The parent accepts consolidation and ADR-0013. The graph migration workstream is
+closed; the recorded viewport exception does not block the application slice.
 
 Historical readiness milestone (constructor policy superseded by ADR-0013):
 Previous milestone: **Persistent Workbook Production Readiness and Construction Profiling**

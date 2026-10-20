@@ -9,4 +9,9 @@ pub mod authoring {
     }
 }
 pub mod foundation;
+pub mod application {
+    pub mod v1 {
+        include!(concat!(env!("OUT_DIR"), "/pivot.application.v1.rs"));
+    }
+}
 pub const DESCRIPTORS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/schema.bin"));

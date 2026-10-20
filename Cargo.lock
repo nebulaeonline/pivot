@@ -440,6 +440,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pivot-session"
+version = "0.1.0"
+dependencies = [
+ "pivot-core",
+ "pivot-protocol",
+ "pivot-types",
+ "pivot-workbook",
+ "prost",
+ "uuid",
+]
+
+[[package]]
 name = "pivot-storage"
 version = "0.1.0"
 dependencies = [

@@ -4,5 +4,31 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Pivot.Desktop.MainWindow"
+        xmlns:sheet="clr-namespace:Pivot.Avalonia;assembly=Pivot.Avalonia"
+        Width="1080" Height="760" MinWidth="1040" MinHeight="700"
         Title="Pivot">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+      <TextBlock Text="Pivot" FontSize="22" FontWeight="Bold" />
+      <Grid ColumnDefinitions="60,*,80,80" ColumnSpacing="8">
+        <TextBlock x:Name="AddressLabel" Text="A1" VerticalAlignment="Center" />
+        <TextBox x:Name="FormulaEntry" Grid.Column="1" MaxLength="4096" PlaceholderText="Enter a number or =A1+B1" KeyDown="EntryKeyDown" />
+        <Button x:Name="CommitButton" Grid.Column="2" Content="Commit" Click="CommitClick" />
+        <Button x:Name="ClearButton" Grid.Column="3" Content="Clear" Click="ClearClick" />
+      </Grid>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="↑ Rows" Click="UpClick" /><Button Content="↓ Rows" Click="DownClick" />
+        <Button Content="← Columns" Click="LeftClick" /><Button Content="→ Columns" Click="RightClick" />
+        <TextBox x:Name="MoveTarget" Width="100" PlaceholderText="Move to B22" />
+        <Button x:Name="MoveButton" Content="Move selected" Click="MoveClick" />
+      </StackPanel>
+      <TextBlock Text="Click a cell to edit. Enter commits. Wheel scrolls rows; Shift+wheel scrolls columns." />
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" Spacing="5">
+      <TextBlock x:Name="StatusLabel" Text="Starting Rust session…" TextWrapping="Wrap" />
+      <TextBlock x:Name="TimingLabel" TextWrapping="Wrap" FontSize="11" />
+      <TextBlock Text="Unsaved worksheet · local session · closing Pivot discards this workbook" FontSize="11" />
+    </StackPanel>
+    <sheet:WorksheetView x:Name="Sheet" VerticalAlignment="Top" />
+  </DockPanel>
 </Window>

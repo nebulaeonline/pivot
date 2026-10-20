@@ -1,5 +1,35 @@
 # Local CI
 
+## Application/session Slice A
+
+`python scripts/ci.py` now also builds pivot-session in Release and runs the actual
+C# owned-process integration suite. Its results.json records boundary semantics,
+startup/shutdown, zero final charge and 31-sample edit/viewport/calculation timings.
+The .NET solution includes this test executable. Existing protocol/decimal/document/
+IPC gates remain; the new schema is separate from frozen hosted descriptors.
+
+With a graphical desktop, additionally run:
+
+```sh
+python tests/application-session/ui_smoke.py --output-dir artifacts/application-ui
+```
+
+This starts the real Avalonia window, verifies editing/formulas/moves/drafts/scrolling,
+records rendered-frame timing and a PNG, and closes with zero Rust charge. It is
+not a headless/mock UI test. Inspect the image. `python scripts/run_desktop.py` is
+the development launcher for manual interaction. Build/runtime requirements and
+current platform results are in the [application handoff](handoffs/2026-10-19-application-worksheet-slice-a.md).
+Windows and isolated Linux full CI pass, with final application/GUI checks as
+recorded in the handoff. The first WSLg window startup aborted natively; later normal
+runs passed, so retain the failure and report GUI status with that limitation.
+Do not represent a repeat pass as a clean first-attempt pass.
+Native macOS Slice A full CI, strict all-feature lint, 276/292 default/all-feature
+tests and actual GUI/image inspection passed without fixes or reruns; boundary
+and GUI normal close reported zero charge.
+[Native report](../artifacts/macos-validation-20261020T101213Z/REPORT.md).
+Native macOS must use a fresh local APFS copy for source and all build/test outputs;
+return its reports to the SMB artifacts directory using the linked APFS packet.
+
 ## Current canonical runtime
 
 The old `core-integration` and `persistent-core` selectors and reference runtime are

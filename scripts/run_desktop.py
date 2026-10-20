@@ -1,0 +1,11 @@
+"""Build and run the real Pivot desktop with its owned Rust session."""
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parents[1]
+subprocess.run(['cargo', 'build', '--locked', '--release', '-p', 'pivot-session'], cwd=ROOT, check=True)
+meta = __import__('json').loads(subprocess.check_output(['cargo', 'metadata', '--format-version', '1', '--no-deps'], cwd=ROOT, text=True))
+env = os.environ.copy()
+env['PIVOT_SESSION_PATH'] = str(Path(meta['target_directory']) / 'release' / ('pivot-session.exe' if os.name == 'nt' else 'pivot-session'))
+raise SystemExit(subprocess.call(['dotnet', 'run', '--project', 'clients/dotnet/Pivot.Desktop', '-c', 'Release', '--disable-build-servers'], cwd=ROOT, env=env))

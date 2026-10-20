@@ -1,6 +1,28 @@
 # Linux and macOS validation
 
-## Current: canonical engine consolidation
+## Current: runnable application/session and worksheet Slice A
+
+The desktop now uses the real canonical Rust child-session boundary. Full CI adds
+Rust/C# application semantic/lifecycle checks. Actual GUI execution is checked
+separately with `python tests/application-session/ui_smoke.py`; it needs a display,
+uses real Rust calculations and writes a rendered image and timing observations.
+Windows and isolated Linux full CI pass (275/276 default tests, 291/292 all-feature),
+along with final real Rust/C# boundary checks and zero-charge normal shutdown.
+Windows and the final WSLg window/image checks pass. The initial WSLg attempt aborted
+natively with free(): invalid pointer; later debugger/normal runs passed, but the
+startup failure remains unresolved. This is not unconditional Linux GUI reliability
+or a native Linux desktop deployment claim. Native macOS application full CI and
+actual GUI execution now pass from a fresh internal APFS copy: 276 default / 292
+all-feature Rust tests, strict lint, six .NET projects, decimal/protocol/document/IPC
+and boundary gates, and zero-charge boundary/UI close. No fixes or reruns occurred.
+All 294 source hashes match the pre-update workspace; 351 returned reports were
+transfer-verified. The rendered 18x10 image was inspected without clipping/overlap.
+[Native report](../artifacts/macos-validation-20261020T101213Z/REPORT.md). The
+[application handoff](handoffs/2026-10-19-application-worksheet-slice-a.md) records
+current evidence; use its [APFS packet](handoffs/2026-10-19-macos-application-slice-a-instructions.md)
+for macOS. Engine-only reports below do not establish application execution coverage.
+
+## Accepted historical: canonical engine consolidation
 
 Windows, isolated WSL2 Linux and native macOS full CI pass (275/276/276 default
 tests), along with 291/292/292 all-feature tests, strict feature lint, .NET Release, 10,099 decimal vectors,

@@ -1,6 +1,6 @@
 # Canonical engine consolidation
 
-Owner authorized: 2026-10-19. Status: implemented; Windows/Linux/native macOS validation complete; implementation review pending.
+Owner authorized: 2026-10-19. Status: implemented; Windows/Linux/native macOS validation complete; implementation accepted by parent review.
 
 Pivot has no deployed consumers requiring a dual-engine migration. The persistent
 paged graph and ownership-aware workbook are the sole target runtime. Keep crate

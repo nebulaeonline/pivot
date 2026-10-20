@@ -1,6 +1,10 @@
 # ADR-0013: One canonical persistent graph and workbook
 
-Status: Accepted owner direction (2026-10-19); implementation validated on Windows/Linux/macOS; implementation review pending.
+Status: Accepted (owner direction and implementation).
+
+The parent review accepts consolidation and closes the engine migration workstream.
+The original Linux viewport miss remains recorded; it does not block application
+development. Next: runnable application/session and worksheet Slice A.
 Supersedes the continuing reference-backend and opt-in workbook selection policies
 in ADR-0011/ADR-0012, not their semantic or resource guarantees.
 

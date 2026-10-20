@@ -6,4 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.36.2" />
+    <PackageReference Include="Grpc.Tools" Version="2.84.0" PrivateAssets="all" />
+    <Protobuf Include="../../../crates/pivot-protocol/proto/pivot/v1/types.proto" ProtoRoot="../../../crates/pivot-protocol/proto" GrpcServices="None" />
+    <Protobuf Include="../../../crates/pivot-protocol/proto/pivot/application/v1/session.proto" ProtoRoot="../../../crates/pivot-protocol/proto" GrpcServices="None" />
+  </ItemGroup>
 </Project>

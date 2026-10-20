@@ -2,7 +2,8 @@
 
 Owner direction: retire reference implementations before application integration.
 Historical baseline: `3a6fd9719f491a9236dbf0197ed9d4fb7ade3e24`.
-Status: implementation complete; Windows/Linux/native macOS validated, ready for owner review.
+Status: accepted by parent review after three-platform validation.
+Next milestone: runnable C# application/session and worksheet Slice A.
 One initial Linux viewport p95 miss remains explicit review evidence.
 
 See [ADR-0013](../adr/0013-canonical-engine-consolidation.md),
@@ -119,8 +120,8 @@ preserved Linux timing exception.
 
 ## Review boundary
 
-Stop for review after fresh three-platform evidence is integrated. The owner has
-accepted the single-engine direction, not yet this implementation. After acceptance,
+The parent accepts the single-engine implementation and three-platform evidence.
+The graph migration workstream is closed. The owner directs us to
 prioritize the runnable C# application/session. No additional backend or migration
-milestone is proposed. Fresh native validation is complete; implementation acceptance
-remains with the owner, including the recorded Linux tail-latency limitation.
+milestone is proposed. Fresh native validation is complete. The recorded Linux
+tail-latency exception remains an investigation item, not an application blocker.

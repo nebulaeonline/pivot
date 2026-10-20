@@ -41,4 +41,6 @@ Scalar A1 parsing and stable binding are implemented. Persistent workbook integr
 is opt-in under accepted ADR-0012; production workbook selection stays reference.
 Ranges, GUI, new protocol and production workbook files remain future work.
 
-- [ADR-0013: One canonical persistent graph and workbook](0013-canonical-engine-consolidation.md) — Accepted owner direction; implementation review pending.
+- [ADR-0013: One canonical persistent graph and workbook](0013-canonical-engine-consolidation.md) — Accepted.
+
+- [ADR-0014: Owned local application session and bounded worksheet](0014-application-session-and-worksheet.md) — Implemented for Slice A review.

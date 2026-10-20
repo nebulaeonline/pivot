@@ -171,3 +171,18 @@ persistent Workbook path while retaining this accepted identity, draft and
 transaction behavior. Production Workbook remains reference pending separate
 review. Exact shared behavior suites and a differential transaction oracle cover
 the new path; this historical foundation record is not a backend-switch decision.
+
+## Range semantics review follow-up (2026-10-20)
+
+Slice B native workbook persistence is accepted. The next spreadsheet-semantics
+assignment begins with [ADR-0016](0016-first-class-ranges-and-sum.md), proposing
+coordinate-area ranges, exact deterministic SUM and first-class sparse selection
+dependencies. It is proposed, not an amendment already accepted into this ADR.
+The owner requests parent review of the [design packet](../handoffs/2026-10-20-ranges-and-sum-design.md)
+before implementation or permanent representation changes.
+
+The subsequent parent design review received 2026-10-20 accepts ADR-0016 and
+explicitly authorizes bounded Slice C implementation. ADR-0016 now governs the
+same-sheet rectangle/SUM policies left open here; the historical proposal and
+prior review boundary above are retained. See the
+[implementation requirements](../handoffs/2026-10-20-ranges-and-sum-review.md).

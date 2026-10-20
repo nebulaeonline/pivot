@@ -2,7 +2,16 @@
 
 Date: 2026-10-20
 
-Latest milestone: **Native Workbook Persistence and Application Lifecycle — Slice B**.
+Current work: **First-Class Ranges and SUM — Slice C implementation authorized**.
+The parent review received 2026-10-20 accepts [ADR-0016](adr/0016-first-class-ranges-and-sum.md):
+coordinate-area affinity, row-major checked decimal SUM, sparse canonical selection
+dependencies and the explicit WB2 format cut. Implementation has not begun; no new
+format bytes, feature tests or performance results are claimed. Exact selection
+quotas, typed dependency inspection, WB1/hosted capability rejection and manual
+native document-dialog checks are required before implementation acceptance.
+[Accepted review requirements](handoffs/2026-10-20-ranges-and-sum-review.md).
+
+Latest accepted milestone: **Native Workbook Persistence and Application Lifecycle — Slice B**.
 [ADR-0015](adr/0015-native-workbook-documents.md) and the
 [implementation handoff](handoffs/2026-10-20-workbook-persistence-slice-b.md) describe
 native workbook files, validated stable-identity restoration, safe staged Save,
@@ -13,7 +22,10 @@ engine, product limits and frozen hosted format remain intact. Windows/Linux/nat
 checks, zero-charge normal close and matching source hashes. The fresh native
 APFS run needed no fixes or reruns; all 305 copied-file hashes match. Native file
 pickers and dirty-close dialog choices remain untested manually. Slice B and
-ADR-0015 await parent review.
+ADR-0015 are accepted by the parent review received 2026-10-20. The next assignment
+is First-Class Ranges and SUM — Spreadsheet Semantics Slice C, beginning with an
+explicit range-semantics decision before permanent representation.
+[Review decision and next scope](handoffs/2026-10-20-workbook-persistence-review.md).
 [Native report](../artifacts/macos-validation-20261020T111827Z/REPORT.md).
 
 Accepted preceding milestone: **Runnable Application — C# Session and Worksheet Slice A**.

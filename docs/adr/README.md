@@ -45,4 +45,6 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0014: Owned local application session and bounded worksheet](0014-application-session-and-worksheet.md) — Accepted (Slice A; unresolved WSLg startup defect retained).
 
-- [ADR-0015: Native workbook documents and local application lifecycle](0015-native-workbook-documents.md) — Implemented for Slice B review.
+- [ADR-0015: Native workbook documents and local application lifecycle](0015-native-workbook-documents.md) — Accepted (Slice B; validation limitations retained).
+
+- [ADR-0016: First-class rectangular selections and SUM](0016-first-class-ranges-and-sum.md) — Accepted; bounded Slice C implementation authorized, not yet implemented.

@@ -1,6 +1,7 @@
 # ADR-0015: Native workbook documents and local application lifecycle
 
-Status: Implemented for Slice B review, 2026-10-20. Not yet accepted.
+Status: Accepted — parent review received 2026-10-20 accepts Slice B and ADR-0015.
+Known platform and manual-interaction limitations remain on record.
 
 ## Decision
 
@@ -111,5 +112,5 @@ The unresolved WSLg native startup abort and historical Linux viewport miss rema
 on record. Windows, isolated Linux and fresh native macOS/APFS full CI, persistence
 and actual-window checks pass. The [native report](../../artifacts/macos-validation-20261020T111827Z/REPORT.md)
 records matching source and no fixes/reruns. OS picker and discard-dialog interaction
-remain outside automated coverage. Implementation is ready for parent review; this
-validation does not change the ADR acceptance status.
+remain outside automated coverage. The parent review received 2026-10-20 accepts the implementation and ADR.
+See the [review decision and next scope](../handoffs/2026-10-20-workbook-persistence-review.md).

@@ -1,7 +1,8 @@
 # Native workbook persistence and application lifecycle — Slice B
 
 Status: implemented for review; Windows, isolated Linux and native macOS/APFS
-CI/application/GUI checks pass. ADR-0015 and Slice B await parent acceptance.
+CI/application/GUI checks pass. The parent review received 2026-10-20 accepts
+ADR-0015 and Slice B; known validation limitations remain explicit.
 ADR-0014/Slice A is accepted. [ADR-0015](../adr/0015-native-workbook-documents.md)
 records the native file format, restoration and lifecycle decisions for review.
 
@@ -172,5 +173,6 @@ fixture and 14.87/6.31 ms with 512 additional numeric cells. Each is 11 observat
 after one warmup. Nine edit-to-render observations span 37.92–66.29 ms, including
 35 ms coalescing; they are not a UI p95/SLA. See the component performance record.
 The historical WSLg startup defect, mounted-Windows-path replacement limitation
-and Linux backend viewport variability remain unresolved. Slice B is ready for
-parent review; this validation does not itself accept ADR-0015.
+and Linux backend viewport variability remain unresolved. The parent review
+received 2026-10-20 accepts Slice B and ADR-0015. See the
+[review decision and next assignment](2026-10-20-workbook-persistence-review.md).

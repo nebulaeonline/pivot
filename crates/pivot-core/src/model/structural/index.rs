@@ -73,6 +73,24 @@ impl<K: Key, V: Clone + Footprint> Index<K, V> {
         self.root = put(&self.memory, &self.root, key, value)?;
         Ok(())
     }
+    /// Internal private-candidate insertion. A failure requires discarding the candidate.
+    /// Published/shared nodes remain immutable. Inline payloads can reuse unique nodes;
+    /// heap-owning payloads retain the ordinary charged functional insertion.
+    #[cfg(feature = "core-integration")]
+    #[doc(hidden)]
+    pub fn insert_private(&mut self, key: K, value: V) -> Result<(), Admission> {
+        #[cfg(feature = "scaling-experiment")]
+        {
+            static IMMUTABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+            if *IMMUTABLE.get_or_init(|| std::env::var_os("PIVOT_IMMUTABLE_INDEX").is_some()) {
+                return self.insert(key, value);
+            }
+        }
+        if key.heap_bytes() != 0 || value.heap_bytes() != 0 {
+            return self.insert(key, value);
+        }
+        put_private(&self.memory, &mut self.root, key, value)
+    }
     pub fn remove<Q: Ord + ?Sized>(&mut self, key: &Q) -> Result<(), Admission>
     where
         K: Borrow<Q>,
@@ -233,6 +251,109 @@ fn put<K: Key, V: Clone + Footprint>(
         )?,
     }))
 }
+#[cfg(feature = "core-integration")]
+fn unique<K: Key, V: Clone + Footprint>(
+    m: &Memory,
+    root: &mut Shared<Node<K, V>>,
+) -> Result<(), Admission> {
+    if root.get_mut().is_none() {
+        *root = node(
+            m,
+            root.key.clone(),
+            root.value.clone(),
+            root.left.clone(),
+            root.right.clone(),
+        )?;
+    }
+    Ok(())
+}
+#[cfg(feature = "core-integration")]
+fn refresh<K, V>(n: &mut Node<K, V>) {
+    n.height = 1 + height(&n.left).max(height(&n.right));
+    n.len = 1 + len(&n.left) + len(&n.right);
+}
+#[cfg(feature = "core-integration")]
+fn rotate_private<K: Key, V: Clone + Footprint>(
+    m: &Memory,
+    root: &mut Link<K, V>,
+    left: bool,
+) -> Result<(), Admission> {
+    // Prepare ownership before taking any links; subsequent rotation cannot fail.
+    let a = root.as_mut().unwrap();
+    unique(m, a)?;
+    let n = a.get_mut().unwrap();
+    unique(
+        m,
+        if left {
+            n.right.as_mut().unwrap()
+        } else {
+            n.left.as_mut().unwrap()
+        },
+    )?;
+    let mut a = root.take().unwrap();
+    let n = a.get_mut().unwrap();
+    let mut b = if left {
+        n.right.take().unwrap()
+    } else {
+        n.left.take().unwrap()
+    };
+    let pivot = b.get_mut().unwrap();
+    if left {
+        n.right = pivot.left.take();
+    } else {
+        n.left = pivot.right.take();
+    }
+    refresh(n);
+    if left {
+        pivot.left = Some(a);
+    } else {
+        pivot.right = Some(a);
+    }
+    refresh(pivot);
+    *root = Some(b);
+    Ok(())
+}
+#[cfg(feature = "core-integration")]
+fn put_private<K: Key, V: Clone + Footprint>(
+    m: &Memory,
+    root: &mut Link<K, V>,
+    key: K,
+    value: V,
+) -> Result<(), Admission> {
+    let Some(n) = root.as_mut() else {
+        *root = Some(node(m, key, value, None, None)?);
+        return Ok(());
+    };
+    if (**n).heap_bytes() != 0 {
+        *root = put(m, root, key, value)?;
+        return Ok(());
+    }
+    unique(m, n)?;
+    let n = n.get_mut().unwrap();
+    match key.cmp(&n.key) {
+        std::cmp::Ordering::Equal => {
+            n.key = key;
+            n.value = value;
+        }
+        std::cmp::Ordering::Less => put_private(m, &mut n.left, key, value)?,
+        std::cmp::Ordering::Greater => put_private(m, &mut n.right, key, value)?,
+    }
+    refresh(n);
+    if height(&n.left) > height(&n.right) + 1 {
+        let l = n.left.as_ref().unwrap();
+        if height(&l.left) < height(&l.right) {
+            rotate_private(m, &mut n.left, true)?;
+        }
+        rotate_private(m, root, false)?;
+    } else if height(&n.right) > height(&n.left) + 1 {
+        let r = n.right.as_ref().unwrap();
+        if height(&r.right) < height(&r.left) {
+            rotate_private(m, &mut n.right, false)?;
+        }
+        rotate_private(m, root, true)?;
+    }
+    Ok(())
+}
 fn remove<K: Key + Borrow<Q>, V: Clone + Footprint, Q: Ord + ?Sized>(
     m: &Memory,
     root: &Link<K, V>,
@@ -288,6 +409,82 @@ mod tests {
         assert_eq!(n.height, 1 + lh.max(rh));
         assert_eq!(n.len, 1 + ll + rl);
         (n.len, n.height)
+    }
+    #[cfg(feature = "core-integration")]
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    struct Inline(u64);
+    #[cfg(feature = "core-integration")]
+    impl Key for Inline {}
+    #[cfg(feature = "core-integration")]
+    #[test]
+    fn private_rotations_shared_generations_and_deletions_match_ordered_map() {
+        let memory = Memory::new(32 * 1024 * 1024);
+        let mut index = Index::new(memory.clone());
+        let mut oracle = BTreeMap::new();
+        let mut retained = Vec::new();
+        let mut seed = 73u64;
+        for step in 0..4096 {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let key = Inline((seed >> 16) % 512);
+            if seed & 3 == 0 {
+                index.remove(&key).unwrap();
+                oracle.remove(&key);
+            } else {
+                let v = pivot_types::PivotDecimal::from(step);
+                index.insert_private(key, v).unwrap();
+                oracle.insert(key, v);
+            }
+            check(&index.root);
+            assert!(
+                index
+                    .iter()
+                    .map(|(k, v)| (*k, *v))
+                    .eq(oracle.iter().map(|(k, v)| (*k, *v)))
+            );
+            if step % 128 == 0 {
+                retained.push((index.clone(), oracle.clone()));
+            }
+        }
+        for (old, expected) in retained {
+            check(&old.root);
+            assert!(old.iter().map(|(k, v)| (*k, *v)).eq(expected.into_iter()));
+        }
+        drop(index);
+        assert_eq!(memory.stats().charged, 0);
+    }
+    #[cfg(feature = "core-integration")]
+    #[test]
+    fn private_admission_failure_preserves_published_root_and_releases_partial_candidate() {
+        let memory = Memory::new(1024 * 1024);
+        let mut published = Index::new(memory.clone());
+        for i in 0..512 {
+            published.insert_private(Inline(i), ()).unwrap();
+        }
+        let before = memory.stats().charged;
+        let mut candidate = published.clone();
+        let hold = memory.reserve(memory.stats().limit - before - 512).unwrap();
+        assert!(candidate.insert_private(Inline(1000), ()).is_err());
+        assert_eq!(published.len(), 512);
+        assert!(!published.contains_key(&Inline(1000)));
+        check(&published.root);
+        drop((hold, candidate));
+        assert_eq!(memory.stats().charged, before);
+        drop(published);
+        assert_eq!(memory.stats().charged, 0);
+    }
+    #[cfg(feature = "core-integration")]
+    #[test]
+    fn heap_payload_replacement_preserves_exact_charge_by_functional_fallback() {
+        let memory = Memory::new(1024 * 1024);
+        let mut index = Index::new(memory.clone());
+        let text = "x".repeat(4096);
+        index.insert_private(Inline(1), text).unwrap();
+        let before = memory.stats().charged;
+        index.insert_private(Inline(1), String::new()).unwrap();
+        assert!(index.get(&Inline(1)).unwrap().is_empty());
+        assert!(memory.stats().charged + 4096 <= before);
+        drop(index);
+        assert_eq!(memory.stats().charged, 0);
     }
     #[test]
     fn rotations_deletions_and_retained_roots_match_an_independent_ordered_map() {

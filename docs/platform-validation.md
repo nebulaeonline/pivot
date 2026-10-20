@@ -1,6 +1,24 @@
 # Linux and macOS validation
 
-## Current: persistent workbook and bulk foundation (2026-10-19)
+## Current: persistent workbook readiness (2026-10-19)
+
+The [readiness follow-up](handoffs/2026-10-19-persistent-workbook-readiness.md)
+profiles construction and tests private-index reuse. Source-matched Windows/Linux/macOS
+validation passes: full default CI (251/252/252), all-feature regression (300/301/301),
+core fallback (21 each), workbook-only (49 each), strict lints and 234 matched children.
+All final domain charges are zero and all 68 benchmark source hashes match.
+The [fresh native report](../artifacts/macos-validation-20261020T010244Z/REPORT.md)
+used internal APFS for source, builds, temporary files and reports; all 296 copied
+source hashes match the reviewed tree before these documentation edits, and transfer
+verification covers 464 returned report files. No native source fixes or reruns occurred.
+Native 100K workbook construction improves 1.44–1.68x to 0.742–0.999 s; all ordinary
+review targets pass. All 52 pressure samples were normal. wait4 reports completed-child
+CPU/high-water (maximum 1,418.8 MiB), while native live RSS guarding remains unavailable.
+Earlier warning-pressure findings remain relevant; this is not an OS-capacity increase.
+Production constructor selection stays reference pending review. The accepted
+foundation below is separate historical evidence.
+
+## Accepted persistent workbook and bulk foundation (2026-10-19)
 
 Full default CI passes on Windows/Linux/native macOS (248/249/249 Rust tests),
 including .NET, decimal/protocol parity and real IPC. All-feature regression passes

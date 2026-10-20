@@ -210,6 +210,7 @@ impl<T> Pages<T> {
 }
 impl<T: Footprint> Pages<T> {
     pub fn set(&mut self, key: u64, value: T) -> Result<(), Admission> {
+        let _profile = crate::experiment_profile::construction::scope(13);
         let value = self.memory.alloc(value)?;
         let page_key = key / PAGE as u64;
         let mut page = lookup(&self.root, page_key)
@@ -663,6 +664,7 @@ impl Graph {
         Compiled::Formula { source, binding }
     }
     fn replace(&mut self, id: NodeId, definition: Compiled) -> Result<(), Error> {
+        let _profile = crate::experiment_profile::construction::scope(5);
         let _phase = crate::experiment_profile::scope(4);
         let old = self.live_record(id)?.clone();
         self.bytes = self.bytes - old.definition.bytes() + definition.bytes();
@@ -698,6 +700,7 @@ impl Graph {
         cancel: &dyn Fn() -> bool,
         retire: impl FnOnce(Graph) + Send + 'static,
     ) -> Result<Version, Error> {
+        let _profile = crate::experiment_profile::construction::scope(6);
         // Reserve all new names/identities before compiling any submitted formula.
         let mut additions = Vec::new();
         let mut definitions = Vec::new();
@@ -827,6 +830,7 @@ impl Graph {
         let mut changed = BTreeSet::new();
         let mut topology = false;
         let mut inputs = false;
+        let install_profile = crate::experiment_profile::construction::scope(6);
         for edit in edits {
             if bulk.is_some_and(|check| check()) {
                 return Err(Error::Cancelled);
@@ -872,6 +876,7 @@ impl Graph {
                     topology = true;
                 }
                 Edit::Resolved(id, source, tokens) => {
+                    let _profile = crate::experiment_profile::construction::scope(5);
                     if source.len() > 4096 {
                         return Err(Error::InvalidTransfer);
                     }
@@ -951,6 +956,8 @@ impl Graph {
                 }
             }
         }
+        drop(install_profile);
+        let validation_profile = crate::experiment_profile::construction::scope(7);
         candidate.check_quota()?;
         if candidate.import_invalid && topology && !candidate.local_validation {
             let restored = candidate.to_model()?;
@@ -1014,6 +1021,8 @@ impl Graph {
         candidate.version.inputs += u64::from(inputs);
         {
             let _phase = crate::experiment_profile::scope(10);
+            drop(validation_profile);
+            let _profile = crate::experiment_profile::construction::scope(9);
             *self = guard.take();
         }
         Ok(self.version)

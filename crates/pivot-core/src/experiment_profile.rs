@@ -71,3 +71,6 @@ impl Drop for Scope {
         PHASE.with(|c| c.set(self.previous));
     }
 }
+
+/// Opt-in cross-worker construction attribution, separate from legacy TLS totals.
+pub mod construction;

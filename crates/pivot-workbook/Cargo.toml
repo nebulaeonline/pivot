@@ -32,3 +32,7 @@ required-features = ["scaling-experiment"]
 [[example]]
 name = "bulk"
 required-features = ["persistent-core", "scaling-experiment"]
+
+[[example]]
+name = "readiness"
+required-features = ["persistent-core", "scaling-experiment"]

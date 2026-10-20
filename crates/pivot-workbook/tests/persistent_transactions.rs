@@ -154,3 +154,73 @@ fn owned_viewport_and_pinned_point_copy_out_require_transient_admission() {
     assert!(runtime.finish().is_ok());
     assert_eq!(memory.stats().charged, 0);
 }
+
+#[test]
+fn repeated_population_failed_private_candidates_and_edit_churn_release_every_generation() {
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    let memory = runtime.memory();
+    let baseline = memory.stats().charged;
+    for round in 0..4 {
+        let limits = Limits {
+            live_cells: 2048,
+            edits: 1024,
+            ..Limits::default()
+        };
+        let mut book = Workbook::new_in("churn", limits, &runtime).unwrap();
+        let edits = (1..=1024)
+            .map(|row| input(Position::new(row, 1), row))
+            .collect::<Vec<_>>();
+        book.apply(book.expected(), &edits).unwrap();
+        let old = book.capture_local(book.expected()).unwrap();
+        let original = old.pinned_content(A).unwrap().unwrap();
+        let before = book.expected();
+        let mut bad = (1..=512)
+            .map(|row| input(Position::new(row, 2), row))
+            .collect::<Vec<_>>();
+        bad.push(Edit::Move {
+            from: A,
+            to: Position::new(2, 1),
+        });
+        assert!(book.apply(before, &bad).is_err());
+        assert_eq!(book.expected(), before);
+        assert!(book.cell_at(Position::new(1, 2)).unwrap().is_none());
+        runtime.flush();
+        let hold = memory
+            .reserve(memory.stats().limit - memory.stats().charged - 1_100_000)
+            .unwrap();
+        assert!(book.apply(before, &bad[..512]).is_err());
+        drop(hold);
+        runtime.flush();
+        assert_eq!(book.expected(), before);
+        let canceled = CancellationToken::default();
+        canceled.cancel();
+        assert!(book.apply_cancelled(before, &bad, &canceled).is_err());
+        let mut retained = Vec::new();
+        for edit in 0..2048 {
+            book.apply(book.expected(), &[input(A, edit + round + 2)])
+                .unwrap();
+            if edit % 64 == 0 {
+                retained.push((
+                    book.capture_local(book.expected()).unwrap(),
+                    edit + round + 2,
+                ));
+            }
+        }
+        for (capture, value) in retained {
+            assert_eq!(
+                capture.evaluate(&[original.reference]).unwrap().values[0].1,
+                Ok((value as i64).into())
+            );
+        }
+        assert_eq!(old.pinned_content(A).unwrap().unwrap(), original);
+        assert_eq!(
+            old.evaluate(&[original.reference]).unwrap().values[0].1,
+            Ok(1.into())
+        );
+        drop((book, old));
+        runtime.flush();
+        assert_eq!(memory.stats().charged, baseline);
+    }
+    assert!(runtime.finish().is_ok());
+    assert_eq!(memory.stats().charged, 0);
+}

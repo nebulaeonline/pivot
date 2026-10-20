@@ -2,7 +2,30 @@
 
 Date: 2026-10-19
 
-Latest milestone: **Persistent Workbook Integration and Bulk Mutation Foundation**
+Latest milestone: **Persistent Workbook Production Readiness and Construction Profiling**
+is implemented with Windows/Linux/native macOS validation complete. A bounded private-index insertion optimization reuses uniquely
+owned candidate nodes while preserving shared roots, admission and atomic rollback.
+Production Workbook remains reference; explicit new_in remains the application-owned
+runtime path. ADR-0012 is Accepted. See the
+[readiness architecture/compatibility matrix](architecture/persistent-workbook-readiness.md),
+[matched profile/evidence](performance/persistent-workbook-readiness.md),
+[handoff](handoffs/2026-10-19-persistent-workbook-readiness.md) and
+[fresh native APFS packet](handoffs/2026-10-19-macos-persistent-workbook-readiness-instructions.md).
+Full default CI passes (251/252/252 tests), all-feature regression passes 300/301/301,
+fallback 21 each and workbook-only 49 each. All 234 matched ordinary/profile/core
+children pass with identical 68 source hashes and zero final charges. At 100K,
+workbook construction improves 1.7–2.1x Windows / 1.5–1.9x Linux / 1.44–1.68x macOS; numeric requested
+traffic falls from 1.492 GB to 651 MB. Retained/peak memory is substantially unchanged.
+Core name/page work explains much of the remaining reference gap. Existing interactive
+and bulk investigation budgets pass. Recommend explicit new_in for the next bounded
+application/session slice after review; keep new reference.
+The [fresh native report](../artifacts/macos-validation-20261020T010244Z/REPORT.md)
+validates all 296 copied source hashes on internal APFS. All 78 native cases pass;
+52 pressure samples were normal and completed-child high-water peaked at 1,418.8 MiB.
+This does not establish a capacity increase; native live RSS guarding remains unavailable.
+The preceding foundation run remains historical. Stop for review before constructor changes.
+
+Preceding accepted milestone: **Persistent Workbook Integration and Bulk Mutation Foundation**
 is implemented behind `pivot-workbook/persistent-core`; production Workbook remains
 reference. Canonical core batches reserve identities/resources, bind final names,
 publish atomically and dispatch once. Persistent workbook edits retain sparse
@@ -20,7 +43,7 @@ Linux / 4.5–5.3x macOS over individual persistent edits. Native 100K workbook
 population is 1.14–1.40 s, still slower than optimized reference. The
 [native report](../artifacts/macos-validation-20261019T220845Z/REPORT.md) records
 warning-level memory pressure and sampled RSS only, not native child high-water.
-Ready for parent review; production workbook selection stays reference.
+Foundation accepted by the parent; production workbook selection stays reference.
 
 The preceding **Standalone Default Transition** is accepted.
 Default-feature standalone WorkingModel::new now starts directly on persistent

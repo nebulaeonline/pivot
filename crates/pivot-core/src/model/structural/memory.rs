@@ -51,6 +51,7 @@ impl Memory {
         }
     }
     pub fn reserve(&self, bytes: usize) -> Result<Charge, Admission> {
+        let _profile = crate::experiment_profile::construction::scope(8);
         let mut old = self.0.used.load(Relaxed);
         loop {
             let next = old

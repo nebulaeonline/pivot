@@ -1,5 +1,6 @@
 //! Bounded opt-in worksheet transactions using canonical persistent graph/indexes.
 use super::*;
+use pivot_core::experiment_profile::construction as profile;
 use pivot_core::model::integration::{
     CancellationToken, IntegrationRuntime,
     batch::Batch,
@@ -77,13 +78,16 @@ impl Data {
         }
     }
     fn record(&mut self, id: CellId, record: Record) -> Result<()> {
+        let _profile = profile::scope(3);
         let old = self
             .records
             .get(&id)
             .map_or((0, 0, 0), |r| content_size(&r.content));
         let new = content_size(&record.content);
         let shared = self.memory.alloc(record).map_err(|_| Error::Limit)?;
-        self.records.insert(id, shared).map_err(|_| Error::Limit)?;
+        self.records
+            .insert_private(id, shared)
+            .map_err(|_| Error::Limit)?;
         self.tokens = self.tokens - old.0 + new.0;
         self.source = self.source - old.1 + new.1;
         self.metadata = self.metadata - old.2 + new.2;
@@ -218,11 +222,14 @@ impl Transaction<'_> {
         {
             return Err(Error::Limit);
         }
+        let identity_profile = profile::scope(2);
         let id = CellId::fresh();
         let node = self
             .batch
             .add_input(format!("N{}", self.data.records.len()), PivotDecimal::ZERO)
             .map_err(graph_error)?;
+        drop(identity_profile);
+        let _profile = profile::scope(3);
         self.journal.cells.insert(id);
         self.journal.positions.insert(position);
         self.data.record(
@@ -234,19 +241,26 @@ impl Transaction<'_> {
         )?;
         self.data
             .positions
-            .insert(position, id)
+            .insert_private(position, id)
             .map_err(|_| Error::Limit)?;
+        let portable = {
+            let _profile = profile::scope(2);
+            GraphNodeId::fresh()
+        };
         self.data
             .bindings
-            .insert(
+            .insert_private(
                 id,
                 Binding {
-                    portable: GraphNodeId::fresh(),
+                    portable,
                     runtime: node,
                 },
             )
             .map_err(|_| Error::Limit)?;
-        self.data.nodes.insert(node, id).map_err(|_| Error::Limit)?;
+        self.data
+            .nodes
+            .insert_private(node, id)
+            .map_err(|_| Error::Limit)?;
         self.data.live += 1;
         Ok(id)
     }
@@ -262,6 +276,7 @@ impl Transaction<'_> {
         )
     }
     fn resolve(&mut self, tokens: &[Token]) -> Result<(Vec<ResolvedToken>, Vec<Token>)> {
+        let _profile = profile::scope(5);
         let mut bound = Vec::with_capacity(tokens.len());
         let mut normalized = Vec::with_capacity(tokens.len());
         for token in tokens {
@@ -325,8 +340,10 @@ impl Transaction<'_> {
             }
             Edit::SetFormulaText { position, source } => {
                 self.book.axes_at(*position)?;
+                let parse_profile = profile::scope(4);
                 let parsed = expression::parse_spreadsheet(source);
                 let (mut tokens, references, diagnostic) = self.book.lower_text(&parsed);
+                drop(parse_profile);
                 if tokens.len() > self.book.limits.formula_tokens {
                     return Err(Error::Limit);
                 }
@@ -399,7 +416,7 @@ impl Transaction<'_> {
                 self.data.positions.remove(from).map_err(|_| Error::Limit)?;
                 self.data
                     .positions
-                    .insert(*to, id)
+                    .insert_private(*to, id)
                     .map_err(|_| Error::Limit)?;
                 let mut record = (**self.data.records.get(&id).unwrap()).clone();
                 record.position = Some(*to);
@@ -431,6 +448,7 @@ impl Transaction<'_> {
                 self.data.live -= 1;
             }
         }
+        let _profile = profile::scope(8);
         let stats = self.data.stats();
         if stats.estimated_owned_bytes > self.book.limits.bytes {
             return Err(Error::Limit);
@@ -455,8 +473,12 @@ fn apply(
     edits: &[Edit],
     cancel: &CancellationToken,
 ) -> Result<Expected> {
+    let _profile = profile::scope(11);
     book.check(expected)?;
-    book.preflight(edits)?;
+    {
+        let _profile = profile::scope(8);
+        book.preflight(edits)?;
+    }
     if cancel.is_cancelled() {
         return Err(Error::Graph("cancelled".into()));
     }
@@ -521,10 +543,14 @@ fn apply(
     let next = book.state.checked_add(1).ok_or(Error::Exhausted)?;
     let Transaction { data, batch, .. } = tx;
     let mut core = core;
-    core.apply_batch(batch, cancel).map_err(graph_error)?;
+    {
+        let _profile = profile::scope(12);
+        core.apply_batch(batch, cancel).map_err(graph_error)?;
+    }
     if cancel.is_cancelled() {
         return Err(Error::Graph("cancelled".into()));
     }
+    let _profile = profile::scope(9);
     let data = data.freeze();
     book.core = core;
     book.persistent = Some(data);

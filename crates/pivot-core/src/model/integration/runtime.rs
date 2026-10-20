@@ -49,9 +49,11 @@ impl Slots {
     fn release(&self, index: usize) {
         let retired = { lock(&self.values[index]).take() };
         if let Some(value) = retired {
+            let _profile = crate::experiment_profile::construction::scope(10);
             let start = std::time::Instant::now();
             let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(value)));
             let elapsed = start.elapsed().as_nanos();
+            drop(_profile);
             let mut pool = lock(&self.pool);
             pool.completed += 1;
             pool.drop_ns += elapsed;

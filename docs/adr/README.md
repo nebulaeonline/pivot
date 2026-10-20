@@ -21,7 +21,7 @@ decisions, not implementation suggestions.
 - [ADR-0009: Portable documents and local lifecycle](0009-portable-documents-and-local-lifecycle.md) — Accepted
 - [ADR-0010: Workbook projection and spreadsheet semantics](0010-workbook-projection-and-spreadsheet-semantics.md) — Accepted
 - [ADR-0011: Standalone persistent default and shared runtime lifecycle](0011-standalone-persistent-default.md) — Accepted.
-- [ADR-0012: Atomic bulk mutation and opt-in persistent workbook integration](0012-bulk-mutation-and-persistent-workbook.md) — Proposed.
+- [ADR-0012: Atomic bulk mutation and opt-in persistent workbook integration](0012-bulk-mutation-and-persistent-workbook.md) — Accepted.
 
 Authoring protocol, daemon integration and the minimal REPL are implemented.
 ADR-0008 remains Accepted for optional durable hosted storage; further provider,
@@ -38,5 +38,5 @@ Slice B's experimental implementation is accepted. ADR-0010 accepts the structur
 workbook architecture while reserving spreadsheet compatibility semantics. Its
 bounded Slice A now implements one sparse worksheet/graph proof with typed references.
 Scalar A1 parsing and stable binding are implemented. Persistent workbook integration
-is opt-in under proposed ADR-0012; production workbook selection stays reference.
+is opt-in under accepted ADR-0012; production workbook selection stays reference.
 Ranges, GUI, new protocol and production workbook files remain future work.

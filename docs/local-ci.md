@@ -254,3 +254,27 @@ fixes or reruns were needed. See the
 memory pressure was observed; native RSS samples are not child high-water and the
 runner RSS guard remains unavailable. The APFS/SMB packet above remains the
 reproduction procedure.
+
+
+## Persistent workbook readiness follow-up
+
+ADR-0012 is accepted. For the subsequent ownership-aware private-index change,
+repeat full default CI, all-feature workspace strict lint/tests, true core fallback
+and research-only lint, and persistent-workbook-only coverage. The
+[readiness harness commands](performance/persistent-workbook-readiness.md) run 78
+sequential children per platform, separating ordinary timing from profile probes
+and retaining the immutable insertion control. Run all correctness/build processes
+before latency measurements. The new Unix wait4 fields record completed-child CPU
+and RSS high-water; they do not supply macOS live RSS guarding. Native validation
+requires the [new APFS packet](handoffs/2026-10-19-macos-persistent-workbook-readiness-instructions.md),
+not reuse of the accepted 335-child foundation evidence.
+
+Readiness final Windows/Linux/macOS validation passes: default CI 251/252/252 Rust tests,
+all-feature regression 300/301/301, core fallback 21 each and workbook-only 49 each.
+All strict configurations above pass, along with .NET/parity/real IPC and 234
+source-matched ordinary/profile/core children. All final domain charges are zero.
+The [fresh native readiness report](../artifacts/macos-validation-20261020T010244Z/REPORT.md)
+passes all 78 children and native CI on internal APFS, with 296 matching source hashes
+before documentation updates and no source fixes/reruns. All 52 native pressure samples
+were normal; wait4 high-water remains post-exit evidence, not a live RSS guard.
+The accepted foundation's 335 children remain separate historical evidence.

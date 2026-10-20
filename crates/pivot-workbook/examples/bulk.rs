@@ -14,6 +14,7 @@ static CALLS: AtomicUsize = AtomicUsize::new(0);
 static PEAK: AtomicUsize = AtomicUsize::new(0);
 struct Counting;
 fn allocated(n: usize) {
+    pivot_core::experiment_profile::construction::allocation(n);
     TOTAL.fetch_add(n, Relaxed);
     CALLS.fetch_add(1, Relaxed);
     let live = LIVE.fetch_add(n, Relaxed) + n;
@@ -319,7 +320,12 @@ fn workbook(runtime: &IntegrationRuntime, n: usize, backend: &str, shape: &str, 
         let dispatch = dispatches(runtime);
         let bytes = TOTAL.load(Relaxed);
         let calls = CALLS.load(Relaxed);
+        let profiling = std::env::var_os("PIVOT_CONSTRUCTION_PROFILE").is_some();
+        if profiling {
+            pivot_core::experiment_profile::construction::start();
+        }
         let start = Instant::now();
+        let request_profile = pivot_core::experiment_profile::construction::scope(1);
         let mut book = if backend == "reference" {
             Workbook::new_reference_experiment("bulk", limits)
         } else {
@@ -338,8 +344,15 @@ fn workbook(runtime: &IntegrationRuntime, n: usize, backend: &str, shape: &str, 
                 }
             })
             .collect::<Vec<_>>();
+        drop(request_profile);
         book.apply(book.expected(), &edits).unwrap();
         let mutation = start.elapsed().as_nanos();
+        if profiling {
+            runtime.flush();
+            for (name, ns, bytes, calls) in pivot_core::experiment_profile::construction::stop() {
+                println!("PROFILE,{sample},{name},{ns},{bytes},{calls}");
+            }
+        }
         let begin = Instant::now();
         let capture = book.capture(book.expected()).unwrap();
         let captured = begin.elapsed().as_nanos();

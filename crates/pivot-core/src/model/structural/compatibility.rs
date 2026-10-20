@@ -69,7 +69,10 @@ impl Graph {
         };
         self.next = self.next.checked_add(1).ok_or(Error::Exhausted)?;
         self.max_name = self.max_name.max(name.len());
-        self.names.insert(name.clone(), id)?;
+        {
+            let _profile = crate::experiment_profile::construction::scope(14);
+            self.names.insert(name.clone(), id)?;
+        }
         self.records.set(
             id.node,
             Record {

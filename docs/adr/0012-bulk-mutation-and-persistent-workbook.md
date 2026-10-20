@@ -1,6 +1,6 @@
 # ADR-0012: Atomic bulk mutation and opt-in persistent workbook integration
 
-Status: Proposed. Date: 2026-10-19. Implementation: foundation implemented;
+Status: Accepted. Date: 2026-10-19. Implementation: foundation implemented;
 verification evidence is recorded separately in the handoff. Production workbook
 backend selection remains reference pending review.
 
@@ -129,3 +129,16 @@ recorded warning-level memory pressure; separate sparse RSS samples are not chil
 high-water, and the runner RSS guard remains unavailable on macOS. These results
 support review of the opt-in foundation; they do not select the production Workbook
 backend or expand the accepted language, formats or product limits.
+
+
+## Acceptance and readiness follow-up
+
+The parent review accepted the opt-in foundation and this structural direction;
+the owner authorized the next readiness milestone. Production Workbook selection
+remains reference. The [readiness assessment](../architecture/persistent-workbook-readiness.md)
+profiles construction and evaluates a bounded private-index optimization before
+any backend selection change. It does not reopen the graph representation decision.
+
+The subsequent readiness optimization now has source-matched Windows/Linux/native
+macOS validation; see the [readiness review handoff](../handoffs/2026-10-19-persistent-workbook-readiness.md).
+That follow-up awaits owner review and does not change production constructor policy.

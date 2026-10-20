@@ -1,7 +1,7 @@
 # Persistent workbook integration and bulk foundation — review handoff
 
 Date: 2026-10-19. Base commit: daff0f9bad55afb4cdccccb34db564e7b7f969c1.
-Uncommitted working-tree implementation. ADR-0011 is accepted; ADR-0012 is proposed.
+Uncommitted working-tree implementation. ADR-0011 is accepted; ADR-0012 is Accepted following parent review.
 Production Workbook, host, storage, daemon and document paths remain reference.
 
 ## Delivered behavior
@@ -135,7 +135,13 @@ unavailable. Retain this caveat alongside the passing timings and distinguish
 requested heap, domain reservations and observed process RSS.
 
 This foundation is ready for parent review with current three-platform evidence.
-ADR-0012 remains Proposed until review; no production Workbook default switch or
+ADR-0012 is now Accepted following parent review; no production Workbook default switch or
 scope expansion is included. Construction remains slower than reference, worksheet
 preparation remains synchronous caller work, and native GUI/AOT/cross-user denial,
 persistence/durability and million-cell support are not established by this run.
+
+
+Parent accepted this foundation and authorized the targeted
+[production-readiness follow-up](2026-10-19-persistent-workbook-readiness.md).
+This report remains the accepted foundation evidence; new implementation changes
+require their own validation before any production backend switch.

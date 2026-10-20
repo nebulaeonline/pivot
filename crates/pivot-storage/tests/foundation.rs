@@ -698,3 +698,53 @@ fn arbitrary_bounded_bytes_cannot_panic_and_accepted_bytes_are_canonical() {
         }
     }
 }
+
+#[test]
+fn frozen_hosted_capture_rejects_selection_capability() {
+    use pivot_core::model::{
+        integration::{CancellationToken, IntegrationRuntime},
+        selection::{Rectangle, SelectionId, SpaceId},
+        transfer::ResolvedToken,
+    };
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    let mut core = WorkingModel::new_in("Range", &runtime).unwrap();
+    let mut batch = core.begin_batch(4, 4096).unwrap();
+    let node = batch.add_input("Sum", "0".parse().unwrap()).unwrap();
+    let selection = SelectionId([1; 16]);
+    batch
+        .define_selection(
+            selection,
+            Rectangle {
+                space: SpaceId([2; 16]),
+                first_row: 1,
+                last_row: 2,
+                first_column: 1,
+                last_column: 1,
+            },
+        )
+        .unwrap();
+    batch
+        .set_resolved(node, "SUM", vec![ResolvedToken::Sum(selection)])
+        .unwrap();
+    core.apply_batch(batch, &CancellationToken::default())
+        .unwrap();
+    let result = capture(
+        &core,
+        &BTreeMap::from([(id(10), node)]),
+        &BTreeMap::new(),
+        Header {
+            store: id(1),
+            epoch: id(2),
+            model: id(3),
+            revision: id(4),
+            sequence: 1,
+            publication: None,
+        },
+        Limits::default(),
+    );
+    assert!(matches!(result, Err(Error::UnsupportedVersion)));
+    drop(core);
+    let memory = runtime.memory();
+    assert!(runtime.finish().is_ok());
+    assert_eq!(memory.stats().charged, 0);
+}

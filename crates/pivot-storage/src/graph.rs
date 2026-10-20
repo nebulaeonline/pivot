@@ -110,6 +110,10 @@ pub(crate) fn capture_graph(
     header: GraphHeader,
     limits: Limits,
 ) -> Result<GraphPayload> {
+    // Frozen hosted v1 has no selection dependency representation.
+    if core.selection_metrics().consumers != 0 {
+        return Err(Error::UnsupportedVersion);
+    }
     if nodes.len().saturating_add(ports.len()) > limits.identities.min(8192) {
         return Err(Error::Limit);
     }

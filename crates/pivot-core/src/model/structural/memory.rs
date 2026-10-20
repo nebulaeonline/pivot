@@ -14,6 +14,8 @@ struct Ledger {
     allocated: AtomicUsize,
     reserved: AtomicUsize,
     peak: AtomicUsize,
+    allocation_count: AtomicUsize,
+    allocation_bytes: AtomicUsize,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MemoryStats {
@@ -39,7 +41,16 @@ impl Memory {
             allocated: AtomicUsize::new(0),
             reserved: AtomicUsize::new(0),
             peak: AtomicUsize::new(0),
+            allocation_count: AtomicUsize::new(0),
+            allocation_bytes: AtomicUsize::new(0),
         }))
+    }
+    /// Cumulative successful domain-accounted allocations, not all process allocations.
+    pub fn allocation_traffic(&self) -> (usize, usize) {
+        (
+            self.0.allocation_count.load(Relaxed),
+            self.0.allocation_bytes.load(Relaxed),
+        )
     }
     pub fn stats(&self) -> MemoryStats {
         MemoryStats {
@@ -84,6 +95,8 @@ impl Memory {
         charge.allocation = true;
         self.0.reserved.fetch_sub(bytes, Relaxed);
         self.0.allocated.fetch_add(bytes, Relaxed);
+        self.0.allocation_count.fetch_add(1, Relaxed);
+        self.0.allocation_bytes.fetch_add(bytes, Relaxed);
         Ok(Shared(Arc::new(Charged {
             value,
             _charge: charge,

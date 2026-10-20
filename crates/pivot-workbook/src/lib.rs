@@ -112,6 +112,18 @@ impl DecimalInput {
 /// Typed source is provenance; SetFormulaText uses the shared spreadsheet parser.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
+    SumAt {
+        first: Position,
+        last: Position,
+        span: std::ops::Range<usize>,
+    },
+    Sum {
+        id: pivot_core::model::selection::SelectionId,
+        rectangle: pivot_core::model::selection::Rectangle,
+        first: Position,
+        last: Position,
+        span: std::ops::Range<usize>,
+    },
     Decimal(DecimalInput),
     At(Position),
     Cell(CellRef),
@@ -402,6 +414,26 @@ impl Workbook {
             let mut stack = vec![(expr, false)];
             while let Some((expr, visited)) = stack.pop() {
                 match expr {
+                    Expr::SumRange { first, last, span } => {
+                        let first = Position::new(first.0, first.1);
+                        let last = Position::new(last.0, last.1);
+                        if rows.at(first.row).is_err()
+                            || columns.at(first.column).is_err()
+                            || rows.at(last.row).is_err()
+                            || columns.at(last.column).is_err()
+                        {
+                            diagnostic = Some(ParseError {
+                                offset: span.start,
+                                message: "cell reference outside worksheet",
+                            });
+                            break;
+                        }
+                        tokens.push(Token::SumAt {
+                            first,
+                            last,
+                            span: span.clone(),
+                        });
+                    }
                     Expr::Decimal(v) => tokens.push(Token::Decimal(DecimalInput::from_decimal(*v))),
                     Expr::CellReference { row, column, span } => {
                         let pos = Position::new(*row, *column);
@@ -461,6 +493,21 @@ impl Workbook {
         max_records: usize,
     ) -> Result<RectangleRead> {
         persistent::read(self, expected, rectangle, max_records)
+    }
+    pub fn selection_metrics(&self) -> pivot_core::model::selection::Metrics {
+        self.core.selection_metrics()
+    }
+    pub fn invalidated_cells(&self) -> Vec<CellRef> {
+        self.core
+            .invalidated_selection_nodes()
+            .iter()
+            .filter_map(|id| {
+                self.persistent.nodes.get(id).map(|cell| CellRef {
+                    worksheet: self.worksheet,
+                    cell: *cell,
+                })
+            })
+            .collect()
     }
     pub fn stats(&self) -> Stats {
         self.persistent.stats()

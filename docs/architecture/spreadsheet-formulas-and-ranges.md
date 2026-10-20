@@ -1,5 +1,12 @@
 # Spreadsheet formula, reference and range analysis
 
+Historical scalar Slice B design context. The accepted range policies and current
+implementation are now governed by [ADR-0016](../adr/0016-first-class-ranges-and-sum.md)
+and the [Slice C handoff](../handoffs/2026-10-20-ranges-and-sum-slice-c.md).
+References below to future/unimplemented SUM describe the earlier design state;
+SUM and WB2 are now implemented and validated on Windows, Linux and native macOS.
+
+
 Status: Semantic candidates under accepted ADR-0010 architecture, not compatibility
 contracts. Same-sheet scalar A1 parsing/binding is implemented in
 [Slice B](spreadsheet-scalar-formulas.md). Copy/fill, extended reference syntax,

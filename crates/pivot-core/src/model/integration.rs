@@ -366,6 +366,36 @@ impl WorkingModel {
     ) -> Result<ModelSnapshot, SnapshotError> {
         self.integrated_snapshot(cancel)
     }
+    pub(super) fn integrated_export_selections(
+        &self,
+        nodes: &[NodeId],
+        ports: &[PortId],
+    ) -> Result<transfer::SelectionImage, ModelError> {
+        let i = &self.integrated;
+        if nodes.len() > 8192 || ports.len() > 8192 || i.graph().live_count() > 4096 {
+            return Err(ModelError::Backend("selection transfer limit"));
+        }
+        let _request = i
+            .graph()
+            .memory()
+            .reserve(65536 + nodes.len().saturating_add(ports.len()) * 256)
+            .map_err(|_| ModelError::Backend("selection transfer admission"))?;
+        let graph = i.graph.clone();
+        let nodes = nodes.to_vec();
+        let ports = ports.to_vec();
+        i.runtime
+            .heavy
+            .run(
+                &i.runtime.cleanup,
+                &CancellationToken::default(),
+                move || {
+                    let _copy = graph.get().copy_reservation()?;
+                    graph.get().export_selections(&nodes, &ports)
+                },
+            )
+            .map_err(ModelError::Backend)?
+            .map_err(map_error)
+    }
     pub(super) fn integrated_export(
         &self,
         nodes: &[NodeId],

@@ -223,3 +223,9 @@ Preserve the unresolved WSLg startup abort and mounted-Windows-path replacement
 failure; if the native abort recurs, capture an actionable backtrace. No SQLite,
 new engine, broad function library, structural transforms, copy/fill, formatting
 expansion, installer/AOT or production-million-cell claim is authorized.
+
+## Implementation validation
+
+The [Slice C implementation note](../handoffs/2026-10-20-ranges-and-sum-slice-c.md)
+records concrete quotas, typed inspection, WB2 layout, measurement scope and
+remaining platform acceptance. Design acceptance does not imply implementation acceptance.

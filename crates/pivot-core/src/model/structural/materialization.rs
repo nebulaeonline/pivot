@@ -99,6 +99,13 @@ impl Graph {
         &self,
         cancelled: impl Fn() -> bool,
     ) -> Result<MaterializedImage, Error> {
+        self.materialize_mode(cancelled, false)
+    }
+    fn materialize_mode(
+        &self,
+        cancelled: impl Fn() -> bool,
+        allow_selections: bool,
+    ) -> Result<MaterializedImage, Error> {
         let name_bytes = self.names.iter().map(|(name, _)| name.len()).sum::<usize>();
         let charge = self.memory.reserve(
             self.live
@@ -107,6 +114,12 @@ impl Graph {
                 .saturating_add(name_bytes.saturating_mul(4))
                 .saturating_add(self.ports.heap_bytes().saturating_mul(4)),
         )?;
+        if self.has_selection_formulas() && !allow_selections {
+            return Err(ModelError::Backend(
+                "unsupported selection capability in scalar materialization",
+            )
+            .into());
+        }
         let mut nodes = BTreeMap::new();
         for (slot, record) in self.records.iter().filter(|(_, r)| r.live) {
             if cancelled() {
@@ -136,6 +149,79 @@ impl Graph {
         Ok(MaterializedImage {
             model,
             _charge: charge,
+        })
+    }
+    pub(in crate::model) fn export_selections(
+        &self,
+        nodes: &[NodeId],
+        ports: &[PortId],
+    ) -> Result<transfer::SelectionImage, Error> {
+        let mut image = self.materialize_mode(|| false, true)?;
+        let slots: BTreeMap<_, _> = nodes
+            .iter()
+            .enumerate()
+            .map(|(slot, id)| (*id, slot))
+            .collect();
+        let mut formulas = Vec::new();
+        for (id, node) in image.model.nodes.iter_mut() {
+            if let Definition::Computed {
+                source,
+                binding: Ok((tokens, _)),
+            } = &node.definition
+                && tokens.iter().any(|t| matches!(t, BoundToken::Sum(_)))
+            {
+                let translated = tokens
+                    .iter()
+                    .map(|token| {
+                        Ok(match token {
+                            BoundToken::Decimal(v) => transfer::SelectionToken::Decimal(*v),
+                            BoundToken::Node(n) => transfer::SelectionToken::Node(
+                                *slots.get(n).ok_or(Error::InvalidTransfer)?,
+                            ),
+                            BoundToken::Sum(id) => transfer::SelectionToken::Sum(*id),
+                            BoundToken::Unary(op) => transfer::SelectionToken::Unary(*op),
+                            BoundToken::Binary(op) => transfer::SelectionToken::Binary(*op),
+                        })
+                    })
+                    .collect::<Result<Vec<_>, Error>>()?;
+                formulas.push(transfer::SelectionFormula {
+                    slot: *slots.get(id).ok_or(Error::InvalidTransfer)?,
+                    source: source.clone(),
+                    tokens: translated,
+                });
+                node.definition = Definition::Computed {
+                    source: source.clone(),
+                    binding: Err(SnapshotError::Parse {
+                        node: *id,
+                        error: ParseError {
+                            offset: 0,
+                            message: "unexpected trailing input",
+                        },
+                    }),
+                };
+            }
+        }
+        formulas.sort_by_key(|f| f.slot);
+        let scalar_skeleton = transfer::export_image(&image.model, nodes, ports)?;
+        let selections = self.selection_image();
+        let points = selections
+            .points
+            .into_iter()
+            .map(|(space, row, column, node)| {
+                Ok((
+                    space,
+                    row,
+                    column,
+                    *slots.get(&node).ok_or(Error::InvalidTransfer)?,
+                ))
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        Ok(transfer::SelectionImage {
+            version: 2,
+            scalar_skeleton,
+            formulas,
+            identities: selections.identities,
+            points,
         })
     }
     pub fn export(&self, nodes: &[NodeId], ports: &[PortId]) -> Result<transfer::Image, Error> {
@@ -182,6 +268,20 @@ impl Graph {
     /// Expensive diagnostic path reproduces accepted complete affected-node lists.
     /// Calculation capture stays O(roots) for valid generations.
     pub fn diagnose(&self) -> Result<Result<(), SnapshotError>, Error> {
+        if self.has_selection_formulas() {
+            let roots = self
+                .records
+                .iter()
+                .filter(|(_, r)| r.live)
+                .map(|(slot, _)| NodeId {
+                    model: self.version.model,
+                    node: slot,
+                })
+                .collect();
+            return Ok(self
+                .validate_many(&roots, &|| false)?
+                .map_or(Ok(()), |(_, error)| Err(error)));
+        }
         Ok(self.materialize()?.snapshot().map(|_| ()))
     }
     pub(super) fn edit_port(&mut self, edit: PortEdit) -> Result<bool, Error> {

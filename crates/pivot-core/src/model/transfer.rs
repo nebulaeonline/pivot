@@ -61,6 +61,7 @@ fn invalid() -> ModelError {
 /// Internal already-resolved expression input. Not a parser, wire or storage ABI.
 #[derive(Clone, Debug)]
 pub enum ResolvedToken {
+    Sum(super::selection::SelectionId),
     Decimal(PivotDecimal),
     Node(NodeId),
     Unary(UnaryOp),
@@ -74,7 +75,7 @@ pub(super) fn checked_dependencies(tokens: &[BoundToken]) -> Result<Vec<NodeId>,
     let mut dependencies = BTreeSet::new();
     for token in tokens {
         match token {
-            BoundToken::Decimal(_) => depth += 1,
+            BoundToken::Decimal(_) | BoundToken::Sum(_) => depth += 1,
             BoundToken::Node(id) => {
                 depth += 1;
                 dependencies.insert(*id);
@@ -210,6 +211,11 @@ pub(super) fn export_image(
                             .iter()
                             .map(|t| {
                                 Ok(match t {
+                                    BoundToken::Sum(_) => {
+                                        return Err(ModelError::Backend(
+                                            "unsupported selection capability in scalar transfer",
+                                        ));
+                                    }
                                     BoundToken::Decimal(v) => Token::Decimal(*v),
                                     BoundToken::Node(id) => {
                                         Token::Node(*node_slots.get(id).ok_or_else(invalid)?)
@@ -469,6 +475,40 @@ pub(super) fn decode(image: Image) -> Result<Decoded, ModelError> {
         nodes,
         ports,
     })
+}
+
+/// Selection-aware logical transfer. The scalar skeleton deliberately contains
+/// non-executable drafts for overlay definitions; it is not a range-free export.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SelectionFormula {
+    pub slot: usize,
+    pub source: String,
+    pub tokens: Vec<SelectionToken>,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SelectionToken {
+    Decimal(PivotDecimal),
+    Node(usize),
+    Sum(selection::SelectionId),
+    Unary(UnaryOp),
+    Binary(BinaryOp),
+}
+#[derive(Clone, Debug)]
+pub struct SelectionImage {
+    pub version: u32,
+    pub scalar_skeleton: Image,
+    pub formulas: Vec<SelectionFormula>,
+    pub identities: Vec<(selection::SelectionId, Option<selection::Rectangle>)>,
+    pub points: Vec<(selection::SpaceId, u32, u32, usize)>,
+}
+impl WorkingModel {
+    pub fn export_selections(
+        &self,
+        nodes: &[NodeId],
+        ports: &[PortId],
+    ) -> Result<SelectionImage, ModelError> {
+        self.integrated_export_selections(nodes, ports)
+    }
 }
 
 #[cfg(test)]

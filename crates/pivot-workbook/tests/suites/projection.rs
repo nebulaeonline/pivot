@@ -68,7 +68,8 @@ fn move_clear_retire_reuse_and_explicit_rebinding_have_independent_expected_resu
     assert_eq!(number(&w, C), "225".parse().unwrap());
     let before = w.expected();
     w.apply(before, &[Edit::Move { from: A, to: D }]).unwrap();
-    assert_eq!(w.expected().graph, before.graph);
+    // Sparse placement is canonical graph state, even without a SUM consumer.
+    assert_ne!(w.expected().graph, before.graph);
     assert_ne!(w.expected().state, before.state);
     assert!(w.cell_at(A).unwrap().is_none());
     assert_eq!(reference(&w, D), a);

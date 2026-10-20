@@ -1,6 +1,24 @@
 # Linux and macOS validation
 
-## Current: native workbook persistence Slice B
+## Current: ranges and SUM Slice C — ready for review
+
+Full Windows/Linux/native macOS CI passes (290/291/291 default Rust tests,
+306/307/307 all-feature), with strict lint, .NET/parity/IPC, real session and
+actual-window SUM/Save/Open checks and zero-charge normal close.
+[Implementation/quotas](handoffs/2026-10-20-ranges-and-sum-slice-c.md),
+[validation/performance](handoffs/2026-10-20-ranges-validation.md).
+
+The [fresh Mac report](../artifacts/macos-validation-20261020T130207Z/REPORT.md)
+records local APFS source/builds/tests, 318 matching copied source hashes and 168
+matching build inputs, no product fixes or validation reruns, and 363 verified
+returned report files. Mac native pickers, all dirty-close choices and untouched
+close passed per user confirmation. Windows manual native-dialog checks also passed.
+The user confirmed WSLg Save-on-close succeeds on local WSL2 storage and untouched
+close no longer prompts. Windows-volume Save-on-close reported installation
+uncertainty; mounted-path replacement and the historical WSLg native abort remain
+unresolved. Native filesystem passes do not establish mounted-path certainty.
+
+## Accepted historical: native workbook persistence Slice B
 
 The [Slice B handoff](handoffs/2026-10-20-workbook-persistence-slice-b.md) records
 new document, native file-failure, cross-process Save/Open and actual-window evidence.

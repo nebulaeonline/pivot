@@ -112,7 +112,7 @@ fn independent_restore_preserves_projection_bound_graph_and_retired_ledgers() {
         );
     }
     let mut version = export.bytes.clone();
-    version[7] = b'2';
+    version[7] = b'3';
     assert!(
         pivot_workbook_document::Document::open_document(&version, Limits::default(), &runtime)
             .is_err()
@@ -160,4 +160,136 @@ fn referenced_retirement_and_out_of_bounds_drafts_roundtrip() {
     drop(restored);
     drop(book);
     assert!(runtime.finish().is_ok());
+}
+
+#[test]
+fn sum_document_keeps_bound_geometry_identity_and_member_affinity() {
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    let mut book = Workbook::new_in("SUM", Limits::default(), &runtime).unwrap();
+    book.apply(
+        book.expected(),
+        &[
+            number(p(1, 1), "10"),
+            number(p(2, 1), "20"),
+            Edit::SetFormulaText {
+                position: p(1, 4),
+                source: "=A1+SUM(A3:A1)".into(),
+            },
+        ],
+    )
+    .unwrap();
+    book.apply(
+        book.expected(),
+        &[
+            Edit::Move {
+                from: p(1, 1),
+                to: p(5, 1),
+            },
+            number(p(1, 1), "7"),
+        ],
+    )
+    .unwrap();
+    let formula = book.cell_at(p(1, 4)).unwrap().unwrap();
+    let bytes = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
+    assert_eq!(&bytes.bytes[..8], b"PIVOTWB2");
+    let (mut restored, _) =
+        pivot_workbook_document::Document::open_document(&bytes.bytes, Limits::default(), &runtime)
+            .unwrap();
+    assert_eq!(restored.cell_at(p(1, 4)).unwrap().unwrap(), formula);
+    let s = restored.capture_local(restored.expected()).unwrap();
+    let output = s.cell_at(p(1, 4)).unwrap();
+    assert_eq!(
+        s.evaluate(&[output]).unwrap().values[0]
+            .1
+            .as_ref()
+            .unwrap()
+            .to_string(),
+        "37"
+    );
+    restored
+        .apply(restored.expected(), &[number(p(3, 1), "4")])
+        .unwrap();
+    let t = restored.capture_local(restored.expected()).unwrap();
+    assert_eq!(
+        t.evaluate(&[output]).unwrap().values[0]
+            .1
+            .as_ref()
+            .unwrap()
+            .to_string(),
+        "41"
+    );
+    assert_eq!(
+        s.evaluate(&[output]).unwrap().values[0]
+            .1
+            .as_ref()
+            .unwrap()
+            .to_string(),
+        "37"
+    );
+    drop(s);
+    drop(t);
+    drop(book);
+    drop(restored);
+    let memory = runtime.memory();
+    assert!(runtime.finish().is_ok());
+    assert_eq!(memory.stats().charged, 0);
+}
+#[test]
+fn wb1_is_an_explicit_unsupported_version_not_a_migration_reader() {
+    let text = include_str!("fixtures/wb1.hex").trim();
+    let bytes = (0..text.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).unwrap())
+        .collect::<Vec<_>>();
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    let error =
+        match pivot_workbook_document::Document::open_document(&bytes, Limits::default(), &runtime)
+        {
+            Err(e) => e,
+            Ok(_) => panic!("WB1 must be unsupported"),
+        };
+    assert!(
+        error
+            .to_string()
+            .contains("unsupported native workbook version WB1")
+    );
+    assert!(runtime.finish().is_ok());
+}
+
+#[test]
+fn wb2_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
+    use sha2::{Digest, Sha256};
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    let mut book = Workbook::new_in("Corruption", Limits::default(), &runtime).unwrap();
+    book.apply(
+        book.expected(),
+        &[
+            number(p(1, 1), "3"),
+            Edit::SetFormulaText {
+                position: p(1, 3),
+                source: "=SUM(A1:A2)".into(),
+            },
+        ],
+    )
+    .unwrap();
+    let bytes = pivot_workbook_document::Document::export_document(&book, book.expected())
+        .unwrap()
+        .bytes;
+    // WB2 fixed worksheet/axis/state header, then length-prefixed graph.
+    let graph_length = u64::from_le_bytes(bytes[120..128].try_into().unwrap()) as usize;
+    let policy = 128 + graph_length;
+    for (at, value) in [(policy, 2u64), (policy + 8, 8193), (policy + 8 + 8 + 16, 9)] {
+        let mut corrupt = bytes.clone();
+        corrupt[at..at + 8].copy_from_slice(&value.to_le_bytes());
+        let digest = Sha256::digest(&corrupt[48..]);
+        corrupt[16..48].copy_from_slice(&digest);
+        assert!(
+            pivot_workbook_document::Document::open_document(&corrupt, Limits::default(), &runtime)
+                .is_err()
+        );
+    }
+    drop(book);
+    let memory = runtime.memory();
+    assert!(runtime.finish().is_ok());
+    assert_eq!(memory.stats().charged, 0);
 }

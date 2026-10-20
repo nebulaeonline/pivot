@@ -43,6 +43,35 @@ impl<K: Key, V: Clone + Footprint> Index<K, V> {
     pub fn new(memory: Memory) -> Self {
         Self { root: None, memory }
     }
+    /// Visit an inclusive key range, counting actual tree nodes inspected.
+    /// Returning false stops traversal (for cancellation or a caller work budget).
+    pub fn visit_range(&self, first: &K, last: &K, mut visit: impl FnMut(&K, &V) -> bool) -> usize {
+        fn walk<K: Key, V: Clone + Footprint>(
+            node: &Link<K, V>,
+            first: &K,
+            last: &K,
+            visit: &mut impl FnMut(&K, &V) -> bool,
+            count: &mut usize,
+        ) -> bool {
+            let Some(n) = node else { return true };
+            *count += 1;
+            if n.key >= *first && !walk(&n.left, first, last, visit, count) {
+                return false;
+            }
+            if n.key >= *first && n.key <= *last && !visit(&n.key, &n.value) {
+                return false;
+            }
+            if n.key <= *last && !walk(&n.right, first, last, visit, count) {
+                return false;
+            }
+            true
+        }
+        let mut count = 0;
+        if first <= last {
+            walk(&self.root, first, last, &mut visit, &mut count);
+        }
+        count
+    }
     pub fn len(&self) -> usize {
         len(&self.root)
     }

@@ -27,7 +27,9 @@ A headless document proof supports experimental model files.
 The first Avalonia worksheet now edits and calculates through a real Rust-owned
 local session. It supports decimal/formula entry, clear/move and bounded scrolling.
 Native workbook files now support New, Open, Save, Save As and Close, preserving
-stable bindings and editable drafts. Advanced spreadsheet features and deployment
+stable bindings and editable drafts. Same-sheet `SUM(A1:B20)` uses current occupants
+of a fixed rectangle and checked decimal arithmetic. Native files now use WB2; WB1
+files are unsupported. Advanced spreadsheet features and deployment
 are still ahead.
 
 ## Run the desktop
@@ -39,13 +41,13 @@ python scripts/run_desktop.py
 ```
 
 Select a cell, enter a number or `=A1+B1`, and commit with Enter or the button.
-See the [application handoff](docs/handoffs/2026-10-20-workbook-persistence-slice-b.md)
+See the [application handoff](docs/handoffs/2026-10-20-ranges-and-sum-slice-c.md)
 for workflow, limits and validation status.
 
 The transport-independent Protobuf protocol has Rust/C# serialization tests and an
 in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)
 to run the demo daemon and CLI. Engine/daemon coverage includes Windows, WSL2 Linux
-and macOS ARM64. The Save/Open workflow has executable checks on all three platforms. See [platform validation](docs/platform-validation.md) for
+and macOS ARM64. Ranges/SUM and WB2 Save/Open have executable checks on all three platforms. See [platform validation](docs/platform-validation.md) for
 coverage and the recorded WSLg startup limitation.
 
 See [implementation status](docs/STATUS.md) and

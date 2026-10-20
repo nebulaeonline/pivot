@@ -14,6 +14,10 @@ static class PersistenceChecks
   string root=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"pivot-workbook-"+Guid.NewGuid());Directory.CreateDirectory(root);
   string path=Path.Combine(root,"roundtrip.pivot");
   var s=await WorkbookSession.StartAsync(binary);
+  Check(!s.IsDirty && s.SavedCheckpoint.Length==0 && s.DocumentPath.Length==0,"Untouched initial document is clean without claiming a saved file");
+  await s.NewAsync(s.Revision);Check(!s.IsDirty,"Untouched New is clean");
+  await s.CloseDocumentAsync(s.Revision);await s.NewAsync(s.Revision);
+  await s.ApplyAsync(s.Revision,[new Edit{At=P(1,1),Clear=true}]);Check(!s.IsDirty,"No-op blank clear stays clean");
   await s.ApplyAsync(s.Revision,[N(1,1,1.2300m),F(1,2," =A1+2 "),F(1,3,"=("),N(3,1,new decimal(0,0,0,true,4)),N(3,2,decimal.MaxValue)]);
   await s.ApplyAsync(s.Revision,[new Edit{At=P(1,1),MoveTo=P(2,1)},N(1,1,100m)]);
   var frame=await s.ReadAsync(P(1,1),P(3,3));string stable=frame.Cells.Single(c=>c.At.Row==2&&c.At.Column==1).CellId;string doc=s.DocumentId;

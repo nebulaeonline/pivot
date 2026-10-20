@@ -7,6 +7,11 @@ use std::fmt;
 pub enum Expr {
     Decimal(PivotDecimal),
     Name(String),
+    SumRange {
+        first: (u32, u32),
+        last: (u32, u32),
+        span: std::ops::Range<usize>,
+    },
     CellReference {
         row: u32,
         column: u32,
@@ -103,6 +108,32 @@ impl Parser<'_> {
             self.pos += 1;
         }
     }
+    fn range_cell(&mut self) -> Result<(u32, u32), ParseError> {
+        self.space();
+        let start = self.pos;
+        let mut column = 0u32;
+        while let Some(b) = self.peek().filter(u8::is_ascii_alphabetic) {
+            column = column
+                .checked_mul(26)
+                .and_then(|c| c.checked_add((b.to_ascii_uppercase() - b'A' + 1).into()))
+                .ok_or_else(|| self.error("invalid cell reference"))?;
+            self.pos += 1;
+        }
+        let split = self.pos;
+        if split == start || self.peek() == Some(b'0') {
+            return Err(self.error("invalid cell reference"));
+        }
+        while self.peek().is_some_and(|b| b.is_ascii_digit()) {
+            self.pos += 1;
+        }
+        let row = self.source[split..self.pos]
+            .parse::<u32>()
+            .map_err(|_| self.error("invalid cell reference"))?;
+        if row == 0 {
+            return Err(self.error("invalid cell reference"));
+        }
+        Ok((row, column))
+    }
     fn expr(&mut self, min: u8, depth: usize) -> Result<Expr, ParseError> {
         if depth >= 64 {
             return Err(self.error("expression nesting too deep"));
@@ -158,7 +189,30 @@ impl Parser<'_> {
                 {
                     self.pos += 1;
                 }
-                if self.spreadsheet {
+                if self.spreadsheet && self.source[start..self.pos].eq_ignore_ascii_case("SUM") {
+                    self.space();
+                    if self.peek() != Some(b'(') {
+                        return Err(self.error("expected SUM rectangle"));
+                    }
+                    self.pos += 1;
+                    let first = self.range_cell()?;
+                    self.space();
+                    if self.peek() != Some(b':') {
+                        return Err(self.error("expected range colon"));
+                    }
+                    self.pos += 1;
+                    let last = self.range_cell()?;
+                    self.space();
+                    if self.peek() != Some(b')') {
+                        return Err(self.error("expected closing parenthesis"));
+                    }
+                    self.pos += 1;
+                    Expr::SumRange {
+                        first,
+                        last,
+                        span: start..self.pos,
+                    }
+                } else if self.spreadsheet {
                     let text = &self.source[start..self.pos];
                     let split = text.bytes().take_while(u8::is_ascii_alphabetic).count();
                     let invalid = || ParseError {

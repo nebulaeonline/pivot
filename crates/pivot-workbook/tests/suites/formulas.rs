@@ -140,7 +140,7 @@ fn malformed_and_out_of_bounds_references_are_editable_drafts() {
         ("=$A$1", 1),
         ("=A1:B2", 3),
         ("=Sheet!A1", 1),
-        ("=SUM(A1)", 1),
+        ("=SUM(A1)", 7),
         ("==1", 1),
         ("=0.00000000000000000000000000001", 1),
         ("=1e3", 2),

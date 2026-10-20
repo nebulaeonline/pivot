@@ -144,6 +144,28 @@ impl Batch {
         }
         self.push(Edit::Invalid(id, source.into(), error), source.len())
     }
+    pub fn restore_retired_selection(
+        &mut self,
+        id: selection::SelectionId,
+    ) -> Result<(), ModelError> {
+        self.push(Edit::RetiredSelection(id), 64)
+    }
+    pub fn define_selection(
+        &mut self,
+        id: selection::SelectionId,
+        rectangle: selection::Rectangle,
+    ) -> Result<(), ModelError> {
+        self.push(Edit::Selection(id, rectangle), 128)
+    }
+    pub fn place(
+        &mut self,
+        space: selection::SpaceId,
+        row: u32,
+        column: u32,
+        node: Option<NodeId>,
+    ) -> Result<(), ModelError> {
+        self.push(Edit::Placement(space, row, column, node), 64)
+    }
     pub fn retire(&mut self, id: NodeId) -> Result<(), ModelError> {
         self.push(Edit::Retire(id), 0)
     }
@@ -245,6 +267,111 @@ impl WorkingModel {
         i.graph = candidate;
         self.revision = next;
         Ok(next)
+    }
+}
+
+impl IntegrationRuntime {
+    pub fn import_selections(
+        &self,
+        image: transfer::SelectionImage,
+        cancel: &CancellationToken,
+    ) -> Result<transfer::Imported, ModelError> {
+        use selection::{MAX_CONSUMERS, MAX_IDENTITIES, MAX_POINTS, MAX_SELECTIONS};
+        let invalid = || ModelError::Backend("invalid selection-aware transfer");
+        if image.version != 2
+            || image.identities.len() > MAX_IDENTITIES
+            || image.points.len() > MAX_POINTS
+            || image.formulas.len() > MAX_CONSUMERS
+        {
+            return Err(invalid());
+        }
+        let ids: BTreeSet<_> = image.identities.iter().map(|(id, _)| *id).collect();
+        if ids.len() != image.identities.len() {
+            return Err(invalid());
+        }
+        let active: BTreeSet<_> = image
+            .identities
+            .iter()
+            .filter(|(_, r)| r.is_some())
+            .map(|(id, _)| *id)
+            .collect();
+        if active.len() > MAX_SELECTIONS {
+            return Err(invalid());
+        }
+        let used: BTreeSet<_> = image
+            .formulas
+            .iter()
+            .flat_map(|f| {
+                f.tokens.iter().filter_map(|t| {
+                    if let transfer::SelectionToken::Sum(id) = t {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect();
+        if used != active {
+            return Err(invalid());
+        }
+        let mut slots = BTreeSet::new();
+        let mut point_keys = BTreeSet::new();
+        let mut sources = 0usize;
+        for f in &image.formulas {
+            if !slots.insert(f.slot)||!image.scalar_skeleton.nodes.iter().any(|n|n.slot==f.slot&&matches!(&n.definition,transfer::NodeDefinition::Computed{source,binding:transfer::Binding::ParseFailed{offset:0,code:1}} if *source==f.source)){return Err(invalid())}
+            if f.tokens.len() > 4096 || f.source.len() > 4096 {
+                return Err(invalid());
+            }
+            sources = sources.checked_add(f.source.len()).ok_or_else(invalid)?;
+        }
+        for (space, row, column, slot) in &image.points {
+            if !point_keys.insert((*space, *row, *column))
+                || !image.scalar_skeleton.nodes.iter().any(|n| n.slot == *slot)
+            {
+                return Err(invalid());
+            }
+        }
+        let capacity = image.identities.len() + image.points.len() + image.formulas.len();
+        let mut imported = self.import_portable(image.scalar_skeleton, cancel)?;
+        let mut batch = imported
+            .model
+            .begin_batch(capacity, sources.saturating_add(capacity * 128))?;
+        for (id, rectangle) in image.identities {
+            if let Some(rectangle) = rectangle {
+                batch.define_selection(id, rectangle)?;
+            } else {
+                batch.restore_retired_selection(id)?;
+            }
+        }
+        for (space, row, column, slot) in image.points {
+            batch.place(
+                space,
+                row,
+                column,
+                Some(*imported.nodes.get(slot).ok_or_else(invalid)?),
+            )?;
+        }
+        for f in image.formulas {
+            let node = *imported.nodes.get(f.slot).ok_or_else(invalid)?;
+            let tokens = f
+                .tokens
+                .into_iter()
+                .map(|t| {
+                    Ok(match t {
+                        transfer::SelectionToken::Decimal(v) => transfer::ResolvedToken::Decimal(v),
+                        transfer::SelectionToken::Node(slot) => transfer::ResolvedToken::Node(
+                            *imported.nodes.get(slot).ok_or_else(invalid)?,
+                        ),
+                        transfer::SelectionToken::Sum(id) => transfer::ResolvedToken::Sum(id),
+                        transfer::SelectionToken::Unary(op) => transfer::ResolvedToken::Unary(op),
+                        transfer::SelectionToken::Binary(op) => transfer::ResolvedToken::Binary(op),
+                    })
+                })
+                .collect::<Result<Vec<_>, ModelError>>()?;
+            batch.set_resolved(node, &f.source, tokens)?;
+        }
+        imported.model.apply_batch(batch, cancel)?;
+        Ok(imported)
     }
 }
 

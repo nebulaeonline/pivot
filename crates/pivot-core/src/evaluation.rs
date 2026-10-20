@@ -229,11 +229,22 @@ pub(crate) fn evaluate_expression(
     tokens: &[BoundToken],
     values: &BTreeMap<NodeId, NodeResult>,
 ) -> NodeResult {
+    evaluate_expression_with_selections(id, tokens, values, |_| {
+        Err(EvaluationError::InvalidExpression { node: id })
+    })
+}
+pub(crate) fn evaluate_expression_with_selections(
+    id: NodeId,
+    tokens: &[BoundToken],
+    values: &BTreeMap<NodeId, NodeResult>,
+    mut sum: impl FnMut(crate::model::selection::SelectionId) -> NodeResult,
+) -> NodeResult {
     let invalid = || EvaluationError::InvalidExpression { node: id };
     let arithmetic = |error| EvaluationError::Arithmetic { node: id, error };
     let mut stack = Vec::new();
     for token in tokens {
         match *token {
+            BoundToken::Sum(selection) => stack.push(sum(selection)?),
             BoundToken::Decimal(value) => stack.push(value),
             BoundToken::Node(dependency) => {
                 let value = values.get(&dependency).ok_or_else(invalid)?;

@@ -132,6 +132,8 @@ impl Session {
                 )
                 .map_err(|e| e.to_string())?,
             );
+            // Clean baseline for an untouched untitled document; no disk checkpoint.
+            self.saved = self.book.as_ref().map(Workbook::expected);
             self.revision = Uuid::new_v4().to_string();
             r.revision = self.revision.clone();
             return Ok(());
@@ -202,9 +204,7 @@ impl Session {
                 self.checkpoint.clear();
                 self.uncertain = false;
                 if let Some((book, location, checkpoint)) = candidate {
-                    if location.is_some() {
-                        self.saved = Some(book.expected());
-                    }
+                    self.saved = Some(book.expected());
                     self.book = Some(book);
                     self.location = location;
                     self.checkpoint = checkpoint;
@@ -487,6 +487,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .as_ref()
             .is_some_and(|b| Some(b.expected()) != session.saved);
         r.uncertain = session.uncertain;
+        if let (Some(book), Some(runtime)) = (&session.book, &session.runtime) {
+            let metrics = book.selection_metrics();
+            let memory = runtime.memory();
+            let (allocations, bytes) = memory.allocation_traffic();
+            let domain = memory.stats();
+            r.selection_stats = Some(wire::SelectionStats {
+                visited_index_nodes: metrics.visited_index_nodes,
+                selection_candidates: metrics.selection_candidates,
+                emitted_members: metrics.emitted_members,
+                points: metrics.points as u64,
+                selections: metrics.selections as u64,
+                identities: metrics.identities as u64,
+                consumers: metrics.consumers as u64,
+                invalidated_nodes: metrics.invalidated_nodes as u64,
+                allocation_count: allocations as u64,
+                allocation_bytes: bytes as u64,
+                domain_charge: domain.charged as u64,
+                domain_peak: domain.peak as u64,
+            });
+        }
         r.execution_ns = start.elapsed().as_nanos() as u64;
         let start = Instant::now();
         let _ = r.encode_to_vec();

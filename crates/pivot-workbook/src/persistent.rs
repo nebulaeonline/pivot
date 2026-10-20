@@ -270,6 +270,9 @@ impl Transaction<'_> {
     fn set(&mut self, id: CellId, content: Content) -> Result<()> {
         self.journal.cells.insert(id);
         let position = self.data.records.get(&id).unwrap().position;
+        if let Some(position) = position {
+            self.journal.positions.insert(position);
+        }
         self.data.record(
             id,
             Record {
@@ -278,12 +281,71 @@ impl Transaction<'_> {
             },
         )
     }
-    fn resolve(&mut self, tokens: &[Token]) -> Result<(Vec<ResolvedToken>, Vec<Token>)> {
+    fn resolve(
+        &mut self,
+        source: &str,
+        tokens: &[Token],
+    ) -> Result<(Vec<ResolvedToken>, Vec<Token>)> {
         let _profile = profile::scope(5);
         let mut bound = Vec::with_capacity(tokens.len());
         let mut normalized = Vec::with_capacity(tokens.len());
         for token in tokens {
+            if let Token::Sum { span, .. } | Token::SumAt { span, .. } = token
+                && (span.start >= span.end || source.get(span.clone()).is_none())
+            {
+                return Err(Error::InvalidTarget);
+            }
             let t = match token {
+                Token::SumAt { first, last, span } => {
+                    self.book.axes_at(*first)?;
+                    self.book.axes_at(*last)?;
+                    let rectangle = pivot_core::model::selection::Rectangle {
+                        space: pivot_core::model::selection::SpaceId(
+                            *self.book.worksheet.uuid().as_bytes(),
+                        ),
+                        first_row: first.row.min(last.row),
+                        last_row: first.row.max(last.row),
+                        first_column: first.column.min(last.column),
+                        last_column: first.column.max(last.column),
+                    };
+                    let id = pivot_core::model::selection::SelectionId(*Uuid::new_v4().as_bytes());
+                    self.batch
+                        .define_selection(id, rectangle)
+                        .map_err(graph_error)?;
+                    Token::Sum {
+                        id,
+                        rectangle,
+                        first: *first,
+                        last: *last,
+                        span: span.clone(),
+                    }
+                }
+                Token::Sum {
+                    id,
+                    rectangle,
+                    first,
+                    last,
+                    ..
+                } => {
+                    if rectangle.first_row != first.row.min(last.row)
+                        || rectangle.last_row != first.row.max(last.row)
+                        || rectangle.first_column != first.column.min(last.column)
+                        || rectangle.last_column != first.column.max(last.column)
+                    {
+                        return Err(Error::InvalidTarget);
+                    }
+                    if rectangle.space.0 != *self.book.worksheet.uuid().as_bytes() {
+                        return Err(Error::InvalidTarget);
+                    }
+                    self.book
+                        .axes_at(Position::new(rectangle.first_row, rectangle.first_column))?;
+                    self.book
+                        .axes_at(Position::new(rectangle.last_row, rectangle.last_column))?;
+                    self.batch
+                        .define_selection(*id, *rectangle)
+                        .map_err(graph_error)?;
+                    token.clone()
+                }
                 Token::At(p) => {
                     let id = self.anchor(*p)?;
                     Token::Cell(cell_ref(self.book, id))
@@ -299,13 +361,14 @@ impl Transaction<'_> {
                 other => other.clone(),
             };
             bound.push(match &t {
+                Token::Sum { id, .. } => ResolvedToken::Sum(*id),
                 Token::Decimal(v) => ResolvedToken::Decimal(v.value()),
                 Token::Cell(r) => {
                     ResolvedToken::Node(self.data.bindings.get(&r.cell).unwrap().runtime)
                 }
                 Token::Unary(op) => ResolvedToken::Unary(*op),
                 Token::Binary(op) => ResolvedToken::Binary(*op),
-                Token::At(_) => unreachable!(),
+                Token::At(_) | Token::SumAt { .. } => unreachable!(),
             });
             normalized.push(t);
         }
@@ -329,7 +392,7 @@ impl Transaction<'_> {
                 tokens,
             } => {
                 let id = self.anchor(*position)?;
-                let (bound, tokens) = self.resolve(tokens)?;
+                let (bound, tokens) = self.resolve(source, tokens)?;
                 let content = Content::Formula {
                     source: source.clone(),
                     tokens,
@@ -368,7 +431,7 @@ impl Transaction<'_> {
                         )
                         .map_err(graph_error)?;
                 } else {
-                    let (bound, normalized) = self.resolve(&tokens)?;
+                    let (bound, normalized) = self.resolve(source, &tokens)?;
                     tokens = normalized;
                     resolved_graph = self.batch.revision().map_err(graph_error)?;
                     self.batch
@@ -519,6 +582,9 @@ fn apply(
     units = edits
         .len()
         .saturating_add(units.saturating_sub(edits.len()).min(available));
+    units = units
+        .saturating_add(edits.len().saturating_mul(2))
+        .saturating_add(text / 4);
     let core = book.core.stage();
     let charge = core
         .allocation_domain()
@@ -547,6 +613,24 @@ fn apply(
     }
     if tx.same() {
         return Ok(expected);
+    }
+    for position in tx.journal.positions.iter() {
+        let node = tx.data.positions.get(position).and_then(|id| {
+            let record = tx.data.records.get(id)?;
+            if matches!(record.content, Some(Content::Blank) | None) {
+                None
+            } else {
+                Some(tx.data.bindings.get(id).unwrap().runtime)
+            }
+        });
+        tx.batch
+            .place(
+                pivot_core::model::selection::SpaceId(*book.worksheet.uuid().as_bytes()),
+                position.row,
+                position.column,
+                node,
+            )
+            .map_err(graph_error)?;
     }
     let next = book.state.checked_add(1).ok_or(Error::Exhausted)?;
     let Transaction { data, batch, .. } = tx;
@@ -737,16 +821,19 @@ pub(super) fn validate(book: &Workbook, expected: Expected) -> Result<Vec<Diagno
             }
         }
     }
-    match book.core.snapshot() {
+    match book.core.capture_calculation() {
         Ok(_) => (),
-        Err(SnapshotError::Unorderable { nodes }) => diagnostics.push(Diagnostic::Unorderable {
+        Err(pivot_core::model::integration::CaptureFailure::Invalid(
+            SnapshotError::Unorderable { nodes },
+        )) => diagnostics.push(Diagnostic::Unorderable {
             cells: nodes
                 .iter()
                 .map(|n| cell_ref(book, *p.nodes.get(n).unwrap()))
                 .collect(),
         }),
-        Err(SnapshotError::MissingReference { .. } | SnapshotError::Parse { .. })
-            if !diagnostics.is_empty() => {}
+        Err(pivot_core::model::integration::CaptureFailure::Invalid(
+            SnapshotError::MissingReference { .. } | SnapshotError::Parse { .. },
+        )) if !diagnostics.is_empty() => {}
         Err(_) => diagnostics.push(Diagnostic::CoreInvalid),
     }
     Ok(diagnostics)

@@ -64,7 +64,7 @@ public partial class MainWindow : Window
         if (session is null) return;
         string name = session.DocumentId.Length == 0 ? "No workbook open" : session.DocumentPath.Length == 0 ? "Untitled" : Path.GetFileName(session.DocumentPath);
         Title = $"{name}{(session.IsDirty ? " *" : "")} — Pivot";
-        DocumentLabel.Text = $"{name} · {(session.IsDirty ? "Unsaved changes" : "Saved")}{(session.InstallationUncertain ? " · Installation uncertain: reopen to verify" : "")}";
+        DocumentLabel.Text = $"{name} · {(session.IsDirty ? "Unsaved changes" : session.DocumentPath.Length == 0 ? "Untitled" : "Saved")}{(session.InstallationUncertain ? " · Installation uncertain: reopen to verify" : "")}";
     }
     private async Task<bool> ConfirmDiscardAsync()
     {
@@ -227,6 +227,11 @@ public partial class MainWindow : Window
         Sheet.Scroll(5000,5000); await RefreshAsync();
         Check(Sheet.FirstRow+(uint)Sheet.VisibleRows-1==1024 && Sheet.FirstColumn+9==1024,"UI scroll respects worksheet bounds");
         Sheet.Scroll(-5000,-5000); await RefreshAsync(); Check(Value(1,3)==100m,"UI return from worksheet edge");
+        await Enter(2,8,"1500");await Enter(3,8,"2350");await Enter(4,8,"1275");await Enter(5,8,"900");
+        await Enter(6,9,"=SUM(H2:H5)");Check(Value(6,9)==6025m,"UI SUM");
+        await Enter(3,8,"2400");Check(Value(6,9)==6075m,"UI SUM member edit");
+        await EditAsync(new Edit{At=P(3,8),MoveTo=P(8,8)});Check(Value(6,9)==3675m,"UI SUM boundary move");
+        await Enter(3,8,"10");Check(Value(6,9)==3685m,"UI SUM coordinate reuse");
         string testRoot=Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT") ?? Path.GetDirectoryName(report)!;
         Directory.CreateDirectory(testRoot);
         string savedPath=Path.Combine(testRoot,"ui-"+Guid.NewGuid()+".pivot");
@@ -234,6 +239,7 @@ public partial class MainWindow : Window
         string savedDocument=session!.DocumentId;
         await session.NewAsync(session.Revision);await RefreshAsync();Check(Sheet.CellAt(P(1,3)) is null,"UI New");
         await OpenDocumentAsync(savedPath);Check(Value(1,3)==100m && session.DocumentId==savedDocument && !session.IsDirty,"UI Open saved workbook");
+        Check(Value(6,9)==3685m,"UI WB2 SUM reopen");
         await Enter(2,1,"6");Check(session.IsDirty,"Reopened editing marks dirty");
         Check(await SaveDocumentAsync(false),"UI Save existing workbook: "+StatusLabel.Text);
         File.Copy(savedPath,Path.ChangeExtension(report,".pivot"),overwrite:true);

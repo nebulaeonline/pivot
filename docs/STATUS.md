@@ -2,14 +2,23 @@
 
 Date: 2026-10-20
 
-Current work: **First-Class Ranges and SUM — Slice C implementation authorized**.
-The parent review received 2026-10-20 accepts [ADR-0016](adr/0016-first-class-ranges-and-sum.md):
-coordinate-area affinity, row-major checked decimal SUM, sparse canonical selection
-dependencies and the explicit WB2 format cut. Implementation has not begun; no new
-format bytes, feature tests or performance results are claimed. Exact selection
-quotas, typed dependency inspection, WB1/hosted capability rejection and manual
-native document-dialog checks are required before implementation acceptance.
-[Accepted review requirements](handoffs/2026-10-20-ranges-and-sum-review.md).
+Current work: **First-Class Ranges and SUM — Slice C ready for parent implementation review**.
+[Implementation and exact quotas](handoffs/2026-10-20-ranges-and-sum-slice-c.md),
+[validation evidence](handoffs/2026-10-20-ranges-validation.md),
+[native APFS packet](handoffs/2026-10-20-macos-ranges-instructions.md).
+Canonical sparse selections, row-major checked SUM and PIVOTWB2 are implemented.
+WB1 is explicitly unsupported; frozen hosted v1 rejects selection capability.
+Windows manual native-dialog checks passed per the user. Native macOS APFS full
+validation and all six user-confirmed manual checklist groups pass. Full
+Windows/Linux/macOS CI (290/291/291 default, 306/307/307 all-feature), strict lint
+and actual-window checks pass with zero-charge cleanup. All 318 Mac copied source
+hashes and 168 build inputs match; no product fixes or validation reruns were needed.
+[Native report](../artifacts/macos-validation-20261020T130207Z/REPORT.md).
+The user confirmed WSLg Save-on-close passes on local WSL2 storage and an untouched
+workbook closes without prompting. WSLg Windows-volume Save-on-close reported
+installation uncertainty; that mounted-path limitation and the historical native
+abort remain unresolved.
+Parent acceptance applies to the design, not yet this implementation.
 
 Latest accepted milestone: **Native Workbook Persistence and Application Lifecycle — Slice B**.
 [ADR-0015](adr/0015-native-workbook-documents.md) and the

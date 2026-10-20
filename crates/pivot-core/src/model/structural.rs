@@ -1,7 +1,7 @@
 //! Canonical persistent graph; the independent research API is feature gated.
 //! Fixed-radix directory + 64-slot immutable pages; IDs never encode addresses.
 use super::*;
-use crate::evaluation::{EvaluationError, evaluate_expression};
+use crate::evaluation::EvaluationError;
 
 mod index;
 mod inspection;
@@ -22,6 +22,11 @@ impl From<ModelError> for Error {
     }
 }
 impl Footprint for NodeId {}
+impl Footprint for Vec<NodeId> {
+    fn heap_bytes(&self) -> usize {
+        self.capacity() * std::mem::size_of::<NodeId>()
+    }
+}
 impl Footprint for () {}
 impl Footprint for String {
     fn heap_bytes(&self) -> usize {
@@ -282,6 +287,24 @@ impl Compiled {
             _ => &[],
         }
     }
+    fn selection_ids(&self) -> BTreeSet<selection::SelectionId> {
+        match self {
+            Self::Formula {
+                binding: Ok((tokens, _)),
+                ..
+            } => tokens
+                .iter()
+                .filter_map(|t| {
+                    if let BoundToken::Sum(id) = t {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            _ => BTreeSet::new(),
+        }
+    }
     fn bytes(&self) -> usize {
         match self {
             Self::Input => 0,
@@ -333,6 +356,9 @@ impl Default for Limits {
 }
 /// Typed references are stable IDs, including allocated retired IDs. No name rebinding.
 pub enum Edit {
+    RetiredSelection(selection::SelectionId),
+    Selection(selection::SelectionId, selection::Rectangle),
+    Placement(selection::SpaceId, u32, u32, Option<NodeId>),
     Input(NodeId, PivotDecimal),
     ReplaceInput(NodeId, PivotDecimal),
     Formula(NodeId, String),
@@ -346,6 +372,8 @@ pub enum Edit {
 }
 #[derive(Clone)]
 pub struct Graph {
+    pub(super) selections: Option<Shared<selection::State>>,
+    selection_invalidated: Option<Shared<Vec<NodeId>>>,
     records: Pages<Record>,
     values: Pages<PivotDecimal>,
     names: Index<String, NodeId>,
@@ -386,6 +414,11 @@ impl Drop for CandidateRoot {
         }
     }
 }
+struct DependencyScratch<'a> {
+    items: std::borrow::Cow<'a, [NodeId]>,
+    _charge: Option<Charge>,
+}
+impl Footprint for selection::State {}
 struct Proof(std::sync::atomic::AtomicBool);
 impl Footprint for Proof {}
 impl Graph {
@@ -394,6 +427,8 @@ impl Graph {
         Ok(Self {
             local_validation: true,
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(true)))?,
+            selections: None,
+            selection_invalidated: None,
             records: Pages::new(memory.clone()),
             values: Pages::new(memory.clone()),
             names: Index::new(memory.clone()),
@@ -493,6 +528,8 @@ impl Graph {
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(
                 initial_error.is_none(),
             )))?,
+            selections: None,
+            selection_invalidated: None,
             records: Pages::new(memory.clone()),
             values: Pages::new(memory.clone()),
             names: Index::new(memory.clone()),
@@ -615,18 +652,140 @@ impl Graph {
     fn live_record(&self, id: NodeId) -> Result<&Shared<Record>, Error> {
         self.record(id).filter(|r| r.live).ok_or(Error::Unknown(id))
     }
+    fn edit_selection(
+        &mut self,
+        edit: impl FnOnce(&mut selection::State) -> Result<(), selection::Error>,
+    ) -> Result<(), Error> {
+        let mut state = match &self.selections {
+            Some(s) => (**s).clone(),
+            None => selection::State::new(self.memory.clone()).map_err(|_| Error::Admission)?,
+        };
+        edit(&mut state).map_err(|e| match e {
+            selection::Error::Quota => Error::Quota,
+            selection::Error::Invalid => Error::InvalidTransfer,
+            selection::Error::Admission => Error::Admission,
+            selection::Error::Cancelled => Error::Cancelled,
+        })?;
+        self.selections = Some(self.memory.alloc(state)?);
+        Ok(())
+    }
+    pub(super) fn has_selection_formulas(&self) -> bool {
+        self.selections
+            .as_ref()
+            .is_some_and(|s| s.metrics().consumers != 0)
+    }
+    fn selection_dependencies(
+        &self,
+        id: NodeId,
+        budget: &mut usize,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<DependencyScratch<'_>, Error> {
+        let definition = &self.live_record(id)?.definition;
+        let selections = definition.selection_ids();
+        if selections.is_empty() {
+            return Ok(DependencyScratch {
+                items: std::borrow::Cow::Borrowed(definition.deps()),
+                _charge: None,
+            });
+        }
+        let state = self.selections.as_ref().ok_or(Error::InvalidTransfer)?;
+        let upper = state
+            .metrics()
+            .points
+            .saturating_mul(selections.len())
+            .saturating_add(definition.deps().len())
+            .min(selection::MAX_MEMBER_EDGES_PER_FORMULA);
+        let charge = self.memory.reserve(upper.saturating_mul(64) + 4096)?;
+        let mut members = BTreeSet::new();
+        members.extend(definition.deps().iter().copied());
+        let mut range_budget = (*budget).min(selection::MAX_MEMBER_EDGES_PER_FORMULA);
+        let initial = range_budget;
+        for selection in selections {
+            members.extend(
+                state
+                    .members(selection, &mut range_budget, cancel)
+                    .map_err(|e| {
+                        if matches!(e, selection::Error::Cancelled) {
+                            Error::Cancelled
+                        } else {
+                            Error::ValidationBudget
+                        }
+                    })?,
+            );
+        }
+        *budget = budget
+            .checked_sub(initial - range_budget)
+            .ok_or(Error::ValidationBudget)?;
+        Ok(DependencyScratch {
+            items: std::borrow::Cow::Owned(members.into_iter().collect()),
+            _charge: Some(charge),
+        })
+    }
+    pub(super) fn selection_image(&self) -> selection::Image {
+        self.selections
+            .as_ref()
+            .map(|s| selection::Image {
+                identities: s.identities().collect(),
+                points: s.points().collect(),
+            })
+            .unwrap_or_default()
+    }
+    pub(super) fn selection_metrics(&self) -> selection::Metrics {
+        let mut metrics = self
+            .selections
+            .as_ref()
+            .map(|s| s.metrics())
+            .unwrap_or_default();
+        metrics.invalidated_nodes = self.selection_invalidated.as_ref().map_or(0, |n| n.len());
+        metrics
+    }
+    pub(super) fn invalidated_selection_nodes(&self) -> &[NodeId] {
+        self.selection_invalidated
+            .as_ref()
+            .map_or(&[], |n| n.as_slice())
+    }
+    pub(super) fn typed_dependencies(
+        &self,
+        id: NodeId,
+    ) -> Result<Vec<selection::Dependency>, Error> {
+        let def = &self.live_record(id)?.definition;
+        let mut edges = def
+            .deps()
+            .iter()
+            .copied()
+            .map(selection::Dependency::Scalar)
+            .collect::<Vec<_>>();
+        edges.extend(
+            def.selection_ids()
+                .into_iter()
+                .map(selection::Dependency::Selection),
+        );
+        Ok(edges)
+    }
     pub fn dependencies(&self, id: NodeId) -> Result<&[NodeId], Error> {
+        if !self.live_record(id)?.definition.selection_ids().is_empty() {
+            return Err(ModelError::Backend("use typed selection dependency inspection").into());
+        }
         Ok(self.live_record(id)?.definition.deps())
     }
     pub fn dependents(&self, id: NodeId) -> Result<BTreeSet<NodeId>, Error> {
-        Ok(self
+        let mut dependents: BTreeSet<_> = self
             .live_record(id)?
             .reverse
             .iter()
             .map(|(n, _)| *n)
-            .collect())
+            .collect();
+        if let Some(state) = &self.selections {
+            for selection in state.containing_node(id) {
+                dependents.extend(state.consumers_of(selection));
+            }
+        }
+        Ok(dependents)
     }
     pub fn dependent_count(&self, id: NodeId) -> Result<usize, Error> {
+        if self.has_selection_formulas() {
+            return Ok(self.dependents(id)?.len());
+        }
         Ok(self.live_record(id)?.reverse.len())
     }
     pub fn has_drafts(&self) -> bool {
@@ -658,6 +817,13 @@ impl Graph {
         let _phase = crate::experiment_profile::scope(4);
         let old = self.live_record(id)?.clone();
         self.bytes = self.bytes - old.definition.bytes() + definition.bytes();
+        let old_selections = old.definition.selection_ids();
+        let new_selections = definition.selection_ids();
+        for selection in old_selections.symmetric_difference(&new_selections) {
+            self.edit_selection(|state| {
+                state.consumer(*selection, id, new_selections.contains(selection))
+            })?;
+        }
         let before: BTreeSet<_> = old.definition.deps().iter().copied().collect();
         let after: BTreeSet<_> = definition.deps().iter().copied().collect();
         for target in before.symmetric_difference(&after) {
@@ -817,6 +983,7 @@ impl Graph {
             candidate.import_invalid = false;
         }
         let mut changed = BTreeSet::new();
+        let mut invalidation_sources = BTreeSet::new();
         let mut topology = false;
         let mut inputs = false;
         let install_profile = crate::experiment_profile::construction::scope(6);
@@ -824,7 +991,46 @@ impl Graph {
             if bulk.is_some_and(|check| check()) {
                 return Err(Error::Cancelled);
             }
+            match &edit {
+                Edit::Input(id, _)
+                | Edit::ReplaceInput(id, _)
+                | Edit::Resolved(id, _, _)
+                | Edit::Invalid(id, _, _)
+                | Edit::Formula(id, _)
+                | Edit::Retire(id) => {
+                    invalidation_sources.insert(*id);
+                }
+                Edit::Placement(space, row, column, _) => {
+                    for graph in [&*self, &*candidate] {
+                        if let Some(state) = &graph.selections {
+                            for selection in state.covering(*space, *row, *column) {
+                                invalidation_sources.extend(state.consumers_of(selection));
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            }
             match edit {
+                Edit::RetiredSelection(id) => {
+                    candidate.edit_selection(|state| state.retired_identity(id))?;
+                    topology = true;
+                }
+                Edit::Selection(id, rectangle) => {
+                    candidate.edit_selection(|state| state.define(id, rectangle))?;
+                    topology = true;
+                }
+                Edit::Placement(space, row, column, node) => {
+                    if node.is_some_and(|id| candidate.live_record(id).is_err()) {
+                        return Err(Error::InvalidTransfer);
+                    }
+                    let mut moved = false;
+                    candidate.edit_selection(|state| {
+                        moved = state.placement(space, row, column, node)?;
+                        Ok(())
+                    })?;
+                    topology |= moved;
+                }
                 Edit::ReplaceInput(id, value) => {
                     if !matches!(*candidate.live_record(id)?.definition, Compiled::Input) {
                         candidate.replace(id, Compiled::Input)?;
@@ -872,6 +1078,17 @@ impl Graph {
                     let mut bound = Vec::with_capacity(tokens.len());
                     for token in tokens {
                         bound.push(match token {
+                            transfer::ResolvedToken::Sum(id) => {
+                                if candidate
+                                    .selections
+                                    .as_ref()
+                                    .and_then(|s| s.descriptor(id))
+                                    .is_none()
+                                {
+                                    return Err(Error::InvalidTransfer);
+                                }
+                                BoundToken::Sum(id)
+                            }
                             transfer::ResolvedToken::Decimal(v) => BoundToken::Decimal(v),
                             transfer::ResolvedToken::Node(n) => {
                                 if n.model != candidate.version.model || n.node >= candidate.next {
@@ -906,6 +1123,9 @@ impl Graph {
                         }
                     }
                     changed.extend(record.reverse.iter().map(|(n, _)| *n));
+                    for selection in record.definition.selection_ids() {
+                        candidate.edit_selection(|state| state.consumer(selection, id, false))?;
+                    }
                     let mut retired = (*record).clone();
                     retired.live = false;
                     candidate.records.set(id.node, retired)?;
@@ -948,7 +1168,32 @@ impl Graph {
         drop(install_profile);
         let validation_profile = crate::experiment_profile::construction::scope(7);
         candidate.check_quota()?;
-        if candidate.import_invalid && topology && !candidate.local_validation {
+        if topology && candidate.selections.is_some() {
+            candidate.edit_selection(|state| state.retire_unused())?;
+        }
+        if topology && candidate.has_selection_formulas() {
+            // The scalar incremental proof cannot certify a graph with selection edges.
+            // Validate the canonical dynamic relation; retain invalid drafts, not prefixes.
+            changed.extend(
+                candidate
+                    .records
+                    .iter()
+                    .filter(|(_, r)| r.live)
+                    .map(|(slot, _)| NodeId {
+                        model: candidate.version.model,
+                        node: slot,
+                    }),
+            );
+            candidate.invalid = Index::new(candidate.memory.clone());
+            candidate.import_invalid = false;
+            if let Some((id, error)) =
+                candidate.validate_many(&changed, bulk.unwrap_or(&|| false))?
+            {
+                candidate
+                    .invalid
+                    .insert(id, candidate.memory.alloc(error)?)?;
+            }
+        } else if candidate.import_invalid && topology && !candidate.local_validation {
             let restored = candidate.materialize()?;
             candidate.invalid = Index::new(candidate.memory.clone());
             if let Err(error) = restored.snapshot() {
@@ -962,8 +1207,7 @@ impl Graph {
             } else {
                 candidate.import_invalid = false;
             }
-        } else if topology && bulk.is_some() {
-            let check = bulk.unwrap();
+        } else if topology && let Some(check) = bulk {
             if let Some((id, error)) = candidate.validate_many(&changed, check)? {
                 candidate
                     .invalid
@@ -990,6 +1234,49 @@ impl Graph {
                     }
                 }
             }
+        }
+        if self.has_selection_formulas() || candidate.has_selection_formulas() {
+            let _invalidation = self
+                .memory
+                .reserve(selection::MAX_INVALIDATION_NODES * 256)?;
+            let mut seen = BTreeSet::new();
+            let mut pending = invalidation_sources.into_iter().collect::<Vec<_>>();
+            while let Some(node) = pending.pop() {
+                if bulk.is_some_and(|cancel| cancel()) {
+                    return Err(Error::Cancelled);
+                }
+                if !seen.insert(node) {
+                    continue;
+                }
+                if seen.len() > selection::MAX_INVALIDATION_NODES
+                    || pending.len() > selection::MAX_INVALIDATION_NODES
+                {
+                    return Err(Error::ValidationBudget);
+                }
+                for graph in [&*self, &*candidate] {
+                    if let Ok(record) = graph.live_record(node) {
+                        if pending.len().saturating_add(record.reverse.len())
+                            > selection::MAX_INVALIDATION_NODES
+                        {
+                            return Err(Error::ValidationBudget);
+                        }
+                        pending.extend(record.reverse.iter().map(|(n, _)| *n));
+                        if let Some(state) = &graph.selections {
+                            for selection in state.containing_node(node) {
+                                let consumers = state.consumers_of(selection);
+                                if pending.len().saturating_add(consumers.len())
+                                    > selection::MAX_INVALIDATION_NODES
+                                {
+                                    return Err(Error::ValidationBudget);
+                                }
+                                pending.extend(consumers);
+                            }
+                        }
+                    }
+                }
+            }
+            candidate.selection_invalidated =
+                Some(candidate.memory.alloc(seen.into_iter().collect())?);
         }
         if !topology && !inputs {
             return Ok(self.version);
@@ -1060,9 +1347,10 @@ impl Graph {
                 {
                     return Ok(Some((root, error.clone())));
                 }
-                work.add(record.definition.deps().len().saturating_mul(64))?;
+                let deps = self.selection_dependencies(id, &mut budget, cancel)?;
+                work.add(deps.items.len().saturating_mul(64))?;
                 pending.push((id, true));
-                for &target in record.definition.deps() {
+                for &target in deps.items.iter() {
                     if self.live_record(target).is_err() {
                         return Ok(Some((
                             root,
@@ -1108,9 +1396,10 @@ impl Graph {
             {
                 return Ok(Some(error.clone()));
             }
-            work.add(record.definition.deps().len().saturating_mul(64))?;
+            let deps = self.selection_dependencies(id, budget, &|| false)?;
+            work.add(deps.items.len().saturating_mul(64))?;
             pending.push((id, true));
-            for &target in record.definition.deps() {
+            for &target in deps.items.iter() {
                 if self.live_record(target).is_err() {
                     return Ok(Some(SnapshotError::MissingReference { node: id, target }));
                 }
@@ -1209,7 +1498,7 @@ impl Capture {
         // precedence even when callers submit duplicates in arbitrary order.
         let outputs: BTreeSet<_> = request.outputs.iter().copied().collect();
         let mut pending: Vec<_> = outputs.iter().map(|&n| (n, false)).collect();
-        let mut values = BTreeMap::new();
+        let mut values: BTreeMap<NodeId, Result<PivotDecimal, EvaluationError>> = BTreeMap::new();
         let outcome = (|| -> Result<Calculation, ComputeError> {
             let prepared = crate::evaluation::prepare_inputs_into(
                 request,
@@ -1253,7 +1542,17 @@ impl Capture {
                     {
                         return Err(ComputeError::Invalid(error.clone()));
                     }
-                    for &target in record.definition.deps() {
+                    let deps = self
+                        .0
+                        .selection_dependencies(id, &mut visits, &cancelled)
+                        .map_err(|_| {
+                            if cancelled() {
+                                ComputeError::Cancelled
+                            } else {
+                                ComputeError::WorkBudget
+                            }
+                        })?;
+                    for &target in deps.items.iter() {
                         if self.0.live_record(target).is_err() {
                             return Err(ComputeError::Invalid(SnapshotError::MissingReference {
                                 node: id,
@@ -1261,11 +1560,11 @@ impl Capture {
                             }));
                         }
                     }
-                    work.add(512 + record.definition.deps().len() * 64)?;
+                    work.add(512 + deps.items.len() * 64)?;
                     if required.insert(id) {
                         active.insert(id);
                         pending.push((id, true));
-                        pending.extend(record.definition.deps().iter().map(|&d| (d, false)));
+                        pending.extend(deps.items.iter().map(|&d| (d, false)));
                     }
                 }
             }
@@ -1284,7 +1583,58 @@ impl Capture {
                         ..
                     } => {
                         let _stack = self.0.memory.reserve(tokens.len().saturating_mul(64))?;
-                        evaluate_expression(id, tokens, &values)
+                        let mut sums = BTreeMap::new();
+                        if let Some(state) = self.0.selections.as_ref() {
+                            let _members = self
+                                .0
+                                .memory
+                                .reserve(state.metrics().points.saturating_mul(64) + 4096)?;
+                            for selection in record.definition.selection_ids() {
+                                let members = state
+                                    .members(selection, &mut visits, &cancelled)
+                                    .map_err(|_| {
+                                        if cancelled() {
+                                            ComputeError::Cancelled
+                                        } else {
+                                            ComputeError::WorkBudget
+                                        }
+                                    })?;
+                                let mut sum = Ok(PivotDecimal::ZERO);
+                                for member in members {
+                                    if cancelled() {
+                                        return Err(ComputeError::Cancelled);
+                                    }
+                                    sum = sum.and_then(|total| {
+                                        let value = values
+                                            .get(&member)
+                                            .ok_or(EvaluationError::InvalidExpression { node: id })?
+                                            .as_ref()
+                                            .map_err(|e| EvaluationError::DependencyFailed {
+                                                node: id,
+                                                dependency: member,
+                                                origin: e.origin(),
+                                            })?;
+                                        total.checked_add(*value).map_err(|error| {
+                                            EvaluationError::Arithmetic { node: id, error }
+                                        })
+                                    });
+                                    if sum.is_err() {
+                                        break;
+                                    }
+                                }
+                                sums.insert(selection, sum);
+                            }
+                        }
+                        crate::evaluation::evaluate_expression_with_selections(
+                            id,
+                            tokens,
+                            &values,
+                            |selection| {
+                                sums.get(&selection)
+                                    .cloned()
+                                    .unwrap_or(Err(EvaluationError::InvalidExpression { node: id }))
+                            },
+                        )
                     }
                     _ => unreachable!("capture rejects invalid drafts"),
                 };
@@ -1382,5 +1732,94 @@ impl Work {
                 .reserve(bytes.saturating_add(2 * std::mem::size_of::<Charge>()))?,
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod selection_transaction_tests {
+    use super::*;
+    #[test]
+    fn late_selection_walk_cancellation_preserves_all_roots() {
+        let runtime = integration::IntegrationRuntime::standalone().unwrap();
+        let mut model = WorkingModel::new_in("Cancel", &runtime).unwrap();
+        let mut batch = model.begin_batch(130, 32768).unwrap();
+        let mut ids = Vec::new();
+        for i in 0..60 {
+            let id = batch.add_input(format!("P{i}"), 1.into()).unwrap();
+            ids.push(id);
+            batch
+                .place(selection::SpaceId([1; 16]), i + 1, 1, Some(id))
+                .unwrap();
+        }
+        let sum = batch.add_input("Sum", 0.into()).unwrap();
+        let selected = selection::SelectionId([2; 16]);
+        batch
+            .define_selection(
+                selected,
+                selection::Rectangle {
+                    space: selection::SpaceId([1; 16]),
+                    first_row: 1,
+                    last_row: 1000,
+                    first_column: 1,
+                    last_column: 2,
+                },
+            )
+            .unwrap();
+        batch
+            .set_resolved(sum, "SUM", vec![transfer::ResolvedToken::Sum(selected)])
+            .unwrap();
+        model.apply_batch(batch, &Default::default()).unwrap();
+        let mut graph = model.integrated.graph().clone();
+        let before = graph.version;
+        let points = graph.selection_image().points;
+        let metrics = graph.selection_metrics();
+        let calls = std::cell::Cell::new(0);
+        let cancel = || {
+            calls.set(calls.get() + 1);
+            calls.get() > 25
+        };
+        let result = graph.apply_bulk(
+            before,
+            vec![Edit::Placement(
+                selection::SpaceId([1; 16]),
+                61,
+                1,
+                Some(ids[0]),
+            )],
+            &cancel,
+            drop,
+        );
+        assert!(matches!(result, Err(Error::Cancelled)));
+        assert!(calls.get() > 25);
+        assert!(graph.selection_metrics().visited_index_nodes > metrics.visited_index_nodes);
+        assert_eq!(graph.version, before);
+        assert_eq!(graph.selection_image().points, points);
+        // A late admission failure after preparing the candidate also preserves roots.
+        let memory = runtime.memory();
+        let hold = memory
+            .reserve(memory.stats().limit - memory.stats().charged - 16_384)
+            .unwrap();
+        assert!(
+            graph
+                .apply_bulk(
+                    before,
+                    vec![Edit::Placement(
+                        selection::SpaceId([1; 16]),
+                        61,
+                        1,
+                        Some(ids[0])
+                    )],
+                    &|| false,
+                    drop
+                )
+                .is_err()
+        );
+        assert_eq!(graph.version, before);
+        assert_eq!(graph.selection_image().points, points);
+        drop(hold);
+        drop(graph);
+        drop(model);
+        assert!(runtime.finish().is_ok());
+        assert_eq!(memory.stats().charged, 0);
     }
 }

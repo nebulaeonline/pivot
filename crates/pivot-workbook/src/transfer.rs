@@ -18,7 +18,7 @@ pub struct PortableWorkbook {
     pub column_count: u32,
     pub state: u64,
     pub cells: Vec<(CellId, GraphNodeId, CellRecord)>,
-    pub graph: transfer::Image,
+    pub graph: transfer::SelectionImage,
 }
 impl Workbook {
     pub fn export_portable(&self, expected: Expected) -> Result<PortableWorkbook> {
@@ -30,12 +30,13 @@ impl Workbook {
             .map(|(id, b)| (*id, b.clone()))
             .collect();
         pairs.sort_by_key(|(_, b)| b.portable);
-        let graph = transfer::export(
-            &self.core,
-            &pairs.iter().map(|(_, b)| b.runtime).collect::<Vec<_>>(),
-            &[],
-        )
-        .map_err(graph_error)?;
+        let graph = self
+            .core
+            .export_selections(
+                &pairs.iter().map(|(_, b)| b.runtime).collect::<Vec<_>>(),
+                &[],
+            )
+            .map_err(graph_error)?;
         let cells = pairs
             .into_iter()
             .map(|(id, b)| {
@@ -71,9 +72,9 @@ impl Workbook {
         runtime: &IntegrationRuntime,
     ) -> Result<Self> {
         if image.cells.len() > limits.allocated_cells
-            || image.graph.node_slots != image.cells.len()
-            || !image.graph.ports.is_empty()
-            || image.graph.port_slots != 0
+            || image.graph.scalar_skeleton.node_slots != image.cells.len()
+            || !image.graph.scalar_skeleton.ports.is_empty()
+            || image.graph.scalar_skeleton.port_slots != 0
             || image.row_count != limits.rows
             || image.column_count != limits.columns
             || image.rows.is_nil()
@@ -96,7 +97,12 @@ impl Workbook {
             {
                 return Err(Error::InvalidTarget);
             }
-            let live = image.graph.nodes.iter().any(|n| n.slot == slot);
+            let live = image
+                .graph
+                .scalar_skeleton
+                .nodes
+                .iter()
+                .any(|n| n.slot == slot);
             if live != r.position.is_some() {
                 return Err(Error::InvalidTarget);
             }
@@ -131,7 +137,7 @@ impl Workbook {
             return Err(Error::Limit);
         }
         let imported = runtime
-            .import_portable(image.graph, &CancellationToken::default())
+            .import_selections(image.graph, &CancellationToken::default())
             .map_err(graph_error)?;
         for ((id, portable, _), runtime_id) in image.cells.into_iter().zip(imported.nodes) {
             data.bindings

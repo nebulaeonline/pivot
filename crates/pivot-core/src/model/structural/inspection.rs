@@ -64,6 +64,11 @@ impl Graph {
         after: Option<NodeId>,
         limit: usize,
     ) -> Result<(Vec<NodeId>, Option<NodeId>), ModelError> {
+        if self.has_selection_formulas() {
+            return Err(ModelError::Backend(
+                "use typed selection dependency inspection",
+            ));
+        }
         let record = self
             .live_record(id)
             .map_err(|_| ModelError::UnknownNode(id))?;

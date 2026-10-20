@@ -25,12 +25,16 @@ impl Axis {
     }
 }
 use pivot_core::model::integration::IntegrationRuntime;
+use pivot_core::model::{
+    selection::{Rectangle as SelectionRectangle, SelectionId, SpaceId},
+    transfer::{SelectionFormula, SelectionImage, SelectionToken},
+};
 use pivot_storage::{self as storage, document::ModelDocument};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 4 * 1024 * 1024;
-const MAGIC: &[u8; 8] = b"PIVOTWB1";
+const MAGIC: &[u8; 8] = b"PIVOTWB2";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -67,10 +71,63 @@ impl Writer {
         self.n(a);
         self.n(b);
     }
+    fn rectangle(&mut self, r: SelectionRectangle) {
+        self.id(Uuid::from_bytes(r.space.0));
+        for n in [r.first_row, r.last_row, r.first_column, r.last_column] {
+            self.n(n.into());
+        }
+    }
+    fn graph_tokens(&mut self, tokens: &[SelectionToken]) {
+        self.n(tokens.len() as u64);
+        for token in tokens {
+            match token {
+                SelectionToken::Decimal(d) => {
+                    self.n(0);
+                    self.dec(DecimalInput::from_decimal(*d));
+                }
+                SelectionToken::Node(slot) => {
+                    self.n(1);
+                    self.n(*slot as u64);
+                }
+                SelectionToken::Sum(id) => {
+                    self.n(2);
+                    self.id(Uuid::from_bytes(id.0));
+                }
+                SelectionToken::Unary(op) => {
+                    self.n(3);
+                    self.n(u64::from(*op == UnaryOp::Minus));
+                }
+                SelectionToken::Binary(op) => {
+                    self.n(4);
+                    self.n(match op {
+                        BinaryOp::Add => 0,
+                        BinaryOp::Subtract => 1,
+                        BinaryOp::Multiply => 2,
+                        BinaryOp::Divide => 3,
+                    });
+                }
+            }
+        }
+    }
     fn tokens(&mut self, tokens: &[Token]) {
         self.n(tokens.len() as u64);
         for t in tokens {
             match t {
+                Token::Sum {
+                    id,
+                    rectangle,
+                    first,
+                    last,
+                    span,
+                } => {
+                    self.n(4);
+                    self.id(Uuid::from_bytes(id.0));
+                    self.rectangle(*rectangle);
+                    self.pos(*first);
+                    self.pos(*last);
+                    self.n(span.start as u64);
+                    self.n(span.end as u64);
+                }
                 Token::Decimal(d) => {
                     self.n(0);
                     self.dec(*d);
@@ -93,7 +150,7 @@ impl Writer {
                         BinaryOp::Divide => 3,
                     });
                 }
-                Token::At(_) => unreachable!("committed formulas are bound"),
+                Token::At(_) | Token::SumAt { .. } => unreachable!("committed formulas are bound"),
             }
         }
     }
@@ -153,11 +210,64 @@ impl<'a> Reader<'a> {
     fn rev(&mut self) -> Result<Revision> {
         Ok(Revision::from_provenance(self.n()?, self.n()?))
     }
+    fn rectangle(&mut self) -> Result<SelectionRectangle> {
+        let r = SelectionRectangle {
+            space: SpaceId(*self.id()?.as_bytes()),
+            first_row: self.u32()?,
+            last_row: self.u32()?,
+            first_column: self.u32()?,
+            last_column: self.u32()?,
+        };
+        if !r.valid() {
+            return Err(malformed());
+        }
+        Ok(r)
+    }
+    fn graph_tokens(&mut self) -> Result<Vec<SelectionToken>> {
+        let n = self.count(4096)?;
+        let mut out = Vec::with_capacity(n);
+        for _ in 0..n {
+            out.push(match self.n()? {
+                0 => SelectionToken::Decimal(self.dec()?.value()),
+                1 => SelectionToken::Node(self.count(8191)?),
+                2 => SelectionToken::Sum(SelectionId(*self.id()?.as_bytes())),
+                3 => SelectionToken::Unary(match self.n()? {
+                    0 => UnaryOp::Plus,
+                    1 => UnaryOp::Minus,
+                    _ => return Err(malformed()),
+                }),
+                4 => SelectionToken::Binary(match self.n()? {
+                    0 => BinaryOp::Add,
+                    1 => BinaryOp::Subtract,
+                    2 => BinaryOp::Multiply,
+                    3 => BinaryOp::Divide,
+                    _ => return Err(malformed()),
+                }),
+                _ => return Err(malformed()),
+            });
+        }
+        Ok(out)
+    }
     fn tokens(&mut self) -> Result<Vec<Token>> {
         let n = self.count(4096)?;
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
             out.push(match self.n()? {
+                4 => {
+                    let id = SelectionId(*self.id()?.as_bytes());
+                    let rectangle = self.rectangle()?;
+                    let first = self.pos()?;
+                    let last = self.pos()?;
+                    let start = self.count(4096)?;
+                    let end = self.count(4096)?;
+                    Token::Sum {
+                        id,
+                        rectangle,
+                        first,
+                        last,
+                        span: start..end,
+                    }
+                }
                 0 => Token::Decimal(self.dec()?),
                 1 => Token::Cell(CellRef {
                     worksheet: WorksheetId::from_uuid(self.id()?),
@@ -206,7 +316,7 @@ impl Document {
         let pairs = &projection.cells;
         let checkpoint = Uuid::new_v4();
         let graph = storage::from_image(
-            projection.graph,
+            projection.graph.scalar_skeleton,
             pairs.iter().map(|(_, n, _)| n.uuid()).collect(),
             vec![],
             storage::GraphHeader {
@@ -236,6 +346,21 @@ impl Document {
         w.n(projection.column_count.into());
         w.n(projection.state);
         w.bytes(&graph);
+        w.n(1); // Explicit coordinate-area / checked row-major SUM policy.
+        w.n(projection.graph.identities.len() as u64);
+        for (id, rectangle) in &projection.graph.identities {
+            w.id(Uuid::from_bytes(id.0));
+            w.n(u64::from(rectangle.is_some()));
+            if let Some(rectangle) = rectangle {
+                w.rectangle(*rectangle);
+            }
+        }
+        w.n(projection.graph.formulas.len() as u64);
+        for formula in &projection.graph.formulas {
+            w.n(formula.slot as u64);
+            w.text(&formula.source);
+            w.graph_tokens(&formula.tokens);
+        }
         w.n(pairs.len() as u64);
         for (id, node, record) in pairs {
             w.id(id.uuid());
@@ -314,6 +439,11 @@ impl Document {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Limit);
         }
+        if bytes.starts_with(b"PIVOTWB1") {
+            return Err(Error::Graph(
+                "unsupported native workbook version WB1; WB2 required".into(),
+            ));
+        }
         if bytes.len() < 48 || &bytes[..8] != MAGIC {
             return Err(malformed());
         }
@@ -350,6 +480,45 @@ impl Document {
             || document.state_id != document.graph.revision
         {
             return Err(malformed());
+        }
+        if r.n()? != 1 {
+            return Err(Error::Graph("unsupported range semantics policy".into()));
+        }
+        let selection_count = r.count(pivot_core::model::selection::MAX_IDENTITIES)?;
+        let mut identities = Vec::with_capacity(selection_count);
+        let mut selection_map = BTreeMap::new();
+        for _ in 0..selection_count {
+            let id = SelectionId(*r.id()?.as_bytes());
+            let rectangle = match r.n()? {
+                0 => None,
+                1 => Some(r.rectangle()?),
+                _ => return Err(malformed()),
+            };
+            if let Some(rectangle) = rectangle
+                && (rectangle.space.0 != *worksheet.uuid().as_bytes()
+                    || rectangle.last_row > rows.length
+                    || rectangle.last_column > columns.length)
+            {
+                return Err(malformed());
+            }
+            if selection_map.insert(id, rectangle).is_some() {
+                return Err(malformed());
+            }
+            identities.push((id, rectangle));
+        }
+        let formula_count = r.count(pivot_core::model::selection::MAX_CONSUMERS)?;
+        let mut formulas = Vec::with_capacity(formula_count);
+        let mut overlay = BTreeMap::new();
+        for _ in 0..formula_count {
+            let f = SelectionFormula {
+                slot: r.count(8191)?,
+                source: r.text()?,
+                tokens: r.graph_tokens()?,
+            };
+            if overlay.insert(f.slot, formulas.len()).is_some() {
+                return Err(malformed());
+            }
+            formulas.push(f);
         }
         let count = r.count(limits.allocated_cells.min(8192))?;
         if count != document.graph.node_ids.len() {
@@ -535,6 +704,21 @@ impl Document {
                         let mut refs = f.references.iter();
                         for (syntax, bound) in syntax.iter().zip(&f.tokens) {
                             match syntax {
+                                Token::SumAt { first, last, span } => {
+                                    if let Token::Sum {
+                                        first: a,
+                                        last: b,
+                                        span: s,
+                                        ..
+                                    } = bound
+                                    {
+                                        if first != a || last != b || span != s {
+                                            return Err(malformed());
+                                        }
+                                    } else {
+                                        return Err(malformed());
+                                    }
+                                }
                                 Token::At(_) => {
                                     if Some(bound)
                                         != refs.next().map(|r| Token::Cell(r.target)).as_ref()
@@ -562,6 +746,68 @@ impl Document {
                     return Err(malformed());
                 }
             } else {
+                let mut selection_tokens = Vec::with_capacity(tokens.len());
+                let node_slot = document
+                    .graph
+                    .node_ids
+                    .iter()
+                    .position(|n| *n == node.uuid())
+                    .ok_or_else(malformed)?;
+                for t in tokens {
+                    selection_tokens.push(match t {
+                        Token::Sum {
+                            id,
+                            rectangle,
+                            first,
+                            last,
+                            span,
+                        } => {
+                            if selection_map.get(id) != Some(&Some(*rectangle))
+                                || rectangle.first_row != first.row.min(last.row)
+                                || rectangle.last_row != first.row.max(last.row)
+                                || rectangle.first_column != first.column.min(last.column)
+                                || rectangle.last_column != first.column.max(last.column)
+                                || span.start >= span.end
+                                || source.get(span.clone()).is_none()
+                            {
+                                return Err(malformed());
+                            }
+                            SelectionToken::Sum(*id)
+                        }
+                        Token::Decimal(d) => SelectionToken::Decimal(d.value()),
+                        Token::Cell(c) => {
+                            if c.worksheet != worksheet {
+                                return Err(malformed());
+                            }
+                            let id = portable.get(&c.cell).ok_or_else(malformed)?.uuid();
+                            SelectionToken::Node(
+                                document
+                                    .graph
+                                    .node_ids
+                                    .iter()
+                                    .position(|n| *n == id)
+                                    .ok_or_else(malformed)?,
+                            )
+                        }
+                        Token::Unary(op) => SelectionToken::Unary(*op),
+                        Token::Binary(op) => SelectionToken::Binary(*op),
+                        Token::At(_) | Token::SumAt { .. } => return Err(malformed()),
+                    });
+                }
+                let has_sum = selection_tokens
+                    .iter()
+                    .any(|t| matches!(t, SelectionToken::Sum(_)));
+                if let Some(index) = overlay.get(&node_slot) {
+                    if !has_sum
+                        || formulas[*index].source != *source
+                        || formulas[*index].tokens != selection_tokens
+                    {
+                        return Err(malformed());
+                    }
+                    continue;
+                } else if has_sum {
+                    return Err(malformed());
+                }
                 let bound = tokens
                     .iter()
                     .map(|t| {
@@ -587,7 +833,9 @@ impl Document {
                                 BinaryOp::Multiply => 2,
                                 BinaryOp::Divide => 3,
                             }),
-                            Token::At(_) => return Err(malformed()),
+                            Token::At(_) | Token::SumAt { .. } | Token::Sum { .. } => {
+                                return Err(malformed());
+                            }
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -601,9 +849,44 @@ impl Document {
                 }
             }
         }
+        for f in &formulas {
+            let (id, _) = ids.get(f.slot).ok_or_else(malformed)?;
+            let content = records
+                .get(id)
+                .and_then(|r| r.content.as_ref())
+                .ok_or_else(malformed)?;
+            let tokens = match content {
+                Content::TextFormula(f) if f.diagnostic.is_none() => &f.tokens,
+                Content::Formula { tokens, .. } => tokens,
+                _ => return Err(malformed()),
+            };
+            if !tokens.iter().any(|t| matches!(t, Token::Sum { .. })) {
+                return Err(malformed());
+            }
+        }
         timings.decode_ns = started.elapsed().as_nanos() as u64;
         let restoring = std::time::Instant::now();
-        let graph = storage::to_image(&document.graph, self::limits()).map_err(graph_error)?;
+        let scalar_skeleton =
+            storage::to_image(&document.graph, self::limits()).map_err(graph_error)?;
+        let points = ids
+            .iter()
+            .enumerate()
+            .filter_map(|(slot, (id, _))| {
+                let record = &records[id];
+                if matches!(record.content, Some(Content::Blank) | None) {
+                    return None;
+                }
+                let p = record.position?;
+                Some((SpaceId(*worksheet.uuid().as_bytes()), p.row, p.column, slot))
+            })
+            .collect();
+        let graph = SelectionImage {
+            version: 2,
+            scalar_skeleton,
+            formulas,
+            identities,
+            points,
+        };
         let cells = ids
             .into_iter()
             .map(|(id, node)| {

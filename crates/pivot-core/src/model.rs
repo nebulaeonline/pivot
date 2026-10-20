@@ -28,6 +28,7 @@ fn fresh_revision() -> Result<Revision, ModelError> {
 }
 /// Persistent standalone backend and bounded shared runtime.
 pub mod integration;
+pub mod selection;
 /// Public research surface over the canonical paged implementation.
 #[cfg(feature = "scaling-experiment")]
 pub mod structural;
@@ -729,6 +730,7 @@ impl GraphImage {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BoundToken {
+    Sum(selection::SelectionId),
     Decimal(PivotDecimal),
     Node(NodeId),
     Unary(UnaryOp),
@@ -820,6 +822,9 @@ fn bind_with(
     let mut dependencies = BTreeSet::new();
     while let Some((expr, visited)) = stack.pop() {
         match expr {
+            Expr::SumRange { .. } => {
+                unreachable!("spreadsheet selections require workbook binding")
+            }
             Expr::Decimal(value) => tokens.push(BoundToken::Decimal(*value)),
             Expr::CellReference { span, .. } => {
                 return Err(SnapshotError::Parse {

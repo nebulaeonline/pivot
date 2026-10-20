@@ -2,7 +2,20 @@
 
 Date: 2026-10-20
 
-Current milestone: **In-place worksheet editing — accepted; workstream closed**.
+Current work: **Direct single-cell paste commit — ready for parent review**.
+Grid paste submits immediately through Rust and retains selection; editor/formula-bar
+paste remains uncommitted text insertion. Invalid numbers/conflicts retain a
+correctable draft; late/cancelled clipboard reads do not overwrite newer state.
+[Implementation and checks](handoffs/2026-10-20-direct-single-cell-paste.md),
+[fresh APFS packet](handoffs/2026-10-20-macos-direct-paste-instructions.md).
+Windows/Linux/native Mac full CI (290/291/291 default Rust tests) and actual-window
+checks pass with zero-charge cleanup. Mac strict all-feature lint and 307 all-feature
+tests pass. All 324 copied Mac source hashes and 168 build inputs match; 367 returned
+reports are transfer-verified, with no fixes/reruns. The user confirms manual
+functionality across all three platforms works as intended. Broader paste features
+remain future scope; this correction is not yet accepted by parent review. No engine, protocol, WB2 or capacity changes are included.
+
+Latest accepted milestone: **In-place worksheet editing — accepted; workstream closed**.
 [Review packet](handoffs/2026-10-20-in-place-editing-review-packet.md),
 [implementation and checks](handoffs/2026-10-20-in-place-editing.md).
 The editor, synchronized formula bar, clipboard commands and focus/caret feedback
@@ -17,8 +30,7 @@ The parent review received 2026-10-20 accepts the editor/clipboard/focus milesto
 [Acceptance and next scope](handoffs/2026-10-20-in-place-editing-review.md).
 The recommended next assignment is direct single-cell paste commit: selected-grid
 paste submits one checked Rust edit immediately; active-editor paste remains text
-insertion. No engine, protocol, WB2 or capacity changes are requested. Implementation
-has not begun; no behavior/test change is made by this review record.
+insertion. No engine, protocol, WB2 or capacity changes are requested. The user subsequently authorized implementation; see the current-work entry above.
 
 Accepted preceding milestone: **First-Class Ranges and SUM — Slice C accepted; workstream closed**.
 [Implementation and exact quotas](handoffs/2026-10-20-ranges-and-sum-slice-c.md),

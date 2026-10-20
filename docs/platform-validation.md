@@ -1,6 +1,22 @@
 # Linux and macOS validation
 
-## Current: in-place worksheet editing — progress review
+## Current: direct single-cell paste — ready for review
+
+Windows/Linux/native Mac full CI passes (290/291/291 default Rust tests), with final
+actual-window paste checks and zero-charge close. Mac also passes strict all-feature
+lint and 307 all-feature tests. See the [focused handoff](handoffs/2026-10-20-direct-single-cell-paste.md)
+and [fresh native APFS report](../artifacts/macos-validation-20261020T173814Z/REPORT.md).
+All 324 source hashes and 168 reference build inputs match; the transfer record
+verifies 367 returned files. No product fixes, setup failures or gate reruns were
+needed. Source/builds/tests and original reports were local to APFS, not SMB.
+
+The Mac report's final user-confirmed manual acceptance supersedes its earlier
+pending notes. The user confirms manual functionality across Windows, WSLg and
+macOS works as intended. Specific IME/clipboard-manager coverage is not inferred.
+Only direct single-cell paste is delivered; rectangular paste/copy-fill remain
+future work. Prior platform/filesystem defects remain separate and unresolved.
+
+## Accepted: in-place worksheet editing
 
 See the [review packet](handoffs/2026-10-20-in-place-editing-review-packet.md) and
 [implementation handoff](handoffs/2026-10-20-in-place-editing.md).

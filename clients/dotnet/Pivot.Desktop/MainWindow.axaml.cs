@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? refresh;
     private long displayRequest;
     private bool shuttingDown, allowClose, editing;
+    private long clipboardRequest, interactionVersion;
     private KeyModifiers shortcutModifiers;
     private TextBox? clipboardEditor;
     private Position? draftCell;
@@ -37,8 +38,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         TimingLabel.IsVisible = Environment.GetEnvironmentVariable("PIVOT_DIAGNOSTICS") == "1" || Environment.GetEnvironmentVariable("PIVOT_UI_SMOKE_REPORT") is not null;
         SetEditing(false);
-        Sheet.SelectionChanged += SelectCell;
-        Sheet.ViewportChanged += () => { frameReady = false; PositionEditor(); _ = RefreshAsync(); };
+        Sheet.SelectionChanged += () => { ++interactionVersion; SelectCell(); };
+        Sheet.ViewportChanged += () => { ++interactionVersion; frameReady = false; PositionEditor(); _ = RefreshAsync(); };
         Sheet.CellPressed += async (at, extend) => { if (await SelectAsync(at) && extend) BeginCellEdit(false); };
         FormulaEntry.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) FormulaChanged(); };
         CellEditor.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) CellEditorChanged(); };
@@ -48,6 +49,9 @@ public partial class MainWindow : Window
         Sheet.GotFocus += (_, _) => { clipboardEditor=null; UpdateFocusAppearance(); };
         Sheet.LostFocus += (_, _) => UpdateFocusAppearance();
         foreach (var input in new[] { CellEditor, FormulaEntry }) {
+            input.PropertyChanged += (_, e) => {
+                if (!synchronizing && (e.Property==TextBox.SelectionStartProperty || e.Property==TextBox.SelectionEndProperty)) ++interactionVersion;
+            };
             input.GotFocus += (_, _) => { clipboardEditor=input; UpdateFocusAppearance(); };
             input.LostFocus += (_, _) => UpdateFocusAppearance();
         }
@@ -61,7 +65,7 @@ public partial class MainWindow : Window
         Closing += async (_, e) => {
             if (allowClose) return;
             e.Cancel = true; if (shuttingDown || editing || fileAction) return;
-            shuttingDown = true;
+            ++interactionVersion; shuttingDown = true;
             if (!await CommitAsync() || (session is not null && !await ConfirmDiscardAsync())) { shuttingDown = false; SetEditing(true); await RefreshAsync(); return; }
             refresh?.Cancel(); SetEditing(false);
             if (session is not null) await session.DisposeAsync();
@@ -98,24 +102,25 @@ public partial class MainWindow : Window
     }
     private async void CopyClick(object? sender,RoutedEventArgs e) => await ClipboardAsync(false);
     private async void PasteClick(object? sender,RoutedEventArgs e) => await ClipboardAsync(true);
-    private async Task ClipboardAsync(bool paste)
+    private async Task ClipboardAsync(bool paste, Func<Task<string?>>? readText = null)
     {
         if (session is null || editing || fileAction || shuttingDown || Clipboard is null) return;
         try {
-            var input=clipboardEditor;
-            if (input==CellEditor && (!CellEditor.IsVisible || draftCell is null)) input=null;
+            var input=clipboardEditor ?? (draftCell is null ? null : inlineEditing ? CellEditor : FormulaEntry);
+            if (input==CellEditor && draftCell is null) input=null;
             if (!paste) {
                 string text=input is null ? CellSource() : input.SelectedText ?? "";
                 if (input is null || text.Length>0) await Clipboard.SetTextAsync(text);
                 return;
             }
+            long request=++clipboardRequest, interaction=interactionVersion;
             string before=input?.Text ?? "";
             int start=input is null ? 0 : Math.Min(input.SelectionStart,input.SelectionEnd);
             int end=input is null ? 0 : Math.Max(input.SelectionStart,input.SelectionEnd);
             var target=Sheet.Selected.Clone();
-            string revision=session.Revision;
-            string? value=await Clipboard.TryGetTextAsync();
-            if (value is null || editing || fileAction || shuttingDown || session.Revision!=revision
+            string revision=session.Revision, expected=displayedRevision;
+            string? value=await (readText is null ? Clipboard.TryGetTextAsync() : readText());
+            if (request!=clipboardRequest || interaction!=interactionVersion || value is null || editing || fileAction || shuttingDown || session.Revision!=revision
                 || Sheet.Selected.Row!=target.Row || Sheet.Selected.Column!=target.Column
                 || (input is not null && (input.Text!=before || Math.Min(input.SelectionStart,input.SelectionEnd)!=start || Math.Max(input.SelectionStart,input.SelectionEnd)!=end))) return;
             // A trailing line ending is common when copying a single cell from another app.
@@ -123,10 +128,19 @@ public partial class MainWindow : Window
             if (value.IndexOfAny(['\r','\n','\t'])>=0 || before.Length-(end-start)+value.Length>4096) {
                 StatusLabel.Text="Paste one cell of text (up to 4096 characters); rectangular paste is not available yet."; return;
             }
-            if (input is null) { BeginCellEdit(true,value); return; }
+            if (input is null) {
+                if (!frameReady || session.DocumentId.Length==0) return;
+                // Keep the editor closed on success. A failed submission exposes the
+                // retained revision-bound draft for correction or Escape.
+                CaptureDraft(); draftRevision=expected; draftReplace=true;
+                synchronizing=true; FormulaEntry.Text=CellEditor.Text=value; synchronizing=false;
+                if (!await CommitAsync()) { inlineEditing=true; PositionEditor(); UpdateDocument(); CellEditor.Focus(); }
+                return;
+            }
             input.Text=before[..start]+value+before[end..]; input.CaretIndex=start+value.Length;
             input.SelectionStart=input.SelectionEnd=input.CaretIndex; input.Focus();
-        } catch (Exception e) { StatusLabel.Text="Clipboard operation failed: "+e.Message; }
+        } catch (OperationCanceledException) { /* A cancelled read never installs or retries an edit. */ }
+        catch (Exception e) { StatusLabel.Text="Clipboard operation failed: "+e.Message; }
     }
     private async Task StartAsync()
     {
@@ -183,7 +197,7 @@ public partial class MainWindow : Window
     private async Task FileActionAsync(Func<Task> action)
     {
         if (fileAction || editing || shuttingDown || session is null) return;
-        fileAction=true; SetEditing(false);
+        ++interactionVersion; fileAction=true; SetEditing(false);
         try { if (await CommitAsync()) await action(); }
         catch (Exception e) { StatusLabel.Text=e.Message; }
         finally { fileAction=false; UpdateDocument(); SetEditing(session.DocumentId.Length!=0); }
@@ -257,17 +271,17 @@ public partial class MainWindow : Window
     private void CaptureDraft()
     {
         if (draftCell is not null) return;
-        draftCell = Sheet.Selected.Clone(); draftRevision = displayedRevision; draftOriginal = CellSource(); draftReplace = false;
+        ++interactionVersion; draftCell = Sheet.Selected.Clone(); draftRevision = displayedRevision; draftOriginal = CellSource(); draftReplace = false;
     }
     private void FormulaChanged()
     {
         if (synchronizing || session is null || session.DocumentId.Length == 0 || editing || fileAction || shuttingDown) return;
-        CaptureDraft(); synchronizing = true; CellEditor.Text = FormulaEntry.Text; synchronizing = false; UpdateDocument();
+        ++interactionVersion; CaptureDraft(); synchronizing = true; CellEditor.Text = FormulaEntry.Text; synchronizing = false; UpdateDocument();
     }
     private void CellEditorChanged()
     {
         if (synchronizing || draftCell is null) return;
-        synchronizing = true; FormulaEntry.Text = CellEditor.Text; synchronizing = false; UpdateDocument();
+        ++interactionVersion; synchronizing = true; FormulaEntry.Text = CellEditor.Text; synchronizing = false; UpdateDocument();
     }
     private void PositionEditor()
     {
@@ -292,7 +306,7 @@ public partial class MainWindow : Window
     }
     private void CancelDraft()
     {
-        draftCell = null; inlineEditing = false; PositionEditor(); SelectCell(); UpdateDocument(); Sheet.Focus();
+        ++interactionVersion; ++clipboardRequest; draftCell = null; inlineEditing = false; PositionEditor(); SelectCell(); UpdateDocument(); Sheet.Focus();
     }
     private async Task<bool> CommitAsync()
     {
@@ -333,7 +347,8 @@ public partial class MainWindow : Window
     private async void GridKeyDown(object? sender, KeyEventArgs e)
     {
         if (editing || fileAction || shuttingDown || !frameReady) return;
-        if (e.Key is Key.F2 or Key.Enter) { BeginCellEdit(false); e.Handled=true; }
+        if (e.Key==Key.Escape) { ++clipboardRequest; e.Handled=true; }
+        else if (e.Key is Key.F2 or Key.Enter) { BeginCellEdit(false); e.Handled=true; }
         else if (e.Key == Key.Delete) { e.Handled=true; await EditAsync(new Edit { At=Sheet.Selected.Clone(), Clear=true }); }
         else if (e.Key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Tab) {
             e.Handled=true;
@@ -348,7 +363,7 @@ public partial class MainWindow : Window
     }
     private async void EntryKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key==Key.Escape) { e.Handled=true; if(!editing) CancelDraft(); }
+        if (e.Key==Key.Escape) { ++clipboardRequest; e.Handled=true; if(!editing) CancelDraft(); }
         else if (e.Key is Key.Enter or Key.Tab) {
             e.Handled=true;
             if (await CommitAsync()) await NavigateAsync(e.Key==Key.Enter ? (e.KeyModifiers.HasFlag(KeyModifiers.Shift)?-1:1) : 0,
@@ -379,8 +394,8 @@ public partial class MainWindow : Window
         await SelectAsync(P(9,4));BeginCellEdit(true,"=1+2");Check(await CommitAsync(),"Clipboard source formula");
         await ClipboardAsync(false);Check(await nativeClipboard.TryGetTextAsync()=="=1+2","Cell copy preserves original formula source");
         await SelectAsync(P(9,5));await ClipboardAsync(true);
-        Check(FormulaEntry.Text=="=1+2" && draftCell is not null,"Cell paste opens shared draft");
-        Check(await CommitAsync() && WorkbookSession.Decode(Sheet.CellAt(P(9,5))!.Value)==3m,"Pasted source calculates through Rust");
+        Check(draftCell is null && !CellEditor.IsVisible && Sheet.Selected.Row==9 && Sheet.Selected.Column==5,"Cell paste commits without entering editor or moving selection");
+        Check(WorkbookSession.Decode(Sheet.CellAt(P(9,5))!.Value)==3m && session!.IsDirty,"Pasted source calculates through Rust and marks dirty");
         BeginCellEdit(false);CellEditor.SelectionStart=1;CellEditor.SelectionEnd=2;
         await ClipboardAsync(false);Check(await nativeClipboard.TryGetTextAsync()=="1","Editor copies selected substring");
         await nativeClipboard.SetTextAsync("5");await ClipboardAsync(true);
@@ -391,7 +406,64 @@ public partial class MainWindow : Window
         var shortcutText=new TextInputEventArgs{RoutedEvent=InputElement.TextInputEvent,Text="c"};Sheet.RaiseEvent(shortcutText);
         Check(shortcutText.Handled && draftCell is null,"Shortcut text cannot start a cell draft");
         shortcutModifiers=KeyModifiers.None;
-        await nativeClipboard.SetTextAsync("1\t2");await ClipboardAsync(true);Check(draftCell is null,"Rectangular paste is explicitly rejected");
+        string multilineRevision=session!.Revision;
+        await nativeClipboard.SetTextAsync("1\t2");await ClipboardAsync(true);Check(draftCell is null && session.Revision==multilineRevision,"Rectangular paste is explicitly rejected without mutation");
+        // Deterministic delayed clipboard reads exercise the production async path.
+        await SelectAsync(P(8,4));
+        var delayed=new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        string beforeLate=session!.Revision;var late=ClipboardAsync(true,()=>delayed.Task);
+        await SelectAsync(P(8,5));await SelectAsync(P(8,4));delayed.SetResult("42");await late;
+        Check(session.Revision==beforeLate && draftCell is null,"Away-and-back selection cancels late paste");
+        var cancelled=new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pending=ClipboardAsync(true,()=>cancelled.Task);Key(Sheet,global::Avalonia.Input.Key.Escape);
+        cancelled.SetResult("42");await pending;Check(session.Revision==beforeLate,"Escape cancels clipboard read without edit");
+        await ClipboardAsync(true,()=>Task.FromResult<string?>("12.50"));
+        Check(draftCell is null && WorkbookSession.Decode(Sheet.CellAt(P(8,4))!.Value)==12.50m,"Numeric paste commits exact decimal immediately");
+        await nativeClipboard.SetTextAsync("14");string keyPasteRevision=session.Revision;
+        var pasteKey=new KeyEventArgs{RoutedEvent=InputElement.KeyDownEvent,Key=global::Avalonia.Input.Key.V,KeyModifiers=primary};
+        Sheet.RaiseEvent(pasteKey);await WaitFor(()=>session.Revision!=keyPasteRevision && !editing && draftCell is null);
+        shortcutModifiers=KeyModifiers.None;
+        Check(pasteKey.Handled && WorkbookSession.Decode(Sheet.CellAt(P(8,4))!.Value)==14m,"Primary paste shortcut commits immediately");
+        await EditAsync(new Edit{At=P(8,5),Formula="=D8+1"});
+        await ClipboardAsync(true,()=>Task.FromResult<string?>("7"));
+        Check(WorkbookSession.Decode(Sheet.CellAt(P(8,5))!.Value)==8m,"Direct paste recalculates dependent");
+        string numericRevision=session.Revision;
+        await ClipboardAsync(true,()=>Task.FromResult<string?>("0.1234567890123456789012345678901"));
+        Check(session.Revision==numericRevision && draftCell is not null && CellEditor.IsVisible,"Rejected exact numeric paste keeps correctable draft");CancelDraft();
+        await ClipboardAsync(true,()=>Task.FromResult<string?>("=("));
+        Check(draftCell is null && Sheet.CellAt(P(8,4))!.Error.Length>0,"Invalid formula paste commits editable Rust formula draft");
+        await ClipboardAsync(true,()=>Task.FromResult<string?>(""));
+        Check(draftCell is null && Sheet.CellAt(P(8,4))!.ContentCase==Cell.ContentOneofCase.Blank,"Empty paste clears cell immediately");
+        await ClipboardAsync(false);Check(await nativeClipboard.TryGetTextAsync()=="","Copying a blank cell clears stale clipboard text");
+        string beforeCancelledRead=session.Revision;
+        await ClipboardAsync(true,()=>Task.FromCanceled<string?>(new CancellationToken(true)));
+        Check(session.Revision==beforeCancelledRead && draftCell is null,"Cancelled clipboard operation causes no edit");
+        var supersededRead=new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstPaste=ClipboardAsync(true,()=>supersededRead.Task);
+        await ClipboardAsync(true,()=>Task.FromResult<string?>("13"));string lastPasteRevision=session.Revision;
+        supersededRead.SetResult("999");await firstPaste;
+        Check(session.Revision==lastPasteRevision && WorkbookSession.Decode(Sheet.CellAt(P(8,4))!.Value)==13m,"New paste supersedes old read without duplicate commit");
+        var newerRead=new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var obsolete=ClipboardAsync(true,()=>newerRead.Task);
+        await session.ApplyAsync(session.Revision,[new Edit{At=P(8,4),Number=WorkbookSession.Encode(99m)}]);
+        string newerRevision=session.Revision;newerRead.SetResult("42");await obsolete;
+        Check(session.Revision==newerRevision,"Changed revision rejects late clipboard data");
+        // Session is newer than the displayed frame: do not silently overwrite it.
+        await ClipboardAsync(true,()=>Task.FromResult<string?>("44"));
+        Check(session.Revision==newerRevision && draftCell is not null && FormulaEntry.Text=="44","Stale displayed revision conflicts without replay and retains source");CancelDraft();
+        await SelectAsync(P(8,4));BeginCellEdit(false);CellEditor.SelectAll();string editorRevision=session.Revision;
+        Sheet.Scroll(20);await RefreshAsync();
+        Check(!CellEditor.IsVisible && draftCell is not null,"Scrolled-away editor retains draft context");
+        // Native focus changes on hiding may collapse selection before paste starts.
+        string hiddenText=CellEditor.Text ?? "";
+        int hiddenStart=Math.Min(CellEditor.SelectionStart,CellEditor.SelectionEnd), hiddenEnd=Math.Max(CellEditor.SelectionStart,CellEditor.SelectionEnd);
+        await ClipboardAsync(true,()=>Task.FromResult<string?>("55"));
+        Check(session.Revision==editorRevision && draftCell is not null && FormulaEntry.Text==hiddenText[..hiddenStart]+"55"+hiddenText[hiddenEnd..],"Hidden active editor paste respects its current caret without committing");
+        Sheet.Scroll(-20);await RefreshAsync();CancelDraft();
+        FormulaEntry.Focus();FormulaEntry.SelectAll();
+        await ClipboardAsync(true,()=>Task.FromResult<string?>("66"));
+        Check(session.Revision==editorRevision && FormulaEntry.Text=="66","Formula bar paste remains uncommitted text");CancelDraft();
+        await EditAsync(new Edit{At=P(8,4),Clear=true});await EditAsync(new Edit{At=P(8,5),Clear=true});
         BlinkCaret.IsChecked=false;Check(CellEditor.CaretBlinkInterval==TimeSpan.Zero && FormulaEntry.CaretBlinkInterval==TimeSpan.Zero,"Steady caret option");
         BlinkCaret.IsChecked=true;
         MoveTarget.Focus();UpdateFocusAppearance();Check(!Sheet.ActiveFocus,"Unfocused active cell has muted outline");
@@ -503,7 +575,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { status="passed", backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, explicit multi-cell rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, new JsonSerializerOptions { WriteIndented=true }));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { status="passed", backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, explicit multi-cell rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, new JsonSerializerOptions { WriteIndented=true }));
         allowClose = true; Close();
     }
 }

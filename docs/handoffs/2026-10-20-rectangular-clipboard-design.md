@@ -110,3 +110,14 @@ plan; it is not a claim of implementation acceptance.
 [Parent implementation review packet](2026-10-20-rectangular-clipboard-review-packet.md)
 now includes fresh native Mac/APFS results, automated desktop acceptance and the
 owner-requested arrow-key behavior. No implementation acceptance is presumed.
+
+## Parent implementation acceptance — 2026-10-20
+
+The parent accepts ADR-0017's implementation, WB3, desktop acceptance automation and
+directional editing, separately from the earlier design approval, and closes this
+workstream. The three-platform evidence and existing limitations remain as recorded.
+[Acceptance and scope closure](2026-10-20-rectangular-clipboard-implementation-review.md).
+The review requires runner-enforced serialization for shared Windows/WSLg clipboard
+suites; documentation currently specifies sequencing, but enforcement is a recorded
+operational follow-up, not yet implemented. No next feature is selected or begun.
+Earlier ready-for-review/pending statements describe the submission state.

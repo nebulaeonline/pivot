@@ -80,3 +80,14 @@ performance guarantee is claimed.
 Cut, drag-fill/autofill, structural edits, formatting/text-value expansion, generalized
 clipboard framework, alternate graph, SQLite and capacity increases remain excluded.
 No further feature work has begun; stop for parent implementation review.
+
+## Parent implementation acceptance — 2026-10-20
+
+The parent accepts ADR-0017's implementation, WB3, desktop acceptance automation and
+directional editing, separately from the earlier design approval, and closes this
+workstream. The three-platform evidence and existing limitations remain as recorded.
+[Acceptance and scope closure](2026-10-20-rectangular-clipboard-implementation-review.md).
+The review requires runner-enforced serialization for shared Windows/WSLg clipboard
+suites; documentation currently specifies sequencing, but enforcement is a recorded
+operational follow-up, not yet implemented. No next feature is selected or begun.
+Earlier ready-for-review/pending statements describe the submission state.

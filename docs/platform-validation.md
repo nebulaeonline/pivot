@@ -1,6 +1,6 @@
 # Linux and macOS validation
 
-## Ready for review: rectangular clipboard, WB3 and desktop acceptance
+## Accepted: rectangular clipboard, WB3 and desktop acceptance
 
 [Implementation](handoffs/2026-10-20-rectangular-clipboard.md),
 [automation and integrated Mac evidence](handoffs/2026-10-20-desktop-acceptance-automation.md),
@@ -22,7 +22,8 @@ The owner replaced recurring manual five-group replay with deterministic accepta
 and optional inspection. No physical keys, IME/accessibility, native-picker or clipboard-
 manager certification is inferred; no optional Mac manual run is claimed. Known WSLg
 native abort, Windows-mounted-path uncertain installation and historical Linux viewport
-p95 exception remain unresolved. Parent implementation acceptance is still pending.
+p95 exception remain unresolved. The parent implementation review accepts this milestone and closes the workstream.
+[Acceptance and operational follow-up](handoffs/2026-10-20-rectangular-clipboard-implementation-review.md).
 Historical results below retain their original milestone scope.
 
 ## Accepted: rectangular worksheet selection

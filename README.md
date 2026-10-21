@@ -56,7 +56,7 @@ The transport-independent Protobuf protocol has Rust/C# serialization tests and 
 in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)
 to run the demo daemon and CLI. Engine/daemon coverage includes Windows, WSL2 Linux
 and macOS ARM64. WB3, rectangular clipboard and automated desktop acceptance checks pass on all
-three platforms; parent implementation review is pending. See [platform validation](docs/platform-validation.md) for
+three platforms; this implementation milestone is accepted. See [platform validation](docs/platform-validation.md) for
 coverage and the recorded WSLg startup limitation.
 
 See [implementation status](docs/STATUS.md) and

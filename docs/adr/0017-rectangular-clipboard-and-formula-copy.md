@@ -1,6 +1,6 @@
 # ADR-0017: Bounded rectangular clipboard and formula copy
 
-Status: **Accepted with compatibility revision — implemented; three-platform automated validation complete; implementation review pending**.
+Status: **Accepted with compatibility revision; implementation accepted (2026-10-20); workstream closed**.
 [Review decision](../handoffs/2026-10-20-rectangular-clipboard-review.md).
 Date: 2026-10-20.
 
@@ -295,4 +295,6 @@ claim that pending manual tests were performed.
 Fresh [native Mac results](../handoffs/2026-10-20-desktop-acceptance-automation.md#native-mac-validation-integrated--2026-10-20)
 complete three-platform automated evidence without product fixes or reruns. The
 [parent implementation review packet](../handoffs/2026-10-20-rectangular-clipboard-review-packet.md)
-is ready; design acceptance is distinct from pending implementation acceptance.
+is retained as submitted evidence. The subsequent
+[implementation acceptance](../handoffs/2026-10-20-rectangular-clipboard-implementation-review.md)
+is separate from the earlier design decision and closes this workstream.

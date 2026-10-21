@@ -2,7 +2,7 @@
 
 Date: 2026-10-20
 
-Current work: **Rectangular Clipboard and Formula Copy — implemented; three-platform automated validation complete; ready for implementation review**.
+Latest accepted milestone: **Bounded Rectangular Clipboard, Formula Copy, WB3 and Desktop Acceptance Automation — accepted; workstream closed**.
 [ADR-0017](adr/0017-rectangular-clipboard-and-formula-copy.md),
 [implementation/evidence/optional inspection](handoffs/2026-10-20-rectangular-clipboard.md),
 [fresh Mac/APFS packet](handoffs/2026-10-20-macos-rectangular-clipboard-instructions.md).
@@ -25,12 +25,13 @@ all-feature tests now pass, including cross-process UTI clipboard, all close pee
 arrow commits and zero-charge cleanup. All 339 copied source hashes matched before
 this doc update; all 173 build/test inputs match, with 391 returned reports verified
 by the transfer record. No Mac fixes or reruns. Routine manual replay is optional;
-physical input/native pickers are not inferred. The design is approved; implementation
-acceptance awaits the parent review.
+physical input/native pickers are not inferred. The parent review received 2026-10-20
+accepts the implementation separately from the earlier design acceptance and closes
+the milestone. [Implementation acceptance and scope closure](handoffs/2026-10-20-rectangular-clipboard-implementation-review.md).
 [Parent review packet](handoffs/2026-10-20-rectangular-clipboard-review-packet.md),
 [native Mac report](../artifacts/macos-validation-20261020T235001Z/REPORT.md).
 
-Latest accepted milestone: **Rectangular Worksheet Selection and Navigation — accepted; workstream closed**.
+Accepted preceding milestone: **Rectangular Worksheet Selection and Navigation — accepted; workstream closed**.
 Anchor/active/extent live only in C# UI state. Drag and Shift extension, bounded
 keyboard navigation, auto-scroll and active/region/inactive visuals are implemented.
 Selection-only checks leave Rust revisions/dirty state unchanged and create no
@@ -46,9 +47,11 @@ not implemented; selection/navigation and active-cell operations are the current
 scope. The parent review received 2026-10-20 accepts the implementation.
 [Acceptance and next design scope](handoffs/2026-10-20-rectangular-selection-review.md).
 
-Next priority: parent implementation review of the bounded clipboard/WB3 slice,
-desktop acceptance automation and directional edit commits. No further feature work
-is started.
+Next: stop before choosing another feature. Product priorities remain undecided.
+The review requires one narrow operational follow-up: enforce serialization of
+Windows/WSLg desktop clipboard suites in the runner, rather than relying only on
+documentation. This is recorded and not yet implemented. No further graph/storage/
+codec/clipboard infrastructure refinement is authorized by this acceptance.
 
 Accepted preceding milestone: **Direct single-cell paste commit — accepted; workstream closed**.
 Grid paste submits immediately through Rust and retains selection; editor/formula-bar

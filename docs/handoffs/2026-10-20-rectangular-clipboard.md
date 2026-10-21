@@ -1,6 +1,6 @@
 # Bounded rectangular clipboard and formula copy
 
-Date: 2026-10-20. **Implemented; three-platform automated validation complete; parent implementation review pending.**
+Date: 2026-10-20. **Implementation accepted; three-platform automated validation complete; workstream closed.**
 [ADR-0017](../adr/0017-rectangular-clipboard-and-formula-copy.md),
 [design acceptance](2026-10-20-rectangular-clipboard-review.md),
 [fresh Mac packet](2026-10-20-macos-rectangular-clipboard-instructions.md).
@@ -232,3 +232,14 @@ p95 exception remain unresolved. No new capacity, filesystem or performance guar
 
 Windows/Linux/Mac automated validation is complete for the bounded scope. Ready for
 parent implementation review; implementation acceptance has not yet been granted.
+
+## Parent implementation acceptance — 2026-10-20
+
+The parent accepts ADR-0017's implementation, WB3, desktop acceptance automation and
+directional editing, separately from the earlier design approval, and closes this
+workstream. The three-platform evidence and existing limitations remain as recorded.
+[Acceptance and scope closure](2026-10-20-rectangular-clipboard-implementation-review.md).
+The review requires runner-enforced serialization for shared Windows/WSLg clipboard
+suites; documentation currently specifies sequencing, but enforcement is a recorded
+operational follow-up, not yet implemented. No next feature is selected or begun.
+Earlier ready-for-review/pending statements describe the submission state.

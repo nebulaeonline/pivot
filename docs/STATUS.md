@@ -6,13 +6,19 @@ Latest accepted milestone: **Bounded Document-Owned Worksheet Text — accepted;
 The parent accepts the implementation and one-byte escape-overhead clarification.
 [Acceptance and scope closure](handoffs/2026-10-21-worksheet-text-implementation-review.md),
 [implementation/evidence](handoffs/2026-10-21-worksheet-text-implementation.md).
-Current assignment: **structured-result/projection design only**. Proposed
+Next authorized milestone: **bounded structured-result/presentation-projection proof**.
+The parent approves the design with clarifications; implementation has not begun.
+Accepted
 [ADR-0019](adr/0019-structured-results-and-projection-identities.md) separates stable
 producer/record/field identities, immutable result generations, projection identity
 and presentation address mapping. It recommends a bounded fixed-record in-memory
 proof; worksheet producer syntax and persistence remain later review decisions.
 [Design review packet](handoffs/2026-10-21-structured-results-projection-design.md).
-No next implementation, connector or permanent `#` grammar is authorized.
+Only the opt-in, in-memory experimental proof is authorized, with one coherent
+publication/capture coordinator, forced stale-L2 interaction coverage, visible
+non-savable state and deterministic discard/close. Permanent product integration,
+connectors, persistence/WB5 and `#` grammar remain excluded.
+[Design decision and implementation boundary](handoffs/2026-10-21-structured-results-projection-design-review.md).
 
 Accepted preceding milestone: **Native AOT Publish-and-Execute Validation — accepted; workstream closed**.
 Windows x64, Linux x64 and native macOS ARM64 publish and execute without warnings.

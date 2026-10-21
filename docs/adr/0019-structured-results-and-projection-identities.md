@@ -1,6 +1,8 @@
 # ADR-0019: Structured results and projection identities
 
-Status: **Proposed — design only; no implementation authorized**.
+Status: **Approved with clarifications (2026-10-21); bounded experimental proof authorized, implementation pending**.
+[Design acceptance and clarifications](../handoffs/2026-10-21-structured-results-projection-design-review.md).
+Permanent product integration is not approved.
 Date: 2026-10-21.
 [Preceding implementation acceptance and direction](../handoffs/2026-10-21-worksheet-text-implementation-review.md),
 [earlier fusion direction](../handoffs/2026-10-20-native-aot-next-scope.md).
@@ -14,9 +16,10 @@ ordinary CellIds merely to appear on screen. Existing scalar bindings follow sta
 CellIds, SUM follows fixed worksheet rectangles, and captures are immutable.
 Those accepted semantics must survive changes in dynamic presentation.
 
-This design proposes a bounded fixed-record experiment, not database integration,
+This approved direction covers a bounded fixed-record experiment, not database integration,
 a general structured-value evaluator, or a permanent `#` language. All policies below
-are proposed for review. No Rust/C#, protocol or file-format changes accompany it.
+are accepted subject to the linked review clarifications. No implementation changes
+accompany this design record.
 
 ## 1. Identities and ownership
 
@@ -30,13 +33,14 @@ are proposed for review. No Rust/C#, protocol or file-format changes accompany i
 | ProjectionId | One presentation of a producer | The producer, a fetched result or a worksheet CellId |
 | PresentationRevision | One immutable layout/map version | Calculation generation or worksheet graph revision |
 
-Propose opaque UUID-backed ProducerId, ResultGenerationId, SchemaId, FieldId,
+Use opaque UUID-backed ProducerId, ResultGenerationId, SchemaId, FieldId,
 OutputId and ProjectionId types. Portable references carry document/producer scope;
 process-local handles remain private. A future graph-backed producer maps explicitly
 to its portable GraphId / GraphNodeId, with one declared owner for publication. The
 first fixed-source descriptor has no collection-valued numeric-core node and no
-implicit alias to an ordinary cell node. This representation needs review before
-implementation; never substitute a display name or process-local NodeId.
+implicit alias to an ordinary cell node. Keep this representation economical: no generalized distributed identity service,
+schema registry or independent graph namespace. Do not implement speculative graph
+source integration. Never substitute a display name or process-local NodeId.
 The producer registry owns fixed descriptors/publications, not a second evaluator
 or independent dependency graph.
 
@@ -241,7 +245,10 @@ The first experiment is an isolated, opt-in in-memory proof, not a normal savabl
 workbook feature. WB4 remains unchanged and must not silently omit experimental
 objects. If a desktop proof opens an experimental document, its Save/Save As path
 must explicitly refuse that document rather than write a misleading partial WB4.
-Ordinary documents keep existing Save/Open semantics. No persistence/reopen success
+Advertise the experimental non-savable state visibly before a close/save attempt.
+Close/discard must be deterministic and use explicit experimental discard wording
+where confirmation is needed, without a misleading ordinary dirty-save prompt or
+Save choice. Ordinary documents keep existing Save/Open and close semantics. No persistence/reopen success
 is claimed for projections in this first slice.
 
 A subsequent persistence proposal must encode producer/schema/field/output identities,
@@ -253,7 +260,7 @@ is authorized by this design-only document.
 
 ## 7. Bounded proof and admission
 
-Proposed experiment ceilings: one producer, two projections, eight fields, 64 records,
+Accepted experimental proof ceilings: one producer, two projections, eight fields, 64 records,
 4,096 UTF-8 bytes per text field, 128 bytes per key, 256 KiB per complete result
 including owned descriptors/index metadata, and 1 MiB total structured-state ownership
 including staged and capture-pinned generations. The fixed invoice uses five fields.
@@ -266,19 +273,25 @@ existing 256-slot and private-frame byte ceilings, counting projected fields too
 there is no automatic 64-by-eight whole-result IPC response. Account presentation
 maps without allocating one ordinary row/CellId/core node per record/field. A new
 result may be refused while old captures pin the budget; do not evict a live capture
-or silently truncate to publish. These are proposed experiment admission bounds,
+or silently truncate to publish. These are experimental admission bounds,
 not a capacity increase for ordinary workbooks or a performance promise.
 
 ## Review and implementation stop
 
-This ADR defines candidate semantics only. Review must explicitly approve the
-identity/binding representation, missing-key return behavior, publication atomicity,
-numeric adapter boundary, row-boundary flow mapping, read-only interaction rules,
-isolated non-savable first proof and admission bounds before implementation.
+The parent approves these semantics and the bounded in-memory proof, with the
+linked clarifications. Implement only that proof, retain one coherent publication/
+capture coordinator and independent detached evaluation, then stop for parent
+implementation review. No permanent product integration is approved.
+
+Regression tests must force an interaction started on L2 to complete after a newer
+generation removes/reorders L2, proving the old ordinal cannot select its replacement.
+Test visible non-savable state, explicit Save/Save As refusal and deterministic
+experimental discard/close alongside unchanged ordinary WB4 lifecycle behavior.
 
 No general collection/string runtime, database/network connector, automatic refresh,
 per-record graph transformations, workbook formula grammar, permanent `#` syntax,
 projection persistence, structural editing, formatting, printing or capacity expansion
 is included. The proof must use the existing canonical graph, never a competing engine.
 The [review packet and adversarial cases](../handoffs/2026-10-21-structured-results-projection-design.md)
-define the proposed first experiment and deliberate follow-up slices.
+define the accepted first experiment and deliberate follow-up slices.
+Design acceptance does not claim implementation or validation of this proof.

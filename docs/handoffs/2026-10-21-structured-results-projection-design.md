@@ -1,6 +1,8 @@
 # Structured-result/projection design — parent review packet
 
-Date: 2026-10-21. **Design only; implementation not started.**
+Date: 2026-10-21. **Design approved with clarifications; bounded proof authorized,
+implementation not started.** [Review decision](2026-10-21-structured-results-projection-design-review.md).
+The proposal below records the submitted scope; the review supplies governing clarifications.
 [Proposed ADR-0019](../adr/0019-structured-results-and-projection-identities.md),
 [identity/data-flow overview](../architecture/structured-results-and-projections.md).
 The preceding worksheet-text implementation remains accepted and closed.
@@ -30,7 +32,7 @@ text; it does not become a numeric-core string or worksheet NonNumeric placehold
 The first experiment supplies fixed Amount fields; per-record transformation graphs
 remain a later design.
 
-**Deliberate scope choice requiring approval:** the first proof is in-memory and
+**Approved scope choice:** the first proof is in-memory and
 opt-in. Ordinary worksheet references to producer fields/outputs, projection Save/Open,
 new native document versions and permanent `#` grammar are deferred to later binding/
 persistence slices. Do not claim an end-to-end savable dynamic invoice yet. Experimental
@@ -83,10 +85,13 @@ admission bounds for the experiment, not scaling claims.
 Approve or revise the typed identity representation/graph-binding boundary, exact key
 and missing/return semantics, captured publication consistency, canonical reduction
 order, flow-band placement and tagged interaction rules. Explicitly decide whether
-the recommended in-memory first proof is sufficient before binding/persistence work.
+the in-memory first proof is sufficient before binding/persistence work. The parent
+review approves that scope and the typed identity/coordination/presentation direction.
 
-No implementation is authorized by this packet. If approved later, deliver a bounded
-proof and three-platform evidence, then stop for implementation review. Do not start
+The subsequent review authorizes only the bounded experimental proof. Deliver it
+with three-platform evidence, then stop for implementation review. Visibly identify
+non-savable documents, provide deterministic experimental discard/close without
+ordinary Save prompts, and force the disappearing-L2 stale-interaction regression. Do not start
 SQL/connectors, a new record/string calculation engine, live refresh scheduling,
 write-through edits, printing or a permanent dynamic-reference language automatically.
 

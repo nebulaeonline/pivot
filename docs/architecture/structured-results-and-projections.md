@@ -1,8 +1,9 @@
 # Structured results and presentation projections
 
-Status: **Proposed design only** under
+Status: **Design approved with clarifications; bounded experimental proof pending** under
 [ADR-0019](../adr/0019-structured-results-and-projection-identities.md).
-No collection/projection implementation or permanent `#` syntax exists.
+[Review decision](../handoffs/2026-10-21-structured-results-projection-design-review.md).
+No projection proof implementation or permanent `#` syntax exists.
 [Review packet](../handoffs/2026-10-21-structured-results-projection-design.md).
 
 ```mermaid

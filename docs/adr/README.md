@@ -51,4 +51,6 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0017: Bounded rectangular clipboard and formula copy](0017-rectangular-clipboard-and-formula-copy.md) — Accepted with compatibility revision; WB3/clipboard implemented; implementation accepted; three-platform automated validation complete; workstream closed (2026-10-20).
 
-- [ADR-0018: Document-owned worksheet text](0018-document-owned-worksheet-text.md) — Accepted with clarifications; bounded implementation validated on three platforms; implementation acceptance pending (2026-10-21).
+- [ADR-0018: Document-owned worksheet text](0018-document-owned-worksheet-text.md) — Accepted with clarifications; implementation and escape-overhead clarification accepted; three-platform validation complete; workstream closed (2026-10-21).
+
+- [ADR-0019: Structured results and projection identities](0019-structured-results-and-projection-identities.md) — Proposed; design only, no implementation authorized (2026-10-21).

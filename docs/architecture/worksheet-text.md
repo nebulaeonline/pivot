@@ -1,7 +1,7 @@
 # Document-owned worksheet text
 
 ADR-0018 is accepted; the bounded implementation passes Windows/Linux/native Mac
-managed and Native AOT validation. Parent implementation acceptance is pending. [Semantics](../adr/0018-document-owned-worksheet-text.md),
+managed and Native AOT validation. Implementation and escape-overhead clarification are accepted; the milestone is closed. [Semantics](../adr/0018-document-owned-worksheet-text.md),
 [implementation and verification](../handoffs/2026-10-21-worksheet-text-implementation.md).
 
 LiteralText is a canonical worksheet content variant, distinct from TextFormula
@@ -19,7 +19,7 @@ Rust owns entry classification, including exact numeric rejection and apostrophe
 escapes. Text editing reconstructs an escape; native typed paste preserves payloads
 without reclassification. TSV escapes text reversibly. The 4,096-byte payload bound
 admits one extra escape byte as syntax, counted in aggregate budgets; this explicit
-implementation clarification awaits review. Existing capacity limits otherwise remain.
+implementation clarification is accepted. Existing capacity limits otherwise remain.
 
 WB4 validates document content against graph definitions. The private session
 request/response version is 2, with typed text and entry arms; clipboard data and

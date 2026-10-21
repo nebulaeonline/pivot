@@ -2,26 +2,39 @@
 
 Date: 2026-10-21
 
-Latest accepted milestone: **Native AOT Publish-and-Execute Validation — accepted; workstream closed**.
+Latest accepted milestone: **Bounded Document-Owned Worksheet Text — accepted; workstream closed**.
+The parent accepts the implementation and one-byte escape-overhead clarification.
+[Acceptance and scope closure](handoffs/2026-10-21-worksheet-text-implementation-review.md),
+[implementation/evidence](handoffs/2026-10-21-worksheet-text-implementation.md).
+Current assignment: **structured-result/projection design only**. Proposed
+[ADR-0019](adr/0019-structured-results-and-projection-identities.md) separates stable
+producer/record/field identities, immutable result generations, projection identity
+and presentation address mapping. It recommends a bounded fixed-record in-memory
+proof; worksheet producer syntax and persistence remain later review decisions.
+[Design review packet](handoffs/2026-10-21-structured-results-projection-design.md).
+No next implementation, connector or permanent `#` grammar is authorized.
+
+Accepted preceding milestone: **Native AOT Publish-and-Execute Validation — accepted; workstream closed**.
 Windows x64, Linux x64 and native macOS ARM64 publish and execute without warnings.
 Managed CI remains available; shared Windows/WSLg clipboard serialization is complete.
 [Acceptance and next design scope](handoffs/2026-10-20-native-aot-review.md),
 [implementation and evidence](handoffs/2026-10-20-native-aot-baseline.md).
 
-Current milestone: **bounded document-owned worksheet text**. ADR-0018 is accepted
+Accepted milestone evidence: **bounded document-owned worksheet text**. ADR-0018 is accepted
 with clarifications; implementation is in place. Final Windows/Linux full CI
 (314/315 default Rust tests), strict all-feature lint/tests (330/331), and actual
 Native AOT publish/execute pass without publish warnings. All eight desktop fields
 and native peers pass with zero charge. Fresh native Mac/APFS managed CI, strict
 all-feature lint, 315/331 default/all-feature Rust tests and Native AOT also pass
 without warnings, product fixes or reruns. All 359 copied source hashes and 183
-build/test inputs match; 438 returned files are present. Ready for parent
-implementation review; acceptance is pending. Rust-owned classification,
+build/test inputs match; 438 returned files are present. Parent implementation
+review is complete: accepted, including the escape-overhead rule;
+the milestone is closed. Rust-owned classification,
 reversible apostrophe/TSV escapes, strict numeric-consumer/SUM type errors, bounded
 single-line text and WB4/private version cuts are approved. Rejected Open must
-preserve the live workbook/revision/dirty state. Stop if the nonnumeric marker
-requires broad evaluator redesign. Require three-platform managed and Native AOT
-validation, then parent implementation review. Projections/connectors remain outside scope.
+preserve the live workbook/revision/dirty state. The narrow nonnumeric marker
+satisfied the design stop condition without a general value-system redesign.
+Projections/connectors remain outside this closed scope.
 [Implementation and evidence](handoffs/2026-10-21-worksheet-text-implementation.md),
 [Mac APFS validation packet](handoffs/2026-10-21-macos-worksheet-text-instructions.md),
 [accepted ADR-0018](adr/0018-document-owned-worksheet-text.md),

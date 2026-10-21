@@ -60,8 +60,7 @@ The transport-independent Protobuf protocol has Rust/C# serialization tests and 
 in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)
 to run the demo daemon and CLI. Engine/daemon coverage includes Windows, WSL2 Linux
 and macOS ARM64. The preceding clipboard foundation is accepted on all three platforms.
-Worksheet text/WB4 passes Windows/Linux/native Mac automated validation; parent
-implementation review is pending. See [platform validation](docs/platform-validation.md) for
+Worksheet text/WB4 passes Windows/Linux/native Mac automated validation and is accepted. See [platform validation](docs/platform-validation.md) for
 coverage and the recorded WSLg startup limitation.
 
 See [implementation status](docs/STATUS.md) and
@@ -86,4 +85,4 @@ through a shared lock. Routine manual replay is optional.
 For separate Native AOT publication and desktop acceptance, run
 `python scripts/verify_native_aot.py`. It builds the native desktop and places the
 Rust child beside it for validation. The current text candidate passes Windows,
-Linux and native Mac ARM64; parent implementation review is pending. See the [text handoff](docs/handoffs/2026-10-21-worksheet-text-implementation.md).
+Linux and native Mac ARM64; the worksheet-text implementation is accepted. See the [text handoff](docs/handoffs/2026-10-21-worksheet-text-implementation.md).

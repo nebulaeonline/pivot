@@ -2,7 +2,7 @@
 
 ## Current candidate: document-owned worksheet text
 
-ADR-0018 is accepted; implementation acceptance is pending. The new text candidate
+ADR-0018 design and implementation are accepted; the worksheet-text milestone is closed. The new text candidate
 passes final Windows/Linux managed CI (314/315 default Rust tests), strict
 all-feature lint/tests (330/331) and Native AOT publish/execute without warnings.
 All eight desktop fields and all native peers pass with zero charge; 183 build/test
@@ -10,7 +10,8 @@ input hashes match. Fresh native Mac/APFS managed CI, strict all-feature lint,
 315/331 default/all-feature tests and Native AOT also pass without warnings or
 product fixes/reruns. All 359 copied source hashes and 183 build/test inputs match;
 438 returned files are present. All native main/peer workflows pass with zero charge.
-Ready for parent implementation review; acceptance is pending. WB4, private session
+The parent review received 2026-10-21 accepts this implementation and the
+one-byte escape-overhead clarification. WB4, private session
 version 2 and native clipboard v2 are deliberate cuts. The original Mac report has
 one stale clipboard-v1 sentence; source/version evidence confirms v2, as documented
 in the handoff. Prior WB3/AOT evidence below remains historical. [Implementation/current evidence](handoffs/2026-10-21-worksheet-text-implementation.md),

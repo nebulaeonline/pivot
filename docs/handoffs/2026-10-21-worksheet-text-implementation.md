@@ -1,7 +1,8 @@
 # Bounded worksheet text — implementation and validation
 
 Date: 2026-10-21. **Windows/Linux/native Mac managed and Native AOT validation
-pass. Ready for parent implementation review; acceptance pending.**
+pass. Implementation and escape-overhead clarification accepted; milestone closed.**
+[Implementation acceptance](2026-10-21-worksheet-text-implementation-review.md).
 [Accepted ADR-0018](../adr/0018-document-owned-worksheet-text.md),
 [design review](2026-10-20-worksheet-text-design-review.md).
 
@@ -44,7 +45,7 @@ that escape. No-op edits preserve content/binding; explicit entry uses Rust
 classification. Paste inside an editor remains uncommitted insertion; grid paste
 is immediate atomic entry. Editor byte checks use UTF-8 rather than UTF-16 length.
 
-**Implementation clarification for review:** the 4,096-byte ceiling applies to
+**Accepted implementation clarification:** the 4,096-byte ceiling applies to
 stored text payload. One forced-text apostrophe is syntax overhead, so escaped
 entry/TSV can use 4,097 bytes for a 4,096-byte payload. The full encoded source,
 including this byte, still counts toward batch and clipboard budgets. This refines
@@ -200,9 +201,9 @@ report unchanged; these are documentation corrections, not test failures.
 
 ## Remaining boundary
 
-Three-platform managed and Native AOT validation is complete; submit for parent
-implementation review. Acceptance remains pending. The one-byte escape-overhead
-clarification above remains an explicit review point.
+Three-platform managed and Native AOT validation is complete. The parent review
+received 2026-10-21 accepts the implementation and one-byte escape-overhead
+clarification; this milestone is closed.
 Keep the known WSLg startup abort, Windows-mounted-path installation uncertainty
 and historical Linux viewport p95 exception visible. Local native filesystems do
 not establish arbitrary-filesystem, clean-machine deployment or durability guarantees.

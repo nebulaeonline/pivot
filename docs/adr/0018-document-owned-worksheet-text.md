@@ -1,6 +1,7 @@
 # ADR-0018: Document-owned worksheet text
 
-Status: **Accepted with clarifications (2026-10-20); implementation validated on three platforms; acceptance pending**.
+Status: **Accepted with clarifications (2026-10-20); implementation and escape-overhead clarification accepted (2026-10-21); workstream closed**.
+[Implementation acceptance](../handoffs/2026-10-21-worksheet-text-implementation-review.md).
 [Review decision](../handoffs/2026-10-20-worksheet-text-design-review.md).
 Date: 2026-10-20.
 [Accepted preceding milestone and direction](../handoffs/2026-10-20-native-aot-review.md).
@@ -18,7 +19,7 @@ text. Existing text editors do not imply that arbitrary text is accepted as cont
 The desktop currently trims input for classification and rejects nondecimal text;
 external TSV likewise supports only numbers, formulas and blanks.
 
-## Proposed semantics
+## Accepted semantics
 
 ### Content, ownership and identity
 
@@ -93,7 +94,7 @@ Downstream formulas receive the existing dependency-failure behavior. Direct sca
 reference to text is also an error, not a string-valued formula result.
 
 SUM encountering a text occupant likewise returns a nonnumeric-input error; it does
-not skip text. This is a deliberate proposed policy requiring review, not a claim
+not skip text. This is the accepted strict policy, not a claim
 of Excel compatibility. Existing blank-as-zero behavior, fixed-rectangle membership,
 row-major checked decimal addition, error ordering and quotas remain unchanged for
 numeric/blank workbooks. Replacing text with a decimal or clearing it invalidates
@@ -133,9 +134,12 @@ them. Ordinary Unicode letters, combining marks, emoji and spaces are allowed.
 This avoids introducing quoted TSV and multiline editor semantics together with
 text. Multiline/quoted clipboard interoperability is deferred explicitly.
 
-Limit each text payload and submitted editor source to the existing 4,096-byte
-source ceiling, measured in UTF-8, not UTF-16 code units. Thus an escape also counts
-toward submitted-source admission. Existing batch/workbook/domain memory limits,
+Limit stored text payloads to 4,096 UTF-8 bytes, not UTF-16 code units. Exactly
+one leading apostrophe used solely as forced-text editor/TSV syntax may increase
+submitted source to 4,097 bytes. Unescaped source retains the 4,096-byte ceiling.
+Charge the entire submitted source, including that escape byte, against applicable
+aggregate admission budgets. This accepted rule supersedes the original conflicting
+per-entry wording. Existing batch/workbook/domain memory limits,
 128-KiB combined clipboard source-work bound and 256-KiB combined native/TSV output
 bound remain; text bytes and escape bytes count before allocation/publication.
 A text payload valid individually may still fail a larger copy/paste admission.
@@ -143,16 +147,16 @@ Failed entry retains a correctable draft; failed paste leaves all cells unchange
 
 ### Persistence and private application protocol
 
-Propose an explicit PIVOTWB4 format cut for text content and its nonnumeric marker.
+Use the accepted explicit PIVOTWB4 format cut for text content and its nonnumeric marker.
 Reject WB1/WB2/WB3 with an unsupported-version diagnostic before replacing the live
 document, including its revision and dirty state. Rejected Open must not mutate
 the current workbook in any way. No migration reader or heuristic legacy decode in this milestone. WB4
 reopen must preserve content tags, exact text bytes, stable bindings, checkpoints,
 rejected drafts and snapshots; verify document/graph marker consistency during import.
-This compatibility cost needs explicit review before implementation.
+This compatibility cut is accepted; no migration reader is included.
 
 Use a new private application-session version and new native clipboard envelope/
-OS format version for the new tagged content (proposed PIVOTCB2 and cell-block-v2).
+OS format version for the new tagged content (PIVOTCB2 and cell-block-v2), with private session version 2.
 Both sides reject unsupported versions; do not reuse a v1 native tag with changed
 semantics. When a supported native format is present but malformed, fail without
 TSV fallback. Text export always prepends exactly one apostrophe, including when
@@ -198,13 +202,14 @@ cuts. Implement only this bounded slice, retain the narrow-marker redesign stop
 condition, and provide cross-platform managed/Native AOT validation and a handoff.
 Then stop for parent review; do not begin structured-data/projection work automatically.
 
-## Implementation clarification recorded 2026-10-21
+## Implementation clarification accepted 2026-10-21
 
 The [implementation handoff](../handoffs/2026-10-21-worksheet-text-implementation.md)
-records a boundary clarification for implementation review: a forced-text escape
+records the accepted boundary clarification: a forced-text escape
 is one byte of syntax overhead beyond the 4,096-byte stored-text ceiling. The full
 4,097-byte escaped source still counts toward batch/clipboard budgets. This refines
 the earlier submitted-source counting sentence to preserve the approved lossless
 TSV/editor round trip for maximum-size payloads. Stored-text capacity is unchanged.
-Windows/Linux/native Mac managed and Native AOT validation pass. Implementation
-acceptance, including review of this clarification, remains pending.
+Windows/Linux/native Mac managed and Native AOT validation pass. The parent
+accepts the implementation and this clarification, closing the milestone. Do not
+start the next implementation automatically; see the implementation acceptance.

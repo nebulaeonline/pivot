@@ -83,7 +83,7 @@ public partial class MainWindow
 
             // Publish bytes from a source engine that is then closed. A distinct GUI process
             // must retrieve them through the OS clipboard and bind into its own Rust child.
-            string binary=Environment.GetEnvironmentVariable("PIVOT_SESSION_PATH")!;
+            string binary=RustExecutablePath();
             await using(var source=await WorkbookSession.StartAsync(binary)) {
                 await source.PasteBlockAsync(source.Revision,AutomationPosition(2,2),AutomationPosition(2,2),Encoding.UTF8.GetBytes("2\t=B2+1\n3\t=SUM($B$2:B3)"),false);
                 var copied=await source.CopyBlockAsync(source.Revision,AutomationPosition(2,2),AutomationPosition(3,3));
@@ -93,8 +93,10 @@ public partial class MainWindow
             }
             foreach(string mode in new[]{"clipboard-save","discard","clean"}) {
                 string peerReport=Path.ChangeExtension(report,mode+".json");
-                var start=new ProcessStartInfo("dotnet"){UseShellExecute=false,CreateNoWindow=true};
-                start.ArgumentList.Add(typeof(MainWindow).Assembly.Location);
+                string executable=Environment.ProcessPath ?? throw new IOException("Current executable path unavailable.");
+                var start=new ProcessStartInfo(executable){UseShellExecute=false,CreateNoWindow=true};
+                if(string.Equals(Path.GetFileNameWithoutExtension(executable),"dotnet",StringComparison.OrdinalIgnoreCase))
+                    start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory,"Pivot.Desktop.dll"));
                 start.Environment.Remove("PIVOT_UI_SMOKE_REPORT");
                 start.Environment["PIVOT_UI_PEER_REPORT"]=peerReport;start.Environment["PIVOT_UI_PEER_MODE"]=mode;
                 using var peer=Process.Start(start) ?? throw new IOException("Could not start UI peer.");
@@ -173,7 +175,7 @@ public partial class MainWindow
         AutomationImage(Path.ChangeExtension(report,"png"));
         Closed+=(_,_)=>{
             bool pass=session?.FinalCharge==0 && OwnedWindows.Count==0;
-            File.WriteAllText(report,JsonSerializer.Serialize(new{status=pass?"passed":"failed",mode,process_id=Environment.ProcessId,rust_process_id=session?.ProcessId,remaining_charge=session?.FinalCharge,path,cancel_checked=cancelled,native_received=nativeReceived,dialog_input="programmatic Button.Click routed event",os_keyboard_input=false},new JsonSerializerOptions{WriteIndented=true}));
+            File.WriteAllText(report,JsonSerializer.Serialize(new PeerReport {status=pass?"passed":"failed",mode=mode,process_id=Environment.ProcessId,rust_process_id=session?.ProcessId,remaining_charge=session?.FinalCharge,path=path,cancel_checked=cancelled,native_received=nativeReceived,dialog_input="programmatic Button.Click routed event",os_keyboard_input=false},ReportJsonContext.Default.PeerReport));
         };
         Close();
         if(mode!="clean") await ClickCloseChoiceAsync(mode=="clipboard-save"?"Save":"Discard");

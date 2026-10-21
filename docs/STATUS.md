@@ -47,11 +47,28 @@ not implemented; selection/navigation and active-cell operations are the current
 scope. The parent review received 2026-10-20 accepts the implementation.
 [Acceptance and next design scope](handoffs/2026-10-20-rectangular-selection-review.md).
 
-Next: stop before choosing another feature. Product priorities remain undecided.
-The review requires one narrow operational follow-up: enforce serialization of
-Windows/WSLg desktop clipboard suites in the runner, rather than relying only on
-documentation. This is recorded and not yet implemented. No further graph/storage/
-codec/clipboard infrastructure refinement is authorized by this acceptance.
+Current milestone: **Native AOT Publish-and-Execute Validation** on Windows
+x64, Linux x64 and macOS ARM64. The parent direction review prioritizes a native
+publish/run baseline, then worksheet text, then structured-result/projection design.
+[Direction and bounded next scope](handoffs/2026-10-20-native-aot-next-scope.md).
+Implementation is in place. Native Windows x64 and Linux x64 publish/run gates pass
+without warnings, including all desktop/peer workflows and zero-charge shutdown.
+Ordinary Windows/Linux full CI also passes. Fresh native Mac/APFS managed CI,
+strict all-feature lint, 310/326 default/all-feature Rust tests and Native AOT
+publish/run now pass without warnings or product fixes/gate reruns. Main and all
+three native peers pass with zero charge. All 349 copied source hashes and 178
+build/test inputs match; 426 returned files are present. Cross-platform evidence
+is ready for parent review; milestone acceptance is pending.
+[Implementation and evidence](handoffs/2026-10-20-native-aot-baseline.md),
+[Mac APFS validation instructions](handoffs/2026-10-20-macos-native-aot-instructions.md).
+Retain ordinary CI and the separate Rust child; no installer, graph redesign or data feature work.
+Dynamic producers/results/projections remain distinct, screen addressing belongs to
+presentation, refresh stays separate from recalculation, and concrete `#` syntax
+remains provisional. This direction does not freeze a grammar or start implementation.
+
+The runner-enforced Windows/WSLg clipboard serialization follow-up is complete.
+Managed and Native AOT suites share an exclusive lock; real cross-OS exclusion
+checks pass in both directions. Details and evidence are in the Native AOT handoff.
 
 Accepted preceding milestone: **Direct single-cell paste commit — accepted; workstream closed**.
 Grid paste submits immediately through Rust and retains selection; editor/formula-bar

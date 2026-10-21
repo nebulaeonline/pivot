@@ -1,5 +1,22 @@
 # Linux and macOS validation
 
+## Current: Native AOT baseline
+
+Windows x64 and Ubuntu/WSLg x64 Native AOT publish-and-execute gates pass without
+warnings. The Linux final image executes from ext4. Native main/helper windows
+cover clipboard, WB3 save/reopen and close workflows with zero-charge cleanup.
+Ordinary Windows/Linux full CI also passes. Fresh native macOS ARM64/APFS managed
+CI, strict all-feature lint, 310/326 default/all-feature tests and Native AOT
+publish/run pass without warnings. Native main and all peers pass with zero charge;
+349 copied source hashes and 178 build/test inputs match. All 426 returned files
+are present. No product fixes or gate reruns were required. This baseline is ready
+for parent review; acceptance is pending.
+[Evidence and limitations](handoffs/2026-10-20-native-aot-baseline.md),
+[fresh Mac APFS packet](handoffs/2026-10-20-macos-native-aot-instructions.md).
+
+Both managed and native desktop runners now enforce shared Windows/WSLg clipboard
+serialization. Cross-OS exclusion checks pass in both directions.
+
 ## Accepted: rectangular clipboard, WB3 and desktop acceptance
 
 [Implementation](handoffs/2026-10-20-rectangular-clipboard.md),

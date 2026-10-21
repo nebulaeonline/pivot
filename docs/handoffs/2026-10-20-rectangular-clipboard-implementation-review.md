@@ -63,3 +63,11 @@ Stop before selecting the next feature. No further graph, storage, codec or clip
 infrastructure work is authorized merely to refine this slice. Cut/fill, text values,
 additional functions, formatting, structural operations and higher capacity remain
 separate product choices; no priority among them has been selected.
+
+## Subsequent operational follow-up
+
+The authorized Native AOT work now enforces shared Windows/WSLg clipboard
+serialization in both desktop runners. Independent-process tests and actual
+Windows-to-WSL and WSL-to-Windows exclusion checks pass. The original pending
+statement above records the acceptance-time state. See the
+[implementation and evidence](2026-10-20-native-aot-baseline.md).

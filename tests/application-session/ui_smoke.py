@@ -4,8 +4,12 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT/'scripts'))
+from desktop_test_lock import clipboard_lock
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output-dir', type=Path, default=ROOT/'artifacts/application-ui')
 args = parser.parse_args()
@@ -17,8 +21,11 @@ metadata = json.loads(subprocess.check_output(['cargo','metadata','--no-deps','-
 env = os.environ.copy()
 env['PIVOT_SESSION_PATH'] = str(Path(metadata['target_directory'])/'release'/('pivot-session.exe' if os.name=='nt' else 'pivot-session'))
 env['PIVOT_UI_SMOKE_REPORT'] = str(output/'results.json')
-subprocess.run(['dotnet','clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'],cwd=ROOT,env=env,check=True,timeout=180)
+with clipboard_lock() as lock:
+    (output/'clipboard-lock.json').write_text(json.dumps(lock, indent=2)+'\n', encoding='utf-8')
+    subprocess.run(['dotnet','clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'],cwd=ROOT,env=env,check=True,timeout=180)
 report = json.loads((output/'results.json').read_text(encoding='utf-8'))
+if report.get('execution_mode') != 'managed': raise SystemExit('Ordinary desktop gate did not run the managed application.')
 if report['status'] != 'passed' or not report.get('clipboard_checklist', '').startswith('passed:') or not report.get('arrow_edit', '').startswith('passed:'): raise SystemExit(json.dumps(report,indent=2))
 print(json.dumps(report,indent=2))
 

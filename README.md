@@ -75,5 +75,10 @@ are saved under `artifacts/ci/`. See [local CI setup](docs/local-ci.md).
 
 For desktop acceptance, run `python scripts/ci.py --desktop`. This includes real
 window, cross-process clipboard and Save/Discard/Cancel checks and saves screenshots.
-A desktop session is required. Run Windows and WSLg desktop checks sequentially
-because they share a clipboard. Routine manual replay is optional.
+A desktop session is required. The runners serialize Windows/WSLg clipboard suites
+through a shared lock. Routine manual replay is optional.
+
+For separate Native AOT publication and desktop acceptance, run
+`python scripts/verify_native_aot.py`. It builds the native desktop and places the
+Rust child beside it for validation. Windows, Linux and native Mac ARM64 pass;
+parent review is pending. See the [Native AOT handoff](docs/handoffs/2026-10-20-native-aot-baseline.md).

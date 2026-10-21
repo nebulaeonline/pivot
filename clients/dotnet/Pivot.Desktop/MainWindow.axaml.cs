@@ -186,21 +186,24 @@ public partial class MainWindow : Window
         } catch (OperationCanceledException) { /* A cancelled read never installs or retries an edit. */ }
         catch (Exception e) { StatusLabel.Text="Clipboard operation failed: "+e.Message; }
     }
+    private double startupReadyMs;
+    private static string RustExecutablePath() => Environment.GetEnvironmentVariable("PIVOT_SESSION_PATH") ?? Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "pivot-session.exe" : "pivot-session");
     private async Task StartAsync()
     {
         try {
-            string path = Environment.GetEnvironmentVariable("PIVOT_SESSION_PATH") ?? Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "pivot-session.exe" : "pivot-session");
+            string path = RustExecutablePath();
             if (!File.Exists(path)) throw new FileNotFoundException("Rust session executable missing. Start with scripts/run_desktop.py or set PIVOT_SESSION_PATH.");
             session = await WorkbookSession.StartAsync(path);
             if (shuttingDown) { await session.DisposeAsync(); return; }
             await RefreshAsync(); SetEditing(displayedRevision.Length != 0);
+            startupReadyMs=Program.Startup.Elapsed.TotalMilliseconds;
             if (Environment.GetEnvironmentVariable("PIVOT_UI_PEER_REPORT") is { } peerReport)
                 await ClipboardPeerAsync(peerReport,Environment.GetEnvironmentVariable("PIVOT_UI_PEER_MODE") ?? "");
             else if (Environment.GetEnvironmentVariable("PIVOT_UI_SMOKE_REPORT") is { } report) await SmokeAsync(report);
         } catch (Exception e) {
             StatusLabel.Text = e.Message;
             if ((Environment.GetEnvironmentVariable("PIVOT_UI_SMOKE_REPORT") ?? Environment.GetEnvironmentVariable("PIVOT_UI_PEER_REPORT")) is { } report) {
-                await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { status = "failed", error = e.ToString() })); if(session is not null) await session.DisposeAsync(); allowClose=true; Close();
+                await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { status = "failed", error = e.ToString() }, ReportJsonContext.Default.DesktopReport)); if(session is not null) await session.DisposeAsync(); allowClose=true; Close();
             }
         }
     }
@@ -465,7 +468,7 @@ public partial class MainWindow : Window
         await ArrowEditAutomationAsync();
         void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
         Position P(uint r, uint c) => new() { Row = r, Column = c };
-        var timings = new System.Collections.Generic.List<object>();
+        var timings = new System.Collections.Generic.List<RenderTiming>();
         var mouse=new Pointer(987,PointerType.Mouse,true);
         var held=new PointerPointProperties(global::Avalonia.Input.RawInputModifiers.LeftMouseButton,PointerUpdateKind.LeftButtonPressed);
         var released=new PointerPointProperties(global::Avalonia.Input.RawInputModifiers.None,PointerUpdateKind.LeftButtonReleased);
@@ -689,7 +692,7 @@ public partial class MainWindow : Window
             var clock = Stopwatch.StartNew(); await CommitAsync();
             Check(displayedRevision == session!.Revision, "Displayed frame must match current exact revision.");
             Check(displayedGeneration.Length > 0, "Displayed frame must identify its calculation generation.");
-            timings.Add(new { edit_to_render_ms = clock.Elapsed.TotalMilliseconds, ui_apply_ms = lastUiApply, paint_delay_ms = lastPaintDelay, refresh_to_render_ms = lastVisibleUpdate });
+            timings.Add(new RenderTiming { edit_to_render_ms = clock.Elapsed.TotalMilliseconds, ui_apply_ms = lastUiApply, paint_delay_ms = lastPaintDelay, refresh_to_render_ms = lastVisibleUpdate });
         }
         decimal Value(uint r,uint c) => WorkbookSession.Decode(Sheet.CellAt(P(r,c))!.Value);
         await Enter(1,1,"1.2300"); string stable = Sheet.CellAt(P(1,1))!.CellId;
@@ -743,7 +746,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { status="passed", backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, new JsonSerializerOptions { WriteIndented=true }));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { status="passed", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
         allowClose = true; Close();
     }
 }

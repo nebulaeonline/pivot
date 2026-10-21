@@ -68,6 +68,7 @@ def main():
             ("application-session", [sys.executable, "tests/application-session/verify.py", "--output-dir", str(output / "application-session")]),
         ]
         if args.desktop:
+            commands.append(("desktop-lock-tests", [sys.executable, "tests/application-session/test_desktop_lock.py"]))
             commands.append(("desktop-ui", [sys.executable, "tests/application-session/ui_smoke.py", "--output-dir", str(output / "desktop-ui")]))
         for name, command in commands:
             steps.append(run_step(name, command, output))

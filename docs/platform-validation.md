@@ -10,7 +10,7 @@ CI, strict all-feature lint, 310/326 default/all-feature tests and Native AOT
 publish/run pass without warnings. Native main and all peers pass with zero charge;
 349 copied source hashes and 178 build/test inputs match. All 426 returned files
 are present. No product fixes or gate reruns were required. This baseline is ready
-for parent review; acceptance is pending.
+and accepted by the parent review received 2026-10-20; the milestone is closed.
 [Evidence and limitations](handoffs/2026-10-20-native-aot-baseline.md),
 [fresh Mac APFS packet](handoffs/2026-10-20-macos-native-aot-instructions.md).
 

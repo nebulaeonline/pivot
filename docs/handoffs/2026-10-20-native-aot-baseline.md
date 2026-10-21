@@ -1,7 +1,7 @@
 # Native AOT baseline — implementation and validation
 
 Date: 2026-10-20. **Windows x64, Linux x64 and native macOS ARM64 publish/run
-validation pass; ready for parent review, acceptance pending.** No text/projection/connector or installer work is included.
+validation pass; implementation accepted, milestone closed.** No text/projection/connector or installer work is included.
 [Bounded assignment](2026-10-20-native-aot-next-scope.md),
 [native Mac packet](2026-10-20-macos-native-aot-instructions.md).
 
@@ -156,8 +156,9 @@ uncertainty and historical Linux viewport p95 exception remain unresolved. Nativ
 Mac APFS success does not resolve those separate findings or establish compatibility
 with untested OS/dependency combinations.
 
-Cross-platform validation and Mac evidence integration are complete. Submit this
-report for parent review; milestone acceptance remains pending that review.
+Cross-platform validation and Mac evidence integration are complete. The parent
+review received 2026-10-20 accepts the implementation and closes this milestone.
+[Acceptance and next design scope](2026-10-20-native-aot-review.md).
 Worksheet text and structured-result/projection design remain subsequent work.
 
 ## Reference guidance

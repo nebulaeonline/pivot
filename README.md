@@ -81,4 +81,4 @@ through a shared lock. Routine manual replay is optional.
 For separate Native AOT publication and desktop acceptance, run
 `python scripts/verify_native_aot.py`. It builds the native desktop and places the
 Rust child beside it for validation. Windows, Linux and native Mac ARM64 pass;
-parent review is pending. See the [Native AOT handoff](docs/handoffs/2026-10-20-native-aot-baseline.md).
+the Native AOT baseline is accepted. See the [Native AOT handoff](docs/handoffs/2026-10-20-native-aot-baseline.md).

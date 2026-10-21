@@ -3,7 +3,8 @@
 Date received: 2026-10-20. Parent response supplied by the user.
 **Original direction and bounded assignment.** The user subsequently authorized
 implementation. [Current implementation/evidence](2026-10-20-native-aot-baseline.md):
-Windows/Linux/native Mac Native AOT and managed CI pass; parent review is pending.
+Windows/Linux/native Mac Native AOT and managed CI pass; the milestone is accepted
+and closed. [Acceptance and next design scope](2026-10-20-native-aot-review.md).
 This does not freeze a dynamic-data grammar. The preceding clipboard/WB3 milestone
 remains accepted and closed.
 
@@ -76,7 +77,10 @@ report and stop for parent review.
 
 ## Existing operational follow-up
 
-Runner-enforced Windows/WSLg clipboard-suite serialization remains outstanding from
+Historical assignment: runner-enforced Windows/WSLg clipboard-suite serialization was outstanding from
 the accepted desktop review. Preserve it as an explicit follow-up; do not let either
 ordinary or future AOT desktop tests rely solely on a sequencing convention where
 they share a clipboard. No enforcement or AOT results are claimed by this record.
+
+This follow-up is now implemented, tested in both cross-OS directions and accepted
+as complete; see the implementation evidence and acceptance linked above.

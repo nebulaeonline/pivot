@@ -2,7 +2,21 @@
 
 Date: 2026-10-20
 
-Latest accepted milestone: **Bounded Rectangular Clipboard, Formula Copy, WB3 and Desktop Acceptance Automation — accepted; workstream closed**.
+Latest accepted milestone: **Native AOT Publish-and-Execute Validation — accepted; workstream closed**.
+Windows x64, Linux x64 and native macOS ARM64 publish and execute without warnings.
+Managed CI remains available; shared Windows/WSLg clipboard serialization is complete.
+[Acceptance and next design scope](handoffs/2026-10-20-native-aot-review.md),
+[implementation and evidence](handoffs/2026-10-20-native-aot-baseline.md).
+
+Next proposed milestone: **ordinary worksheet text**. Prepare a focused semantic
+design distinguishing document-owned text from computational strings, preserving
+exact-decimal/formula/SUM behavior. Stop for review before new value semantics;
+projections, connectors and permanent `#` grammar remain outside scope.
+[ADR-0018 proposed semantics](adr/0018-document-owned-worksheet-text.md) now covers
+entry/escape rules, numeric-consumer and SUM type errors, bounded clipboard text
+and explicit version cuts. Design only; implementation has not begun.
+
+Accepted preceding milestone: **Bounded Rectangular Clipboard, Formula Copy, WB3 and Desktop Acceptance Automation — accepted; workstream closed**.
 [ADR-0017](adr/0017-rectangular-clipboard-and-formula-copy.md),
 [implementation/evidence/optional inspection](handoffs/2026-10-20-rectangular-clipboard.md),
 [fresh Mac/APFS packet](handoffs/2026-10-20-macos-rectangular-clipboard-instructions.md).
@@ -47,7 +61,7 @@ not implemented; selection/navigation and active-cell operations are the current
 scope. The parent review received 2026-10-20 accepts the implementation.
 [Acceptance and next design scope](handoffs/2026-10-20-rectangular-selection-review.md).
 
-Current milestone: **Native AOT Publish-and-Execute Validation** on Windows
+Accepted milestone evidence: **Native AOT Publish-and-Execute Validation** on Windows
 x64, Linux x64 and macOS ARM64. The parent direction review prioritizes a native
 publish/run baseline, then worksheet text, then structured-result/projection design.
 [Direction and bounded next scope](handoffs/2026-10-20-native-aot-next-scope.md).
@@ -58,7 +72,7 @@ strict all-feature lint, 310/326 default/all-feature Rust tests and Native AOT
 publish/run now pass without warnings or product fixes/gate reruns. Main and all
 three native peers pass with zero charge. All 349 copied source hashes and 178
 build/test inputs match; 426 returned files are present. Cross-platform evidence
-is ready for parent review; milestone acceptance is pending.
+was accepted by the parent review received 2026-10-20; the milestone is closed.
 [Implementation and evidence](handoffs/2026-10-20-native-aot-baseline.md),
 [Mac APFS validation instructions](handoffs/2026-10-20-macos-native-aot-instructions.md).
 Retain ordinary CI and the separate Rust child; no installer, graph redesign or data feature work.

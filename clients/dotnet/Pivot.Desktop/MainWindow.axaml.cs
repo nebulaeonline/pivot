@@ -136,11 +136,22 @@ public partial class MainWindow : Window
             string? value;
             if(readText is not null) value=await readText();
             else {
-                using var data=await Clipboard.TryGetDataAsync();
-                if(input is null && data is not null && data.Contains(CellBlockFormat)) {
-                    native=await data.TryGetValueAsync(CellBlockFormat) ?? throw new InvalidDataException("Native clipboard data is unavailable.");
-                    value="";
-                } else value=data is null ? null : await data.TryGetTextAsync();
+                bool typed=false;
+                using(var data=await Clipboard.TryGetDataAsync()) {
+                    typed=input is null && data is not null && data.Contains(CellBlockFormat);
+                    if(typed) {native=await data!.TryGetValueAsync(CellBlockFormat);value="";}
+                    else value=data is null ? null : await data.TryGetTextAsync();
+                }
+                // A provider can advertise its private format before its bytes are readable.
+                // Retry reads only, with each snapshot disposed; never downgrade to text or replay an edit.
+                for(int retry=0;typed && native is null && retry<2;retry++) {
+                    await Task.Delay(20);
+                    if(request!=clipboardRequest || interaction!=interactionVersion) return;
+                    using var retryData=await Clipboard.TryGetDataAsync();
+                    if(retryData is null || !retryData.Contains(CellBlockFormat)) throw new InvalidDataException("Native clipboard changed or is unavailable; copy again.");
+                    native=await retryData.TryGetValueAsync(CellBlockFormat);
+                }
+                if(typed && native is null) throw new InvalidDataException("Native clipboard data is unavailable; copy again.");
             }
             if (request!=clipboardRequest || interaction!=interactionVersion || value is null || editing || fileAction || shuttingDown || session.Revision!=revision
                 || Sheet.Selected.Row!=target.Row || Sheet.Selected.Column!=target.Column
@@ -183,10 +194,12 @@ public partial class MainWindow : Window
             session = await WorkbookSession.StartAsync(path);
             if (shuttingDown) { await session.DisposeAsync(); return; }
             await RefreshAsync(); SetEditing(displayedRevision.Length != 0);
-            if (Environment.GetEnvironmentVariable("PIVOT_UI_SMOKE_REPORT") is { } report) await SmokeAsync(report);
+            if (Environment.GetEnvironmentVariable("PIVOT_UI_PEER_REPORT") is { } peerReport)
+                await ClipboardPeerAsync(peerReport,Environment.GetEnvironmentVariable("PIVOT_UI_PEER_MODE") ?? "");
+            else if (Environment.GetEnvironmentVariable("PIVOT_UI_SMOKE_REPORT") is { } report) await SmokeAsync(report);
         } catch (Exception e) {
             StatusLabel.Text = e.Message;
-            if (Environment.GetEnvironmentVariable("PIVOT_UI_SMOKE_REPORT") is { } report) {
+            if ((Environment.GetEnvironmentVariable("PIVOT_UI_SMOKE_REPORT") ?? Environment.GetEnvironmentVariable("PIVOT_UI_PEER_REPORT")) is { } report) {
                 await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { status = "failed", error = e.ToString() })); if(session is not null) await session.DisposeAsync(); allowClose=true; Close();
             }
         }
@@ -420,6 +433,13 @@ public partial class MainWindow : Window
     private async void EntryKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key==Key.Escape) { ++clipboardRequest; e.Handled=true; if(!editing) CancelDraft(); }
+        else if (ReferenceEquals(sender,CellEditor) && inlineEditing && draftCell is not null
+            && e.KeyModifiers==KeyModifiers.None && e.Key is Key.Up or Key.Down or Key.Left or Key.Right) {
+            e.Handled=true;
+            if (editing || fileAction || shuttingDown) return;
+            if (await CommitAsync()) await NavigateAsync(e.Key==Key.Up ? -1 : e.Key==Key.Down ? 1 : 0,
+                e.Key==Key.Left ? -1 : e.Key==Key.Right ? 1 : 0);
+        }
         else if (e.Key is Key.Enter or Key.Tab) {
             e.Handled=true;
             if (await CommitAsync()) await NavigateAsync(e.Key==Key.Enter ? (e.KeyModifiers.HasFlag(KeyModifiers.Shift)?-1:1) : 0,
@@ -441,6 +461,8 @@ public partial class MainWindow : Window
 
     private async Task SmokeAsync(string report)
     {
+        await ClipboardChecklistAsync(report);
+        await ArrowEditAutomationAsync();
         void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
         Position P(uint r, uint c) => new() { Row = r, Column = c };
         var timings = new System.Collections.Generic.List<object>();
@@ -521,6 +543,7 @@ public partial class MainWindow : Window
         await ClipboardAsync(false);Check(await nativeClipboard.TryGetTextAsync()=="=1+2","Cell copy preserves original formula source");
         await SelectAsync(P(9,5));await ClipboardAsync(true);
         Check(draftCell is null && !CellEditor.IsVisible && Sheet.Selected.Row==9 && Sheet.Selected.Column==5,"Cell paste commits without entering editor or moving selection");
+        Check(Sheet.CellAt(P(9,5))?.Value is not null,"Native paste produces destination value: "+StatusLabel.Text+"; frameReady="+frameReady+"; editor="+(clipboardEditor?.Name ?? "none"));
         Check(WorkbookSession.Decode(Sheet.CellAt(P(9,5))!.Value)==3m && session!.IsDirty,"Pasted source calculates through Rust and marks dirty");
         BeginCellEdit(false);CellEditor.SelectionStart=1;CellEditor.SelectionEnd=2;
         await ClipboardAsync(false);Check(await nativeClipboard.TryGetTextAsync()=="1","Editor copies selected substring");
@@ -635,8 +658,8 @@ public partial class MainWindow : Window
         Check(WorkbookSession.Decode(Sheet.CellAt(P(10,4))!.Value)==12.50m,"Inline Enter commits and moves down");
         await SelectAsync(P(10,4)); string untouchedRevision=session!.Revision;
         Key(Sheet,global::Avalonia.Input.Key.F2); Check(CellEditor.Text=="12.50","F2 loads original exact decimal");
-        CellEditor.Text="99";Key(CellEditor,global::Avalonia.Input.Key.Left);
-        Check(Sheet.Selected.Row==10 && Sheet.Selected.Column==4,"Editing arrow stays in text editor");
+        CellEditor.Text="99";Key(CellEditor,global::Avalonia.Input.Key.Left,KeyModifiers.Shift);
+        Check(Sheet.Selected.Row==10 && Sheet.Selected.Column==4,"Modified editing arrow stays in text editor");
         Key(CellEditor,global::Avalonia.Input.Key.Escape);
         Check(session.Revision==untouchedRevision && !CellEditor.IsVisible,"Escape cancels without mutation");
         Key(Sheet,global::Avalonia.Input.Key.F2);Key(CellEditor,global::Avalonia.Input.Key.Enter);
@@ -720,7 +743,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { status="passed", backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, new JsonSerializerOptions { WriteIndented=true }));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new { status="passed", backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, new JsonSerializerOptions { WriteIndented=true }));
         allowClose = true; Close();
     }
 }

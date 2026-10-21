@@ -17,7 +17,14 @@ metadata = json.loads(subprocess.check_output(['cargo','metadata','--no-deps','-
 env = os.environ.copy()
 env['PIVOT_SESSION_PATH'] = str(Path(metadata['target_directory'])/'release'/('pivot-session.exe' if os.name=='nt' else 'pivot-session'))
 env['PIVOT_UI_SMOKE_REPORT'] = str(output/'results.json')
-subprocess.run(['dotnet','clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'],cwd=ROOT,env=env,check=True,timeout=90)
+subprocess.run(['dotnet','clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'],cwd=ROOT,env=env,check=True,timeout=180)
 report = json.loads((output/'results.json').read_text(encoding='utf-8'))
-if report['status'] != 'passed': raise SystemExit(json.dumps(report,indent=2))
+if report['status'] != 'passed' or not report.get('clipboard_checklist', '').startswith('passed:') or not report.get('arrow_edit', '').startswith('passed:'): raise SystemExit(json.dumps(report,indent=2))
 print(json.dumps(report,indent=2))
+
+for mode in ['clipboard-save', 'discard', 'clean']:
+    peer = json.loads((output/f'results.{mode}.json').read_text(encoding='utf-8'))
+    if peer['status'] != 'passed' or peer['remaining_charge'] != 0:
+        raise SystemExit(json.dumps(peer, indent=2))
+    if mode == 'clipboard-save' and not (peer['native_received'] and peer['cancel_checked']):
+        raise SystemExit('Cross-process clipboard / close-cancel evidence missing')

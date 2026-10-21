@@ -1,6 +1,6 @@
 # Rectangular clipboard and formula copy — design review packet
 
-Date: 2026-10-20. **Design approved with compatibility revision; implementation delivered; fresh platform/manual validation pending.**
+Date: 2026-10-20. **Design approved with compatibility revision; implementation delivered; three-platform automated validation complete; implementation review pending.**
 [ADR-0017](../adr/0017-rectangular-clipboard-and-formula-copy.md) is Accepted.
 [Parent review and revised format policy](2026-10-20-rectangular-clipboard-review.md).
 Semantic review is complete; the bounded implementation is authorized.
@@ -104,5 +104,9 @@ until the approved design is separately implemented and validated.
 
 The [implementation handoff](2026-10-20-rectangular-clipboard.md) now records the
 bounded feature, WB3 cut, constrained rejected-draft state, OS format mapping,
-validation and remaining manual/native Mac work. This packet retains the design
+three-platform automated validation and optional targeted inspection. This packet retains the design
 plan; it is not a claim of implementation acceptance.
+
+[Parent implementation review packet](2026-10-20-rectangular-clipboard-review-packet.md)
+now includes fresh native Mac/APFS results, automated desktop acceptance and the
+owner-requested arrow-key behavior. No implementation acceptance is presumed.

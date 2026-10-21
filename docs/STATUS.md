@@ -2,9 +2,9 @@
 
 Date: 2026-10-20
 
-Current work: **Rectangular Clipboard and Formula Copy — implemented; platform/manual validation and implementation review pending**.
+Current work: **Rectangular Clipboard and Formula Copy — implemented; three-platform automated validation complete; ready for implementation review**.
 [ADR-0017](adr/0017-rectangular-clipboard-and-formula-copy.md),
-[implementation/evidence/manual checklist](handoffs/2026-10-20-rectangular-clipboard.md),
+[implementation/evidence/optional inspection](handoffs/2026-10-20-rectangular-clipboard.md),
 [fresh Mac/APFS packet](handoffs/2026-10-20-macos-rectangular-clipboard-instructions.md).
 Rust now supplies bounded typed native copy, effective-binding scalar/SUM translation,
 dollar-axis syntax, exact external TSV and one atomic paste within 256 slots.
@@ -14,9 +14,21 @@ reader/parser mode. Preserved rejected drafts remain non-executable until explic
 resubmission. Frozen hosted v1 and capacity limits remain unchanged.
 Windows/Linux full CI (309/310 default Rust tests), strict all-feature lint and
 325/326 all-feature tests pass. Final actual-window and C#–Rust boundary workflows
-pass with zero-charge close; all 172 final build/test input hashes match. Fresh native Mac and
-user-confirmed manual acceptance remain pending. The design is approved; this is
-not yet parent acceptance of the implementation.
+pass with zero-charge close for the clipboard foundation. The owner subsequently requested
+[automated desktop acceptance](handoffs/2026-10-20-desktop-acceptance-automation.md):
+`python scripts/ci.py --desktop` now covers the five groups, cross-process native
+clipboard and real close choices. Plain inline-editor arrows commit/move; modified
+arrows and formula-bar arrows retain text editing. Final Windows/WSLg acceptance
+and all helper-process reports pass with zero charge; all 173 build/test input hashes
+match. Fresh native Mac/APFS integrated desktop CI, strict lint and 310/326 default/
+all-feature tests now pass, including cross-process UTI clipboard, all close peers,
+arrow commits and zero-charge cleanup. All 339 copied source hashes matched before
+this doc update; all 173 build/test inputs match, with 391 returned reports verified
+by the transfer record. No Mac fixes or reruns. Routine manual replay is optional;
+physical input/native pickers are not inferred. The design is approved; implementation
+acceptance awaits the parent review.
+[Parent review packet](handoffs/2026-10-20-rectangular-clipboard-review-packet.md),
+[native Mac report](../artifacts/macos-validation-20261020T235001Z/REPORT.md).
 
 Latest accepted milestone: **Rectangular Worksheet Selection and Navigation — accepted; workstream closed**.
 Anchor/active/extent live only in C# UI state. Drag and Shift extension, bounded
@@ -34,8 +46,9 @@ not implemented; selection/navigation and active-cell operations are the current
 scope. The parent review received 2026-10-20 accepts the implementation.
 [Acceptance and next design scope](handoffs/2026-10-20-rectangular-selection-review.md).
 
-Next priority: finish fresh platform/manual validation for the bounded clipboard
-slice, integrate the evidence and stop for parent implementation review.
+Next priority: parent implementation review of the bounded clipboard/WB3 slice,
+desktop acceptance automation and directional edit commits. No further feature work
+is started.
 
 Accepted preceding milestone: **Direct single-cell paste commit — accepted; workstream closed**.
 Grid paste submits immediately through Rust and retains selection; editor/formula-bar

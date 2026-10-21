@@ -1,18 +1,29 @@
 # Linux and macOS validation
 
-## Current: rectangular clipboard and WB3
+## Ready for review: rectangular clipboard, WB3 and desktop acceptance
 
-[Implementation and evidence](handoffs/2026-10-20-rectangular-clipboard.md),
-[fresh APFS packet](handoffs/2026-10-20-macos-rectangular-clipboard-instructions.md).
-Windows/Linux full CI passes (309/310 default Rust tests), with strict all-feature
-lint and 325/326 all-feature tests. Final actual-window typed clipboard/TSV/translation
-and C#–Rust boundary checks pass with zero-charge close. All 172 final build/test
-input hashes match; Linux source and .NET outputs used a fresh ext4 copy. Explicit
-nonempty client revision guards received final boundary/window follow-ups.
-Fresh native Mac/APFS and user-confirmed manual checks remain pending; the accepted
-prior three-platform WB2/active-cell results do not certify this new clipboard/WB3
-slice. Historical results below retain their original milestone scope.
+[Implementation](handoffs/2026-10-20-rectangular-clipboard.md),
+[automation and integrated Mac evidence](handoffs/2026-10-20-desktop-acceptance-automation.md),
+[parent review packet](handoffs/2026-10-20-rectangular-clipboard-review-packet.md).
+Windows/Linux/native Mac full CI passes (309/310/310 default Rust tests), with strict
+all-feature lint and 325/326/326 all-feature tests. Final desktop/peer workflows pass
+on all three platforms, including cross-process private-format clipboard, directional
+commits, real close choices and zero-charge cleanup. Windows/WSLg final UI follow-ups
+cover changes after their integrated CI runs; Mac integrated CI covers the final tree.
 
+The [fresh Mac APFS run](../artifacts/macos-validation-20261020T235001Z/REPORT.md)
+needed no product fixes, setup failures or gate reruns. All 339 copied source hashes
+independently matched before doc integration and all 173 final build/test hashes match.
+The transfer record verifies 391 returned files; all are present here. Source, builds,
+temporary/document files and original reports used APFS. No surviving owned processes.
+WB3/rejected-draft reopen and explicit WB1/WB2 rejection pass with frozen hosted v1 intact.
+
+The owner replaced recurring manual five-group replay with deterministic acceptance
+and optional inspection. No physical keys, IME/accessibility, native-picker or clipboard-
+manager certification is inferred; no optional Mac manual run is claimed. Known WSLg
+native abort, Windows-mounted-path uncertain installation and historical Linux viewport
+p95 exception remain unresolved. Parent implementation acceptance is still pending.
+Historical results below retain their original milestone scope.
 
 ## Accepted: rectangular worksheet selection
 

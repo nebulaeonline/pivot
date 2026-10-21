@@ -1,6 +1,6 @@
 # Bounded rectangular clipboard and formula copy
 
-Date: 2026-10-20. **Implemented; native Mac/manual validation and parent implementation review pending.**
+Date: 2026-10-20. **Implemented; three-platform automated validation complete; parent implementation review pending.**
 [ADR-0017](../adr/0017-rectangular-clipboard-and-formula-copy.md),
 [design acceptance](2026-10-20-rectangular-clipboard-review.md),
 [fresh Mac packet](2026-10-20-macos-rectangular-clipboard-instructions.md).
@@ -98,7 +98,10 @@ native no-fallback, alongside prior editor/selection/focus/save checks. These us
 input and the real window/Rust child; they do not certify physical keys or IMEs.
 
 Full Windows/Linux CI passes (309/310 default Rust tests); strict all-feature lint
-and 325/326 all-feature tests also pass. Actual-window clipboard checks pass on both. Fresh native Mac/APFS and user-confirmed manual checks remain pending.
+and 325/326 all-feature tests also pass. Actual-window clipboard checks pass on both. These are the clipboard foundation
+results before the subsequent automation/arrow follow-up; current evidence and the
+updated acceptance workflow are in the [automation handoff](2026-10-20-desktop-acceptance-automation.md).
+Fresh native Mac/APFS automation now passes; see the integrated results below.
 [Windows CI](../../artifacts/rectangular-clipboard-ci-windows/20261020T232812124606Z/summary.json),
 [window report](../../artifacts/rectangular-clipboard-windows/results.json),
 [clipboard image](../../artifacts/rectangular-clipboard-windows/results.clipboard.png),
@@ -110,7 +113,8 @@ and 325/326 all-feature tests also pass. Actual-window clipboard checks pass on 
 The final two client/test follow-ups enforce explicit nonempty copy/paste revisions;
 full application-session and actual-window workflows were rerun on both platforms
 without changing the Rust sources already covered by full CI/all-feature gates.
-All 172 final build/test inputs match Windows and the isolated ext4 Linux copy.
+All 172 then-current foundation build/test inputs matched Windows and the isolated
+ext4 Linux copy; the automation follow-up now verifies 173 inputs.
 [Windows hash check](../../artifacts/rectangular-clipboard-windows-input-verification.json),
 [Linux hash check](../../artifacts/rectangular-clipboard-linux-input-verification.json).
 Linux source and .NET outputs are under `/var/tmp/pivot-rectangular-clipboard-20261020`,
@@ -133,9 +137,13 @@ not parsed during copying/installing. The new adversarial test and full CI/all-f
 runs pass after that tightening. No failed logs have been removed. Keep prior WSLg native abort, Windows-mounted-path
 uncertain installation and historical Linux viewport p95 exception unresolved.
 
-## Manual checklist (all three platforms)
+## Optional manual inspection reference
 
-Launch `python scripts/run_desktop.py` (Mac: from the tested native APFS copy).
+The owner requested automation of these five groups. Use `python scripts/ci.py --desktop`;
+the [automation handoff](2026-10-20-desktop-acceptance-automation.md) records coverage,
+remaining targeted spot checks and directional edit commits. Repeating this checklist
+on every platform is no longer a routine gate. Launch `python scripts/run_desktop.py`
+only when you want an interactive spot check (Mac: from native APFS).
 
 1. Select B2 and paste this external 2×2 block; it must commit without Enter/editor:
 
@@ -162,13 +170,65 @@ Launch `python scripts/run_desktop.py` (Mac: from the tested native APFS copy).
    storage. Save a workbook containing `$` scalar/SUM formulas and rejected drafts and
    reopen it. Prior WB2 files must be rejected clearly, with the current workbook intact.
 
-Report exact platform/key mappings and failures; leave untested combinations pending.
+Record any optional spot-check feedback separately; do not infer physical input coverage.
 No Cut, fill, structural operations, formatting/text-value expansion, generalized
 clipboard framework, alternate graph, SQLite or capacity increase. Stop for parent
-implementation review after fresh platform/manual evidence is integrated.
+implementation review now that three-platform automated evidence is integrated.
 
-## Manual status
+## Acceptance workflow update
 
-The user has agreed to run the Windows/WSLg checklist; no outcome has been reported
-for this new slice yet. Fresh Mac automation and manual results are also pending.
-Earlier selection/paste milestone acceptance does not certify this expanded feature.
+The owner's subsequent request replaces routine manual replay with deterministic
+automated acceptance and optional inspection. Previous pending manual checks are
+not marked passed. Cross-process clipboard, real dirty-close choices and arrow commits
+now have automation, including the fresh native Mac/APFS run recorded below.
+[Automation and final evidence](2026-10-20-desktop-acceptance-automation.md).
+
+## Native Mac validation integrated — 2026-10-20
+
+The fresh [native APFS report](../../artifacts/macos-validation-20261020T235001Z/REPORT.md)
+passes integrated `python3 scripts/ci.py --desktop`, strict all-feature lint and
+310 default / 326 all-feature Rust tests. No setup failures, product fixes or gate
+reruns were needed. Source, Cargo/.NET outputs, temporary files, document fixtures
+and original reports stayed under internal APFS before reports returned to SMB.
+[CI summary](../../artifacts/macos-validation-20261020T235001Z/ci/20261020T235011455134Z/summary.json),
+[environment](../../artifacts/macos-validation-20261020T235001Z/environment.json).
+
+All seven window result fields pass, including clipboard_checklist and arrow_edit.
+Separate-process private UTI receipt and actual Cancel→Save, Discard and clean close
+pass; the coordinator reopens Save/Discard files to verify their installed generations.
+The main window, all three peers and source/destination boundary children report zero
+remaining Rust charge; the report records no surviving owned processes.
+[Window](../../artifacts/macos-validation-20261020T235001Z/ci/20261020T235011455134Z/desktop-ui/results.json),
+[clipboard peer](../../artifacts/macos-validation-20261020T235001Z/ci/20261020T235011455134Z/desktop-ui/results.clipboard-save.json),
+[boundary](../../artifacts/macos-validation-20261020T235001Z/ci/20261020T235011455134Z/application-session/clipboard.json).
+WB3 header/length/digest checks pass; suites cover dollar scalar/SUM reopen,
+preserved rejected drafts/resubmission and explicit WB1/WB2 rejection. Sixteen
+returned document fixtures include deliberately malformed/rejected cases, not an
+assertion that every fixture is a valid workbook.
+
+Before this documentation integration, all 339 copied source hashes and 173 reference
+build/test hashes independently matched this tree. The final reference inputs still
+match the implementation. The transfer record reports SHA-256 agreement for all
+391 returned files and no missing report links; 391 files are present here.
+[Source manifest](../../artifacts/macos-validation-20261020T235001Z/source-manifest.json),
+[source checks](../../artifacts/macos-validation-20261020T235001Z/source-final-verification.json),
+[reference checks](../../artifacts/macos-validation-20261020T235001Z/reference-input-final-verification.json),
+[transfer](../../artifacts/macos-validation-20261020T235001Z/transfer-verification.json).
+
+The Mac clipboard PNG was inspected here: E15:F16, active F16, values 2,3 / 3,18,
+translated SUM, arrow-commit help and action-scope label are clear without observed
+clipping. The Mac inspector also records distinguishable inactive/active selections
+and synchronized editor/formula-bar contents.
+[Clipboard image](../../artifacts/macos-validation-20261020T235001Z/ci/20261020T235011455134Z/desktop-ui/results.clipboard.png),
+[inspection record](../../artifacts/macos-validation-20261020T235001Z/image-inspection.json).
+
+No optional manual interaction was performed. Routed keys/buttons do not certify
+physical input, IMEs/accessibility, native pickers or clipboard-manager behavior.
+The carried `prior-manual-failure.json` describes the earlier editor milestone, not
+a new manual failure in this run; retain it as historical evidence. Routine five-group
+manual replay is not required under the owner's updated acceptance workflow.
+Known WSLg native abort, mounted-path save uncertainty and historical Linux viewport
+p95 exception remain unresolved. No new capacity, filesystem or performance guarantee.
+
+Windows/Linux/Mac automated validation is complete for the bounded scope. Ready for
+parent implementation review; implementation acceptance has not yet been granted.

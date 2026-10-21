@@ -49,4 +49,4 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0016: First-class rectangular selections and SUM](0016-first-class-ranges-and-sum.md) — Accepted; Slice C implementation accepted (2026-10-20).
 
-- [ADR-0017: Bounded rectangular clipboard and formula copy](0017-rectangular-clipboard-and-formula-copy.md) — Accepted with compatibility revision; WB3/clipboard implemented; fresh platform/manual validation and implementation review pending (2026-10-20).
+- [ADR-0017: Bounded rectangular clipboard and formula copy](0017-rectangular-clipboard-and-formula-copy.md) — Accepted with compatibility revision; WB3/clipboard implemented; three-platform automated validation complete; implementation review pending (2026-10-20).

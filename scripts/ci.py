@@ -44,6 +44,7 @@ def run_step(name, command, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=pathlib.Path, default=ROOT / "artifacts/ci")
+    parser.add_argument("--desktop", action="store_true", help="Include actual-window/clipboard/close checks; requires an interactive desktop.")
     args = parser.parse_args()
     output = args.output_dir.resolve() / datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
@@ -66,13 +67,15 @@ def main():
             ("local-ipc", [sys.executable, "tests/ipc/verify.py", "--output-dir", str(output / "ipc")]),
             ("application-session", [sys.executable, "tests/application-session/verify.py", "--output-dir", str(output / "application-session")]),
         ]
+        if args.desktop:
+            commands.append(("desktop-ui", [sys.executable, "tests/application-session/ui_smoke.py", "--output-dir", str(output / "desktop-ui")]))
         for name, command in commands:
             steps.append(run_step(name, command, output))
             if steps[-1]["exit_code"]:
                 break
     passed = not missing and all(step["exit_code"] == 0 for step in steps)
     summary = {"status": "passed" if passed else "failed", "python": sys.version,
-               "platform": sys.platform, "missing_tools": missing, "steps": steps}
+               "platform": sys.platform, "desktop": args.desktop, "missing_tools": missing, "steps": steps}
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(f"CI {summary['status'].upper()}: {output / 'summary.json'}", flush=True)
     return 0 if passed else 1

@@ -1,6 +1,6 @@
 # ADR-0017: Bounded rectangular clipboard and formula copy
 
-Status: **Accepted with compatibility revision — implemented; platform/manual validation and implementation review pending**.
+Status: **Accepted with compatibility revision — implemented; three-platform automated validation complete; implementation review pending**.
 [Review decision](../handoffs/2026-10-20-rectangular-clipboard-review.md).
 Date: 2026-10-20.
 
@@ -285,3 +285,14 @@ on macOS; its application-format API rejects MIME slashes. Native formula source
 preserved outside rewritten spans. Plain TSV renders tab/CR/LF whitespace inside a
 formula as spaces to avoid ambiguous table delimiters; it cannot preserve all native
 source provenance. Exact signed zero is preserved in both numeric representations.
+
+The owner subsequently requested automated routine acceptance instead of repeated
+manual five-group passes. [Desktop automation](../handoffs/2026-10-20-desktop-acceptance-automation.md)
+adds actual cross-process OS clipboard and window-close scenarios; native Mac APFS
+execution now passes alongside Windows/WSLg. Physical keys/native pickers remain targeted spot checks, with no
+claim that pending manual tests were performed.
+
+Fresh [native Mac results](../handoffs/2026-10-20-desktop-acceptance-automation.md#native-mac-validation-integrated--2026-10-20)
+complete three-platform automated evidence without product fixes or reruns. The
+[parent implementation review packet](../handoffs/2026-10-20-rectangular-clipboard-review-packet.md)
+is ready; design acceptance is distinct from pending implementation acceptance.

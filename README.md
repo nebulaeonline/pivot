@@ -41,7 +41,8 @@ python scripts/run_desktop.py
 
 Drag or use Shift+click/arrows to select a rectangle. Copy/Paste operates on up to
 256 selected cells; editing, Clear and Move still target the active cell. Select a cell and type a number or `=A1+B1`. F2 or double-click edits in place;
-Enter/Tab commits and moves, and Escape cancels. The formula bar is optional.
+Enter/Tab or plain arrows commit and move, and Escape cancels. Modified arrows
+select text; formula-bar arrows move the caret. The formula bar is optional.
 Copy/Paste buttons and Ctrl+C/V (Cmd+C/V on Mac) operate on the rectangle or selected
 editor text. Grid paste commits atomically; paste while editing inserts text. Native
 formula copies translate current bound references; `$` locks copy axes. External TSV
@@ -54,8 +55,8 @@ for workflow, limits and validation status.
 The transport-independent Protobuf protocol has Rust/C# serialization tests and an
 in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)
 to run the demo daemon and CLI. Engine/daemon coverage includes Windows, WSL2 Linux
-and macOS ARM64. Earlier ranges/SUM and WB2 checks passed on all three platforms; the new WB3/clipboard
-slice requires fresh native Mac and manual validation. See [platform validation](docs/platform-validation.md) for
+and macOS ARM64. WB3, rectangular clipboard and automated desktop acceptance checks pass on all
+three platforms; parent implementation review is pending. See [platform validation](docs/platform-validation.md) for
 coverage and the recorded WSLg startup limitation.
 
 See [implementation status](docs/STATUS.md) and
@@ -71,3 +72,8 @@ Run `python scripts/ci.py` to check Rust formatting, linting, tests, the .NET
 Release build, cross-language decimal/protocol compatibility, real IPC, and the
 Rust/C# application session. Logs and a JSON summary
 are saved under `artifacts/ci/`. See [local CI setup](docs/local-ci.md).
+
+For desktop acceptance, run `python scripts/ci.py --desktop`. This includes real
+window, cross-process clipboard and Save/Discard/Cancel checks and saves screenshots.
+A desktop session is required. Run Windows and WSLg desktop checks sequentially
+because they share a clipboard. Routine manual replay is optional.

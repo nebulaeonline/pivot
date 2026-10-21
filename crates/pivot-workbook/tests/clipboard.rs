@@ -190,7 +190,13 @@ fn external_tsv_shape_empty_rows_and_literal_formulas() {
         assert_eq!(source(book, p(4, 3)), "=A1+1");
         assert_eq!(value(book, p(3, 4)), "2");
         assert_eq!(paste(book, "1\n\n").unwrap().last, p(4, 3));
-        for bad in ["1\t2\n3", "1\r2", "1\r", "hello", "1e999"] {
+        for bad in [
+            "1\t2\n3",
+            "1\r2",
+            "1\r",
+            "bad\u{0}text",
+            "999999999999999999999999999999999",
+        ] {
             let before = book.expected();
             assert!(paste(book, bad).is_err(), "{bad}");
             assert_eq!(book.expected(), before);

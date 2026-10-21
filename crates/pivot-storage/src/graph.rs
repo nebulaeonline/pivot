@@ -55,6 +55,7 @@ impl GraphPayload {
         for n in &self.nodes {
             charge(32 + n.name.len(), 4)?;
             match &n.definition {
+                Definition::NonNumeric => charge(1, 1)?,
                 Definition::Input(_) => charge(16, 2)?,
                 Definition::Bound { source, tokens } => {
                     charge(source.len(), 3)?;
@@ -168,6 +169,7 @@ pub fn from_image(
     let mut nodes = vec![];
     for n in image.nodes {
         let definition = match n.definition {
+            t::NodeDefinition::NonNumeric => Definition::NonNumeric,
             t::NodeDefinition::Input(v) => Definition::Input(Decimal96::from_runtime(v)),
             t::NodeDefinition::Computed { source, binding } => match binding {
                 t::Binding::Bound(tokens) => Definition::Bound {
@@ -308,6 +310,7 @@ fn image_body(record: &GraphPayload) -> Result<t::Image> {
                 slot: slots[&n.id],
                 name: n.name.clone(),
                 definition: match &n.definition {
+                    Definition::NonNumeric => t::NodeDefinition::NonNumeric,
                     Definition::Input(v) => t::NodeDefinition::Input(v.runtime()?),
                     Definition::Bound { source, tokens } => t::NodeDefinition::Computed {
                         source: source.clone(),

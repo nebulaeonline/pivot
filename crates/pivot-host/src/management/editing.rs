@@ -677,6 +677,9 @@ pub(super) fn draft(r: &Resource) -> DraftView {
         let portable = node_ids[&id];
         let mut dependencies = Vec::new();
         let definition = match definition {
+            DraftDefinition::NonNumeric => {
+                unreachable!("hosted edits cannot create worksheet text")
+            }
             DraftDefinition::Input(v) => NodeDefinition::Input(v),
             DraftDefinition::Computed { source, binding } => {
                 match binding {

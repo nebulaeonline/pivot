@@ -86,7 +86,8 @@ public partial class MainWindow
             string binary=RustExecutablePath();
             await using(var source=await WorkbookSession.StartAsync(binary)) {
                 await source.PasteBlockAsync(source.Revision,AutomationPosition(2,2),AutomationPosition(2,2),Encoding.UTF8.GetBytes("2\t=B2+1\n3\t=SUM($B$2:B3)"),false);
-                var copied=await source.CopyBlockAsync(source.Revision,AutomationPosition(2,2),AutomationPosition(3,3));
+                await source.ApplyAsync(source.Revision,[new Edit{At=AutomationPosition(2,4),Text="001.20"},new Edit{At=AutomationPosition(3,4),Text="Invoice"}]);
+                var copied=await source.CopyBlockAsync(source.Revision,AutomationPosition(2,2),AutomationPosition(3,4));
                 var item=new DataTransferItem();item.Set(CellBlockFormat,copied.Clipboard.ToByteArray());item.SetText(copied.ClipboardText);
                 var transfer=new DataTransfer();transfer.Add(item);await clipboard.SetDataAsync(transfer);
                 await source.DisposeAsync();AutomationCheck(source.FinalCharge==0,"Clipboard retains no source engine");
@@ -111,6 +112,8 @@ public partial class MainWindow
                     await reader.OpenAsync(reader.Revision,data.GetProperty("path").GetString()!,discard:true);
                     var frame=await reader.ReadAsync(AutomationPosition(25,5),AutomationPosition(25,5));
                     AutomationCheck(WorkbookSession.Decode(frame.Cells.Single().Number)==(mode=="clipboard-save"?9m:2m),"Close Save/Discard persisted the expected generation");
+                    var textFrame=await reader.ReadAsync(AutomationPosition(25,7),AutomationPosition(25,7));
+                    AutomationCheck(textFrame.Cells.Single().Text==(mode=="clipboard-save"?"Saved label":"Original label"),"Dirty-close text draft Save/Discard installs correct generation");
                     await reader.DisposeAsync();AutomationCheck(reader.FinalCharge==0,"Close verification releases engine");
                 }
             }
@@ -135,7 +138,7 @@ public partial class MainWindow
         await AutomationWaitAsync(()=>!editing && draftCell is null);
         AutomationCheck(Sheet.Selected.Equals(AutomationPosition(1,1)),"Arrow commits at worksheet boundary without leaving bounds");
         await SelectAsync(AutomationPosition(6,6));BeginCellEdit(true,"0.1234567890123456789012345678901");
-        string before=session!.Revision;SendKey(CellEditor,Key.Right);await Task.Yield();
+        string before=session!.Revision;SendKey(CellEditor,Key.Right);await AutomationWaitAsync(()=>!editing);
         AutomationCheck(session.Revision==before && draftCell is not null && Sheet.Selected.Equals(AutomationPosition(6,6)),"Rejected numeric arrow commit retains draft and selection");CancelDraft();
         BeginCellEdit(false);before=session.Revision;SendKey(CellEditor,Key.Left,KeyModifiers.Shift);await Task.Yield();
         AutomationCheck(session.Revision==before && draftCell is not null,"Modified arrows stay in text editor");CancelDraft();
@@ -164,8 +167,11 @@ public partial class MainWindow
             } else {
                 await EditAsync(new Edit{At=AutomationPosition(25,5),Number=WorkbookSession.Encode(2m)});
             }
+            if(mode=="clipboard-save") AutomationCheck(Sheet.CellAt(AutomationPosition(25,7))!.Text=="001.20" && Sheet.CellAt(AutomationPosition(26,7))!.Text=="Invoice","Native text crosses actual process clipboard");
+            else await EditAsync(new Edit{At=AutomationPosition(25,7),Text="Original label"});
             AutomationCheck(await SaveDocumentAsync(true,path),"Peer native baseline Save As");
             await EditAsync(new Edit{At=AutomationPosition(25,5),Number=WorkbookSession.Encode(9m)});
+            await SelectAsync(AutomationPosition(25,7));BeginCellEdit(true,mode=="clipboard-save"?"Saved label":"Discarded label");
             if(mode=="clipboard-save") {
                 AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(25,6))!.Value)==10m,"Cross-process binding follows destination edits");
                 Close();await ClickCloseChoiceAsync("Cancel");await AutomationWaitAsync(()=>!shuttingDown);

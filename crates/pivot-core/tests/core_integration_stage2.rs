@@ -28,6 +28,7 @@ fn drafts(m: &WorkingModel) -> Vec<(NodeId, String, String)> {
                 id,
                 name.into(),
                 match d {
+                    DraftDefinition::NonNumeric => "nonnumeric".into(),
                     DraftDefinition::Input(v) => format!("{:?}", v.parts()),
                     DraftDefinition::Computed { source, binding } => {
                         format!("{source}:{binding:?}")
@@ -490,6 +491,32 @@ fn cancellation_and_failed_snapshot_admission_keep_writer_and_old_capture() {
         before
     );
     drop((m, capture, view));
+    finish(r);
+    assert_eq!(memory.stats().charged, 0);
+}
+
+#[test]
+fn nonnumeric_marker_is_valid_but_frozen_scalar_exports_reject_it() {
+    let r = runtime();
+    let mut m = WorkingModel::new_in("Marker", &r).unwrap();
+    let id = m.add_input("label", 1.into()).unwrap();
+    let mut batch = m.begin_batch(1, 0).unwrap();
+    batch.set_nonnumeric(id).unwrap();
+    m.apply_batch(batch, &CancellationToken::default()).unwrap();
+    let snapshot = m.snapshot().unwrap();
+    assert!(matches!(
+        EvaluationContext::new(snapshot.clone())
+            .evaluate_all()
+            .value(id),
+        Some(Err(
+            pivot_core::evaluation::EvaluationError::NonNumericInput { .. }
+        ))
+    ));
+    assert!(transfer::export(&m, &[id], &[]).is_err());
+    assert!(transfer::export_snapshot(&snapshot, &[id], &[]).is_err());
+    drop(snapshot);
+    drop(m);
+    let memory = r.memory();
     finish(r);
     assert_eq!(memory.stats().charged, 0);
 }

@@ -358,3 +358,17 @@ passes all 78 children and native CI on internal APFS, with 296 matching source 
 before documentation updates and no source fixes/reruns. All 52 native pressure samples
 were normal; wait4 high-water remains post-exit evidence, not a live RSS guard.
 The accepted foundation's 335 children remain separate historical evidence.
+
+## Worksheet-text regression gate
+
+`python scripts/ci.py --desktop` now requires document-owned worksheet-text evidence
+alongside the existing seven desktop fields, including mixed native clipboard and
+active-text-draft close workflows. `application-session/text.json` covers the real
+C#–Rust boundary and failed Open preserving dirty state. The separate
+`python scripts/verify_native_aot.py` requires the same desktop text field, WB4
+fixture integrity, exact native main/peer image paths and zero-charge cleanup.
+
+Use the shared desktop lock; do not bypass it for Windows/WSLg. Native Mac testing
+must copy the dirty/untracked source to local APFS first. See the
+[worksheet-text packet](handoffs/2026-10-21-macos-worksheet-text-instructions.md).
+No recurring manual acceptance replay was added.

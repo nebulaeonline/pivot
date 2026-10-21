@@ -136,7 +136,7 @@ public sealed class WorkbookSession : IAsyncDisposable
             ObjectDisposedException.ThrowIf(closed, this);
             ObjectDisposedException.ThrowIf(Volatile.Read(ref closing) != 0 && request.Operation != Request.Types.Operation.Close, this);
             cancellation.ThrowIfCancellationRequested();
-            request.Version = 1; request.Id = ++sequence;
+            request.Version = 2; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -159,7 +159,7 @@ public sealed class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 1 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 2 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {
                 closed = true; StopChild();

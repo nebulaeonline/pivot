@@ -16,8 +16,13 @@ pub enum Binding {
 }
 #[derive(Clone, Debug)]
 pub enum NodeDefinition {
+    /// Valid nonnumeric worksheet content; no string payload in the graph.
+    NonNumeric,
     Input(PivotDecimal),
-    Computed { source: String, binding: Binding },
+    Computed {
+        source: String,
+        binding: Binding,
+    },
 }
 #[derive(Clone, Debug)]
 pub struct Node {
@@ -202,6 +207,7 @@ pub(super) fn export_image(
     };
     for (&id, n) in &model.nodes {
         let definition = match &n.definition {
+            Definition::NonNumeric => NodeDefinition::NonNumeric,
             Definition::Input(v) => NodeDefinition::Input(*v),
             Definition::Computed { source, binding } => NodeDefinition::Computed {
                 source: source.clone(),
@@ -272,6 +278,15 @@ pub fn export_snapshot(
     ports: &[PortId],
 ) -> Result<Image, ModelError> {
     let data = &snapshot.0;
+    if data
+        .nodes
+        .values()
+        .any(|n| matches!(n.definition, SnapshotDefinition::NonNumeric))
+    {
+        return Err(ModelError::Backend(
+            "unsupported nonnumeric content in scalar export",
+        ));
+    }
     if data.nodes.len() > 4096 || nodes.len() > 8192 || ports.len() > 8192 {
         return Err(invalid());
     }
@@ -297,6 +312,7 @@ pub fn export_snapshot(
     };
     for (&id, n) in &data.nodes {
         let definition = match &n.definition {
+            SnapshotDefinition::NonNumeric => Definition::NonNumeric,
             SnapshotDefinition::Input(v) => Definition::Input(*v),
             SnapshotDefinition::Computed { source, tokens } => Definition::Computed {
                 source: source.clone(),
@@ -361,6 +377,7 @@ pub(super) fn decode(image: Image) -> Result<Decoded, ModelError> {
         }
         model.validate_name(&n.name)?;
         let definition = match n.definition {
+            NodeDefinition::NonNumeric => Definition::NonNumeric,
             NodeDefinition::Input(v) => Definition::Input(v),
             NodeDefinition::Computed { source, binding } => {
                 if source.len() > 4096 {

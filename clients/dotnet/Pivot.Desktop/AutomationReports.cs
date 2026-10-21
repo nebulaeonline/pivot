@@ -20,6 +20,7 @@ internal sealed class DesktopReport
     public int? viewport_columns { get; init; }
     public int? maximum_viewport_cells { get; init; }
     public ulong? remaining_charge { get; init; }
+    public string? worksheet_text { get; init; }
     public string? arrow_edit { get; init; }
     public string? clipboard_checklist { get; init; }
     public string? rectangular_clipboard { get; init; }

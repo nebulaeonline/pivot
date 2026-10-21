@@ -1,5 +1,21 @@
 # Linux and macOS validation
 
+## Current candidate: document-owned worksheet text
+
+ADR-0018 is accepted; implementation acceptance is pending. The new text candidate
+passes final Windows/Linux managed CI (314/315 default Rust tests), strict
+all-feature lint/tests (330/331) and Native AOT publish/execute without warnings.
+All eight desktop fields and all native peers pass with zero charge; 183 build/test
+input hashes match. Fresh native Mac/APFS managed CI, strict all-feature lint,
+315/331 default/all-feature tests and Native AOT also pass without warnings or
+product fixes/reruns. All 359 copied source hashes and 183 build/test inputs match;
+438 returned files are present. All native main/peer workflows pass with zero charge.
+Ready for parent implementation review; acceptance is pending. WB4, private session
+version 2 and native clipboard v2 are deliberate cuts. The original Mac report has
+one stale clipboard-v1 sentence; source/version evidence confirms v2, as documented
+in the handoff. Prior WB3/AOT evidence below remains historical. [Implementation/current evidence](handoffs/2026-10-21-worksheet-text-implementation.md),
+[Mac APFS packet](handoffs/2026-10-21-macos-worksheet-text-instructions.md).
+
 ## Current: Native AOT baseline
 
 Windows x64 and Ubuntu/WSLg x64 Native AOT publish-and-execute gates pass without

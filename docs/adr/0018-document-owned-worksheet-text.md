@@ -1,6 +1,7 @@
 # ADR-0018: Document-owned worksheet text
 
-Status: **Proposed — semantic review required before implementation**.
+Status: **Accepted with clarifications (2026-10-20); implementation validated on three platforms; acceptance pending**.
+[Review decision](../handoffs/2026-10-20-worksheet-text-design-review.md).
 Date: 2026-10-20.
 [Accepted preceding milestone and direction](../handoffs/2026-10-20-native-aot-review.md).
 
@@ -144,7 +145,8 @@ Failed entry retains a correctable draft; failed paste leaves all cells unchange
 
 Propose an explicit PIVOTWB4 format cut for text content and its nonnumeric marker.
 Reject WB1/WB2/WB3 with an unsupported-version diagnostic before replacing the live
-document. No migration reader or heuristic legacy decode in this milestone. WB4
+document, including its revision and dirty state. Rejected Open must not mutate
+the current workbook in any way. No migration reader or heuristic legacy decode in this milestone. WB4
 reopen must preserve content tags, exact text bytes, stable bindings, checkpoints,
 rejected drafts and snapshots; verify document/graph marker consistency during import.
 This compatibility cost needs explicit review before implementation.
@@ -153,7 +155,10 @@ Use a new private application-session version and new native clipboard envelope/
 OS format version for the new tagged content (proposed PIVOTCB2 and cell-block-v2).
 Both sides reject unsupported versions; do not reuse a v1 native tag with changed
 semantics. When a supported native format is present but malformed, fail without
-TSV fallback. An old-only Pivot native format is unsupported, not an invitation to
+TSV fallback. Text export always prepends exactly one apostrophe, including when
+the stored text already begins with one: stored `'Hello` exports as `''Hello`.
+A lone apostrophe clears; zero-length literal text is unsupported.
+An old-only Pivot native format is unsupported, not an invitation to
 reinterpret its text representation. Keep the accepted frozen hosted v1 unchanged.
 
 Application edits and reads distinguish text from number, formula and blank using
@@ -181,13 +186,25 @@ quota rollback, save/reopen and active-draft dirty-close. Retain current exact-d
 formula-copy and rejected-draft regression coverage. Automate routine acceptance;
 no new recurring manual gate. Record AOT warnings and zero-charge shutdown on all hosts.
 
-## Scope and review stop
+## Scope and implementation stop
 
 No computational strings, string formulas/functions, implicit coercions, multiline
 cells, formatting, Undo/Redo, row-height changes, database connectors, structured
 results/projections or permanent `#` grammar. No capacity increase or installer work.
 
-Review must approve or revise numeric-consumer/SUM type errors, apostrophe/entry
-classification, single-line bounds, escaped TSV interoperability and the WB4/private
-version cuts. This ADR proposes these policies; no implementation is authorized by
-its proposed status. Stop here for semantic review.
+The parent review approves numeric-consumer/SUM type errors, apostrophe/entry
+classification, single-line bounds, reversible TSV escaping and WB4/private version
+cuts. Implement only this bounded slice, retain the narrow-marker redesign stop
+condition, and provide cross-platform managed/Native AOT validation and a handoff.
+Then stop for parent review; do not begin structured-data/projection work automatically.
+
+## Implementation clarification recorded 2026-10-21
+
+The [implementation handoff](../handoffs/2026-10-21-worksheet-text-implementation.md)
+records a boundary clarification for implementation review: a forced-text escape
+is one byte of syntax overhead beyond the 4,096-byte stored-text ceiling. The full
+4,097-byte escaped source still counts toward batch/clipboard budgets. This refines
+the earlier submitted-source counting sentence to preserve the approved lossless
+TSV/editor round trip for maximum-size payloads. Stored-text capacity is unchanged.
+Windows/Linux/native Mac managed and Native AOT validation pass. Implementation
+acceptance, including review of this clarification, remains pending.

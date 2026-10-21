@@ -12,6 +12,8 @@ message Edit {
     string formula = 3;
     bool clear = 4;
     Position move_to = 5;
+    string text = 6;
+    string entry = 7;
   }
 }
 message Request {
@@ -36,7 +38,7 @@ message Cell {
   Position at = 1;
   string cell_id = 2;
   string node_id = 3;
-  oneof content { pivot.v1.Decimal128 number = 4; string formula = 5; bool blank = 6; }
+  oneof content { pivot.v1.Decimal128 number = 4; string formula = 5; bool blank = 6; string text = 9; }
   pivot.v1.Decimal128 value = 7;
   string error = 8;
 }

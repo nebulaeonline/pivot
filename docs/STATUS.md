@@ -1,6 +1,6 @@
 # Pivot implementation status
 
-Date: 2026-10-20
+Date: 2026-10-21
 
 Latest accepted milestone: **Native AOT Publish-and-Execute Validation — accepted; workstream closed**.
 Windows x64, Linux x64 and native macOS ARM64 publish and execute without warnings.
@@ -8,13 +8,24 @@ Managed CI remains available; shared Windows/WSLg clipboard serialization is com
 [Acceptance and next design scope](handoffs/2026-10-20-native-aot-review.md),
 [implementation and evidence](handoffs/2026-10-20-native-aot-baseline.md).
 
-Next proposed milestone: **ordinary worksheet text**. Prepare a focused semantic
-design distinguishing document-owned text from computational strings, preserving
-exact-decimal/formula/SUM behavior. Stop for review before new value semantics;
-projections, connectors and permanent `#` grammar remain outside scope.
-[ADR-0018 proposed semantics](adr/0018-document-owned-worksheet-text.md) now covers
-entry/escape rules, numeric-consumer and SUM type errors, bounded clipboard text
-and explicit version cuts. Design only; implementation has not begun.
+Current milestone: **bounded document-owned worksheet text**. ADR-0018 is accepted
+with clarifications; implementation is in place. Final Windows/Linux full CI
+(314/315 default Rust tests), strict all-feature lint/tests (330/331), and actual
+Native AOT publish/execute pass without publish warnings. All eight desktop fields
+and native peers pass with zero charge. Fresh native Mac/APFS managed CI, strict
+all-feature lint, 315/331 default/all-feature Rust tests and Native AOT also pass
+without warnings, product fixes or reruns. All 359 copied source hashes and 183
+build/test inputs match; 438 returned files are present. Ready for parent
+implementation review; acceptance is pending. Rust-owned classification,
+reversible apostrophe/TSV escapes, strict numeric-consumer/SUM type errors, bounded
+single-line text and WB4/private version cuts are approved. Rejected Open must
+preserve the live workbook/revision/dirty state. Stop if the nonnumeric marker
+requires broad evaluator redesign. Require three-platform managed and Native AOT
+validation, then parent implementation review. Projections/connectors remain outside scope.
+[Implementation and evidence](handoffs/2026-10-21-worksheet-text-implementation.md),
+[Mac APFS validation packet](handoffs/2026-10-21-macos-worksheet-text-instructions.md),
+[accepted ADR-0018](adr/0018-document-owned-worksheet-text.md),
+[review decision and stop conditions](handoffs/2026-10-20-worksheet-text-design-review.md).
 
 Accepted preceding milestone: **Bounded Rectangular Clipboard, Formula Copy, WB3 and Desktop Acceptance Automation — accepted; workstream closed**.
 [ADR-0017](adr/0017-rectangular-clipboard-and-formula-copy.md),

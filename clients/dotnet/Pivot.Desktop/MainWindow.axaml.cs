@@ -106,7 +106,8 @@ public partial class MainWindow : Window
     }
     private async void CopyClick(object? sender,RoutedEventArgs e) => await ClipboardAsync(false);
     private async void PasteClick(object? sender,RoutedEventArgs e) => await ClipboardAsync(true);
-    private static readonly DataFormat<byte[]> CellBlockFormat = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v1" : "application/x-pivot-cell-block-v1");
+    private static readonly DataFormat<byte[]> OldCellBlockFormat = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v1" : "application/x-pivot-cell-block-v1");
+    private static readonly DataFormat<byte[]> CellBlockFormat = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v2" : "application/x-pivot-cell-block-v2");
     private async Task ClipboardAsync(bool paste, Func<Task<string?>>? readText = null)
     {
         if (session is null || editing || fileAction || shuttingDown || Clipboard is null) return;
@@ -138,6 +139,7 @@ public partial class MainWindow : Window
             else {
                 bool typed=false;
                 using(var data=await Clipboard.TryGetDataAsync()) {
+                    if(input is null && data is not null && data.Contains(OldCellBlockFormat) && !data.Contains(CellBlockFormat)) throw new InvalidDataException("Unsupported Pivot clipboard version; copy again using this version.");
                     typed=input is null && data is not null && data.Contains(CellBlockFormat);
                     if(typed) {native=await data!.TryGetValueAsync(CellBlockFormat);value="";}
                     else value=data is null ? null : await data.TryGetTextAsync();
@@ -178,8 +180,10 @@ public partial class MainWindow : Window
                 return;
             }
             value=value.TrimEnd('\r','\n');
-            if(value.IndexOfAny(['\r','\n','\t'])>=0 || before.Length-(end-start)+value.Length>4096) {
-                StatusLabel.Text="Paste one cell of text (up to 4096 characters) inside an editor."; return;
+            string pastedSource=before[..start]+value+before[end..];
+            string editorPayload=pastedSource.StartsWith('\'') ? pastedSource[1..] : pastedSource;
+            if(value.IndexOfAny(['\r','\n','\t'])>=0 || System.Text.Encoding.UTF8.GetByteCount(editorPayload)>4096) {
+                StatusLabel.Text="Paste one single-line cell (up to 4096 UTF-8 bytes) inside an editor."; return;
             }
             input.Text=before[..start]+value+before[end..]; input.CaretIndex=start+value.Length;
             input.SelectionStart=input.SelectionEnd=input.CaretIndex; input.Focus();
@@ -285,6 +289,7 @@ public partial class MainWindow : Window
         if (cell?.Error.Length > 0) StatusLabel.Text = cell.Error;
     }
     private string CellSource() => Sheet.SelectedCell?.ContentCase switch {
+            Cell.ContentOneofCase.Text => "'" + Sheet.SelectedCell.Text,
             Cell.ContentOneofCase.Formula => Sheet.SelectedCell.Formula,
             Cell.ContentOneofCase.Number => WorkbookSession.Decode(Sheet.SelectedCell.Number).ToString(CultureInfo.InvariantCulture),
             _ => ""
@@ -367,19 +372,7 @@ public partial class MainWindow : Window
         if (editing) return false;
         string source = FormulaEntry.Text ?? "";
         if (source == draftOriginal && !draftReplace) { CancelDraft(); return true; }
-        string text = source.Trim();
-        var edit = new Edit { At = draftCell.Clone() };
-        if (text.Length == 0) edit.Clear = true;
-        else if (text.StartsWith('=')) edit.Formula = source;
-        else {
-            int fractionalDigits = text.IndexOf('.') is var dot && dot >= 0 ? text.Length - dot - 1 : 0;
-            if (!decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal value)
-                || ((decimal.GetBits(value)[3] >> 16) & 255) != fractionalDigits) {
-                StatusLabel.Text = "Enter a representable exact decimal (scale ≤28) or a formula beginning with =. Escape cancels.";
-                return false;
-            }
-            edit.Number = WorkbookSession.Encode(value);
-        }
+        var edit = new Edit { At = draftCell.Clone(), Entry = source };
         if (!await EditAsync(edit, draftRevision)) return false;
         CancelDraft(); UpdateDocument(); return true;
     }
@@ -464,6 +457,7 @@ public partial class MainWindow : Window
 
     private async Task SmokeAsync(string report)
     {
+        await TextAutomationAsync(report);
         await ClipboardChecklistAsync(report);
         await ArrowEditAutomationAsync();
         void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
@@ -673,8 +667,8 @@ public partial class MainWindow : Window
         Check(WorkbookSession.Decode(Sheet.CellAt(P(10,5))!.Value)==13.50m,"Tab commits formula and moves right");
         Key(Sheet,global::Avalonia.Input.Key.Left); await WaitFor(()=>Sheet.Selected.Column==5);
         Key(Sheet,global::Avalonia.Input.Key.F2);Check(CellEditor.Text=="=D10+1","F2 loads original formula, not result");
-        CancelDraft();Type("bad number");string rejectedRevision=session.Revision;
-        Check(!await SelectAsync(P(10,6)) && Sheet.Selected.Column==5 && FormulaEntry.Text=="bad number" && session.Revision==rejectedRevision,"Rejected edit blocks selection and retains draft");
+        CancelDraft();Type("79228162514264337593543950336");string rejectedRevision=session.Revision;
+        Check(!await SelectAsync(P(10,6)) && Sheet.Selected.Column==5 && FormulaEntry.Text=="79228162514264337593543950336" && session.Revision==rejectedRevision,"Rejected edit blocks selection and retains draft");
         CancelDraft(); await SelectAsync(P(10,4));Type("7");
         Check(await SelectAsync(P(10,5)),"Click-selection path commits before selection");
         Check(WorkbookSession.Decode(Sheet.CellAt(P(10,5))!.Value)==8m,"Click-committed input recalculates dependent");
@@ -746,7 +740,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { status="passed", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { status="passed", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB4 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
         allowClose = true; Close();
     }
 }

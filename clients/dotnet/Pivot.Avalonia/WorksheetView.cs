@@ -170,6 +170,7 @@ public sealed class WorksheetView : Control
             else if (row >= 0 && col < 0) text = r.ToString(CultureInfo.InvariantCulture);
             else if (row >= 0 && col >= 0 && cells.TryGetValue((r, c), out var cell)) {
                 if (cell.Error.Length > 0) { text = "#ERROR"; ink = Brushes.Firebrick; }
+                else if (cell.ContentCase == Cell.ContentOneofCase.Text) text = cell.Text;
                 else if (cell.Value is not null && cell.ContentCase != Cell.ContentOneofCase.Blank) text = WorkbookSession.Decode(cell.Value).ToString(CultureInfo.InvariantCulture);
             }
             using (context.PushClip(rect.Deflate(3)))

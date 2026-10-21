@@ -245,6 +245,7 @@ impl Footprint for Record {
     }
 }
 enum Compiled {
+    NonNumeric,
     Input,
     Formula {
         source: String,
@@ -254,7 +255,7 @@ enum Compiled {
 impl Footprint for Compiled {
     fn heap_bytes(&self) -> usize {
         match self {
-            Self::Input => 0,
+            Self::Input | Self::NonNumeric => 0,
             Self::Formula { source, binding } => {
                 source.capacity()
                     + match binding {
@@ -307,7 +308,7 @@ impl Compiled {
     }
     fn bytes(&self) -> usize {
         match self {
-            Self::Input => 0,
+            Self::Input | Self::NonNumeric => 0,
             Self::Formula { source, binding } => {
                 source.len()
                     + binding.as_ref().map_or(0, |(t, d)| {
@@ -361,6 +362,7 @@ pub enum Edit {
     Placement(selection::SpaceId, u32, u32, Option<NodeId>),
     Input(NodeId, PivotDecimal),
     ReplaceInput(NodeId, PivotDecimal),
+    NonNumeric(NodeId),
     Formula(NodeId, String),
     Resolved(NodeId, String, Vec<transfer::ResolvedToken>),
     Invalid(NodeId, String, ParseError),
@@ -499,7 +501,7 @@ impl Graph {
             .nodes
             .values()
             .map(|node| match &node.definition {
-                Definition::Input(_) => 0,
+                Definition::NonNumeric | Definition::Input(_) => 0,
                 Definition::Computed { source, binding } => {
                     source.capacity()
                         + binding.as_ref().map_or(0, |(t, d)| {
@@ -554,6 +556,7 @@ impl Graph {
         };
         for (&id, node) in &model.nodes {
             let definition = match &node.definition {
+                Definition::NonNumeric => Compiled::NonNumeric,
                 Definition::Input(v) => {
                     graph.values.set(id.node, *v)?;
                     Compiled::Input
@@ -626,6 +629,7 @@ impl Graph {
                     node: slot,
                 };
                 let definition = match &*r.definition {
+                    Compiled::NonNumeric => DraftDefinition::NonNumeric,
                     Compiled::Input => DraftDefinition::Input(**self.values.get(slot).unwrap()),
                     Compiled::Formula { source, binding } => DraftDefinition::Computed {
                         source,
@@ -992,7 +996,8 @@ impl Graph {
                 return Err(Error::Cancelled);
             }
             match &edit {
-                Edit::Input(id, _)
+                Edit::NonNumeric(id)
+                | Edit::Input(id, _)
                 | Edit::ReplaceInput(id, _)
                 | Edit::Resolved(id, _, _)
                 | Edit::Invalid(id, _, _)
@@ -1030,6 +1035,11 @@ impl Graph {
                         Ok(())
                     })?;
                     topology |= moved;
+                }
+                Edit::NonNumeric(id) => {
+                    candidate.replace(id, Compiled::NonNumeric)?;
+                    changed.insert(id);
+                    topology = true;
                 }
                 Edit::ReplaceInput(id, value) => {
                     if !matches!(*candidate.live_record(id)?.definition, Compiled::Input) {
@@ -1574,6 +1584,7 @@ impl Capture {
                 }
                 let record = self.0.live_record(id).unwrap();
                 let value = match &*record.definition {
+                    Compiled::NonNumeric => Err(EvaluationError::NonNumericInput { node: id }),
                     Compiled::Input => Ok(inputs
                         .get(&id)
                         .copied()

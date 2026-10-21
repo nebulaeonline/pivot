@@ -25,6 +25,7 @@ impl Footprint for CellId {}
 impl Footprint for Binding {}
 fn content_size(content: &Option<Content>) -> (usize, usize, usize) {
     match content {
+        Some(Content::LiteralText(text)) => (0, text.len(), 0),
         Some(Content::Formula { source, tokens }) => (tokens.len(), source.len(), 0),
         Some(Content::TextFormula(f)) => (
             f.tokens.len(),
@@ -37,6 +38,7 @@ fn content_size(content: &Option<Content>) -> (usize, usize, usize) {
 impl Footprint for Record {
     fn heap_bytes(&self) -> usize {
         match &self.content {
+            Some(Content::LiteralText(text)) => text.capacity(),
             Some(Content::Formula { source, tokens }) => {
                 source.capacity() + tokens.capacity() * std::mem::size_of::<Token>()
             }
@@ -376,6 +378,22 @@ impl Transaction<'_> {
     }
     fn edit(&mut self, edit: &Edit, expected: Expected, ordinal: usize) -> Result<()> {
         match edit {
+            Edit::SetEntry { position, source } => {
+                let classified =
+                    crate::entry::classify(*position, source, self.book.limits.source_bytes)?;
+                self.edit(&classified, expected, ordinal)?;
+            }
+            Edit::SetText { position, text } => {
+                crate::entry::validate_text(text, self.book.limits.source_bytes)?;
+                let id = self.anchor(*position)?;
+                let content = Content::LiteralText(text.clone());
+                if self.data.records.get(&id).unwrap().content.as_ref() != Some(&content) {
+                    self.batch
+                        .set_nonnumeric(self.data.bindings.get(&id).unwrap().runtime)
+                        .map_err(graph_error)?;
+                    self.set(id, content)?;
+                }
+            }
             Edit::SetDecimal { position, value } => {
                 let id = self.anchor(*position)?;
                 let content = Content::Decimal(*value);
@@ -574,7 +592,10 @@ fn apply(
     let mut work = edits.len().saturating_mul(512);
     for edit in edits {
         match edit {
-            Edit::SetFormulaText { source, .. } | Edit::PreserveRejectedFormula { source, .. } => {
+            Edit::SetEntry { source, .. }
+            | Edit::SetText { text: source, .. }
+            | Edit::SetFormulaText { source, .. }
+            | Edit::PreserveRejectedFormula { source, .. } => {
                 units = units.saturating_add(source.len());
                 text = text.saturating_add(source.len());
                 work = work.saturating_add(source.len().saturating_mul(512));
@@ -769,8 +790,18 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
                     .as_ref()
                     .copied()
                     .map_err(|e| match e {
+                        EvaluationError::NonNumericInput { .. } => CellError::NonNumericInput,
                         EvaluationError::Arithmetic { error, .. } => CellError::Arithmetic(*error),
-                        EvaluationError::DependencyFailed { .. } => CellError::DependencyFailed,
+                        EvaluationError::DependencyFailed { origin, .. } => {
+                            if matches!(
+                                result.values().get(origin),
+                                Some(Err(EvaluationError::NonNumericInput { .. }))
+                            ) {
+                                CellError::NonNumericInput
+                            } else {
+                                CellError::DependencyFailed
+                            }
+                        }
                         _ => CellError::InvalidExpression,
                     }),
             )

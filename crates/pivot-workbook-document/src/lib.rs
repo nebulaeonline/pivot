@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 4 * 1024 * 1024;
-const MAGIC: &[u8; 8] = b"PIVOTWB3";
+const MAGIC: &[u8; 8] = b"PIVOTWB4";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -369,6 +369,10 @@ impl Document {
                 w.n(1);
                 w.pos(p);
                 match c {
+                    Content::LiteralText(text) => {
+                        w.n(4);
+                        w.text(text);
+                    }
                     Content::Blank => w.n(0),
                     Content::Decimal(d) => {
                         w.n(1);
@@ -448,10 +452,10 @@ impl Document {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Limit);
         }
-        for version in ["WB1", "WB2"] {
+        for version in ["WB1", "WB2", "WB3"] {
             if bytes.starts_with(format!("PIVOT{version}").as_bytes()) {
                 return Err(Error::Graph(format!(
-                    "unsupported native workbook version {version}; WB3 required"
+                    "unsupported native workbook version {version}; WB4 required"
                 )));
             }
         }
@@ -558,6 +562,7 @@ impl Document {
                         return Err(malformed());
                     }
                     let content = match r.n()? {
+                        4 => Content::LiteralText(r.text()?),
                         0 => Content::Blank,
                         1 => Content::Decimal(r.dec()?),
                         2 => Content::Formula {
@@ -668,6 +673,17 @@ impl Document {
                 .ok_or_else(malformed)?
                 .definition;
             let (source, tokens, invalid) = match content {
+                Content::LiteralText(text) => {
+                    pivot_workbook::entry::classify(Position::new(1, 1), &format!("'{text}"), 4097)
+                        .map_err(|_| malformed())?;
+                    if text.is_empty()
+                        || text.len() > 4096
+                        || *definition != storage::Definition::NonNumeric
+                    {
+                        return Err(malformed());
+                    }
+                    continue;
+                }
                 Content::Blank => {
                     if *definition
                         != storage::Definition::Input(storage::Decimal96::from_runtime(

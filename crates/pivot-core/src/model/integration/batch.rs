@@ -97,6 +97,10 @@ impl Batch {
         self.next.node = next;
         Ok(id)
     }
+    /// Replace a numeric definition with a valid nonnumeric worksheet marker.
+    pub fn set_nonnumeric(&mut self, id: NodeId) -> Result<(), ModelError> {
+        self.push(Edit::NonNumeric(id), 0)
+    }
     pub fn replace_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
         self.push(Edit::ReplaceInput(id, value), 0)
     }

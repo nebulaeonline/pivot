@@ -109,6 +109,8 @@ impl std::error::Error for SnapshotError {}
 
 #[derive(Debug, Clone)]
 enum Definition {
+    /// Valid nonnumeric worksheet content; no string payload in the graph.
+    NonNumeric,
     Input(PivotDecimal),
     Computed {
         source: String,
@@ -128,7 +130,7 @@ impl Clone for WorkingNode {
             std::mem::size_of::<Self>()
                 + self.name.len()
                 + match &self.definition {
-                    Definition::Input(_) => 0,
+                    Definition::NonNumeric | Definition::Input(_) => 0,
                     Definition::Computed { source, binding } => {
                         source.len()
                             + binding
@@ -166,6 +168,8 @@ pub struct GraphImage {
 }
 /// Raw editable definitions, including invalid source. Core IDs remain local.
 pub enum DraftDefinition<'a> {
+    /// Valid nonnumeric worksheet content; no string payload in the graph.
+    NonNumeric,
     Input(PivotDecimal),
     Computed {
         source: &'a str,
@@ -332,6 +336,7 @@ impl GraphImage {
                 id,
                 n.name.as_str(),
                 match &n.definition {
+                    Definition::NonNumeric => DraftDefinition::NonNumeric,
                     Definition::Input(v) => DraftDefinition::Input(*v),
                     Definition::Computed { source, binding } => DraftDefinition::Computed {
                         source,
@@ -622,7 +627,7 @@ impl GraphImage {
                 std::mem::size_of::<SnapshotNode>()
                     + node.name.len()
                     + match &node.definition {
-                        Definition::Input(_) => 0,
+                        Definition::NonNumeric | Definition::Input(_) => 0,
                         Definition::Computed { source, binding } => {
                             source.len()
                                 + binding
@@ -636,6 +641,7 @@ impl GraphImage {
                     },
             );
             let (definition, dependencies) = match &node.definition {
+                Definition::NonNumeric => (SnapshotDefinition::NonNumeric, Vec::new()),
                 Definition::Input(value) => (SnapshotDefinition::Input(*value), Vec::new()),
                 Definition::Computed { source, binding } => {
                     let (tokens, dependencies) = binding.clone()?;
@@ -738,6 +744,8 @@ pub enum BoundToken {
 }
 #[derive(Debug)]
 pub enum SnapshotDefinition {
+    /// Valid nonnumeric worksheet content; no string payload in the graph.
+    NonNumeric,
     Input(PivotDecimal),
     Computed {
         source: String,

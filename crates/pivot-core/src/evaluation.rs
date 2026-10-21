@@ -11,6 +11,9 @@ use std::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EvaluationError {
+    NonNumericInput {
+        node: NodeId,
+    },
     UnknownNode(NodeId),
     Arithmetic {
         node: NodeId,
@@ -29,7 +32,8 @@ pub enum EvaluationError {
 impl EvaluationError {
     pub fn origin(&self) -> NodeId {
         match *self {
-            Self::UnknownNode(node)
+            Self::NonNumericInput { node }
+            | Self::UnknownNode(node)
             | Self::Arithmetic { node, .. }
             | Self::InvalidExpression { node } => node,
             Self::DependencyFailed { origin, .. } => origin,
@@ -165,6 +169,9 @@ impl EvaluationContext {
                 .node(id)
                 .ok_or(EvaluationError::UnknownNode(id))?;
             let value = match node.definition() {
+                SnapshotDefinition::NonNumeric => {
+                    Err(EvaluationError::NonNumericInput { node: id })
+                }
                 SnapshotDefinition::Input(value) => Ok(inputs.get(&id).copied().unwrap_or(*value)),
                 SnapshotDefinition::Computed { tokens, .. } => {
                     evaluate_expression(id, tokens, &values)
@@ -310,6 +317,7 @@ pub fn evaluate_shared_inputs(
     for id in order {
         let node = snapshot.node(id).expect("validated snapshot closure");
         let value = match node.definition() {
+            SnapshotDefinition::NonNumeric => Err(EvaluationError::NonNumericInput { node: id }),
             SnapshotDefinition::Input(value) => Ok(input(id).unwrap_or(*value)),
             SnapshotDefinition::Computed { tokens, .. } => evaluate_expression(id, tokens, &values),
         };

@@ -112,7 +112,7 @@ fn independent_restore_preserves_projection_bound_graph_and_retired_ledgers() {
         );
     }
     let mut version = export.bytes.clone();
-    version[7] = b'4';
+    version[7] = b'9';
     assert!(
         pivot_workbook_document::Document::open_document(&version, Limits::default(), &runtime)
             .is_err()
@@ -191,7 +191,7 @@ fn sum_document_keeps_bound_geometry_identity_and_member_affinity() {
     .unwrap();
     let formula = book.cell_at(p(1, 4)).unwrap().unwrap();
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&bytes.bytes[..8], b"PIVOTWB3");
+    assert_eq!(&bytes.bytes[..8], b"PIVOTWB4");
     let (mut restored, _) =
         pivot_workbook_document::Document::open_document(&bytes.bytes, Limits::default(), &runtime)
             .unwrap();
@@ -314,4 +314,67 @@ fn wb2_is_explicitly_rejected() {
             .contains("unsupported native workbook version WB2")
     );
     assert!(runtime.finish().is_ok());
+}
+
+#[test]
+fn text_roundtrip_preserves_marker_identity_and_old_versions_reject() {
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    let mut b = Workbook::new_in("Text document", Limits::default(), &runtime).unwrap();
+    b.apply(
+        b.expected(),
+        &[
+            Edit::SetText {
+                position: p(1, 1),
+                text: "  🧾 e\u{301} ' =A1  ".into(),
+            },
+            Edit::SetFormulaText {
+                position: p(1, 2),
+                source: "=A1+1".into(),
+            },
+            Edit::SetFormulaText {
+                position: p(1, 3),
+                source: "=SUM(A1:A2)".into(),
+            },
+        ],
+    )
+    .unwrap();
+    let cell = b.cell_at(p(1, 1)).unwrap().unwrap();
+    let exported = pivot_workbook_document::Document::export_document(&b, b.expected()).unwrap();
+    assert_eq!(&exported.bytes[..8], b"PIVOTWB4");
+    let (restored, checkpoint) = pivot_workbook_document::Document::open_document(
+        &exported.bytes,
+        Limits::default(),
+        &runtime,
+    )
+    .unwrap();
+    assert_eq!(checkpoint, exported.checkpoint);
+    assert_eq!(restored.cell_at(p(1, 1)).unwrap().unwrap(), cell);
+    let capture = restored.capture_local(restored.expected()).unwrap();
+    for column in [2, 3] {
+        assert_eq!(
+            capture
+                .evaluate(&[capture.cell_at(p(1, column)).unwrap()])
+                .unwrap()
+                .values[0]
+                .1,
+            Err(CellError::NonNumericInput)
+        );
+    }
+    for v in *b"123" {
+        let mut old = exported.bytes.clone();
+        old[7] = v;
+        assert!(
+            pivot_workbook_document::Document::open_document(&old, Limits::default(), &runtime)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("unsupported native workbook version")
+        );
+    }
+    drop(capture);
+    drop(restored);
+    drop(b);
+    let memory = runtime.memory();
+    assert!(runtime.finish().is_ok());
+    assert_eq!(memory.stats().charged, 0);
 }

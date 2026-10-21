@@ -130,6 +130,7 @@ impl Writer {
     }
     fn definition(&mut self, definition: &Definition) -> Result<()> {
         match definition {
+            Definition::NonNumeric => self.a(1, |w| w.u(4u8)),
             Definition::Input(v) => self.a(2, |w| {
                 w.u(0u8)?;
                 w.dec(*v)
@@ -363,6 +364,7 @@ fn parse_graph_body(f: &mut impl Iterator<Item = V>) -> Result<GraphBody> {
         let mut d = fields.into_iter();
         let tag = next(&mut d)?.u()?;
         let definition = match tag {
+            4 => Definition::NonNumeric,
             0 => Definition::Input(next(&mut d)?.decimal()?),
             1 => {
                 let source = next(&mut d)?.text()?;
@@ -481,6 +483,13 @@ fn parse(v: V) -> Result<Record> {
     })
 }
 pub fn encode(record: &Record, limits: Limits) -> Result<Vec<u8>> {
+    if record
+        .nodes
+        .iter()
+        .any(|n| matches!(n.definition, Definition::NonNumeric))
+    {
+        return Err(Error::UnsupportedVersion);
+    }
     record.validate(limits)?;
     let mut writer = Writer {
         out: vec![],
@@ -506,6 +515,13 @@ pub fn decode(bytes: &[u8], limits: Limits) -> Result<Record> {
         return Err(Error::Malformed);
     }
     let record = parse(v)?;
+    if record
+        .nodes
+        .iter()
+        .any(|n| matches!(n.definition, Definition::NonNumeric))
+    {
+        return Err(Error::UnsupportedVersion);
+    }
     record.validate(limits)?;
     Ok(record)
 }

@@ -58,7 +58,9 @@ fn location(p: Position) -> wire::Position {
 }
 fn readable_error(error: impl std::fmt::Display) -> String {
     let detail = error.to_string();
-    if detail.contains("Unorderable") {
+    if detail.contains("NonNumericInput") {
+        "Nonnumeric input: a numeric formula cannot consume text.".into()
+    } else if detail.contains("Unorderable") {
         "Circular formula reference.".into()
     } else if detail.contains("MissingReference") {
         "A referenced cell is no longer available.".into()
@@ -111,7 +113,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 1 {
+        if q.version != 2 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -339,6 +341,14 @@ impl Session {
                     .map(|e| {
                         let position = pos(e.at.as_ref())?;
                         Ok(match e.action.as_ref().ok_or("edit action required")? {
+                            wire::edit::Action::Text(text) => Edit::SetText {
+                                position,
+                                text: text.clone(),
+                            },
+                            wire::edit::Action::Entry(source) => Edit::SetEntry {
+                                position,
+                                source: source.clone(),
+                            },
                             wire::edit::Action::Number(d) => Edit::SetDecimal {
                                 position,
                                 value: DecimalInput::from_parts(
@@ -402,15 +412,18 @@ impl Session {
                         }),
                         Content::TextFormula(f) => wire::cell::Content::Formula(f.original_source),
                         Content::Formula { source, .. } => wire::cell::Content::Formula(source),
+                        Content::LiteralText(text) => wire::cell::Content::Text(text),
                         Content::Blank => wire::cell::Content::Blank(true),
                     });
                     // One bounded viewport request, independent cell diagnostics from one pinned S.
-                    match capture.evaluate(&[cell.reference]) {
-                        Ok(result) => match &result.values[0].1 {
-                            Ok(v) => view.value = Some(decimal(*v)),
-                            Err(e) => view.error = readable_error(format!("{e:?}")),
-                        },
-                        Err(e) => view.error = readable_error(e),
+                    if !matches!(view.content, Some(wire::cell::Content::Text(_))) {
+                        match capture.evaluate(&[cell.reference]) {
+                            Ok(result) => match &result.values[0].1 {
+                                Ok(v) => view.value = Some(decimal(*v)),
+                                Err(e) => view.error = readable_error(format!("{e:?}")),
+                            },
+                            Err(e) => view.error = readable_error(e),
+                        }
                     }
                     r.cells.push(view);
                 }
@@ -495,7 +508,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 1,
+            version: 2,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()

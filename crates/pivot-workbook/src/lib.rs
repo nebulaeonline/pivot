@@ -4,6 +4,7 @@ use pivot_core::{
     expression::{self, BinaryOp, Expr, ParseError, UnaryOp},
     model::{NodeId, Revision, SnapshotError, WorkingModel, transfer::ResolvedToken},
 };
+pub mod entry;
 use pivot_types::{DecimalError, PivotDecimal};
 use std::collections::BTreeSet;
 use uuid::Uuid;
@@ -153,6 +154,7 @@ pub struct TextFormula {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Content {
+    LiteralText(String),
     TextFormula(TextFormula),
     Blank,
     Decimal(DecimalInput),
@@ -168,6 +170,14 @@ pub struct CellView {
 
 #[derive(Clone, Debug)]
 pub enum Edit {
+    SetText {
+        position: Position,
+        text: String,
+    },
+    SetEntry {
+        position: Position,
+        source: String,
+    },
     /// Preserve a non-executable clipboard draft; only explicit SetFormulaText resubmits it.
     #[doc(hidden)]
     PreserveRejectedFormula {
@@ -362,10 +372,17 @@ impl Workbook {
         }
         let mut work = 0usize;
         for edit in edits {
-            if let Edit::SetFormulaText { source, .. }
+            if let Edit::SetText { text: source, .. }
+            | Edit::SetEntry { source, .. }
+            | Edit::SetFormulaText { source, .. }
             | Edit::PreserveRejectedFormula { source, .. } = edit
             {
-                if source.len() > self.limits.source_bytes {
+                let payload = if matches!(edit, Edit::SetEntry { .. }) {
+                    source.strip_prefix('\'').unwrap_or(source)
+                } else {
+                    source
+                };
+                if payload.len() > self.limits.source_bytes {
                     return Err(Error::Limit);
                 }
                 work = work.checked_add(source.len()).ok_or(Error::Limit)?;
@@ -548,6 +565,7 @@ pub struct CalculationCapture {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CellError {
+    NonNumericInput,
     Arithmetic(DecimalError),
     DependencyFailed,
     InvalidExpression,

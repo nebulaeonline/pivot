@@ -130,6 +130,7 @@ impl Graph {
                 node: slot,
             };
             let definition = match &*record.definition {
+                Compiled::NonNumeric => Definition::NonNumeric,
                 Compiled::Input => Definition::Input(**self.values.get(slot).unwrap()),
                 Compiled::Formula { source, binding } => Definition::Computed {
                     source: source.clone(),
@@ -225,6 +226,15 @@ impl Graph {
         })
     }
     pub fn export(&self, nodes: &[NodeId], ports: &[PortId]) -> Result<transfer::Image, Error> {
+        if self
+            .records
+            .iter()
+            .any(|(_, r)| r.live && matches!(*r.definition, Compiled::NonNumeric))
+        {
+            return Err(
+                ModelError::Backend("unsupported nonnumeric content in scalar export").into(),
+            );
+        }
         let model = self.materialize()?;
         Ok(transfer::export_image(&model, nodes, ports)?)
     }
@@ -241,7 +251,8 @@ impl Graph {
             .map(|n| {
                 n.name.len() * 4
                     + match &n.definition {
-                        transfer::NodeDefinition::Input(_) => 0,
+                        transfer::NodeDefinition::NonNumeric
+                        | transfer::NodeDefinition::Input(_) => 0,
                         transfer::NodeDefinition::Computed { source, binding } => {
                             source.len() * 4
                                 + match binding {
@@ -308,6 +319,7 @@ impl Graph {
             .filter_map(|id| {
                 self.record(id).filter(|r| r.live).map(|r| {
                     let definition = match &*r.definition {
+                        Compiled::NonNumeric => Definition::NonNumeric,
                         Compiled::Input => Definition::Input(**self.values.get(id.node).unwrap()),
                         _ => Definition::Computed {
                             source: String::new(),

@@ -40,7 +40,7 @@ python scripts/run_desktop.py
 ```
 
 Drag or use Shift+click/arrows to select a rectangle. Copy/Paste operates on up to
-256 selected cells; editing, Clear and Move still target the active cell. Select a cell and type a number or `=A1+B1`. F2 or double-click edits in place;
+256 selected cells; editing, Clear and Move still target the active cell. Select a cell and type a label, number or `=A1+B1`. F2 or double-click edits in place;
 Enter/Tab or plain arrows commit and move, and Escape cancels. Modified arrows
 select text; formula-bar arrows move the caret. The formula bar is optional.
 Copy/Paste buttons and Ctrl+C/V (Cmd+C/V on Mac) operate on the rectangle or selected
@@ -48,6 +48,10 @@ editor text. Grid paste commits atomically; paste while editing inserts text. Na
 formula copies translate current bound references; `$` locks copy axes. External TSV
 formulas use literal addresses. Paste onto one cell to expand, or select an exact
 matching destination shape.
+Use a leading apostrophe to store numeric/formula-looking text literally (for
+example, `'001.20`). Numeric formulas and SUM report a type error when they consume
+text. Text is single-line and limited to 4,096 UTF-8 bytes. Native documents now use
+WB4; WB1–WB3 are unsupported.
 The active outline dims when unfocused; caret blinking is configurable.
 See the [clipboard handoff](docs/handoffs/2026-10-20-rectangular-clipboard.md)
 for workflow, limits and validation status.
@@ -55,8 +59,9 @@ for workflow, limits and validation status.
 The transport-independent Protobuf protocol has Rust/C# serialization tests and an
 in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)
 to run the demo daemon and CLI. Engine/daemon coverage includes Windows, WSL2 Linux
-and macOS ARM64. WB3, rectangular clipboard and automated desktop acceptance checks pass on all
-three platforms; this implementation milestone is accepted. See [platform validation](docs/platform-validation.md) for
+and macOS ARM64. The preceding clipboard foundation is accepted on all three platforms.
+Worksheet text/WB4 passes Windows/Linux/native Mac automated validation; parent
+implementation review is pending. See [platform validation](docs/platform-validation.md) for
 coverage and the recorded WSLg startup limitation.
 
 See [implementation status](docs/STATUS.md) and
@@ -80,5 +85,5 @@ through a shared lock. Routine manual replay is optional.
 
 For separate Native AOT publication and desktop acceptance, run
 `python scripts/verify_native_aot.py`. It builds the native desktop and places the
-Rust child beside it for validation. Windows, Linux and native Mac ARM64 pass;
-the Native AOT baseline is accepted. See the [Native AOT handoff](docs/handoffs/2026-10-20-native-aot-baseline.md).
+Rust child beside it for validation. The current text candidate passes Windows,
+Linux and native Mac ARM64; parent implementation review is pending. See the [text handoff](docs/handoffs/2026-10-21-worksheet-text-implementation.md).

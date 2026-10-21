@@ -8,7 +8,7 @@ pub const MAX_BYTES: usize = 256 * 1024;
 const MAX_SOURCE: usize = 128 * 1024;
 const MAX_TOKENS: usize = 16_384;
 const MAX_REFERENCES: usize = 8192;
-const MAGIC: &[u8] = b"PIVOTCB1";
+const MAGIC: &[u8] = b"PIVOTCB2";
 
 #[derive(Debug)]
 pub struct ClipboardBlock {
@@ -17,6 +17,7 @@ pub struct ClipboardBlock {
 }
 #[derive(Clone)]
 enum Slot {
+    Text(String),
     Blank,
     Number(DecimalInput),
     Formula {
@@ -199,6 +200,14 @@ impl Image {
                 });
             }
             match slot {
+                Slot::Text(value) => {
+                    crate::entry::validate_text(value, 4096)?;
+                    source_work += value.len() + 1;
+                    native.push(4);
+                    text(&mut native, value);
+                    output.push('\'');
+                    output.push_str(value);
+                }
                 Slot::Blank => native.push(0),
                 Slot::Number(value) => {
                     native.push(1);
@@ -281,6 +290,11 @@ impl Image {
         for _ in 0..height * width {
             let tag = r.take(1)?[0];
             slots.push(match tag {
+                4 => {
+                    let value = r.text()?;
+                    crate::entry::validate_text(&value, 4096)?;
+                    Slot::Text(value)
+                }
                 0 => Slot::Blank,
                 1 => {
                     let lo = r.n()?;
@@ -364,29 +378,19 @@ impl Image {
                 return Err(Error::Limit);
             }
             for field in fields {
-                slots.push(if field.is_empty() {
-                    Slot::Blank
-                } else if field.trim_start().starts_with('=') {
-                    if field.len() > 4096 {
-                        return Err(Error::Limit);
-                    }
-                    Slot::Formula {
-                        source: field.into(),
-                        effective: Vec::new(),
-                        rejected: false,
-                    }
-                } else {
-                    let parsed: PivotDecimal = field.parse().map_err(Error::Numeric)?;
-                    let (lo, mid, hi, negative, scale) = parsed.parts();
-                    // Decimal text parsing canonicalizes negative zero; preserve submitted sign as input metadata.
-                    Slot::Number(DecimalInput::from_parts(
-                        lo,
-                        mid,
-                        hi,
-                        negative || (lo == 0 && mid == 0 && hi == 0 && field.starts_with('-')),
-                        scale,
-                    )?)
-                });
+                slots.push(
+                    match crate::entry::classify(Position::new(1, 1), field, 4096)? {
+                        Edit::Clear(_) => Slot::Blank,
+                        Edit::SetDecimal { value, .. } => Slot::Number(value),
+                        Edit::SetText { text, .. } => Slot::Text(text),
+                        Edit::SetFormulaText { source, .. } => Slot::Formula {
+                            source,
+                            effective: Vec::new(),
+                            rejected: false,
+                        },
+                        _ => unreachable!(),
+                    },
+                );
             }
         }
         Ok(Self {
@@ -475,6 +479,7 @@ impl Workbook {
                     content => content,
                 };
                 slots.push(match content {
+                    Some(Content::LiteralText(value)) => Slot::Text(value),
                     None | Some(Content::Blank) => Slot::Blank,
                     Some(Content::Decimal(value)) => Slot::Number(value),
                     Some(Content::Formula { .. }) => return Err(invalid()),
@@ -598,6 +603,13 @@ impl Workbook {
                 rectangle.first.column + i as u32 % image.width,
             );
             edits.push(match slot {
+                Slot::Text(text) => {
+                    source_work += text.len() + 1;
+                    if source_work > MAX_SOURCE {
+                        return Err(Error::Limit);
+                    }
+                    Edit::SetText { position, text }
+                }
                 Slot::Blank => Edit::Clear(position),
                 Slot::Number(value) => Edit::SetDecimal { position, value },
                 Slot::Formula {

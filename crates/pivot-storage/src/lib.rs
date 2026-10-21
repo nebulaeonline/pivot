@@ -111,6 +111,7 @@ pub enum Token {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Definition {
+    NonNumeric,
     Input(Decimal96),
     Bound {
         source: String,
@@ -201,6 +202,13 @@ fn ordered(ids: impl IntoIterator<Item = Uuid>) -> Result<BTreeSet<Uuid>> {
 }
 impl Record {
     pub fn validate(&self, limits: Limits) -> Result<()> {
+        if self
+            .nodes
+            .iter()
+            .any(|n| matches!(n.definition, Definition::NonNumeric))
+        {
+            return Err(Error::UnsupportedVersion);
+        }
         if self.codec != 1 || self.numeric != 1 || self.expression != 1 {
             return Err(Error::UnsupportedVersion);
         }
@@ -291,6 +299,7 @@ impl GraphView<'_> {
                 return Err(Error::Identity);
             }
             let source = match &n.definition {
+                Definition::NonNumeric => continue,
                 Definition::Input(v) => {
                     v.parts()?;
                     continue;

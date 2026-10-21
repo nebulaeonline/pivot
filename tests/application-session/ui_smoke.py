@@ -26,6 +26,7 @@ with clipboard_lock() as lock:
     subprocess.run(['dotnet','clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'],cwd=ROOT,env=env,check=True,timeout=180)
 report = json.loads((output/'results.json').read_text(encoding='utf-8'))
 if report.get('execution_mode') != 'managed': raise SystemExit('Ordinary desktop gate did not run the managed application.')
+if not report.get('worksheet_text', '').startswith('passed:'): raise SystemExit('Worksheet text acceptance missing')
 if report['status'] != 'passed' or not report.get('clipboard_checklist', '').startswith('passed:') or not report.get('arrow_edit', '').startswith('passed:'): raise SystemExit(json.dumps(report,indent=2))
 print(json.dumps(report,indent=2))
 

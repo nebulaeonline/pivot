@@ -1,6 +1,6 @@
 # Worksheet structured-output binding — design review packet
 
-Date: 2026-10-22. **Design and addendum accepted for the bounded experiment; experimental implementation now in place; three-platform validation complete; parent implementation review pending.**
+Date: 2026-10-22. **Design and addendum accepted for the bounded experiment; bounded implementation and three-platform validation accepted; milestone closed.**
 [Contract acceptance](2026-10-22-structured-output-binding-contract-review.md). Earlier review requests below are design history;
 the accepted addendum and its two clarifications now govern implementation.
 [Parent decision](2026-10-22-structured-output-binding-design-review.md), [focused contract addendum](2026-10-22-structured-output-binding-contract-addendum.md).
@@ -92,3 +92,5 @@ not bundled into this proposal.
 
 Implementation follow-up: [bounded proof and validation evidence](2026-10-22-worksheet-structured-binding-implementation.md).
 The proposal and review language above records the design phase; implementation acceptance is separate.
+
+[Subsequent implementation acceptance and scope closure](2026-10-22-worksheet-structured-binding-implementation-review.md).

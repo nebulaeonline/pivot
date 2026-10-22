@@ -2,8 +2,9 @@
 
 Date: 2026-10-22. Experimental implementation is in place. Windows, Linux/WSLg and native macOS ARM64/APFS
 managed CI, strict all-feature checks and Native AOT pass. Three-platform validation
-is complete; parent implementation review remains pending. This is not permanent
-integration acceptance.
+is complete and accepted; the bounded milestone is closed. Permanent integration
+is not authorized.
+[Implementation acceptance and scope closure](2026-10-22-worksheet-structured-binding-implementation-review.md).
 [Approved contracts](2026-10-22-structured-output-binding-contract-review.md),
 [ADR-0020](../adr/0020-worksheet-structured-output-bindings.md),
 [Mac validation packet](2026-10-22-macos-worksheet-bindings-instructions.md).
@@ -204,7 +205,7 @@ WSLg allocator startup abort, Windows-mounted-path save uncertainty and historic
 Linux viewport p95 observations remain separate known platform limits. This milestone
 adds no recurring manual replay requirement.
 
-Submit this handoff, ADR-0020 and the approved contract addendum for parent
-implementation review. Three-platform validation is complete; implementation
-acceptance remains the next gate. Do not advance permanent structured-data
-integration while that review remains outstanding.
+The parent accepted this bounded implementation and its three-platform evidence.
+The milestone is closed, with the Windows clipboard observation explicitly open.
+Stop before another implementation milestone; the recommended next step is a
+product-direction review, not automatic permanent structured-data integration.

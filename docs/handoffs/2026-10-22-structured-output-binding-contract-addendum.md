@@ -1,6 +1,6 @@
 # ADR-0020 focused implementation-contract addendum
 
-Date: 2026-10-22. **Approved with two implementation clarifications; bounded experimental implementation now in place; three-platform validation complete; parent implementation review pending.**
+Date: 2026-10-22. **Approved with two implementation clarifications; bounded bounded implementation and three-platform validation accepted; milestone closed.**
 [Contract acceptance and implementation boundary](2026-10-22-structured-output-binding-contract-review.md).
 Actual canonical error precedence is authoritative: test it and stop/report any
 discrepancy rather than changing accepted semantics. Count distinct immutable formula
@@ -267,3 +267,5 @@ PIVOTCB2, WB4 or capacity increase accompanies it.
 
 Implementation follow-up: [bounded proof and validation evidence](2026-10-22-worksheet-structured-binding-implementation.md).
 The proposal and review language above records the design phase; implementation acceptance is separate.
+
+[Subsequent implementation acceptance and scope closure](2026-10-22-worksheet-structured-binding-implementation-review.md).

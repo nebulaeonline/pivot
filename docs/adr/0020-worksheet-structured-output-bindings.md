@@ -1,6 +1,7 @@
 # ADR-0020: Worksheet bindings to structured numeric outputs
 
-Status: **Accepted for the bounded experimental proof (2026-10-22), with two implementation clarifications; implemented experimentally; three-platform managed/Native AOT validation complete; parent implementation review pending**.
+Status: **Bounded experimental implementation accepted; three-platform validation accepted; milestone closed (2026-10-22)**.
+[Implementation acceptance and scope closure](../handoffs/2026-10-22-worksheet-structured-binding-implementation-review.md).
 [Contract approval and implementation boundary](../handoffs/2026-10-22-structured-output-binding-contract-review.md),
 [focused contract addendum](../handoffs/2026-10-22-structured-output-binding-contract-addendum.md).
 The accepted addendum refines this initial proposal wherever it leaves a contract open.

@@ -55,4 +55,6 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0019: Structured results and projection identities](0019-structured-results-and-projection-identities.md) — Design approved with clarifications; bounded experimental implementation accepted and milestone closed (2026-10-22).
 
-- [ADR-0020: Worksheet bindings to structured numeric outputs](0020-worksheet-structured-output-bindings.md) — Accepted for the bounded experimental proof with two implementation clarifications; experimental implementation in place; three-platform validation complete; parent implementation review pending (2026-10-22).
+- [ADR-0020: Worksheet bindings to structured numeric outputs](0020-worksheet-structured-output-bindings.md) — Architecture/contracts and bounded experimental implementation accepted; three-platform validation accepted; milestone closed (2026-10-22).
+
+- [ADR-0021: Bounded spreadsheet aggregate functions](0021-spreadsheet-aggregate-functions.md) — Accepted with canonical MIN/MAX equality clarification; bounded MIN/MAX/AVERAGE/COUNT implementation authorized, not started (2026-10-22).

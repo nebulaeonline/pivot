@@ -5,7 +5,8 @@ Status: **Bounded experimental proof accepted; milestone closed (2026-10-22)** u
 [Review decision](../handoffs/2026-10-21-structured-results-projection-design-review.md).
 [Implementation acceptance and scope closure](../handoffs/2026-10-22-structured-results-projection-implementation-review.md).
 The proof is opt-in and in memory. No permanent `#` syntax exists.
-The numeric adapter does not establish ordinary worksheet-formula bindings.
+The ADR-0019 named-invocation adapter did not establish ordinary worksheet bindings;
+the accepted ADR-0020 experiment below supplies that bridge.
 Fixed row ordinals are accepted only for the present structurally fixed worksheet;
 future row editing requires reviewed anchor identity and affinity semantics.
 [Implementation and validation](../handoffs/2026-10-21-structured-results-projection-implementation.md).
@@ -93,7 +94,8 @@ replace the proof only through the existing successful lifecycle/discard boundar
 are accepted for the bounded experimental implementation.
 [Contract acceptance](../handoffs/2026-10-22-structured-output-binding-contract-review.md).
 The bounded implementation is in place. Three-platform managed CI, strict all-feature
-checks and Native AOT validation are complete; parent implementation review is pending.
+checks and Native AOT validation are accepted; this bounded milestone is closed.
+[Implementation acceptance](../handoffs/2026-10-22-worksheet-structured-binding-implementation-review.md).
 [Implementation evidence](../handoffs/2026-10-22-worksheet-structured-binding-implementation.md).
 
 The accepted design binds document/producer/output/type identities to one shared
@@ -112,8 +114,9 @@ ordinary formula dependents and SUM, two views and all agreed resource ceilings.
 Verify claimed error precedence through the actual canonical evaluator; stop and report
 any discrepancy rather than changing accepted semantics. Count/charge distinct immutable
 formula versions once across shared owners, with separate buffers charged separately.
-Three-platform managed and Native AOT evidence is complete; the implementation is
-ready for parent review. Permanent `#` syntax, persistence and product integration stay separate.
+Three-platform managed and Native AOT evidence is accepted. Permanent `#` syntax,
+persistence and product integration remain unapproved. Stop before another
+implementation milestone; the next recommendation is a product-direction review.
 
 
 The document maps portable output IDs to a private graph leaf and opaque slot ID.

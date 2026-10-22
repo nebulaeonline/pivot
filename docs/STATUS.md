@@ -2,42 +2,45 @@
 
 Date: 2026-10-22
 
-Latest accepted milestone: **Bounded Structured-Result and Presentation-Projection Proof — accepted; workstream closed**.
-The parent accepts the opt-in, in-memory ADR-0019 implementation separately from
-its earlier design approval. Permanent product integration remains unapproved.
+Latest accepted milestone: **Bounded Worksheet-to-Structured-Output Binding Proof — accepted; workstream closed**.
+The parent accepts the experimental ADR-0020 implementation separately from the
+preceding architectural/contract approvals. Permanent integration is not authorized.
+[Acceptance and scope closure](handoffs/2026-10-22-worksheet-structured-binding-implementation-review.md),
+[implementation and three-platform evidence](handoffs/2026-10-22-worksheet-structured-binding-implementation.md).
+Windows/Linux/native macOS ARM64 managed CI, strict all-feature checks and actual
+Native AOT pass. Rust totals are 328/344 on Windows and 329/345 on Linux/macOS.
+All ten desktop fields and peers pass with zero charge. Mac/APFS matched 390 source
+files and 199 build inputs; 475 returned files were independently hash-verified.
+
+**Open reliability issue:** intermittent Windows ClipboardChecklistAsync null
+destination after paste. The unchanged rerun passed; the cause remains unresolved.
+[Failure evidence and recurrence diagnostics](handoffs/2026-10-22-worksheet-structured-binding-implementation-review.md#open-reliability-issue--windows-clipboard-checklist).
+Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
+mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
+
+Next authorized milestone: **Bounded MIN/MAX/AVERAGE/COUNT Implementation**.
+ADR-0021 is approved with the canonical MIN/MAX equality clarification; implementation
+has not started. This is design acceptance, not a new validated capability.
+[ADR-0021](adr/0021-spreadsheet-aggregate-functions.md),
+[approval and bounded implementation scope](handoffs/2026-10-22-spreadsheet-aggregate-design-review.md),
+[acceptance matrix](handoffs/2026-10-22-spreadsheet-aggregate-design.md).
+Ignore direct blanks/text, include numeric zeros/formula values and propagate formula
+errors. Preserve strict SUM. Distinguish Blank definitions from numeric zero and
+invalidate on transitions. MIN/MAX return canonical numeric extrema, independent of
+scale/signed-zero ties or traversal order. AVERAGE uses private fixed-width exact
+accumulation and final midpoint-away rounding, tested against independent rationals.
+WB5 writing and bounded validated WB4 reading are explicitly approved; preserve SUM,
+identities and failed-Open atomicity. Keep CB2/private v4 if faithful; stop for review
+if a genuine representation conflict requires change. Hosted/model formats stay frozen.
+Require focused Rust coverage before desktop integration, then three-platform managed
+CI, strict all-feature and actual Native AOT evidence; stop for implementation review.
+No production change or new platform result is claimed yet. MEDIAN/MODE/aliases,
+formatting, Undo/Redo, structured-data expansion, connectors, structural row editing
+and capacity increases remain excluded. ADR-0020 remains accepted and closed.
+
+Accepted preceding milestone: **Bounded Structured-Result and Presentation-Projection Proof — accepted; workstream closed**.
 [Acceptance and scope closure](handoffs/2026-10-22-structured-results-projection-implementation-review.md),
 [implementation and three-platform evidence](handoffs/2026-10-21-structured-results-projection-implementation.md).
-Windows/Linux/native macOS ARM64 managed CI, strict all-feature checks and Native
-AOT pass. Default/all-feature Rust totals are 318/334 on Windows and 319/335 on
-Linux and macOS. All nine desktop fields and peers pass with zero charge. Mac/APFS
-validation matched 373 source hashes and 190 inputs; 441 returned files are present.
-
-Current milestone: **Bounded Worksheet-to-Structured-Output Binding Proof — implemented; three-platform validation complete; parent implementation review pending**.
-ADR-0020 and its focused contracts are accepted with two implementation clarifications.
-The opt-in implementation is in place. Design approval does not constitute implementation acceptance.
-[Implementation and validation handoff](handoffs/2026-10-22-worksheet-structured-binding-implementation.md).
-Final Windows/Linux/native macOS ARM64 managed CI, strict all-feature checks and
-actual Native AOT pass. Rust totals are 328/344 on Windows and 329/345 on Linux/macOS.
-All ten desktop fields and peers pass with zero charge. Mac/APFS source validation
-matched 390 source files and 199 inputs; all 475 returned evidence files were
-independently hash-verified. No product changes were needed on Mac. The initial
-Mac sandbox/tool-access failure and retained intermittent Windows clipboard-check
-failure are documented with their successful unchanged reruns.
-[Mac review and evidence](handoffs/2026-10-22-worksheet-structured-binding-implementation.md#macosapfs-review--three-platform-validation-complete).
-[ADR-0020](adr/0020-worksheet-structured-output-bindings.md),
-[contract approval and implementation boundary](handoffs/2026-10-22-structured-output-binding-contract-review.md),
-[contract addendum](handoffs/2026-10-22-structured-output-binding-contract-addendum.md),
-[acceptance matrix](handoffs/2026-10-22-structured-output-binding-design.md).
-The implementation remains an opt-in non-savable proof: one producer/output/shared scalar slot,
-actual ordinary formula consumers/dependents/SUM and two views. Preserve private
-`@{Producer.Output}` typed authoring, generic captured faults, exact composite authority,
-server-owned duplication and OS Copy refusal for structured formulas; no format change.
-Actual canonical tests verify error precedence without changing accepted semantics.
-Distinct immutable versions are charged once across captures; separately owned
-buffers retain separate charges. All agreed caps remain in force.
-Three-platform validation is complete; submit for parent implementation review.
-Permanent integration, `#` grammar, persistence/WB5, connectors, scheduler, collection
-runtime, structural row edits, formatting and capacity expansion remain excluded.
 
 Accepted preceding milestone: **Bounded Document-Owned Worksheet Text — accepted; workstream closed**.
 [Acceptance and scope closure](handoffs/2026-10-21-worksheet-text-implementation-review.md),

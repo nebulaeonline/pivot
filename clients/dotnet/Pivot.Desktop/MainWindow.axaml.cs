@@ -100,6 +100,7 @@ public partial class MainWindow : Window
         if ((e.KeyModifiers & primary)==0 || e.KeyModifiers.HasFlag(KeyModifiers.Alt)) return;
         var focused=FocusManager?.GetFocusedElement();
         if (focused!=Sheet && focused!=CellEditor && focused!=FormulaEntry) return;
+        if(e.Key==Key.X && focused==Sheet && session?.IsBindingProof==true){e.Handled=true;StatusLabel.Text="Cut is unavailable in this experimental document; use Duplicate for bound formulas.";return;}
         if (e.Key==Key.A && focused is TextBox box) { e.Handled=true; box.SelectAll(); return; }
         if (e.Key is Key.C or Key.V) {
             Sheet.EndPointerSelection(false); e.Handled=true; await ClipboardAsync(e.Key==Key.V);
@@ -172,7 +173,7 @@ public partial class MainWindow : Window
                     if(expand && interaction==interactionVersion) {Sheet.Select(pasted.PastedFirst);Sheet.Select(pasted.PastedLast,true);Sheet.Reveal(Sheet.Selected);}
                     await RefreshAsync();UpdateDocument();
                 } catch(WorkbookSessionException e) {
-                    if(native is null && !Sheet.HasRegion && value.IndexOfAny(['\r','\n','\t'])<0 && value.Length<=4096) {
+                    if(native is null && !Sheet.HasRegion && value.IndexOfAny(['\r','\n','\t'])<0 && value.Length<=4096 && !(session.IsBindingProof && value.TrimStart().StartsWith("=",StringComparison.Ordinal) && value.Contains("@{",StringComparison.Ordinal))) {
                         CaptureDraft();draftRevision=expected;draftReplace=true;
                         synchronizing=true;FormulaEntry.Text=CellEditor.Text=value;synchronizing=false;
                         inlineEditing=true;PositionEditor();CellEditor.Focus();
@@ -201,7 +202,8 @@ public partial class MainWindow : Window
             if (!File.Exists(path)) throw new FileNotFoundException("Rust session executable missing. Start with scripts/run_desktop.py or set PIVOT_SESSION_PATH.");
             session = await WorkbookSession.StartAsync(path);
             if (shuttingDown) { await session.DisposeAsync(); return; }
-            if(Environment.GetEnvironmentVariable("PIVOT_PROJECTION_PROOF")=="1") await session.StartProofAsync();
+            if(Environment.GetEnvironmentVariable("PIVOT_BINDING_PROOF")=="1") await session.StartBindingsAsync();
+            else if(Environment.GetEnvironmentVariable("PIVOT_PROJECTION_PROOF")=="1") await session.StartProofAsync();
             await RefreshAsync(); SetEditing(displayedRevision.Length != 0);
             startupReadyMs=Program.Startup.Elapsed.TotalMilliseconds;
             if (Environment.GetEnvironmentVariable("PIVOT_UI_PEER_REPORT") is { } peerReport)
@@ -284,6 +286,7 @@ public partial class MainWindow : Window
     });
     private void SetEditing(bool enabled) {
         ClearButton.IsEnabled = MoveButton.IsEnabled = FormulaEntry.IsEnabled = CellEditor.IsEnabled = enabled && !shuttingDown && !fileAction && Sheet.ProjectedSelection is null;
+        BindingPanel.IsVisible=session?.IsBindingProof==true;BindingPanel.IsEnabled=enabled&&!shuttingDown&&!fileAction;
         ProofPanel.IsVisible=session?.IsProjectionProof==true;ProofPanel.IsEnabled=enabled && !shuttingDown && !fileAction;
         // Pointer capture survives the asynchronous commit preceding a selection.
         Sheet.IsEnabled=(enabled || editing) && !shuttingDown && !fileAction;
@@ -293,6 +296,7 @@ public partial class MainWindow : Window
         if(ShowProjectedSelection())return;
         AddressLabel.Text = Pivot.Avalonia.WorksheetView.Address(Sheet.Selected);
         SelectionLabel.Text=$"Selection {Pivot.Avalonia.WorksheetView.Address(Sheet.SelectionFirst)}:{Pivot.Avalonia.WorksheetView.Address(Sheet.SelectionLast)} · Active {AddressLabel.Text} · Copy/Paste target selection · Edit/Clear/Move target active cell only";
+        if(Sheet.SelectedCell is {SourceProducer.Length:>0} binding) SelectionLabel.Text+=$" · Bound {binding.SourceProducerName}.{binding.SourceOutputName} · Producer {binding.SourceProducer} · Output {binding.SourceOutput}";
         if (draftCell is not null) { PositionEditor(); return; }
         synchronizing = true;
         FormulaEntry.Text = CellSource();
@@ -319,7 +323,7 @@ public partial class MainWindow : Window
             var last=new Position{Row=Math.Min(Sheet.TotalVisualRows,Sheet.FirstRow+(uint)Sheet.VisibleRows-1),Column=Sheet.FirstColumn+9};
             var frame = session.IsProjectionProof ? await session.ReadProofAsync(first,last,cancellation) : await session.ReadAsync(new Position { Row = Sheet.FirstRow, Column = Sheet.FirstColumn },
                 new Position { Row = Math.Min(1024, Sheet.FirstRow + (uint)Sheet.VisibleRows - 1), Column = Sheet.FirstColumn + 9 }, cancellation);
-            if (shuttingDown || request != displayRequest || frame.Revision != session.Revision) return;
+            if (shuttingDown || request != displayRequest || frame.Revision != session.Revision || frame.ComputationalState!=session.ComputationalState) return;
             if(frame.ProofView is { } proof && (proof.Epoch!=session.ProofEpoch || proof.Presentation!=session.ProofPresentation))return;
             Sheet.SetProofFrame(frame.ProofView);if(request!=displayRequest)return;
             var dispatch = Stopwatch.StartNew();
@@ -338,7 +342,12 @@ public partial class MainWindow : Window
     {
         if (session is null || editing) return false;
         editing = true; SetEditing(false); refresh?.Cancel(); ++displayRequest;
-        try { await session.ApplyAsync(expected ?? displayedRevision, [edit]); await RefreshAsync(); return true; }
+        try {
+            if(session.IsBindingProof && edit.ActionCase==Edit.ActionOneofCase.Entry && edit.Entry.TrimStart().StartsWith("=",StringComparison.Ordinal) && edit.Entry.Contains("@{",StringComparison.Ordinal))
+                await session.ApplyStructuredFormulaAsync(expected??displayedRevision,edit.At,edit.Entry);
+            else await session.ApplyAsync(expected??displayedRevision,[edit]);
+            await RefreshAsync();return true;
+        }
         catch (WorkbookSessionException e) when (e.IsConflict) { await RefreshAsync(); StatusLabel.Text = "Worksheet changed. Your edit is retained; press Escape to reload before editing again."; return false; }
         catch (Exception e) { StatusLabel.Text = e.Message; return false; }
         finally { editing = false; SetEditing(session.DocumentId.Length != 0); }
@@ -477,6 +486,7 @@ public partial class MainWindow : Window
 
     private async Task SmokeAsync(string report)
     {
+        await BindingAutomationAsync(report);
         await ProjectionAutomationAsync(report);
         await TextAutomationAsync(report);
         await ClipboardChecklistAsync(report);
@@ -761,7 +771,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { status="passed", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB4 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { status="passed", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB4 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
         allowClose = true; Close();
     }
 }

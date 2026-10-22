@@ -55,7 +55,14 @@ fn area(first: Position, last: Position) -> Result<(u32, u32)> {
     Ok((height, width))
 }
 fn references(source: &str) -> Result<(Vec<ReferenceSyntax>, usize)> {
-    let (expr, work) = expression::parse_spreadsheet_counted(source);
+    references_mode(source, false)
+}
+fn references_mode(source: &str, proof: bool) -> Result<(Vec<ReferenceSyntax>, usize)> {
+    let (expr, work) = if proof {
+        (expression::parse_structured_proof(source), source.len())
+    } else {
+        expression::parse_spreadsheet_counted(source)
+    };
     let expr = expr.map_err(|_| invalid())?;
     let mut stack = vec![&expr];
     let mut refs = Vec::new();
@@ -88,7 +95,8 @@ fn references(source: &str) -> Result<(Vec<ReferenceSyntax>, usize)> {
                 stack.push(left);
             }
             Expr::Decimal(_) => (),
-            Expr::Name(_) => return Err(invalid()),
+            Expr::CapturedOutput { .. } if proof => (),
+            Expr::CapturedOutput { .. } | Expr::Name(_) => return Err(invalid()),
         }
     }
     refs.sort_by_key(|r| r.span.start);
@@ -119,7 +127,18 @@ fn transform(
     rows: u32,
     columns: u32,
 ) -> Result<(String, usize, usize)> {
-    let (refs, tokens) = references(source)?;
+    transform_mode(source, effective, dr, dc, rows, columns, false)
+}
+pub(crate) fn transform_mode(
+    source: &str,
+    effective: &[Position],
+    dr: i64,
+    dc: i64,
+    rows: u32,
+    columns: u32,
+    proof: bool,
+) -> Result<(String, usize, usize)> {
+    let (refs, tokens) = references_mode(source, proof)?;
     if refs.len() != effective.len() {
         return Err(invalid());
     }
@@ -421,7 +440,11 @@ impl Workbook {
             for column in rectangle.first.column..=rectangle.last.column {
                 let cell = capture.pinned_content(Position::new(row, column))?;
                 let content = match cell.map(|c| c.content) {
+                    Some(Content::StructuredFormula(_))=>return Err(Error::Graph("Structured formulas cannot use OS Copy/Cut; use same-document Duplicate instead.".into())),
                     Some(Content::Formula { source, tokens }) => {
+                        if tokens.iter().any(|t| matches!(t, Token::Output(_))) {
+                            return Err(Error::Graph("Structured formulas cannot use OS Copy/Cut; use same-document Duplicate instead.".into()));
+                        }
                         let (syntax, spans, diagnostic) = Workbook::lower_text_bounds(
                             self.rows.length,
                             self.columns.length,
@@ -432,7 +455,7 @@ impl Workbook {
                         }
                         let mut submitted = spans.into_iter();
                         let mut references = Vec::new();
-                        for (syntax, bound) in syntax.iter().zip(&tokens) {
+                        for (syntax, bound) in syntax.iter().zip(tokens.iter()) {
                             match (syntax, bound) {
                                 (Token::At(_), Token::Cell(target)) => {
                                     if target.worksheet != self.worksheet {
@@ -482,7 +505,7 @@ impl Workbook {
                     Some(Content::LiteralText(value)) => Slot::Text(value),
                     None | Some(Content::Blank) => Slot::Blank,
                     Some(Content::Decimal(value)) => Slot::Number(value),
-                    Some(Content::Formula { .. }) => return Err(invalid()),
+                    Some(Content::Formula { .. } | Content::StructuredFormula(_)) => return Err(invalid()),
                     Some(Content::TextFormula(f)) => {
                         let mut annotations = Vec::new();
                         if f.diagnostic.is_none() {
@@ -574,6 +597,14 @@ impl Workbook {
         } else {
             Image::tsv(std::str::from_utf8(bytes).map_err(|_| invalid())?)?
         };
+        if self.is_structured_proof()
+            && image
+                .slots
+                .iter()
+                .any(|slot| matches!(slot,Slot::Formula{source,..} if source.contains("@{")))
+        {
+            return Err(Error::Graph("Structured formula paste requires explicit typed authoring; the rectangle was not changed.".into()));
+        }
         let (height, width) = area(rectangle.first, rectangle.last)?;
         if (height, width) != (1, 1) && (height, width) != (image.height, image.width) {
             return Err(invalid());

@@ -9,6 +9,9 @@ use pivot_core::model::integration::{
 pub(super) type State = Retained<Data>;
 #[derive(Clone)]
 pub(super) struct Data {
+    pub(crate) directory: Option<structured::Directory>,
+    pub(crate) adapter: Option<Shared<structured::Adapter>>,
+    annotations: Index<CellId, structured::StructuredContent>,
     pub(super) positions: Index<Position, CellId>,
     pub(super) records: Index<CellId, Shared<Record>>,
     pub(super) bindings: Index<CellId, Binding>,
@@ -26,6 +29,7 @@ impl Footprint for Binding {}
 fn content_size(content: &Option<Content>) -> (usize, usize, usize) {
     match content {
         Some(Content::LiteralText(text)) => (0, text.len(), 0),
+        Some(Content::StructuredFormula(f)) => (f.tokens().len(), f.source().len(), 0),
         Some(Content::Formula { source, tokens }) => (tokens.len(), source.len(), 0),
         Some(Content::TextFormula(f)) => (
             f.tokens.len(),
@@ -54,6 +58,9 @@ impl Footprint for Record {
 impl Data {
     pub(super) fn new(memory: Memory) -> Self {
         Self {
+            directory: None,
+            adapter: None,
+            annotations: Index::new(memory.clone()),
             positions: Index::new(memory.clone()),
             records: Index::new(memory.clone()),
             bindings: Index::new(memory.clone()),
@@ -86,6 +93,16 @@ impl Data {
             .get(&id)
             .map_or((0, 0, 0), |r| content_size(&r.content));
         let new = content_size(&record.content);
+        if let Some(Content::StructuredFormula(formula)) = &record.content {
+            if !self.annotations.contains_key(&id) && self.annotations.len() >= 32 {
+                return Err(Error::Limit);
+            }
+            self.annotations
+                .insert_private(id, formula.clone())
+                .map_err(|_| Error::Limit)?;
+        } else {
+            self.annotations.remove(&id).map_err(|_| Error::Limit)?;
+        }
         let shared = self.memory.alloc(record).map_err(|_| Error::Limit)?;
         self.records
             .insert_private(id, shared)
@@ -163,7 +180,7 @@ impl Workbook {
         apply(self, expected, edits, cancel)
     }
 }
-fn state(book: &Workbook) -> &Data {
+pub(crate) fn state(book: &Workbook) -> &Data {
     &book.persistent
 }
 fn cell_ref(book: &Workbook, id: CellId) -> CellRef {
@@ -172,13 +189,28 @@ fn cell_ref(book: &Workbook, id: CellId) -> CellRef {
         cell: id,
     }
 }
+fn view_heap(record: &Record) -> usize {
+    match &record.content {
+        Some(Content::StructuredFormula(f)) => f.source().len() + std::mem::size_of_val(f.tokens()),
+        _ => record.heap_bytes(),
+    }
+}
+fn owned_content(record: &Record) -> Option<Content> {
+    record.content.as_ref().map(|content| match content {
+        Content::StructuredFormula(f) => Content::Formula {
+            source: f.source().into(),
+            tokens: f.tokens().to_vec(),
+        },
+        other => other.clone(),
+    })
+}
 fn view(book: &Workbook, p: &Data, id: CellId) -> Option<CellView> {
     let record = p.records.get(&id)?;
     Some(CellView {
         reference: cell_ref(book, id),
         node: p.bindings.get(&id)?.portable,
         position: record.position?,
-        content: record.content.as_ref()?.clone(),
+        content: owned_content(record)?,
     })
 }
 pub(super) fn cell_at(book: &Workbook, position: Position) -> Result<Option<CellView>> {
@@ -189,9 +221,7 @@ pub(super) fn cell_at(book: &Workbook, position: Position) -> Result<Option<Cell
     };
     let _copy = p
         .memory
-        .reserve(
-            4096 + std::mem::size_of::<CellView>() + (**p.records.get(id).unwrap()).heap_bytes(),
-        )
+        .reserve(4096 + std::mem::size_of::<CellView>() + view_heap(p.records.get(id).unwrap()))
         .map_err(|_| Error::Limit)?;
     Ok(view(book, p, *id))
 }
@@ -363,6 +393,31 @@ impl Transaction<'_> {
                 other => other.clone(),
             };
             bound.push(match &t {
+                Token::Output(binding) => {
+                    let directory = self.data.directory.as_ref().ok_or(Error::InvalidTarget)?;
+                    if directory.binding != *binding {
+                        return Err(Error::InvalidTarget);
+                    }
+                    let adapter = match &self.data.adapter {
+                        Some(a) if a.binding == *binding => a.node,
+                        Some(_) => return Err(Error::Limit),
+                        None => {
+                            let identity = Uuid::new_v4();
+                            let (node, slot) = self
+                                .batch
+                                .add_captured_scalar(
+                                    format!("SC_{}", identity.simple()),
+                                    *identity.as_bytes(),
+                                )
+                                .map_err(graph_error)?;
+                            let a = structured::Adapter::new(directory, *binding, node, slot)?;
+                            self.data.adapter =
+                                Some(self.data.memory.alloc(a).map_err(|_| Error::Limit)?);
+                            node
+                        }
+                    };
+                    ResolvedToken::Node(adapter)
+                }
                 Token::Sum { id, .. } => ResolvedToken::Sum(*id),
                 Token::Decimal(v) => ResolvedToken::Decimal(v.value()),
                 Token::Cell(r) => {
@@ -411,9 +466,37 @@ impl Transaction<'_> {
             } => {
                 let id = self.anchor(*position)?;
                 let (bound, tokens) = self.resolve(source, tokens)?;
-                let content = Content::Formula {
-                    source: source.clone(),
-                    tokens,
+                let content = if tokens.iter().any(|t| matches!(t, Token::Output(_))) {
+                    if let Some(Content::StructuredFormula(old)) =
+                        self.data.records.get(&id).unwrap().content.as_ref()
+                        && old.source() == source
+                        && old.tokens() == tokens.as_slice()
+                    {
+                        Content::StructuredFormula(old.clone())
+                    } else {
+                        if !self.data.annotations.contains_key(&id)
+                            && self.data.annotations.len() >= 32
+                        {
+                            return Err(Error::Limit);
+                        }
+                        let scope = &self
+                            .data
+                            .directory
+                            .as_ref()
+                            .ok_or(Error::InvalidTarget)?
+                            .scope;
+                        Content::StructuredFormula(structured::StructuredContent::new(
+                            &self.data.memory,
+                            scope,
+                            source,
+                            tokens,
+                        )?)
+                    }
+                } else {
+                    Content::Formula {
+                        source: source.clone(),
+                        tokens,
+                    }
                 };
                 if self.data.records.get(&id).unwrap().content.as_ref() != Some(&content) {
                     self.batch
@@ -667,6 +750,11 @@ fn apply(
             )
             .map_err(graph_error)?;
     }
+    if tx.data.annotations.is_empty()
+        && let Some(adapter) = tx.data.adapter.take()
+    {
+        tx.batch.retire(adapter.node).map_err(graph_error)?;
+    }
     let next = book.state.checked_add(1).ok_or(Error::Exhausted)?;
     let Transaction { data, batch, .. } = tx;
     let mut core = core;
@@ -719,7 +807,7 @@ pub(super) fn read(
                 return Err(Error::Limit);
             }
             bytes = bytes
-                .checked_add((**p.records.get(id).unwrap()).heap_bytes())
+                .checked_add(view_heap(p.records.get(id).unwrap()))
                 .ok_or(Error::Limit)?;
             ids.push(*id);
         }
@@ -753,6 +841,8 @@ pub(super) fn capture(
         limit: book.limits.read_records,
         pinned: book.persistent.clone(),
         local_core: core,
+        scalar_context: None,
+        source_fault: None,
     })
 }
 pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Result<Calculation> {
@@ -779,7 +869,13 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
                 .ok_or(Error::InvalidTarget)
         })
         .collect::<Result<Vec<_>>>()?;
-    let result = capture.local_core.evaluate(&nodes).map_err(graph_error)?;
+    let result = match &capture.scalar_context {
+        Some(context) => capture
+            .local_core
+            .evaluate_scalar_context(&nodes, &context.core),
+        None => capture.local_core.evaluate(&nodes),
+    }
+    .map_err(graph_error)?;
     let values = outputs
         .iter()
         .zip(nodes)
@@ -790,6 +886,19 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
                     .as_ref()
                     .copied()
                     .map_err(|e| match e {
+                        EvaluationError::CapturedSourceFailed { fault_id, .. }
+                        | EvaluationError::DependencyFailed {
+                            fault_id: Some(fault_id),
+                            ..
+                        } => match capture.source_fault {
+                            Some((id, kind)) if id == *fault_id => {
+                                CellError::CapturedSourceFailed {
+                                    fault_id: *fault_id,
+                                    kind,
+                                }
+                            }
+                            _ => CellError::InvalidExpression,
+                        },
                         EvaluationError::NonNumericInput { .. } => CellError::NonNumericInput,
                         EvaluationError::Arithmetic { error, .. } => CellError::Arithmetic(*error),
                         EvaluationError::DependencyFailed { origin, .. } => {
@@ -845,8 +954,9 @@ pub(super) fn validate(book: &Workbook, expected: Expected) -> Result<Vec<Diagno
             }
         }
         let tokens = match &record.content {
-            Some(Content::Formula { tokens, .. }) => Some(tokens),
-            Some(Content::TextFormula(f)) => Some(&f.tokens),
+            Some(Content::Formula { tokens, .. }) => Some(tokens.as_slice()),
+            Some(Content::StructuredFormula(f)) => Some(f.tokens()),
+            Some(Content::TextFormula(f)) => Some(f.tokens.as_slice()),
             _ => None,
         };
         if let Some(tokens) = tokens {
@@ -894,7 +1004,7 @@ impl CalculationCapture {
         let record = p.records.get(id).unwrap();
         let _copy = p
             .memory
-            .reserve(4096 + std::mem::size_of::<CellView>() + (**record).heap_bytes())
+            .reserve(4096 + std::mem::size_of::<CellView>() + view_heap(record))
             .map_err(|_| Error::Limit)?;
         Ok(Some(CellView {
             reference: CellRef {
@@ -903,7 +1013,7 @@ impl CalculationCapture {
             },
             node: p.bindings.get(id).unwrap().portable,
             position,
-            content: record.content.as_ref().unwrap().clone(),
+            content: owned_content(record).unwrap(),
         }))
     }
 }

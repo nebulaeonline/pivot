@@ -246,6 +246,7 @@ impl Footprint for Record {
 }
 enum Compiled {
     NonNumeric,
+    CapturedScalar(crate::captured::CapturedScalarId),
     Input,
     Formula {
         source: String,
@@ -255,7 +256,7 @@ enum Compiled {
 impl Footprint for Compiled {
     fn heap_bytes(&self) -> usize {
         match self {
-            Self::Input | Self::NonNumeric => 0,
+            Self::Input | Self::NonNumeric | Self::CapturedScalar(_) => 0,
             Self::Formula { source, binding } => {
                 source.capacity()
                     + match binding {
@@ -308,7 +309,7 @@ impl Compiled {
     }
     fn bytes(&self) -> usize {
         match self {
-            Self::Input | Self::NonNumeric => 0,
+            Self::Input | Self::NonNumeric | Self::CapturedScalar(_) => 0,
             Self::Formula { source, binding } => {
                 source.len()
                     + binding.as_ref().map_or(0, |(t, d)| {
@@ -363,6 +364,7 @@ pub enum Edit {
     Input(NodeId, PivotDecimal),
     ReplaceInput(NodeId, PivotDecimal),
     NonNumeric(NodeId),
+    CapturedScalar(NodeId, crate::captured::CapturedScalarId),
     Formula(NodeId, String),
     Resolved(NodeId, String, Vec<transfer::ResolvedToken>),
     Invalid(NodeId, String, ParseError),
@@ -374,6 +376,7 @@ pub enum Edit {
 }
 #[derive(Clone)]
 pub struct Graph {
+    captured_scalar: Option<(NodeId, crate::captured::CapturedScalarId)>,
     pub(super) selections: Option<Shared<selection::State>>,
     selection_invalidated: Option<Shared<Vec<NodeId>>>,
     records: Pages<Record>,
@@ -428,6 +431,7 @@ impl Graph {
     pub(super) fn empty(name: String, revision: Revision, memory: Memory) -> Result<Self, Error> {
         Ok(Self {
             local_validation: true,
+            captured_scalar: None,
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(true)))?,
             selections: None,
             selection_invalidated: None,
@@ -501,7 +505,7 @@ impl Graph {
             .nodes
             .values()
             .map(|node| match &node.definition {
-                Definition::NonNumeric | Definition::Input(_) => 0,
+                Definition::NonNumeric | Definition::CapturedScalar(_) | Definition::Input(_) => 0,
                 Definition::Computed { source, binding } => {
                     source.capacity()
                         + binding.as_ref().map_or(0, |(t, d)| {
@@ -527,6 +531,7 @@ impl Graph {
         let initial_error = model.snapshot().err();
         let mut graph = Self {
             local_validation: false,
+            captured_scalar: None,
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(
                 initial_error.is_none(),
             )))?,
@@ -557,6 +562,7 @@ impl Graph {
         for (&id, node) in &model.nodes {
             let definition = match &node.definition {
                 Definition::NonNumeric => Compiled::NonNumeric,
+                Definition::CapturedScalar(id) => Compiled::CapturedScalar(*id),
                 Definition::Input(v) => {
                     graph.values.set(id.node, *v)?;
                     Compiled::Input
@@ -630,6 +636,7 @@ impl Graph {
                 };
                 let definition = match &*r.definition {
                     Compiled::NonNumeric => DraftDefinition::NonNumeric,
+                    Compiled::CapturedScalar(id) => DraftDefinition::CapturedScalar(*id),
                     Compiled::Input => DraftDefinition::Input(**self.values.get(slot).unwrap()),
                     Compiled::Formula { source, binding } => DraftDefinition::Computed {
                         source,
@@ -820,6 +827,14 @@ impl Graph {
         let _profile = crate::experiment_profile::construction::scope(5);
         let _phase = crate::experiment_profile::scope(4);
         let old = self.live_record(id)?.clone();
+        if let Compiled::CapturedScalar(slot) = definition {
+            if self.captured_scalar.is_some_and(|(node, _)| node != id) {
+                return Err(Error::Quota);
+            }
+            self.captured_scalar = Some((id, slot));
+        } else if self.captured_scalar.is_some_and(|(node, _)| node == id) {
+            self.captured_scalar = None;
+        }
         self.bytes = self.bytes - old.definition.bytes() + definition.bytes();
         let old_selections = old.definition.selection_ids();
         let new_selections = definition.selection_ids();
@@ -996,7 +1011,8 @@ impl Graph {
                 return Err(Error::Cancelled);
             }
             match &edit {
-                Edit::NonNumeric(id)
+                Edit::CapturedScalar(id, _)
+                | Edit::NonNumeric(id)
                 | Edit::Input(id, _)
                 | Edit::ReplaceInput(id, _)
                 | Edit::Resolved(id, _, _)
@@ -1035,6 +1051,11 @@ impl Graph {
                         Ok(())
                     })?;
                     topology |= moved;
+                }
+                Edit::CapturedScalar(id, slot) => {
+                    candidate.replace(id, Compiled::CapturedScalar(slot))?;
+                    changed.insert(id);
+                    topology = true;
                 }
                 Edit::NonNumeric(id) => {
                     candidate.replace(id, Compiled::NonNumeric)?;
@@ -1123,6 +1144,12 @@ impl Graph {
                     topology = true;
                 }
                 Edit::Retire(id) => {
+                    if candidate
+                        .captured_scalar
+                        .is_some_and(|(node, _)| node == id)
+                    {
+                        candidate.captured_scalar = None;
+                    }
                     let record = candidate.live_record(id)?.clone();
                     // Preserve tombstone reverse links so historical references never rebind.
                     for target in record.definition.deps() {
@@ -1453,6 +1480,13 @@ impl Capture {
     pub fn version(&self) -> Version {
         self.0.version
     }
+    pub(super) fn captured_slots(&self) -> Vec<crate::captured::CapturedScalarId> {
+        self.0
+            .captured_scalar
+            .map(|(_, slot)| slot)
+            .into_iter()
+            .collect()
+    }
     pub fn evaluate(&self, outputs: &[NodeId]) -> Result<Calculation, ComputeError> {
         self.evaluate_retiring(outputs, drop)
     }
@@ -1494,8 +1528,24 @@ impl Capture {
         retire: impl FnOnce(CalculationScratch),
         cancelled: impl Fn() -> bool,
     ) -> Result<Calculation, ComputeError> {
+        self.invoke_sources_retiring_cancelled(request, None, retire, cancelled)
+    }
+    pub(super) fn invoke_sources_retiring_cancelled(
+        &self,
+        request: &crate::evaluation::InvocationRequest,
+        sources: Option<&BTreeMap<crate::captured::CapturedScalarId, crate::captured::ScalarValue>>,
+        retire: impl FnOnce(CalculationScratch),
+        cancelled: impl Fn() -> bool,
+    ) -> Result<Calculation, ComputeError> {
         if cancelled() {
             return Err(ComputeError::Cancelled);
+        }
+        let slots = self.captured_slots();
+        if sources.is_none() && !slots.is_empty() {
+            return Err(crate::evaluation::InvocationError::CapturedContext(
+                crate::captured::ContextError::Missing,
+            )
+            .into());
         }
         let _phase = crate::experiment_profile::scope(8);
         let mut work = Work::new(self.0.memory.clone());
@@ -1585,6 +1635,16 @@ impl Capture {
                 let record = self.0.live_record(id).unwrap();
                 let value = match &*record.definition {
                     Compiled::NonNumeric => Err(EvaluationError::NonNumericInput { node: id }),
+                    Compiled::CapturedScalar(slot) => match sources.and_then(|s| s.get(slot)) {
+                        Some(crate::captured::ScalarValue::Decimal(value)) => Ok(*value),
+                        Some(crate::captured::ScalarValue::Fault(fault_id)) => {
+                            Err(EvaluationError::CapturedSourceFailed {
+                                node: id,
+                                fault_id: *fault_id,
+                            })
+                        }
+                        None => Err(EvaluationError::MissingCapturedContext { node: id }),
+                    },
                     Compiled::Input => Ok(inputs
                         .get(&id)
                         .copied()
@@ -1620,11 +1680,7 @@ impl Capture {
                                             .get(&member)
                                             .ok_or(EvaluationError::InvalidExpression { node: id })?
                                             .as_ref()
-                                            .map_err(|e| EvaluationError::DependencyFailed {
-                                                node: id,
-                                                dependency: member,
-                                                origin: e.origin(),
-                                            })?;
+                                            .map_err(|e| e.dependency(id, member))?;
                                         total.checked_add(*value).map_err(|error| {
                                             EvaluationError::Arithmetic { node: id, error }
                                         })

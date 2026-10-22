@@ -106,6 +106,9 @@ impl Graph {
         cancelled: impl Fn() -> bool,
         allow_selections: bool,
     ) -> Result<MaterializedImage, Error> {
+        if self.captured_scalar.is_some() {
+            return Err(ModelError::Backend("captured scalar sources require a captured context; scalar materialization unsupported").into());
+        }
         let name_bytes = self.names.iter().map(|(name, _)| name.len()).sum::<usize>();
         let charge = self.memory.reserve(
             self.live
@@ -131,6 +134,7 @@ impl Graph {
             };
             let definition = match &*record.definition {
                 Compiled::NonNumeric => Definition::NonNumeric,
+                Compiled::CapturedScalar(id) => Definition::CapturedScalar(*id),
                 Compiled::Input => Definition::Input(**self.values.get(slot).unwrap()),
                 Compiled::Formula { source, binding } => Definition::Computed {
                     source: source.clone(),
@@ -226,11 +230,13 @@ impl Graph {
         })
     }
     pub fn export(&self, nodes: &[NodeId], ports: &[PortId]) -> Result<transfer::Image, Error> {
-        if self
-            .records
-            .iter()
-            .any(|(_, r)| r.live && matches!(*r.definition, Compiled::NonNumeric))
-        {
+        if self.records.iter().any(|(_, r)| {
+            r.live
+                && matches!(
+                    *r.definition,
+                    Compiled::NonNumeric | Compiled::CapturedScalar(_)
+                )
+        }) {
             return Err(
                 ModelError::Backend("unsupported nonnumeric content in scalar export").into(),
             );
@@ -320,6 +326,7 @@ impl Graph {
                 self.record(id).filter(|r| r.live).map(|r| {
                     let definition = match &*r.definition {
                         Compiled::NonNumeric => Definition::NonNumeric,
+                        Compiled::CapturedScalar(id) => Definition::CapturedScalar(*id),
                         Compiled::Input => Definition::Input(**self.values.get(id.node).unwrap()),
                         _ => Definition::Computed {
                             source: String::new(),

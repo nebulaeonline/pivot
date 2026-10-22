@@ -150,7 +150,9 @@ impl Writer {
                         BinaryOp::Divide => 3,
                     });
                 }
-                Token::At(_) | Token::SumAt { .. } => unreachable!("committed formulas are bound"),
+                Token::Output(_) | Token::At(_) | Token::SumAt { .. } => {
+                    unreachable!("validated ordinary document formulas are bound")
+                }
             }
         }
     }
@@ -308,6 +310,9 @@ pub struct Export {
 pub struct Document;
 impl Document {
     pub fn export_document(book: &Workbook, expected: Expected) -> Result<Export> {
+        if book.is_structured_proof() {
+            return Err(malformed());
+        }
         if book.expected() != expected {
             return Err(Error::StaleRevision);
         }
@@ -369,6 +374,7 @@ impl Document {
                 w.n(1);
                 w.pos(p);
                 match c {
+                    Content::StructuredFormula(_) => return Err(malformed()),
                     Content::LiteralText(text) => {
                         w.n(4);
                         w.text(text);
@@ -672,7 +678,8 @@ impl Document {
                 .find(|n| n.id == node.uuid())
                 .ok_or_else(malformed)?
                 .definition;
-            let (source, tokens, invalid) = match content {
+            let (source, tokens, invalid): (&str, &[Token], bool) = match content {
+                Content::StructuredFormula(_) => return Err(malformed()),
                 Content::LiteralText(text) => {
                     pivot_workbook::entry::classify(Position::new(1, 1), &format!("'{text}"), 4097)
                         .map_err(|_| malformed())?;
@@ -822,7 +829,9 @@ impl Document {
                         }
                         Token::Unary(op) => SelectionToken::Unary(*op),
                         Token::Binary(op) => SelectionToken::Binary(*op),
-                        Token::At(_) | Token::SumAt { .. } => return Err(malformed()),
+                        Token::Output(_) | Token::At(_) | Token::SumAt { .. } => {
+                            return Err(malformed());
+                        }
                     });
                 }
                 let has_sum = selection_tokens
@@ -864,7 +873,10 @@ impl Document {
                                 BinaryOp::Multiply => 2,
                                 BinaryOp::Divide => 3,
                             }),
-                            Token::At(_) | Token::SumAt { .. } | Token::Sum { .. } => {
+                            Token::Output(_)
+                            | Token::At(_)
+                            | Token::SumAt { .. }
+                            | Token::Sum { .. } => {
                                 return Err(malformed());
                             }
                         })
@@ -872,7 +884,7 @@ impl Document {
                     .collect::<Result<Vec<_>>>()?;
                 if *definition
                     != (storage::Definition::Bound {
-                        source: source.clone(),
+                        source: source.to_string(),
                         tokens: bound,
                     })
                 {
@@ -886,7 +898,7 @@ impl Document {
                 .get(id)
                 .and_then(|r| r.content.as_ref())
                 .ok_or_else(malformed)?;
-            let tokens = match content {
+            let tokens: &[Token] = match content {
                 Content::TextFormula(f) if f.diagnostic.is_none() => &f.tokens,
                 Content::Formula { tokens, .. } => tokens,
                 _ => return Err(malformed()),

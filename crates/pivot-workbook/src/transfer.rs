@@ -23,6 +23,9 @@ pub struct PortableWorkbook {
 impl Workbook {
     pub fn export_portable(&self, expected: Expected) -> Result<PortableWorkbook> {
         self.check(expected)?;
+        if self.is_structured_proof() {
+            return Err(Error::InvalidTarget);
+        }
         let data = &self.persistent;
         let mut pairs: Vec<_> = data
             .bindings
@@ -83,6 +86,16 @@ impl Workbook {
             || image.graph_id.is_nil()
             || image.worksheet.uuid().is_nil()
         {
+            return Err(Error::InvalidTarget);
+        }
+        if image.cells.iter().any(|(_, _, r)| match &r.content {
+            Some(Content::StructuredFormula(_)) => true,
+            Some(Content::Formula { tokens, .. }) => {
+                tokens.iter().any(|t| matches!(t, Token::Output(_)))
+            }
+            Some(Content::TextFormula(f)) => f.tokens.iter().any(|t| matches!(t, Token::Output(_))),
+            _ => false,
+        }) {
             return Err(Error::InvalidTarget);
         }
         let mut data = persistent::Data::new(runtime.memory());

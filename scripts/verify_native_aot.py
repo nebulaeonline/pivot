@@ -94,7 +94,7 @@ def main():
             (output/'clipboard-lock.json').write_text(json.dumps(lock, indent=2)+'\n', encoding='utf-8')
             run('desktop-ui', [str(executable)], env=env, timeout=180)
         report = json.loads((ui/'results.json').read_text(encoding='utf-8'))
-        for field in ['structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
+        for field in ['worksheet_binding', 'structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
             if not report.get(field, '').startswith('passed:'):
                 raise RuntimeError(f'Desktop acceptance field failed: {field}: {report}')
         if report['status'] != 'passed' or report['remaining_charge'] != 0 or report['execution_mode'] != 'native-aot':

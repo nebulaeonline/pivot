@@ -29,6 +29,7 @@ fn drafts(m: &WorkingModel) -> Vec<(NodeId, String, String)> {
                 name.into(),
                 match d {
                     DraftDefinition::NonNumeric => "nonnumeric".into(),
+                    DraftDefinition::CapturedScalar(id) => format!("captured:{id:?}"),
                     DraftDefinition::Input(v) => format!("{:?}", v.parts()),
                     DraftDefinition::Computed { source, binding } => {
                         format!("{source}:{binding:?}")

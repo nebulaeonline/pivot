@@ -14,10 +14,12 @@ use std::{
 use uuid::Uuid;
 
 mod projections;
+mod structured;
 
 const MAX_FRAME: usize = 1_048_576;
 const MAX_CELLS: usize = 256;
 struct Capture {
+    computational_state: String,
     proof: Option<pivot_workbook::projection::Capture>,
     value: CalculationCapture,
     revision: String,
@@ -29,6 +31,7 @@ struct PendingSave {
     location: pivot_storage::experimental_file::native::Location,
 }
 struct Session {
+    computational_state: String,
     proof: Option<pivot_workbook::projection::State>,
     proof_frame: Option<pivot_workbook::projection::Frame>,
     location: Option<pivot_storage::experimental_file::native::Location>,
@@ -63,7 +66,21 @@ fn location(p: Position) -> wire::Position {
 }
 fn readable_error(error: impl std::fmt::Display) -> String {
     let detail = error.to_string();
-    if detail.contains("NonNumericInput") {
+    if detail.contains("CapturedSourceFailed") {
+        for reason in [
+            "MissingProducer",
+            "MissingOutput",
+            "UnavailableResult",
+            "SchemaMismatch",
+            "TypeMismatch",
+            "NumericOverflow",
+        ] {
+            if detail.contains(reason) {
+                return format!("{reason}: the structured numeric output could not be used.");
+            }
+        }
+        "Structured source failed.".into()
+    } else if detail.contains("NonNumericInput") {
         "Nonnumeric input: a numeric formula cannot consume text.".into()
     } else if detail.contains("Unorderable") {
         "Circular formula reference.".into()
@@ -92,6 +109,7 @@ fn file_error(error: pivot_storage::experimental_file::Error) -> String {
 impl Session {
     fn new() -> Result<Self, String> {
         Ok(Self {
+            computational_state: Uuid::new_v4().to_string(),
             proof: None,
             proof_frame: None,
             location: None,
@@ -122,11 +140,46 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 3 {
+        if q.version != 4 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
         self.proof_frame.take();
+        if (self.book.as_ref().is_some_and(|b| b.is_structured_proof())
+            || operation == wire::request::Operation::BindingStart)
+            && !matches!(
+                operation,
+                wire::request::Operation::Read
+                    | wire::request::Operation::ProofRead
+                    | wire::request::Operation::Calculate
+                    | wire::request::Operation::ProofEvaluate
+                    | wire::request::Operation::Release
+                    | wire::request::Operation::Close
+            )
+            && q.computational_state != self.computational_state
+        {
+            r.conflict = true;
+            return Err("computational state conflict".into());
+        }
+        if (20..=30).contains(&q.operation) {
+            return self.handle_structured(q, r, operation);
+        }
+
+        if operation == Op::ProofPublish
+            && self.book.as_ref().is_some_and(|b| b.is_structured_proof())
+        {
+            let binding = self
+                .book
+                .as_ref()
+                .and_then(|b| b.current_structured_binding())
+                .ok_or("MissingProducer: no active producer")?;
+            self.handle_proof(q, r, operation)?;
+            self.proof
+                .as_mut()
+                .ok_or("missing proof")?
+                .adopt_output_identity(binding.producer, binding.output);
+            return Ok(());
+        }
         if matches!(
             operation,
             Op::ProofStart | Op::ProofPublish | Op::ProofLayout | Op::ProofRead | Op::ProofEvaluate
@@ -412,10 +465,20 @@ impl Session {
                 let cells = book
                     .read(book.expected(), Rectangle { first, last }, MAX_CELLS)
                     .map_err(|e| e.to_string())?;
-                let capture = book
+                let mut capture = book
                     .capture_local(book.expected())
                     .map_err(|e| e.to_string())?;
+                structured::prepare_capture(self.proof.as_ref(), &mut capture)?;
+                r.capture_state = self.computational_state.clone();
+                if let Some(source) = &self.proof {
+                    r.captured_source_epoch = source.epoch;
+                    r.captured_source_generation = source
+                        .current_generation()
+                        .map(|id| id.0.to_string())
+                        .unwrap_or_default();
+                }
                 r.generation = Uuid::new_v4().to_string();
+                r.capture_identity = r.generation.clone();
                 for cell in cells.cells {
                     let mut view = wire::Cell {
                         at: Some(location(cell.position)),
@@ -423,6 +486,11 @@ impl Session {
                         node_id: cell.node.uuid().to_string(),
                         ..Default::default()
                     };
+                    if matches!(&cell.content, Content::StructuredFormula(_))
+                        || matches!(&cell.content,Content::Formula{tokens,..} if tokens.iter().any(|t|matches!(t,pivot_workbook::Token::Output(_))))
+                    {
+                        structured::set_cell_binding(&mut view, &capture);
+                    }
                     view.content = Some(match cell.content {
                         Content::Decimal(d) => wire::cell::Content::Number({
                             let (lo, mid, hi, negative, scale) = d.parts();
@@ -436,6 +504,9 @@ impl Session {
                         }),
                         Content::TextFormula(f) => wire::cell::Content::Formula(f.original_source),
                         Content::Formula { source, .. } => wire::cell::Content::Formula(source),
+                        Content::StructuredFormula(f) => {
+                            wire::cell::Content::Formula(f.source().into())
+                        }
                         Content::LiteralText(text) => wire::cell::Content::Text(text),
                         Content::Blank => wire::cell::Content::Blank(true),
                     });
@@ -444,7 +515,10 @@ impl Session {
                         match capture.evaluate(&[cell.reference]) {
                             Ok(result) => match &result.values[0].1 {
                                 Ok(v) => view.value = Some(decimal(*v)),
-                                Err(e) => view.error = readable_error(format!("{e:?}")),
+                                Err(e) => {
+                                    structured::set_cell_fault(&mut view, e, &capture);
+                                    view.error = readable_error(format!("{e:?}"));
+                                }
                             },
                             Err(e) => view.error = readable_error(e),
                         }
@@ -474,18 +548,32 @@ impl Session {
                 self.captures.insert(
                     id.clone(),
                     Capture {
+                        computational_state: self.computational_state.clone(),
                         proof: self
                             .proof
                             .as_ref()
                             .map(|p| p.capture())
                             .transpose()
                             .map_err(|e| e.to_string())?,
-                        value: book
-                            .capture_local(book.expected())
-                            .map_err(|e| e.to_string())?,
+                        value: {
+                            let mut capture = book
+                                .capture_local(book.expected())
+                                .map_err(|e| e.to_string())?;
+                            structured::prepare_capture(self.proof.as_ref(), &mut capture)?;
+                            capture
+                        },
                         revision: self.revision.clone(),
                     },
                 );
+                r.capture_identity = id.clone();
+                r.capture_state = self.computational_state.clone();
+                if let Some(source) = &self.proof {
+                    r.captured_source_epoch = source.epoch;
+                    r.captured_source_generation = source
+                        .current_generation()
+                        .map(|id| id.0.to_string())
+                        .unwrap_or_default();
+                }
                 r.capture = id;
             }
             Op::Calculate => {
@@ -493,6 +581,15 @@ impl Session {
                     return Err("1..256 outputs required".into());
                 }
                 let capture = self.captures.get(&q.capture).ok_or("unknown capture")?;
+                r.capture_identity = q.capture.clone();
+                r.capture_state = capture.computational_state.clone();
+                if let Some(source) = &capture.proof {
+                    r.captured_source_epoch = source.epoch;
+                    r.captured_source_generation = source
+                        .available_generation()
+                        .map(|id| id.0.to_string())
+                        .unwrap_or_default();
+                }
                 r.revision = capture.revision.clone();
                 let refs = q
                     .outputs
@@ -514,7 +611,10 @@ impl Session {
                     };
                     match value {
                         Ok(v) => cell.value = Some(decimal(v)),
-                        Err(e) => cell.error = format!("{e:?}"),
+                        Err(e) => {
+                            structured::set_cell_fault(&mut cell, &e, &capture.value);
+                            cell.error = readable_error(format!("{e:?}"));
+                        }
                     };
                     r.cells.push(cell);
                 }
@@ -552,15 +652,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 3,
+            version: 4,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
         };
         let start = Instant::now();
+        let before = (
+            session.book.as_ref().map(|b| b.expected()),
+            session.proof.as_ref().map(|p| p.epoch),
+            session
+                .book
+                .as_ref()
+                .is_some_and(|b| b.is_structured_proof()),
+        );
         if let Err(e) = session.handle(&q, &mut r) {
-            r.error = e
+            r.error = e;
         }
+        let after = (
+            session.book.as_ref().map(|b| b.expected()),
+            session.proof.as_ref().map(|p| p.epoch),
+            session
+                .book
+                .as_ref()
+                .is_some_and(|b| b.is_structured_proof()),
+        );
+        if before != after {
+            session.computational_state = Uuid::new_v4().to_string();
+        }
+        r.computational_state = session.computational_state.clone();
+        r.binding_mode = session
+            .book
+            .as_ref()
+            .is_some_and(|b| b.is_structured_proof());
         r.document_id = session
             .book
             .as_ref()

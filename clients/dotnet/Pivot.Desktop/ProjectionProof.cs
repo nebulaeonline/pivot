@@ -18,7 +18,7 @@ public partial class MainWindow
         AddressLabel.Text=at.Key.Length==0?"Source":at.Key;
         SelectionLabel.Text=$"Read-only projection {at.Projection} · Record {at.Key} · Generation {at.Generation}";
         synchronizing=true;FormulaEntry.Text="";synchronizing=false;
-        StatusLabel.Text=Sheet.MissingProjectedRecord?"Selected record is missing; projection header selected.":"Projected records are read-only. Escape returns to the worksheet.";
+        StatusLabel.Text=Sheet.ProjectionFrame?.Generation.Length==0?"Source unavailable; projection header selected.":Sheet.MissingProjectedRecord?"Selected record is missing; projection header selected.":"Projected records are read-only. Escape returns to the worksheet.";
         return true;
     }
     private async Task ChangeProofAsync(Func<Task> action)

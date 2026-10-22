@@ -6,3 +6,6 @@ pub mod model;
 
 /// Benchmark-only instrumentation; no default production path changes.
 pub mod experiment_profile;
+
+#[doc(hidden)]
+pub mod captured;

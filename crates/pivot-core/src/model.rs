@@ -111,6 +111,7 @@ impl std::error::Error for SnapshotError {}
 enum Definition {
     /// Valid nonnumeric worksheet content; no string payload in the graph.
     NonNumeric,
+    CapturedScalar(crate::captured::CapturedScalarId),
     Input(PivotDecimal),
     Computed {
         source: String,
@@ -130,7 +131,9 @@ impl Clone for WorkingNode {
             std::mem::size_of::<Self>()
                 + self.name.len()
                 + match &self.definition {
-                    Definition::NonNumeric | Definition::Input(_) => 0,
+                    Definition::NonNumeric
+                    | Definition::CapturedScalar(_)
+                    | Definition::Input(_) => 0,
                     Definition::Computed { source, binding } => {
                         source.len()
                             + binding
@@ -170,6 +173,7 @@ pub struct GraphImage {
 pub enum DraftDefinition<'a> {
     /// Valid nonnumeric worksheet content; no string payload in the graph.
     NonNumeric,
+    CapturedScalar(crate::captured::CapturedScalarId),
     Input(PivotDecimal),
     Computed {
         source: &'a str,
@@ -337,6 +341,7 @@ impl GraphImage {
                 n.name.as_str(),
                 match &n.definition {
                     Definition::NonNumeric => DraftDefinition::NonNumeric,
+                    Definition::CapturedScalar(id) => DraftDefinition::CapturedScalar(*id),
                     Definition::Input(v) => DraftDefinition::Input(*v),
                     Definition::Computed { source, binding } => DraftDefinition::Computed {
                         source,
@@ -627,7 +632,9 @@ impl GraphImage {
                 std::mem::size_of::<SnapshotNode>()
                     + node.name.len()
                     + match &node.definition {
-                        Definition::NonNumeric | Definition::Input(_) => 0,
+                        Definition::NonNumeric
+                        | Definition::CapturedScalar(_)
+                        | Definition::Input(_) => 0,
                         Definition::Computed { source, binding } => {
                             source.len()
                                 + binding
@@ -642,6 +649,9 @@ impl GraphImage {
             );
             let (definition, dependencies) = match &node.definition {
                 Definition::NonNumeric => (SnapshotDefinition::NonNumeric, Vec::new()),
+                Definition::CapturedScalar(id) => {
+                    (SnapshotDefinition::CapturedScalar(*id), Vec::new())
+                }
                 Definition::Input(value) => (SnapshotDefinition::Input(*value), Vec::new()),
                 Definition::Computed { source, binding } => {
                     let (tokens, dependencies) = binding.clone()?;
@@ -746,6 +756,7 @@ pub enum BoundToken {
 pub enum SnapshotDefinition {
     /// Valid nonnumeric worksheet content; no string payload in the graph.
     NonNumeric,
+    CapturedScalar(crate::captured::CapturedScalarId),
     Input(PivotDecimal),
     Computed {
         source: String,
@@ -834,7 +845,7 @@ fn bind_with(
                 unreachable!("spreadsheet selections require workbook binding")
             }
             Expr::Decimal(value) => tokens.push(BoundToken::Decimal(*value)),
-            Expr::CellReference { span, .. } => {
+            Expr::CapturedOutput { span, .. } | Expr::CellReference { span, .. } => {
                 return Err(SnapshotError::Parse {
                     node: id,
                     error: ParseError {

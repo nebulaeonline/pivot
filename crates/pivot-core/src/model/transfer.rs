@@ -208,6 +208,11 @@ pub(super) fn export_image(
     for (&id, n) in &model.nodes {
         let definition = match &n.definition {
             Definition::NonNumeric => NodeDefinition::NonNumeric,
+            Definition::CapturedScalar(_) => {
+                return Err(ModelError::Backend(
+                    "unsupported captured source in scalar transfer",
+                ));
+            }
             Definition::Input(v) => NodeDefinition::Input(*v),
             Definition::Computed { source, binding } => NodeDefinition::Computed {
                 source: source.clone(),
@@ -313,6 +318,11 @@ pub fn export_snapshot(
     for (&id, n) in &data.nodes {
         let definition = match &n.definition {
             SnapshotDefinition::NonNumeric => Definition::NonNumeric,
+            SnapshotDefinition::CapturedScalar(_) => {
+                return Err(ModelError::Backend(
+                    "unsupported captured source in scalar transfer",
+                ));
+            }
             SnapshotDefinition::Input(v) => Definition::Input(*v),
             SnapshotDefinition::Computed { source, tokens } => Definition::Computed {
                 source: source.clone(),

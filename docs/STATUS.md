@@ -12,21 +12,32 @@ AOT pass. Default/all-feature Rust totals are 318/334 on Windows and 319/335 on
 Linux and macOS. All nine desktop fields and peers pass with zero charge. Mac/APFS
 validation matched 373 source hashes and 190 inputs; 441 returned files are present.
 
-Current design work: **worksheet bindings to structured numeric outputs — proposed;
-architectural direction approved; focused contract addendum awaiting parent review**.
-The parent authorizes addendum work only; no implementation yet.
+Current milestone: **Bounded Worksheet-to-Structured-Output Binding Proof — implemented; three-platform validation complete; parent implementation review pending**.
+ADR-0020 and its focused contracts are accepted with two implementation clarifications.
+The opt-in implementation is in place. Design approval does not constitute implementation acceptance.
+[Implementation and validation handoff](handoffs/2026-10-22-worksheet-structured-binding-implementation.md).
+Final Windows/Linux/native macOS ARM64 managed CI, strict all-feature checks and
+actual Native AOT pass. Rust totals are 328/344 on Windows and 329/345 on Linux/macOS.
+All ten desktop fields and peers pass with zero charge. Mac/APFS source validation
+matched 390 source files and 199 inputs; all 475 returned evidence files were
+independently hash-verified. No product changes were needed on Mac. The initial
+Mac sandbox/tool-access failure and retained intermittent Windows clipboard-check
+failure are documented with their successful unchanged reruns.
+[Mac review and evidence](handoffs/2026-10-22-worksheet-structured-binding-implementation.md#macosapfs-review--three-platform-validation-complete).
 [ADR-0020](adr/0020-worksheet-structured-output-bindings.md),
-[review packet and acceptance matrix](handoffs/2026-10-22-structured-output-binding-design.md),
-[review decision](handoffs/2026-10-22-structured-output-binding-design-review.md),
-[concrete contract addendum](handoffs/2026-10-22-structured-output-binding-contract-addendum.md).
-The proposal binds stable DocumentId/ProducerId/OutputId/type, prepares capture-local
-numeric/fault inputs for the canonical graph, and separates rejected publication
-attempts from authoritative unavailable heads. It covers rename/delete/recreation,
-composite capture/authority, error propagation and copy boundaries. Permanent `#`
-grammar, persistence and implementation remain unapproved. No product code changed.
-Current ordinal projection anchors stay experimental; structural row editing needs
-reviewed identity/affinity rules. No connectors, persistence/WB5, scheduler, collection
-evaluator, formatting or capacity expansion is included.
+[contract approval and implementation boundary](handoffs/2026-10-22-structured-output-binding-contract-review.md),
+[contract addendum](handoffs/2026-10-22-structured-output-binding-contract-addendum.md),
+[acceptance matrix](handoffs/2026-10-22-structured-output-binding-design.md).
+The implementation remains an opt-in non-savable proof: one producer/output/shared scalar slot,
+actual ordinary formula consumers/dependents/SUM and two views. Preserve private
+`@{Producer.Output}` typed authoring, generic captured faults, exact composite authority,
+server-owned duplication and OS Copy refusal for structured formulas; no format change.
+Actual canonical tests verify error precedence without changing accepted semantics.
+Distinct immutable versions are charged once across captures; separately owned
+buffers retain separate charges. All agreed caps remain in force.
+Three-platform validation is complete; submit for parent implementation review.
+Permanent integration, `#` grammar, persistence/WB5, connectors, scheduler, collection
+runtime, structural row edits, formatting and capacity expansion remain excluded.
 
 Accepted preceding milestone: **Bounded Document-Owned Worksheet Text — accepted; workstream closed**.
 [Acceptance and scope closure](handoffs/2026-10-21-worksheet-text-implementation-review.md),

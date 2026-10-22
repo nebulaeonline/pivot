@@ -163,6 +163,7 @@ impl DefinitionView {
             .capture_local()
             .map_err(|_| CaptureFailure::Resource("capture admission"))?;
         Ok(CalculationCapture {
+            capture_id: next_capture_identity()?,
             revision: self.revision,
             state: PersistentCapture {
                 value: ticket.own(value),

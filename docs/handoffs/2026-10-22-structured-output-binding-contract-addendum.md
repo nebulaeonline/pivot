@@ -1,10 +1,15 @@
 # ADR-0020 focused implementation-contract addendum
 
-Date: 2026-10-22. **Proposed; parent approval required. No implementation authorized.**
+Date: 2026-10-22. **Approved with two implementation clarifications; bounded experimental implementation now in place; three-platform validation complete; parent implementation review pending.**
+[Contract acceptance and implementation boundary](2026-10-22-structured-output-binding-contract-review.md).
+Actual canonical error precedence is authoritative: test it and stop/report any
+discrepancy rather than changing accepted semantics. Count distinct immutable formula
+versions once across shared owners; separately owned buffers remain separately charged.
 [ADR-0020](../adr/0020-worksheet-structured-output-bindings.md),
 [review decision](2026-10-22-structured-output-binding-design-review.md).
-These concrete proposals refine, rather than implement, the approved architecture.
-The choices below, especially private spelling, copy restriction and quotas, need review.
+This document records the approved design contracts. The linked implementation handoff
+records the subsequent implementation and its validation separately.
+The parent accepts the private spelling, copy restriction and quotas for this proof only.
 
 ## 1. Narrow core leaf and immutable context
 
@@ -245,8 +250,8 @@ slot count, head and exact state token remain unchanged. Test shutdown with capt
 released, queued/cancelled work drained and zero runtime-domain charge. Tests requiring
 more than one resident slot must expect admission rejection, not quietly raise caps.
 
-Before implementation, parent review must approve these exact leaf/context/fault,
-private token/annotation, DuplicateBlock-versus-OS-copy and quota choices. The future
+Parent review approves these exact leaf/context/fault, private token/annotation,
+DuplicateBlock-versus-OS-copy and quota choices for the bounded experiment. The future
 acceptance suite must extend the original matrix with forged/extra/missing context
 entries; arbitrary NodeId injection refusal; invalid spans and duplicate occurrences;
 repeated/mixed references; unchanged versus explicit reauthoring; deterministic
@@ -255,6 +260,10 @@ unsupported copy; pinned-retired-slot refusal and reclamation; staged quota roll
 actual ordinary formula dependents and SUM; and ordinary graphs unchanged.
 
 Keep opt-in non-savability and all three-platform managed/Native AOT gates. This is
-an addendum for review, not evidence that any source leaf, authoring command, protocol
+an accepted design addendum, not evidence that any source leaf, authoring command, protocol
 change, copy path or test is implemented. No core/workbook/protocol/desktop code,
 PIVOTCB2, WB4 or capacity increase accompanies it.
+
+
+Implementation follow-up: [bounded proof and validation evidence](2026-10-22-worksheet-structured-binding-implementation.md).
+The proposal and review language above records the design phase; implementation acceptance is separate.

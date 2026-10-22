@@ -61,7 +61,8 @@ fn arithmetic_failures_propagate_without_poisoning_other_outputs() {
         Some(&Err(EvaluationError::DependencyFailed {
             node: downstream,
             dependency: dependent,
-            origin: bad
+            origin: bad,
+            fault_id: None,
         }))
     );
     assert_eq!(all.value(good), Some(&Ok(d("-11"))));

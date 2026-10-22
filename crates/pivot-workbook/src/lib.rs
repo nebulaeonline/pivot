@@ -12,6 +12,8 @@ use std::collections::BTreeSet;
 use uuid::Uuid;
 pub mod clipboard;
 mod persistent;
+#[doc(hidden)]
+pub mod structured;
 pub mod transfer;
 
 macro_rules! identity {
@@ -116,6 +118,8 @@ impl DecimalInput {
 /// Typed source is provenance; SetFormulaText uses the shared spreadsheet parser.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
+    #[doc(hidden)]
+    Output(structured::OutputBinding),
     SumAt {
         first: Position,
         last: Position,
@@ -160,7 +164,12 @@ pub enum Content {
     TextFormula(TextFormula),
     Blank,
     Decimal(DecimalInput),
-    Formula { source: String, tokens: Vec<Token> },
+    Formula {
+        source: String,
+        tokens: Vec<Token>,
+    },
+    #[doc(hidden)]
+    StructuredFormula(structured::StructuredContent),
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CellView {
@@ -410,7 +419,7 @@ impl Workbook {
         Ok(())
     }
     fn lower_text(&self, parsed: &std::result::Result<Expr, ParseError>) -> LoweredFormula {
-        Self::lower_text_axes(&self.rows, &self.columns, parsed)
+        Self::lower_text_axes(&self.rows, &self.columns, parsed, None)
     }
     pub fn lower_text_bounds(
         rows: u32,
@@ -427,12 +436,14 @@ impl Workbook {
                 length: columns,
             },
             parsed,
+            None,
         )
     }
     fn lower_text_axes(
         rows: &Axis,
         columns: &Axis,
         parsed: &std::result::Result<Expr, ParseError>,
+        output_binding: Option<structured::OutputBinding>,
     ) -> LoweredFormula {
         let mut references = vec![];
         let mut tokens = vec![];
@@ -497,7 +508,20 @@ impl Workbook {
                             stack.push((left, false));
                         }
                     }
-                    Expr::Name(_) => unreachable!("spreadsheet parser emits typed references"),
+                    Expr::CapturedOutput { span, .. } => {
+                        if let Some(binding) = output_binding {
+                            tokens.push(Token::Output(binding));
+                        } else {
+                            diagnostic = Some(ParseError {
+                                offset: span.start,
+                                message: "structured binding unavailable",
+                            });
+                            break;
+                        }
+                    }
+                    Expr::Name(_) => {
+                        unreachable!("ordinary spreadsheet parser emits typed references")
+                    }
                 }
             }
         }
@@ -563,10 +587,19 @@ pub struct CalculationCapture {
     worksheet: WorksheetId,
     pinned: persistent::State,
     local_core: pivot_core::model::integration::CalculationCapture,
+    scalar_context: Option<structured::CapturedAdapterContext>,
+    source_fault: Option<(
+        pivot_core::captured::CapturedFaultId,
+        structured::SourceFault,
+    )>,
     limit: usize,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CellError {
+    CapturedSourceFailed {
+        fault_id: pivot_core::captured::CapturedFaultId,
+        kind: structured::SourceFault,
+    },
     NonNumericInput,
     Arithmetic(DecimalError),
     DependencyFailed,

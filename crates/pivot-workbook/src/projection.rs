@@ -48,18 +48,18 @@ impl std::fmt::Display for Error {
 }
 impl std::error::Error for Error {}
 type Result<T> = std::result::Result<T, Error>;
-struct Budget {
+pub(crate) struct Budget {
     used: AtomicUsize,
     pins: AtomicUsize,
     memory: Memory,
 }
-struct Hold {
+pub(crate) struct Hold {
     budget: Arc<Budget>,
     bytes: usize,
     _charge: Charge,
 }
 impl Hold {
-    fn new(b: &Arc<Budget>, bytes: usize) -> Result<Self> {
+    pub(crate) fn new(b: &Arc<Budget>, bytes: usize) -> Result<Self> {
         b.used
             .try_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
                 v.checked_add(bytes).filter(|v| *v <= OWNERSHIP)
@@ -139,6 +139,7 @@ pub struct State {
     pub presentation: u64,
     pub changed: bool,
     pub last_error: Option<Error>,
+    unavailable: bool,
     generation: Option<Arc<Generation>>,
     numeric: WorkingModel,
     budget: Arc<Budget>,
@@ -148,11 +149,15 @@ pub struct Capture {
     pub generation: Arc<Generation>,
     pub producer: ProducerId,
     pub epoch: u64,
+    unavailable: bool,
     numeric: CalculationCapture,
     _pin: Pin,
 }
 impl Capture {
     pub fn evaluate(&self) -> Result<(PivotDecimal, PivotDecimal)> {
+        if self.unavailable {
+            return Err(Error::Unavailable);
+        }
         let total = self.generation.total()?;
         let result = self
             .numeric
@@ -224,6 +229,7 @@ impl State {
             presentation: 0,
             changed: false,
             last_error: None,
+            unavailable: false,
             generation: None,
             numeric,
             budget,
@@ -299,6 +305,7 @@ impl State {
         });
         self.generation = Some(generation);
         self.epoch = epoch;
+        self.unavailable = false;
         self.presentation = presentation;
         self.changed = true;
         Ok(())
@@ -320,6 +327,7 @@ impl State {
             generation,
             producer: self.producer,
             epoch: self.epoch,
+            unavailable: self.unavailable,
             numeric: self
                 .numeric
                 .capture_calculation()
@@ -356,7 +364,7 @@ impl State {
         if first == 0 || count == 0 || count > 20 {
             return Err(Error::Bounds);
         }
-        let generation = self.generation.as_ref();
+        let generation = self.generation.as_ref().filter(|_| !self.unavailable);
         let n = generation.map_or(0, |g| g.rows.len());
         let height = n.max(1) + 2;
         let hold = Hold::new(&self.budget, 24_576 + count as usize * 10_240)?;
@@ -458,10 +466,75 @@ impl State {
     pub fn record_keys(&self) -> Vec<String> {
         self.generation
             .as_ref()
+            .filter(|_| !self.unavailable)
             .map(|g| g.rows.iter().map(|r| r.key.clone()).collect())
             .unwrap_or_default()
     }
     pub fn used_bytes(&self) -> usize {
         self.budget.used.load(Ordering::SeqCst)
+    }
+}
+
+impl Budget {
+    pub(crate) fn binding_budget(memory: Memory) -> Arc<Self> {
+        Arc::new(Self {
+            used: AtomicUsize::new(0),
+            pins: AtomicUsize::new(0),
+            memory,
+        })
+    }
+}
+impl State {
+    #[doc(hidden)]
+    pub fn enable_binding_book(&self, book: &mut crate::Workbook) -> crate::Result<()> {
+        book.enable_structured_budget(self.producer.0, self.output.0, self.budget.clone())
+    }
+}
+
+impl State {
+    pub fn publish_unavailable(&mut self, expected: u64) -> Result<()> {
+        if expected != self.epoch {
+            return Err(Error::Stale);
+        }
+        let epoch = self.epoch.checked_add(1).ok_or(Error::Bounds)?;
+        let presentation = self.presentation.checked_add(1).ok_or(Error::Bounds)?;
+        self.epoch = epoch;
+        self.presentation = presentation;
+        self.unavailable = true;
+        self.changed = true;
+        self.last_error = None;
+        Ok(())
+    }
+    pub fn current_total(&self) -> Result<PivotDecimal> {
+        if self.unavailable {
+            return Err(Error::Unavailable);
+        }
+        self.generation.as_ref().ok_or(Error::Unavailable)?.total()
+    }
+}
+
+impl State {
+    pub fn current_generation(&self) -> Option<GenerationId> {
+        self.generation
+            .as_ref()
+            .filter(|_| !self.unavailable)
+            .map(|g| g.id)
+    }
+}
+impl Capture {
+    pub fn available_generation(&self) -> Option<GenerationId> {
+        (!self.unavailable).then_some(self.generation.id)
+    }
+}
+
+impl State {
+    pub fn adopt_output_identity(&mut self, producer: uuid::Uuid, output: uuid::Uuid) {
+        if self.producer.0 != producer {
+            for placement in &mut self.projections {
+                placement.id = ProjectionId(uuid::Uuid::new_v4());
+            }
+        }
+        self.producer = ProducerId(producer);
+        self.output = OutputId(output);
     }
 }

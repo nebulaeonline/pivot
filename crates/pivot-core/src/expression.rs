@@ -5,6 +5,12 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
+    #[doc(hidden)]
+    CapturedOutput {
+        producer: String,
+        output: String,
+        span: std::ops::Range<usize>,
+    },
     Decimal(PivotDecimal),
     Name(String),
     SumRange {
@@ -85,6 +91,17 @@ fn parse_mode(source: &str, spreadsheet: bool) -> Result<Expr, ParseError> {
     parse_mode_counted(source, spreadsheet).0
 }
 fn parse_mode_counted(source: &str, spreadsheet: bool) -> (Result<Expr, ParseError>, usize) {
+    parse_flags_counted(source, spreadsheet, false)
+}
+#[doc(hidden)]
+pub fn parse_structured_proof(source: &str) -> Result<Expr, ParseError> {
+    parse_flags_counted(source, true, true).0
+}
+fn parse_flags_counted(
+    source: &str,
+    spreadsheet: bool,
+    structured: bool,
+) -> (Result<Expr, ParseError>, usize) {
     if source.len() > 4096 {
         return (
             Err(ParseError {
@@ -96,6 +113,7 @@ fn parse_mode_counted(source: &str, spreadsheet: bool) -> (Result<Expr, ParseErr
     }
     let mut p = Parser {
         source,
+        structured,
         pos: 0,
         spreadsheet,
         work: 0,
@@ -117,12 +135,33 @@ fn parse_mode_counted(source: &str, spreadsheet: bool) -> (Result<Expr, ParseErr
     (result, p.work)
 }
 struct Parser<'a> {
+    structured: bool,
     source: &'a str,
     pos: usize,
     spreadsheet: bool,
     work: usize,
 }
 impl Parser<'_> {
+    fn proof_label(&mut self) -> Result<String, ParseError> {
+        let start = self.pos;
+        if !self
+            .peek()
+            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
+        {
+            return Err(self.error("invalid proof label"));
+        }
+        self.pos += 1;
+        while self
+            .peek()
+            .is_some_and(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            self.pos += 1;
+        }
+        if self.pos - start > 63 {
+            return Err(self.error("proof label too long"));
+        }
+        Ok(self.source[start..self.pos].into())
+    }
     fn error(&self, message: &'static str) -> ParseError {
         ParseError {
             offset: self.pos,
@@ -233,6 +272,29 @@ impl Parser<'_> {
                 }
                 self.pos += 1;
                 inner
+            }
+            Some(b'@') if self.structured => {
+                let start = self.pos;
+                self.pos += 1;
+                if self.peek() != Some(b'{') {
+                    return Err(self.error("expected structured opening brace"));
+                }
+                self.pos += 1;
+                let producer = self.proof_label()?;
+                if self.peek() != Some(b'.') {
+                    return Err(self.error("expected structured output separator"));
+                }
+                self.pos += 1;
+                let output = self.proof_label()?;
+                if self.peek() != Some(b'}') {
+                    return Err(self.error("expected structured closing brace"));
+                }
+                self.pos += 1;
+                Expr::CapturedOutput {
+                    producer,
+                    output,
+                    span: start..self.pos,
+                }
             }
             Some(b'0'..=b'9') => {
                 let start = self.pos;

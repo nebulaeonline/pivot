@@ -71,6 +71,7 @@ struct PersistentCapture {
 
 /// Calculation state is separate from the explicit complete-inspection snapshot API.
 pub struct CalculationCapture {
+    capture_id: u64,
     revision: Revision,
     state: PersistentCapture,
 }
@@ -90,6 +91,7 @@ impl CapturedResult {
 impl Clone for CalculationCapture {
     fn clone(&self) -> Self {
         Self {
+            capture_id: self.capture_id,
             revision: self.revision,
             state: self.state.clone(),
         }
@@ -131,6 +133,21 @@ impl CalculationCapture {
         request: &crate::evaluation::InvocationRequest,
         cancel: &CancellationToken,
     ) -> Result<CapturedResult, CalculationFailure> {
+        self.invoke_captured(request, None, cancel)
+    }
+    fn invoke_captured(
+        &self,
+        request: &crate::evaluation::InvocationRequest,
+        sources: Option<&ScalarContext>,
+        cancel: &CancellationToken,
+    ) -> Result<CapturedResult, CalculationFailure> {
+        if sources.is_some_and(|s| s.capture != self.capture_id) {
+            return Err(CalculationFailure::Invocation(
+                crate::evaluation::InvocationError::CapturedContext(
+                    crate::captured::ContextError::Snapshot,
+                ),
+            ));
+        }
         if cancel.is_cancelled() {
             return Err(CalculationFailure::Cancelled);
         }
@@ -149,7 +166,12 @@ impl CalculationCapture {
             let value = s
                 .value
                 .get()
-                .invoke_retiring_cancelled(request, |v| scratch.retire(v), || cancel.is_cancelled())
+                .invoke_sources_retiring_cancelled(
+                    request,
+                    sources.map(|s| &s.values),
+                    |v| scratch.retire(v),
+                    || cancel.is_cancelled(),
+                )
                 .map_err(compute_failure)?;
             if cancel.is_cancelled() {
                 result.retire(value);
@@ -291,6 +313,7 @@ impl WorkingModel {
             }
         };
         Ok(CalculationCapture {
+            capture_id: next_capture_identity()?,
             revision: self.revision,
             state,
         })
@@ -327,6 +350,7 @@ impl WorkingModel {
             .capture_local()
             .map_err(|_| CaptureFailure::Resource("capture admission"))?;
         Ok(CalculationCapture {
+            capture_id: next_capture_identity()?,
             revision: self.revision,
             state: PersistentCapture {
                 value: ticket.own(capture),
@@ -597,6 +621,95 @@ fn materialize_snapshot(
             Ok(snapshot)
         })
         .map_err(SnapshotError::Backend)?
+}
+
+/// Immutable integration-owned context; carries its domain charge until final owner drop.
+#[doc(hidden)]
+pub struct ScalarContext {
+    _snapshot: PersistentCapture,
+    capture: u64,
+    values: BTreeMap<crate::captured::CapturedScalarId, crate::captured::ScalarValue>,
+    _charge: resources::Charge,
+}
+impl CalculationCapture {
+    #[doc(hidden)]
+    pub fn scalar_context(
+        &self,
+        entries: &[(
+            crate::captured::CapturedScalarId,
+            crate::captured::ScalarValue,
+        )],
+        diagnostics: &[crate::captured::CapturedFaultId],
+    ) -> Result<ScalarContext, crate::captured::ContextError> {
+        use crate::captured::{ContextError as E, ScalarValue};
+        if entries.len() > 1 || diagnostics.len() > 1 {
+            return Err(E::Duplicate);
+        }
+        let charge = self
+            .state
+            .value
+            .get()
+            .memory()
+            .reserve(4096)
+            .map_err(|_| E::Resource)?;
+        let slots = self.state.value.get().captured_slots();
+        let mut values = BTreeMap::new();
+        for &(id, value) in entries {
+            if !slots.contains(&id) {
+                return Err(E::Unknown);
+            }
+            if values.insert(id, value).is_some() {
+                return Err(E::Duplicate);
+            }
+        }
+        if slots.len() != values.len() {
+            return Err(E::Missing);
+        }
+        let faults: Vec<_> = values
+            .values()
+            .filter_map(|v| {
+                if let ScalarValue::Fault(id) = v {
+                    Some(*id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if faults != diagnostics {
+            return Err(E::Fault);
+        }
+        Ok(ScalarContext {
+            _snapshot: self.state.clone(),
+            capture: self.capture_id,
+            values,
+            _charge: charge,
+        })
+    }
+    #[doc(hidden)]
+    pub fn evaluate_scalar_context(
+        &self,
+        outputs: &[NodeId],
+        context: &ScalarContext,
+    ) -> Result<CapturedResult, CalculationFailure> {
+        self.invoke_captured(
+            &crate::evaluation::InvocationRequest {
+                inputs: vec![],
+                outputs: outputs.to_vec(),
+            },
+            Some(context),
+            &CancellationToken::default(),
+        )
+    }
+}
+
+fn next_capture_identity() -> Result<u64, CaptureFailure> {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    NEXT.try_update(
+        std::sync::atomic::Ordering::Relaxed,
+        std::sync::atomic::Ordering::Relaxed,
+        |n| n.checked_add(1),
+    )
+    .map_err(|_| CaptureFailure::Resource("capture identity exhausted"))
 }
 
 #[cfg(test)]

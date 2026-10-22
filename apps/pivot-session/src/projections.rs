@@ -39,7 +39,10 @@ impl Session {
                 .and_then(|c| c.proof.as_ref())
                 .ok_or("unknown structured capture")?;
             let mut value = wire::ProofEvaluation {
-                generation: captured.generation.id.0.to_string(),
+                generation: captured
+                    .available_generation()
+                    .map(|id| id.0.to_string())
+                    .unwrap_or_default(),
                 epoch: captured.epoch,
                 ..Default::default()
             };
@@ -50,7 +53,7 @@ impl Session {
                 }
                 Err(e) => value.error = e.to_string(),
             }
-            if !q.proof_key.is_empty() {
+            if captured.available_generation().is_some() && !q.proof_key.is_empty() {
                 match captured.generation.record(&q.proof_key) {
                     Ok(record) => value.description = record.description.clone(),
                     Err(e) => value.error = e.to_string(),
@@ -141,10 +144,18 @@ impl Session {
                     .filter(|row| row.kind == 0)
                     .map(|row| row.ordinary)
                     .collect();
+                r.capture_state = self.computational_state.clone();
+                r.capture_identity = Uuid::new_v4().to_string();
+                r.generation = r.capture_identity.clone();
+                r.captured_source_epoch = proof.epoch;
+                r.captured_source_generation = proof
+                    .current_generation()
+                    .map(|id| id.0.to_string())
+                    .unwrap_or_default();
                 if let (Some(min), Some(max)) = (ordinary.first(), ordinary.last()) {
                     // Ordinary rows visible around a band remain a bounded logical span.
                     let nested = wire::Request {
-                        version: 3,
+                        version: 4,
                         revision: q.revision.clone(),
                         operation: Op::Read as i32,
                         first: Some(wire::Position {

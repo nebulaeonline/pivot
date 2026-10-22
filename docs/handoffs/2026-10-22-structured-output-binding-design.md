@@ -1,6 +1,8 @@
 # Worksheet structured-output binding — design review packet
 
-Date: 2026-10-22. **Architectural direction approved; concrete contracts pending review. No implementation authorization or product changes.**
+Date: 2026-10-22. **Design and addendum accepted for the bounded experiment; experimental implementation now in place; three-platform validation complete; parent implementation review pending.**
+[Contract acceptance](2026-10-22-structured-output-binding-contract-review.md). Earlier review requests below are design history;
+the accepted addendum and its two clarifications now govern implementation.
 [Parent decision](2026-10-22-structured-output-binding-design-review.md), [focused contract addendum](2026-10-22-structured-output-binding-contract-addendum.md).
 The original decision requests below are retained as design provenance; the linked
 review approves direction and requires the addendum before implementation.
@@ -86,3 +88,7 @@ for approval of the scalar-boundary and publication semantics and a concrete bou
 authoring/clipboard/admission plan. Persistence, WB5, permanent syntax, connectors,
 refresh scheduling, generalized collections and row-anchor structural policies are
 not bundled into this proposal.
+
+
+Implementation follow-up: [bounded proof and validation evidence](2026-10-22-worksheet-structured-binding-implementation.md).
+The proposal and review language above records the design phase; implementation acceptance is separate.

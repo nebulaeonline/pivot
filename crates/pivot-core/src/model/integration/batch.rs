@@ -101,6 +101,21 @@ impl Batch {
     pub fn set_nonnumeric(&mut self, id: NodeId) -> Result<(), ModelError> {
         self.push(Edit::NonNumeric(id), 0)
     }
+    /// Trusted workbook integration only; never a public invocation input.
+    #[doc(hidden)]
+    pub fn add_captured_scalar(
+        &mut self,
+        name: String,
+        identity: [u8; 16],
+    ) -> Result<(NodeId, crate::captured::CapturedScalarId), ModelError> {
+        if identity == [0; 16] {
+            return self.fail(ModelError::Backend("empty captured scalar identity"));
+        }
+        let slot = crate::captured::CapturedScalarId(identity);
+        let id = self.add_input(name, PivotDecimal::ZERO)?;
+        self.push(Edit::CapturedScalar(id, slot), 0)?;
+        Ok((id, slot))
+    }
     pub fn replace_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
         self.push(Edit::ReplaceInput(id, value), 0)
     }

@@ -9,8 +9,15 @@ use std::{
     fmt,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum EvaluationError {
+    MissingCapturedContext {
+        node: NodeId,
+    },
+    CapturedSourceFailed {
+        node: NodeId,
+        fault_id: crate::captured::CapturedFaultId,
+    },
     NonNumericInput {
         node: NodeId,
     },
@@ -23,6 +30,7 @@ pub enum EvaluationError {
         node: NodeId,
         dependency: NodeId,
         origin: NodeId,
+        fault_id: Option<crate::captured::CapturedFaultId>,
     },
     /// A broken bound-expression invariant, not an arithmetic failure.
     InvalidExpression {
@@ -30,13 +38,75 @@ pub enum EvaluationError {
     },
 }
 impl EvaluationError {
+    pub fn captured_fault(&self) -> Option<crate::captured::CapturedFaultId> {
+        match self {
+            Self::CapturedSourceFailed { fault_id, .. } => Some(*fault_id),
+            Self::DependencyFailed { fault_id, .. } => *fault_id,
+            _ => None,
+        }
+    }
+    pub(crate) fn dependency(&self, node: NodeId, dependency: NodeId) -> Self {
+        Self::DependencyFailed {
+            node,
+            dependency,
+            origin: self.origin(),
+            fault_id: self.captured_fault(),
+        }
+    }
+
     pub fn origin(&self) -> NodeId {
         match *self {
-            Self::NonNumericInput { node }
+            Self::CapturedSourceFailed { node, .. }
+            | Self::NonNumericInput { node }
             | Self::UnknownNode(node)
             | Self::Arithmetic { node, .. }
             | Self::InvalidExpression { node } => node,
             Self::DependencyFailed { origin, .. } => origin,
+            Self::MissingCapturedContext { node } => node,
+        }
+    }
+}
+impl fmt::Debug for EvaluationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingCapturedContext { node } => f
+                .debug_struct("MissingCapturedContext")
+                .field("node", node)
+                .finish(),
+            Self::CapturedSourceFailed { node, fault_id } => f
+                .debug_struct("CapturedSourceFailed")
+                .field("node", node)
+                .field("fault_id", fault_id)
+                .finish(),
+            Self::NonNumericInput { node } => f
+                .debug_struct("NonNumericInput")
+                .field("node", node)
+                .finish(),
+            Self::UnknownNode(node) => f.debug_tuple("UnknownNode").field(node).finish(),
+            Self::Arithmetic { node, error } => f
+                .debug_struct("Arithmetic")
+                .field("node", node)
+                .field("error", error)
+                .finish(),
+            Self::DependencyFailed {
+                node,
+                dependency,
+                origin,
+                fault_id,
+            } => {
+                let mut d = f.debug_struct("DependencyFailed");
+                d.field("node", node)
+                    .field("dependency", dependency)
+                    .field("origin", origin);
+                if let Some(id) = fault_id {
+                    d.field("fault_id", id);
+                }
+                d.finish()
+            }
+            Self::InvalidExpression { node } => f
+                .debug_struct("InvalidExpression")
+                .field("node", node)
+                .finish(),
         }
     }
 }
@@ -59,6 +129,7 @@ pub struct InvocationRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InvocationError {
+    CapturedContext(crate::captured::ContextError),
     UnknownInput(NodeId),
     NotInput(NodeId),
     DuplicateInput(NodeId),
@@ -169,6 +240,9 @@ impl EvaluationContext {
                 .node(id)
                 .ok_or(EvaluationError::UnknownNode(id))?;
             let value = match node.definition() {
+                SnapshotDefinition::CapturedScalar(_) => {
+                    return Err(EvaluationError::MissingCapturedContext { node: id });
+                }
                 SnapshotDefinition::NonNumeric => {
                     Err(EvaluationError::NonNumericInput { node: id })
                 }
@@ -258,11 +332,7 @@ pub(crate) fn evaluate_expression_with_selections(
                 stack.push(
                     *value
                         .as_ref()
-                        .map_err(|error| EvaluationError::DependencyFailed {
-                            node: id,
-                            dependency,
-                            origin: error.origin(),
-                        })?,
+                        .map_err(|error| error.dependency(id, dependency))?,
                 );
             }
             BoundToken::Unary(op) => {
@@ -317,6 +387,9 @@ pub fn evaluate_shared_inputs(
     for id in order {
         let node = snapshot.node(id).expect("validated snapshot closure");
         let value = match node.definition() {
+            SnapshotDefinition::CapturedScalar(_) => {
+                return Err(EvaluationError::MissingCapturedContext { node: id });
+            }
             SnapshotDefinition::NonNumeric => Err(EvaluationError::NonNumericInput { node: id }),
             SnapshotDefinition::Input(value) => Ok(input(id).unwrap_or(*value)),
             SnapshotDefinition::Computed { tokens, .. } => evaluate_expression(id, tokens, &values),

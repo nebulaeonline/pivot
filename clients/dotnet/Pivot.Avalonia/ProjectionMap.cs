@@ -23,9 +23,12 @@ public sealed partial class WorksheetView
         bool reflow=frame is not null && anchor is not null && (old is null || old.Epoch!=frame.Epoch || old.Presentation!=frame.Presentation);
         ProjectionFrame=frame;
         if(frame is null){ProjectedSelection=null;MissingProjectedRecord=false;if(mode)FirstRow=1;}
+        else if(ProjectedSelection is { } removed && !frame.Placements.Any(p=>p.Id==removed.Projection)){
+            ProjectedSelection=null;MissingProjectedRecord=false;ProjectedSelectionChanged?.Invoke();
+        }
         else if(ProjectedSelection is { } selected){
             bool exists=frame.RecordKeys.Contains(selected.Key);
-            MissingProjectedRecord=selected.Key.Length>0?!exists:MissingProjectedRecord;
+            MissingProjectedRecord=frame.Generation.Length>0 && (selected.Key.Length>0?!exists:MissingProjectedRecord);
             ProjectedSelection=selected with{Generation=frame.Generation,Epoch=frame.Epoch,Presentation=frame.Presentation,Key=exists?selected.Key:"",Field=exists?selected.Field:""};
             ProjectedSelectionChanged?.Invoke();
         }

@@ -38,3 +38,5 @@ for mode in ['clipboard-save', 'discard', 'clean']:
         raise SystemExit('Cross-process clipboard / close-cancel evidence missing')
 
 if not report.get("structured_projection", "").startswith("passed:"): raise SystemExit("Structured projection acceptance missing")
+
+if not report.get("worksheet_binding", "").startswith("passed:"): raise SystemExit("Worksheet binding acceptance missing")

@@ -1,10 +1,12 @@
 # ADR-0020: Worksheet bindings to structured numeric outputs
 
-Status: **Proposed — architectural direction approved (2026-10-22); required concrete-contract addendum awaiting parent approval; implementation deferred**.
-[Review decision](../handoffs/2026-10-22-structured-output-binding-design-review.md),
+Status: **Accepted for the bounded experimental proof (2026-10-22), with two implementation clarifications; implemented experimentally; three-platform managed/Native AOT validation complete; parent implementation review pending**.
+[Contract approval and implementation boundary](../handoffs/2026-10-22-structured-output-binding-contract-review.md),
 [focused contract addendum](../handoffs/2026-10-22-structured-output-binding-contract-addendum.md).
-The addendum specifies proposed details wherever this initial ADR leaves a contract open.
+The accepted addendum refines this initial proposal wherever it leaves a contract open.
+Permanent product integration and permanent `#` grammar remain unapproved.
 Date: 2026-10-22.
+[Implementation and validation evidence](../handoffs/2026-10-22-worksheet-structured-binding-implementation.md).
 Predecessors: [stable references](0003-stable-references-and-public-interfaces.md),
 [structured identities](0019-structured-results-and-projection-identities.md),
 [accepted proof and next review](../handoffs/2026-10-22-structured-results-projection-implementation-review.md).
@@ -16,7 +18,8 @@ The accepted proof consumes a captured TotalAmount through a named numeric graph
 invocation. It does not let an ordinary worksheet formula bind to that output.
 Design that bridge without coupling computation to a projection, introducing
 computational records or choosing a permanent `#` language. This ADR proposes
-semantics and a bounded possible implementation slice; it authorizes no code changes.
+semantics and a bounded experimental implementation slice. The linked contract
+approval authorizes that slice only; no implementation is claimed here.
 
 Start with one explicitly declared Decimal96 output, TotalAmount, of the fixed
 InvoiceLines producer. Ordinary arithmetic and dependents can consume the scalar.
@@ -24,7 +27,7 @@ Keyed record fields, tables, strings, nulls, floats, coercions, parameterized pr
 connectors and persistence remain separate decisions. OutputId is the stable public
 contract, not a field position, aggregate expression string or record identity.
 
-## Decision (proposed)
+## Decision (accepted subject to the addendum and review clarifications)
 
 ### 1. Portable bindings and name resolution
 
@@ -211,7 +214,7 @@ are introduced.
 
 ### 6. Possible first slice and review stop
 
-If approved, propose an opt-in non-savable experiment extending the accepted proof:
+The approved opt-in non-savable experiment extends the accepted proof:
 one producer, one referenced Decimal96 output, two views, bounded ordinary formulas
 and downstream arithmetic/SUM. The normal parser/UI remains unchanged until a reviewed
 typed authoring fixture/command can exercise the binder without approving permanent
@@ -231,9 +234,9 @@ All documents containing these experimental bindings remain visibly non-savable;
 reject Save/Save As and native clipboard formats that cannot faithfully represent
 them. Keep ordinary WB4/PIVOTCB2 behavior unchanged. No WB5 or partial serialization.
 
-Review must approve identity/error/head semantics, the proposed scalar-source leaf,
-composite authority, admission details and the authoring/clipboard test boundary
-before code. A later slice decides permanent authoring syntax and persistence.
+The linked contract review approves identity/error/head semantics, the scalar-source
+leaf, composite authority, admission and the authoring/clipboard boundary for this
+bounded implementation, subject to its two clarifications. A later slice decides permanent authoring syntax and persistence.
 SQL/connectors, scheduling, collection runtime, keyed field access, IEEE754 policies,
 row-axis edits, anchor affinity, formatting, printing and capacity expansion stay out.
 
@@ -271,3 +274,6 @@ incremental caches and structural row editing before extending the scope. Future
 producer parameters that depend on worksheet consumers require an explicit cycle and
 scheduling model; this fixed-source design establishes neither. Reconsider captured
 input preparation only with measured costs and an equally coherent atomic alternative.
+
+The contract review now approves the linked addendum. Its evaluator-precedence stop
+rule and distinct-retained-allocation accounting clarification govern implementation.

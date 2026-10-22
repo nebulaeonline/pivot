@@ -12,7 +12,7 @@ namespace Pivot.Avalonia;
 
 /// <summary>Paints only 20 x 10 cells. Scrolling changes the Rust viewport;
 /// no worksheet-sized control collection or client calculation model.</summary>
-public sealed class WorksheetView : Control
+public sealed partial class WorksheetView : Control
 {
     public bool ActiveFocus { get; set; }
     public const int Rows = 20, Columns = 10;
@@ -49,7 +49,7 @@ public sealed class WorksheetView : Control
         dragTimer.Tick += (_, _) => UpdateDrag();
         DetachedFromVisualTree += (_, _) => EndPointerSelection(false);
         SizeChanged += (_, _) => {
-            FirstRow = Math.Min(FirstRow, (uint)(1025 - VisibleRows));
+            FirstRow = Math.Min(FirstRow, TotalVisualRows + 1 - (uint)VisibleRows);
             cells.Clear(); ViewportChanged?.Invoke();
         };
     }
@@ -64,7 +64,7 @@ public sealed class WorksheetView : Control
     }
     public void Scroll(int rows, int columns = 0)
     {
-        uint r = (uint)Math.Clamp((int)FirstRow + rows, 1, 1025 - VisibleRows);
+        uint r = (uint)Math.Clamp((int)FirstRow + rows, 1, (int)TotalVisualRows + 1 - VisibleRows);
         uint c = (uint)Math.Clamp((int)FirstColumn + columns, 1, 1025 - Columns);
         if (r == FirstRow && c == FirstColumn) return;
         FirstRow = r; FirstColumn = c; cells.Clear(); InvalidateVisual(); ViewportChanged?.Invoke();
@@ -76,16 +76,21 @@ public sealed class WorksheetView : Control
         else Scroll(e.Delta.Y > 0 ? -3 : 3);
         e.Handled = true;
     }
-    private Position PositionAt(Point point) => new() {
-        Row=(uint)Math.Clamp((int)FirstRow+(int)Math.Floor(point.Y/HeightPerCell)-1,1,1024),
-        Column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,1024)
-    };
+    private Position? PositionAt(Point point) {
+        int index=(int)Math.Floor(point.Y/HeightPerCell)-1;
+        uint row;
+        if(ProjectionFrame is not null){var mapped=MappedRow(index);if(mapped is null || mapped.Kind!=0)return null;row=mapped.OrdinaryRow;}
+        else row=(uint)Math.Clamp((int)FirstRow+index,1,1024);
+        return new Position{Row=row,Column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,1024)};
+    }
     protected override async void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
         var point=e.GetPosition(this);
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || point.X<Header || point.X>=Header+Columns*WidthPerCell
             || point.Y<HeightPerCell || point.Y>=(VisibleRows+1)*HeightPerCell) return;
+        if(ProjectionTargetAt(point) is { } projected){EndPointerSelection(false);e.Handled=true;if(ProjectionRequested is not null)await ProjectionRequested(projected);return;}
+        var ordinary=PositionAt(point);if(ordinary is null)return;
         EndPointerSelection(false);
         previousAnchor=Anchor; previousActive=Selected;
         long current=++gesture;
@@ -94,7 +99,7 @@ public sealed class WorksheetView : Control
         bool extend=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         bool doubleClick=e.ClickCount==2 && !extend;
         selectionPending=true;
-        bool accepted=SelectionRequested is not null && await SelectionRequested(PositionAt(point),extend,doubleClick,()=>gesture==current);
+        bool accepted=SelectionRequested is not null && await SelectionRequested(ordinary,extend,doubleClick,()=>gesture==current);
         if(gesture==current) selectionPending=false;
         if (gesture!=current || dragPointer!=e.Pointer) return;
         if (!accepted || doubleClick) { EndPointerSelection(false); return; }
@@ -126,7 +131,7 @@ public sealed class WorksheetView : Control
         // Beyond-edge distance must not create a large coordinate jump per tick.
         var clamped=new Point(Math.Clamp(dragPoint.X,Header,Header+Columns*WidthPerCell-1),
             Math.Clamp(dragPoint.Y,HeightPerCell,(VisibleRows+1)*HeightPerCell-1));
-        Select(PositionAt(clamped),true);
+        if(PositionAt(clamped) is { } at) Select(at,true);
     }
     public void EndPointerSelection(bool cancel, bool allowPending=false)
     {
@@ -139,16 +144,17 @@ public sealed class WorksheetView : Control
     public void Select(Position at, bool extend=false)
     {
         if(at.Row is <1 or >1024 || at.Column is <1 or >1024) throw new ArgumentOutOfRangeException(nameof(at));
+        if(ProjectedSelection is not null){ProjectedSelection=null;MissingProjectedRecord=false;ProjectedSelectionChanged?.Invoke();}
         if(!extend) anchor=at.Clone();
         if(active.Row==at.Row && active.Column==at.Column && extend) return;
         active=at.Clone(); InvalidateVisual(); SelectionChanged?.Invoke();
     }
     public Rect CellBounds(Position at) => new(Header + ((int)at.Column - FirstColumn) * WidthPerCell,
-        (1 + (int)at.Row - FirstRow) * HeightPerCell, WidthPerCell, HeightPerCell);
-    public bool IsVisibleCell(Position at) => at.Row >= FirstRow && at.Row < FirstRow + VisibleRows
+        (1 + OrdinaryIndex(at.Row)) * HeightPerCell, WidthPerCell, HeightPerCell);
+    public bool IsVisibleCell(Position at) => OrdinaryIndex(at.Row)>=0 && OrdinaryIndex(at.Row)<VisibleRows
         && at.Column >= FirstColumn && at.Column < FirstColumn + Columns;
     public void Reveal(Position at) => Scroll(
-        at.Row < FirstRow ? (int)at.Row - (int)FirstRow : at.Row >= FirstRow + VisibleRows ? (int)at.Row - (int)FirstRow - VisibleRows + 1 : 0,
+        VisualRow(at.Row) < FirstRow ? (int)VisualRow(at.Row) - (int)FirstRow : VisualRow(at.Row) >= FirstRow + VisibleRows ? (int)VisualRow(at.Row) - (int)FirstRow - VisibleRows + 1 : 0,
         at.Column < FirstColumn ? (int)at.Column - (int)FirstColumn : at.Column >= FirstColumn + Columns ? (int)at.Column - (int)FirstColumn - Columns + 1 : 0);
     public override void Render(DrawingContext context)
     {
@@ -161,6 +167,8 @@ public sealed class WorksheetView : Control
             double y = (row + 1) * HeightPerCell;
             var rect = new Rect(x, y, col < 0 ? Header : WidthPerCell, HeightPerCell);
             uint r = FirstRow + (uint)Math.Max(row, 0), c = FirstColumn + (uint)Math.Max(col, 0);
+            if(row>=0 && RenderProjection(context,row,col,rect))continue;
+            if(row>=0 && ProjectionFrame is not null)r=MappedRow(row)!.OrdinaryRow;
             bool selected = row >= 0 && col >= 0 && r == active.Row && c == active.Column;
             bool region = row >= 0 && col >= 0 && r>=first.Row && r<=last.Row && c>=first.Column && c<=last.Column;
             var fill=row<0 || col<0 ? Brushes.WhiteSmoke : selected ? Brushes.White : region ? ActiveFocus ? Brushes.AliceBlue : Brushes.WhiteSmoke : Brushes.White;
@@ -176,7 +184,7 @@ public sealed class WorksheetView : Control
             using (context.PushClip(rect.Deflate(3)))
                 context.DrawText(new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Inter"), 13, ink), new Point(x + 5, y + 4));
         }
-        if(HasRegion) {
+        if(HasRegion && ProjectionFrame is null) {
             var begin=CellBounds(first); var end=CellBounds(last);
             using(context.PushClip(new Rect(Header,HeightPerCell,Columns*WidthPerCell,VisibleRows*HeightPerCell)))
                 context.DrawRectangle(null,new Pen(ActiveFocus ? Brushes.DodgerBlue : Brushes.SlateGray,1),new Rect(begin.TopLeft,end.BottomRight));

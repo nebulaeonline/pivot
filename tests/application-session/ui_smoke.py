@@ -36,3 +36,5 @@ for mode in ['clipboard-save', 'discard', 'clean']:
         raise SystemExit(json.dumps(peer, indent=2))
     if mode == 'clipboard-save' and not (peer['native_received'] and peer['cancel_checked']):
         raise SystemExit('Cross-process clipboard / close-cancel evidence missing')
+
+if not report.get("structured_projection", "").startswith("passed:"): raise SystemExit("Structured projection acceptance missing")

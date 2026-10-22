@@ -1,7 +1,9 @@
 # ADR-0019: Structured results and projection identities
 
-Status: **Approved with clarifications (2026-10-21); bounded experimental proof authorized, implementation pending**.
+Status: **Design approved with clarifications (2026-10-21); bounded experimental implementation accepted and milestone closed (2026-10-22)**.
+[Implementation acceptance and scope closure](../handoffs/2026-10-22-structured-results-projection-implementation-review.md).
 [Design acceptance and clarifications](../handoffs/2026-10-21-structured-results-projection-design-review.md).
+[Implementation and three-platform evidence](../handoffs/2026-10-21-structured-results-projection-implementation.md).
 Permanent product integration is not approved.
 Date: 2026-10-21.
 [Preceding implementation acceptance and direction](../handoffs/2026-10-21-worksheet-text-implementation-review.md),

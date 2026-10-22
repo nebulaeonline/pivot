@@ -30,6 +30,9 @@ public sealed class WorkbookSession : IAsyncDisposable
     public string SavedCheckpoint { get; private set; } = "";
     public bool IsDirty { get; private set; }
     public bool InstallationUncertain { get; private set; }
+    public bool IsProjectionProof { get; private set; }
+    public ulong ProofEpoch { get; private set; }
+    public ulong ProofPresentation { get; private set; }
     public string Revision => Volatile.Read(ref revision);
     public TimeSpan LastRoundTrip { get; private set; }
     public TimeSpan LastClientSerialization { get; private set; }
@@ -74,6 +77,11 @@ public sealed class WorkbookSession : IAsyncDisposable
         if(payload.Length>262144) throw new WorkbookSessionException("Clipboard payload exceeds 256 KiB.");
         return CallAsync(new Request {Operation=Request.Types.Operation.PasteBlock,Revision=expected,First=first.Clone(),Last=last.Clone(),Clipboard=ByteString.CopyFrom(payload),NativeClipboard=native},cancellation);
     }
+    public Task<Response> StartProofAsync(CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ProofStart},cancellation);
+    public Task<Response> PublishProofAsync(uint count,string omitKey="",CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ProofPublish,ProofCount=count,ProofKey=omitKey,ProofEpoch=ProofEpoch},cancellation);
+    public Task<Response> LayoutProofAsync(string id,uint afterRow,bool reverse,CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ProofLayout,ProofProjection=id,ProofAfterRow=afterRow,ProofReverse=reverse,ProofPresentation=ProofPresentation},cancellation);
+    public Task<Response> ReadProofAsync(Position first,Position last,CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ProofRead,First=first.Clone(),Last=last.Clone()},cancellation);
+    public Task<Response> EvaluateProofAsync(string capture,string key="",CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ProofEvaluate,Capture=capture,ProofKey=key},cancellation);
     public Task<Response> ReadAsync(Position first, Position last, CancellationToken cancellation = default) =>
         CallAsync(new Request { Operation = Request.Types.Operation.Read, First = first.Clone(), Last = last.Clone() }, cancellation);
     public Task<Response> CaptureAsync(CancellationToken cancellation = default) =>
@@ -136,7 +144,8 @@ public sealed class WorkbookSession : IAsyncDisposable
             ObjectDisposedException.ThrowIf(closed, this);
             ObjectDisposedException.ThrowIf(Volatile.Read(ref closing) != 0 && request.Operation != Request.Types.Operation.Close, this);
             cancellation.ThrowIfCancellationRequested();
-            request.Version = 2; request.Id = ++sequence;
+            if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
+            request.Version = 3; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -159,7 +168,7 @@ public sealed class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 2 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 3 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {
                 closed = true; StopChild();
@@ -169,8 +178,9 @@ public sealed class WorkbookSession : IAsyncDisposable
             LastCompletedRequestId = response.Id;
             LastRustExecutionNs = response.ExecutionNs;
             LastRustSerializationNs = response.SerializationNs;
-            if (request.Operation is not (Request.Types.Operation.Calculate or Request.Types.Operation.Release))
+            if (request.Operation is not (Request.Types.Operation.Calculate or Request.Types.Operation.Release or Request.Types.Operation.ProofEvaluate))
                 Volatile.Write(ref revision, response.Revision);
+            IsProjectionProof=response.ProofMode;ProofEpoch=response.ProofEpoch;ProofPresentation=response.ProofPresentation;
             DocumentId = response.DocumentId; DocumentPath = response.Path;
             SavedCheckpoint = response.SavedCheckpoint; IsDirty = response.Dirty;
             InstallationUncertain = response.Uncertain;

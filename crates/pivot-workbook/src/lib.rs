@@ -5,6 +5,8 @@ use pivot_core::{
     model::{NodeId, Revision, SnapshotError, WorkingModel, transfer::ResolvedToken},
 };
 pub mod entry;
+#[doc(hidden)]
+pub mod projection;
 use pivot_types::{DecimalError, PivotDecimal};
 use std::collections::BTreeSet;
 use uuid::Uuid;

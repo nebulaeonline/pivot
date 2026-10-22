@@ -13,9 +13,12 @@ use std::{
 };
 use uuid::Uuid;
 
+mod projections;
+
 const MAX_FRAME: usize = 1_048_576;
 const MAX_CELLS: usize = 256;
 struct Capture {
+    proof: Option<pivot_workbook::projection::Capture>,
     value: CalculationCapture,
     revision: String,
 }
@@ -26,6 +29,8 @@ struct PendingSave {
     location: pivot_storage::experimental_file::native::Location,
 }
 struct Session {
+    proof: Option<pivot_workbook::projection::State>,
+    proof_frame: Option<pivot_workbook::projection::Frame>,
     location: Option<pivot_storage::experimental_file::native::Location>,
     saved: Option<pivot_workbook::Expected>,
     checkpoint: String,
@@ -87,6 +92,8 @@ fn file_error(error: pivot_storage::experimental_file::Error) -> String {
 impl Session {
     fn new() -> Result<Self, String> {
         Ok(Self {
+            proof: None,
+            proof_frame: None,
             location: None,
             saved: None,
             checkpoint: String::new(),
@@ -99,8 +106,10 @@ impl Session {
         })
     }
     fn close(&mut self) -> Result<u64, String> {
+        self.proof_frame.take();
         self.pending.take();
         self.captures.clear();
+        self.proof.take();
         self.book.take();
         if let Some(runtime) = self.runtime.take() {
             let memory = runtime.memory();
@@ -113,10 +122,23 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 2 {
+        if q.version != 3 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
+        self.proof_frame.take();
+        if matches!(
+            operation,
+            Op::ProofStart | Op::ProofPublish | Op::ProofLayout | Op::ProofRead | Op::ProofEvaluate
+        ) {
+            return self.handle_proof(q, r, operation);
+        }
+        if self.proof.is_some() && matches!(operation, Op::PrepareSave | Op::Save) {
+            return Err(
+                "Experimental projection document cannot be saved; discard or cancel.".into(),
+            );
+        }
+
         if operation == Op::Close {
             r.remaining_charge = self.close()?;
             r.closed = true;
@@ -158,10 +180,11 @@ impl Session {
                 return Err("path too long".into());
             }
             if matches!(operation, Op::New | Op::Open | Op::CloseDocument) {
-                if self
+                if (self
                     .book
                     .as_ref()
                     .is_some_and(|b| Some(b.expected()) != self.saved)
+                    || self.proof.as_ref().is_some_and(|p| p.changed))
                     && !q.discard
                 {
                     return Err("Unsaved changes: save or explicitly discard before replacing the workbook.".into());
@@ -200,6 +223,7 @@ impl Session {
                 };
                 self.pending.take();
                 self.captures.clear();
+                self.proof.take();
                 self.book.take();
                 self.location = None;
                 self.saved = None;
@@ -429,13 +453,33 @@ impl Session {
                 }
             }
             Op::Capture => {
-                if self.captures.len() >= 4 {
-                    return Err("capture limit (4)".into());
+                if self
+                    .proof
+                    .as_ref()
+                    .is_some_and(|p| q.proof_epoch != p.epoch)
+                {
+                    r.conflict = true;
+                    return Err("result epoch conflict".into());
+                }
+
+                if self.captures.len() >= if self.proof.is_some() { 2 } else { 4 } {
+                    return Err(if self.proof.is_some() {
+                        "capture limit (2)"
+                    } else {
+                        "capture limit (4)"
+                    }
+                    .into());
                 }
                 let id = Uuid::new_v4().to_string();
                 self.captures.insert(
                     id.clone(),
                     Capture {
+                        proof: self
+                            .proof
+                            .as_ref()
+                            .map(|p| p.capture())
+                            .transpose()
+                            .map_err(|e| e.to_string())?,
                         value: book
                             .capture_local(book.expected())
                             .map_err(|e| e.to_string())?,
@@ -508,7 +552,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 2,
+            version: 3,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -528,10 +572,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|l| l.path.to_string_lossy().into_owned())
             .unwrap_or_default();
         r.saved_checkpoint = session.checkpoint.clone();
+        r.proof_mode = session.proof.is_some();
+        if let Some(proof) = &session.proof {
+            r.proof_epoch = proof.epoch;
+            r.proof_presentation = proof.presentation;
+        }
         r.dirty = session
             .book
             .as_ref()
-            .is_some_and(|b| Some(b.expected()) != session.saved);
+            .is_some_and(|b| Some(b.expected()) != session.saved)
+            || session.proof.as_ref().is_some_and(|p| p.changed);
         r.uncertain = session.uncertain;
         if let (Some(book), Some(runtime)) = (&session.book, &session.runtime) {
             let metrics = book.selection_metrics();

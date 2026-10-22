@@ -22,7 +22,9 @@ admits one extra escape byte as syntax, counted in aggregate budgets; this expli
 implementation clarification is accepted. Existing capacity limits otherwise remain.
 
 WB4 validates document content against graph definitions. The private session
-request/response version is 2, with typed text and entry arms; clipboard data and
+request/response text extension was introduced in version 2; the current envelope
+is version 3 for the [projection proof](structured-results-and-projections.md),
+retaining typed text and entry arms. Clipboard data and
 platform identifiers are version 2. Old WB1–WB3 Open leaves live state untouched.
 No strings in formulas, connectors, projections or permanent dynamic namespace are
 introduced. Native AOT remains a separate regression gate.

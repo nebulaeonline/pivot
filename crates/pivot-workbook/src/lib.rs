@@ -121,11 +121,13 @@ pub enum Token {
     #[doc(hidden)]
     Output(structured::OutputBinding),
     SumAt {
+        kind: pivot_core::expression::AggregateKind,
         first: Position,
         last: Position,
         span: std::ops::Range<usize>,
     },
     Sum {
+        kind: pivot_core::expression::AggregateKind,
         id: pivot_core::model::selection::SelectionId,
         rectangle: pivot_core::model::selection::Rectangle,
         first: Position,
@@ -454,7 +456,11 @@ impl Workbook {
             while let Some((expr, visited)) = stack.pop() {
                 match expr {
                     Expr::SumRange {
-                        first, last, span, ..
+                        kind,
+                        first,
+                        last,
+                        span,
+                        ..
                     } => {
                         let first = Position::new(first.0, first.1);
                         let last = Position::new(last.0, last.1);
@@ -470,6 +476,7 @@ impl Workbook {
                             break;
                         }
                         tokens.push(Token::SumAt {
+                            kind: *kind,
                             first,
                             last,
                             span: span.clone(),
@@ -596,6 +603,7 @@ pub struct CalculationCapture {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CellError {
+    NoNumericValues(pivot_core::expression::AggregateKind),
     CapturedSourceFailed {
         fault_id: pivot_core::captured::CapturedFaultId,
         kind: structured::SourceFault,

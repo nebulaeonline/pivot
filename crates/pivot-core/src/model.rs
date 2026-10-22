@@ -109,6 +109,7 @@ impl std::error::Error for SnapshotError {}
 
 #[derive(Debug, Clone)]
 enum Definition {
+    Blank,
     /// Valid nonnumeric worksheet content; no string payload in the graph.
     NonNumeric,
     CapturedScalar(crate::captured::CapturedScalarId),
@@ -131,7 +132,8 @@ impl Clone for WorkingNode {
             std::mem::size_of::<Self>()
                 + self.name.len()
                 + match &self.definition {
-                    Definition::NonNumeric
+                    Definition::Blank
+                    | Definition::NonNumeric
                     | Definition::CapturedScalar(_)
                     | Definition::Input(_) => 0,
                     Definition::Computed { source, binding } => {
@@ -171,6 +173,7 @@ pub struct GraphImage {
 }
 /// Raw editable definitions, including invalid source. Core IDs remain local.
 pub enum DraftDefinition<'a> {
+    Blank,
     /// Valid nonnumeric worksheet content; no string payload in the graph.
     NonNumeric,
     CapturedScalar(crate::captured::CapturedScalarId),
@@ -340,6 +343,7 @@ impl GraphImage {
                 id,
                 n.name.as_str(),
                 match &n.definition {
+                    Definition::Blank => DraftDefinition::Blank,
                     Definition::NonNumeric => DraftDefinition::NonNumeric,
                     Definition::CapturedScalar(id) => DraftDefinition::CapturedScalar(*id),
                     Definition::Input(v) => DraftDefinition::Input(*v),
@@ -632,7 +636,8 @@ impl GraphImage {
                 std::mem::size_of::<SnapshotNode>()
                     + node.name.len()
                     + match &node.definition {
-                        Definition::NonNumeric
+                        Definition::Blank
+                        | Definition::NonNumeric
                         | Definition::CapturedScalar(_)
                         | Definition::Input(_) => 0,
                         Definition::Computed { source, binding } => {
@@ -648,6 +653,7 @@ impl GraphImage {
                     },
             );
             let (definition, dependencies) = match &node.definition {
+                Definition::Blank => (SnapshotDefinition::Blank, Vec::new()),
                 Definition::NonNumeric => (SnapshotDefinition::NonNumeric, Vec::new()),
                 Definition::CapturedScalar(id) => {
                     (SnapshotDefinition::CapturedScalar(*id), Vec::new())
@@ -746,6 +752,7 @@ impl GraphImage {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BoundToken {
+    Aggregate(crate::expression::AggregateKind, selection::SelectionId),
     Sum(selection::SelectionId),
     Decimal(PivotDecimal),
     Node(NodeId),
@@ -754,6 +761,7 @@ pub enum BoundToken {
 }
 #[derive(Debug)]
 pub enum SnapshotDefinition {
+    Blank,
     /// Valid nonnumeric worksheet content; no string payload in the graph.
     NonNumeric,
     CapturedScalar(crate::captured::CapturedScalarId),

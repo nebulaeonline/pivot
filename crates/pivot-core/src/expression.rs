@@ -14,6 +14,7 @@ pub enum Expr {
     Decimal(PivotDecimal),
     Name(String),
     SumRange {
+        kind: AggregateKind,
         first: (u32, u32),
         last: (u32, u32),
         span: std::ops::Range<usize>,
@@ -36,6 +37,27 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
+}
+/// Closed range reducers; SUM retains its established strict policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AggregateKind {
+    Sum,
+    Min,
+    Max,
+    Average,
+    Count,
+}
+impl AggregateKind {
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name.to_ascii_uppercase().as_str() {
+            "SUM" => Some(Self::Sum),
+            "MIN" => Some(Self::Min),
+            "MAX" => Some(Self::Max),
+            "AVERAGE" => Some(Self::Average),
+            "COUNT" => Some(Self::Count),
+            _ => None,
+        }
+    }
 }
 /// Copy-axis flags and exact UTF-8 source span for one spreadsheet address.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -325,7 +347,11 @@ impl Parser<'_> {
                 {
                     self.pos += 1;
                 }
-                if self.spreadsheet && self.source[start..self.pos].eq_ignore_ascii_case("SUM") {
+                if let Some(kind) = self
+                    .spreadsheet
+                    .then(|| AggregateKind::from_name(&self.source[start..self.pos]))
+                    .flatten()
+                {
                     self.space();
                     if self.peek() != Some(b'(') {
                         return Err(self.error("expected SUM rectangle"));
@@ -344,6 +370,7 @@ impl Parser<'_> {
                     }
                     self.pos += 1;
                     Expr::SumRange {
+                        kind,
                         first: (first.row, first.column),
                         last: (last.row, last.column),
                         span: start..self.pos,

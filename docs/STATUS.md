@@ -18,9 +18,17 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Next authorized milestone: **Bounded MIN/MAX/AVERAGE/COUNT Implementation**.
-ADR-0021 is approved with the canonical MIN/MAX equality clarification; implementation
-has not started. This is design acceptance, not a new validated capability.
+Current milestone: **Bounded MIN/MAX/AVERAGE/COUNT — implemented; three-platform validation complete for current source; WB5-only correction and final acceptance pending**.
+ADR-0021 design is approved with canonical MIN/MAX equality. The bounded implementation
+is in place; implementation acceptance remains separate.
+[Implementation and evidence](handoffs/2026-10-22-spreadsheet-aggregate-implementation.md),
+[Mac/APFS validation packet](handoffs/2026-10-22-macos-aggregate-instructions.md).
+Windows/Linux/native Mac managed CI, strict all-feature lint/tests and actual Native AOT pass.
+Rust totals: Windows 338/354, Linux and Mac 339/355; all eleven desktop fields and peers pass
+with zero charge. The private reducer matches 544 independently generated rational
+reference cases. WB4 migration uses a genuine prior-writer fixture. The initial AOT
+check still expected WB4; it was corrected to require WB5 and checksum validation,
+and its passing rerun and failed report are retained.
 [ADR-0021](adr/0021-spreadsheet-aggregate-functions.md),
 [approval and bounded implementation scope](handoffs/2026-10-22-spreadsheet-aggregate-design-review.md),
 [acceptance matrix](handoffs/2026-10-22-spreadsheet-aggregate-design.md).
@@ -29,12 +37,16 @@ errors. Preserve strict SUM. Distinguish Blank definitions from numeric zero and
 invalidate on transitions. MIN/MAX return canonical numeric extrema, independent of
 scale/signed-zero ties or traversal order. AVERAGE uses private fixed-width exact
 accumulation and final midpoint-away rounding, tested against independent rationals.
-WB5 writing and bounded validated WB4 reading are explicitly approved; preserve SUM,
-identities and failed-Open atomicity. Keep CB2/private v4 if faithful; stop for review
+The tested source writes WB5 and reads WB4. Interim parent guidance now requires
+WB5-only read/write before final acceptance; the correction is pending, and current
+Mac evidence does not validate it. Preserve SUM, identities and failed-Open atomicity. Keep CB2/private v4 if faithful; stop for review
 if a genuine representation conflict requires change. Hosted/model formats stay frozen.
-Require focused Rust coverage before desktop integration, then three-platform managed
-CI, strict all-feature and actual Native AOT evidence; stop for implementation review.
-No production change or new platform result is claimed yet. MEDIAN/MODE/aliases,
+Focused Rust tests preceded desktop integration. Final Windows/Linux gates pass;
+207 Linux build-input hashes match and 774 returned files were verified. Complete
+Mac/APFS review verified all 405 source hashes, 207 inputs and 453 returned files
+from `macos-validation-20261022T233650Z`. No failed gates or reruns occurred.
+The interim policy response is not implementation authorization or acceptance.
+WB5-only correction and final Windows/Linux/Mac validation remain outstanding. MEDIAN/MODE/aliases,
 formatting, Undo/Redo, structured-data expansion, connectors, structural row editing
 and capacity increases remain excluded. ADR-0020 remains accepted and closed.
 
@@ -599,3 +611,6 @@ cost 1.300 seconds versus 0.0467 reference; full snapshot 48.748 ms versus 30.31
 reference. Native RSS guard/high-water support remains unavailable; separate
 monitoring is sampled evidence only. All three-platform validation gates are now
 satisfied for parent review; no downstream backend migration is included.
+
+Parent implementation review: [computational implementation acceptable; final
+acceptance deferred pending WB5-only correction and fresh three-platform gates](handoffs/2026-10-22-spreadsheet-aggregate-implementation-review.md).

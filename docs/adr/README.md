@@ -57,4 +57,4 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0020: Worksheet bindings to structured numeric outputs](0020-worksheet-structured-output-bindings.md) — Architecture/contracts and bounded experimental implementation accepted; three-platform validation accepted; milestone closed (2026-10-22).
 
-- [ADR-0021: Bounded spreadsheet aggregate functions](0021-spreadsheet-aggregate-functions.md) — Accepted with canonical MIN/MAX equality clarification; bounded MIN/MAX/AVERAGE/COUNT implementation authorized, not started (2026-10-22).
+- [ADR-0021: Bounded spreadsheet aggregate functions](0021-spreadsheet-aggregate-functions.md) — Accepted with canonical MIN/MAX equality clarification; bounded implementation in place; three-platform validation passed for current source; WB5-only correction and final acceptance pending (2026-10-22).

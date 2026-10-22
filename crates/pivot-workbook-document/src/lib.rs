@@ -34,7 +34,8 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 4 * 1024 * 1024;
-const MAGIC: &[u8; 8] = b"PIVOTWB4";
+const MAGIC: &[u8; 8] = b"PIVOTWB5";
+const LEGACY_MAGIC: &[u8; 8] = b"PIVOTWB4";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -89,6 +90,11 @@ impl Writer {
                     self.n(1);
                     self.n(*slot as u64);
                 }
+                SelectionToken::Aggregate(kind, id) => {
+                    self.n(5);
+                    self.n(*kind as u64);
+                    self.id(Uuid::from_bytes(id.0));
+                }
                 SelectionToken::Sum(id) => {
                     self.n(2);
                     self.id(Uuid::from_bytes(id.0));
@@ -114,13 +120,19 @@ impl Writer {
         for t in tokens {
             match t {
                 Token::Sum {
+                    kind,
                     id,
                     rectangle,
                     first,
                     last,
                     span,
                 } => {
-                    self.n(4);
+                    if *kind == expression::AggregateKind::Sum {
+                        self.n(4);
+                    } else {
+                        self.n(5);
+                        self.n(*kind as u64);
+                    }
                     self.id(Uuid::from_bytes(id.0));
                     self.rectangle(*rectangle);
                     self.pos(*first);
@@ -158,6 +170,7 @@ impl Writer {
     }
 }
 struct Reader<'a> {
+    legacy: bool,
     bytes: &'a [u8],
     at: usize,
 }
@@ -225,6 +238,15 @@ impl<'a> Reader<'a> {
         }
         Ok(r)
     }
+    fn aggregate_kind(&mut self) -> Result<expression::AggregateKind> {
+        Ok(match self.n()? {
+            1 => expression::AggregateKind::Min,
+            2 => expression::AggregateKind::Max,
+            3 => expression::AggregateKind::Average,
+            4 => expression::AggregateKind::Count,
+            _ => return Err(malformed()),
+        })
+    }
     fn graph_tokens(&mut self) -> Result<Vec<SelectionToken>> {
         let n = self.count(4096)?;
         let mut out = Vec::with_capacity(n);
@@ -232,6 +254,10 @@ impl<'a> Reader<'a> {
             out.push(match self.n()? {
                 0 => SelectionToken::Decimal(self.dec()?.value()),
                 1 => SelectionToken::Node(self.count(8191)?),
+                5 if !self.legacy => SelectionToken::Aggregate(
+                    self.aggregate_kind()?,
+                    SelectionId(*self.id()?.as_bytes()),
+                ),
                 2 => SelectionToken::Sum(SelectionId(*self.id()?.as_bytes())),
                 3 => SelectionToken::Unary(match self.n()? {
                     0 => UnaryOp::Plus,
@@ -254,8 +280,14 @@ impl<'a> Reader<'a> {
         let n = self.count(4096)?;
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
-            out.push(match self.n()? {
-                4 => {
+            let tag = self.n()?;
+            out.push(match tag {
+                4 | 5 if tag == 4 || !self.legacy => {
+                    let kind = if tag == 4 {
+                        expression::AggregateKind::Sum
+                    } else {
+                        self.aggregate_kind()?
+                    };
                     let id = SelectionId(*self.id()?.as_bytes());
                     let rectangle = self.rectangle()?;
                     let first = self.pos()?;
@@ -263,6 +295,7 @@ impl<'a> Reader<'a> {
                     let start = self.count(4096)?;
                     let end = self.count(4096)?;
                     Token::Sum {
+                        kind,
                         id,
                         rectangle,
                         first,
@@ -366,6 +399,10 @@ impl Document {
             w.text(&formula.source);
             w.graph_tokens(&formula.tokens);
         }
+        w.n(projection.graph.blanks.len() as u64);
+        for slot in &projection.graph.blanks {
+            w.n(*slot as u64);
+        }
         w.n(pairs.len() as u64);
         for (id, node, record) in pairs {
             w.id(id.uuid());
@@ -461,11 +498,11 @@ impl Document {
         for version in ["WB1", "WB2", "WB3"] {
             if bytes.starts_with(format!("PIVOT{version}").as_bytes()) {
                 return Err(Error::Graph(format!(
-                    "unsupported native workbook version {version}; WB4 required"
+                    "unsupported native workbook version {version}; WB4 or WB5 required"
                 )));
             }
         }
-        if bytes.len() < 48 || &bytes[..8] != MAGIC {
+        if bytes.len() < 48 || (&bytes[..8] != MAGIC && &bytes[..8] != LEGACY_MAGIC) {
             return Err(malformed());
         }
         if u64::from_le_bytes(bytes[8..16].try_into().unwrap()) != (bytes.len() - 48) as u64
@@ -473,7 +510,9 @@ impl Document {
         {
             return Err(malformed());
         }
+        let legacy = &bytes[..8] == LEGACY_MAGIC;
         let mut r = Reader {
+            legacy,
             bytes: &bytes[48..],
             at: 0,
         };
@@ -541,6 +580,18 @@ impl Document {
             }
             formulas.push(f);
         }
+        let declared_blanks = if legacy {
+            None
+        } else {
+            let n = r.count(8192)?;
+            let mut slots = BTreeSet::new();
+            for _ in 0..n {
+                if !slots.insert(r.count(8191)?) {
+                    return Err(malformed());
+                }
+            }
+            Some(slots)
+        };
         let count = r.count(limits.allocated_cells.min(8192))?;
         if count != document.graph.node_ids.len() {
             return Err(malformed());
@@ -742,15 +793,21 @@ impl Document {
                         let mut refs = f.references.iter();
                         for (syntax, bound) in syntax.iter().zip(&f.tokens) {
                             match syntax {
-                                Token::SumAt { first, last, span } => {
+                                Token::SumAt {
+                                    kind,
+                                    first,
+                                    last,
+                                    span,
+                                } => {
                                     if let Token::Sum {
+                                        kind: k,
                                         first: a,
                                         last: b,
                                         span: s,
                                         ..
                                     } = bound
                                     {
-                                        if first != a || last != b || span != s {
+                                        if kind != k || first != a || last != b || span != s {
                                             return Err(malformed());
                                         }
                                     } else {
@@ -794,6 +851,7 @@ impl Document {
                 for t in tokens {
                     selection_tokens.push(match t {
                         Token::Sum {
+                            kind,
                             id,
                             rectangle,
                             first,
@@ -810,7 +868,11 @@ impl Document {
                             {
                                 return Err(malformed());
                             }
-                            SelectionToken::Sum(*id)
+                            if *kind == expression::AggregateKind::Sum {
+                                SelectionToken::Sum(*id)
+                            } else {
+                                SelectionToken::Aggregate(*kind, *id)
+                            }
                         }
                         Token::Decimal(d) => SelectionToken::Decimal(d.value()),
                         Token::Cell(c) => {
@@ -836,7 +898,7 @@ impl Document {
                 }
                 let has_sum = selection_tokens
                     .iter()
-                    .any(|t| matches!(t, SelectionToken::Sum(_)));
+                    .any(|t| matches!(t, SelectionToken::Sum(_) | SelectionToken::Aggregate(_, _)));
                 if let Some(index) = overlay.get(&node_slot) {
                     if !has_sum
                         || formulas[*index].source != *source
@@ -923,8 +985,19 @@ impl Document {
                 Some((SpaceId(*worksheet.uuid().as_bytes()), p.row, p.column, slot))
             })
             .collect();
+        let blanks: Vec<_> = ids
+            .iter()
+            .enumerate()
+            .filter_map(|(slot, (id, _))| {
+                matches!(records[id].content, Some(Content::Blank)).then_some(slot)
+            })
+            .collect();
+        if declared_blanks.is_some_and(|slots| slots != blanks.iter().copied().collect()) {
+            return Err(malformed());
+        }
         let graph = SelectionImage {
-            version: 2,
+            blanks,
+            version: 3,
             scalar_skeleton,
             formulas,
             identities,

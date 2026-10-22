@@ -11,6 +11,11 @@ use std::{
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum EvaluationError {
+    NoNumericValues {
+        node: NodeId,
+        operation: crate::expression::AggregateKind,
+        selection: crate::model::selection::SelectionId,
+    },
     MissingCapturedContext {
         node: NodeId,
     },
@@ -56,7 +61,8 @@ impl EvaluationError {
 
     pub fn origin(&self) -> NodeId {
         match *self {
-            Self::CapturedSourceFailed { node, .. }
+            Self::NoNumericValues { node, .. }
+            | Self::CapturedSourceFailed { node, .. }
             | Self::NonNumericInput { node }
             | Self::UnknownNode(node)
             | Self::Arithmetic { node, .. }
@@ -69,6 +75,16 @@ impl EvaluationError {
 impl fmt::Debug for EvaluationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::NoNumericValues {
+                node,
+                operation,
+                selection,
+            } => f
+                .debug_struct("NoNumericValues")
+                .field("node", node)
+                .field("operation", operation)
+                .field("selection", selection)
+                .finish(),
             Self::MissingCapturedContext { node } => f
                 .debug_struct("MissingCapturedContext")
                 .field("node", node)
@@ -243,6 +259,7 @@ impl EvaluationContext {
                 SnapshotDefinition::CapturedScalar(_) => {
                     return Err(EvaluationError::MissingCapturedContext { node: id });
                 }
+                SnapshotDefinition::Blank => Ok(PivotDecimal::ZERO),
                 SnapshotDefinition::NonNumeric => {
                     Err(EvaluationError::NonNumericInput { node: id })
                 }
@@ -310,7 +327,7 @@ pub(crate) fn evaluate_expression(
     tokens: &[BoundToken],
     values: &BTreeMap<NodeId, NodeResult>,
 ) -> NodeResult {
-    evaluate_expression_with_selections(id, tokens, values, |_| {
+    evaluate_expression_with_selections(id, tokens, values, |_, _| {
         Err(EvaluationError::InvalidExpression { node: id })
     })
 }
@@ -318,14 +335,20 @@ pub(crate) fn evaluate_expression_with_selections(
     id: NodeId,
     tokens: &[BoundToken],
     values: &BTreeMap<NodeId, NodeResult>,
-    mut sum: impl FnMut(crate::model::selection::SelectionId) -> NodeResult,
+    mut sum: impl FnMut(
+        crate::expression::AggregateKind,
+        crate::model::selection::SelectionId,
+    ) -> NodeResult,
 ) -> NodeResult {
     let invalid = || EvaluationError::InvalidExpression { node: id };
     let arithmetic = |error| EvaluationError::Arithmetic { node: id, error };
     let mut stack = Vec::new();
     for token in tokens {
         match *token {
-            BoundToken::Sum(selection) => stack.push(sum(selection)?),
+            BoundToken::Sum(selection) => {
+                stack.push(sum(crate::expression::AggregateKind::Sum, selection)?)
+            }
+            BoundToken::Aggregate(kind, selection) => stack.push(sum(kind, selection)?),
             BoundToken::Decimal(value) => stack.push(value),
             BoundToken::Node(dependency) => {
                 let value = values.get(&dependency).ok_or_else(invalid)?;
@@ -390,6 +413,7 @@ pub fn evaluate_shared_inputs(
             SnapshotDefinition::CapturedScalar(_) => {
                 return Err(EvaluationError::MissingCapturedContext { node: id });
             }
+            SnapshotDefinition::Blank => Ok(PivotDecimal::ZERO),
             SnapshotDefinition::NonNumeric => Err(EvaluationError::NonNumericInput { node: id }),
             SnapshotDefinition::Input(value) => Ok(input(id).unwrap_or(*value)),
             SnapshotDefinition::Computed { tokens, .. } => evaluate_expression(id, tokens, &values),

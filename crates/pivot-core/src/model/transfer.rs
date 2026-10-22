@@ -66,6 +66,7 @@ fn invalid() -> ModelError {
 /// Internal already-resolved expression input. Not a parser, wire or storage ABI.
 #[derive(Clone, Debug)]
 pub enum ResolvedToken {
+    Aggregate(crate::expression::AggregateKind, selection::SelectionId),
     Sum(super::selection::SelectionId),
     Decimal(PivotDecimal),
     Node(NodeId),
@@ -80,7 +81,7 @@ pub(super) fn checked_dependencies(tokens: &[BoundToken]) -> Result<Vec<NodeId>,
     let mut dependencies = BTreeSet::new();
     for token in tokens {
         match token {
-            BoundToken::Decimal(_) | BoundToken::Sum(_) => depth += 1,
+            BoundToken::Decimal(_) | BoundToken::Sum(_) | BoundToken::Aggregate(_, _) => depth += 1,
             BoundToken::Node(id) => {
                 depth += 1;
                 dependencies.insert(*id);
@@ -207,6 +208,7 @@ pub(super) fn export_image(
     };
     for (&id, n) in &model.nodes {
         let definition = match &n.definition {
+            Definition::Blank => return Err(invalid()),
             Definition::NonNumeric => NodeDefinition::NonNumeric,
             Definition::CapturedScalar(_) => {
                 return Err(ModelError::Backend(
@@ -222,7 +224,7 @@ pub(super) fn export_image(
                             .iter()
                             .map(|t| {
                                 Ok(match t {
-                                    BoundToken::Sum(_) => {
+                                    BoundToken::Sum(_) | BoundToken::Aggregate(_, _) => {
                                         return Err(ModelError::Backend(
                                             "unsupported selection capability in scalar transfer",
                                         ));
@@ -283,11 +285,12 @@ pub fn export_snapshot(
     ports: &[PortId],
 ) -> Result<Image, ModelError> {
     let data = &snapshot.0;
-    if data
-        .nodes
-        .values()
-        .any(|n| matches!(n.definition, SnapshotDefinition::NonNumeric))
-    {
+    if data.nodes.values().any(|n| {
+        matches!(
+            n.definition,
+            SnapshotDefinition::Blank | SnapshotDefinition::NonNumeric
+        )
+    }) {
         return Err(ModelError::Backend(
             "unsupported nonnumeric content in scalar export",
         ));
@@ -317,6 +320,7 @@ pub fn export_snapshot(
     };
     for (&id, n) in &data.nodes {
         let definition = match &n.definition {
+            SnapshotDefinition::Blank => return Err(invalid()),
             SnapshotDefinition::NonNumeric => Definition::NonNumeric,
             SnapshotDefinition::CapturedScalar(_) => {
                 return Err(ModelError::Backend(
@@ -514,6 +518,7 @@ pub struct SelectionFormula {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SelectionToken {
+    Aggregate(crate::expression::AggregateKind, selection::SelectionId),
     Decimal(PivotDecimal),
     Node(usize),
     Sum(selection::SelectionId),
@@ -522,6 +527,7 @@ pub enum SelectionToken {
 }
 #[derive(Clone, Debug)]
 pub struct SelectionImage {
+    pub blanks: Vec<usize>,
     pub version: u32,
     pub scalar_skeleton: Image,
     pub formulas: Vec<SelectionFormula>,

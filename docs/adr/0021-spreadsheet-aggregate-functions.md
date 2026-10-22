@@ -1,6 +1,6 @@
 # ADR-0021: Bounded spreadsheet aggregate functions
 
-Status: **Accepted with MIN/MAX canonical-equality clarification; bounded implementation authorized, not started (2026-10-22)**.
+Status: **Accepted with MIN/MAX canonical-equality clarification; bounded implementation in place; three-platform validation passed for current source; WB5-only correction and final acceptance pending (2026-10-22)**.
 [Design acceptance and implementation boundary](../handoffs/2026-10-22-spreadsheet-aggregate-design-review.md).
 Date: 2026-10-22.
 [Review packet](../handoffs/2026-10-22-spreadsheet-aggregate-design.md).
@@ -9,6 +9,18 @@ Predecessors: [range semantics and SUM](0016-first-class-ranges-and-sum.md),
 [closed structured-binding proof](../handoffs/2026-10-22-worksheet-structured-binding-implementation-review.md).
 ADR-0020 remains accepted and closed. This proposal returns attention to conventional
 spreadsheet functionality; no new structured-data milestone is proposed.
+
+## Interim compatibility correction — final acceptance condition
+
+The interim parent response supersedes the WB4 compatibility target below:
+final ADR-0021 acceptance requires WB5-only read/write and explicit WB1–WB4
+rejection, retaining current-format identity, blank/SUM, atomic Open and dirty-state
+invariants. The currently validated source still includes WB4 migration. The
+completed Mac run is valid only for that source. Reader removal and fresh final
+three-platform validation remain pending; the interim response explicitly is not
+an implementation assignment or acceptance decision.
+[Evidence and policy record](../handoffs/2026-10-22-spreadsheet-aggregate-implementation.md#completed-macos-evidence-and-interim-policy-correction).
+Historical design approval below documents the earlier decision.
 
 ## Scope and authoring
 
@@ -178,5 +190,8 @@ The parent authorizes the bounded implementation without another architecture re
 Build focused Rust coverage before desktop integration, then supply complete
 three-platform managed/Native AOT evidence and stop for parent implementation review.
 If compatibility requires a CB/private protocol change, return for review first.
-No product/parser/protocol/file implementation has started; acceptance here is design
-and scope authorization, not implementation acceptance.
+The implementation is in place; [evidence and remaining gates](../handoffs/2026-10-22-spreadsheet-aggregate-implementation.md).
+Acceptance here is design/scope approval, not implementation acceptance.
+
+Parent implementation review: [computational implementation acceptable; final
+acceptance deferred pending WB5-only correction and fresh three-platform gates](../handoffs/2026-10-22-spreadsheet-aggregate-implementation-review.md).

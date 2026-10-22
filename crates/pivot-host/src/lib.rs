@@ -141,10 +141,11 @@ impl ModelHost {
         for &id in snapshot.dependency_order() {
             let node = snapshot.node(id).expect("validated snapshot");
             let tokens = match node.definition() {
-                pivot_core::model::SnapshotDefinition::CapturedScalar(_) => {
+                pivot_core::model::SnapshotDefinition::Blank
+                | pivot_core::model::SnapshotDefinition::CapturedScalar(_) => {
                     return Err(error(
                         wire::ErrorCode::InvalidArgument,
-                        "captured source unsupported in hosted v1",
+                        "blank/source marker unsupported in hosted v1",
                     ));
                 }
                 pivot_core::model::SnapshotDefinition::NonNumeric => 0,

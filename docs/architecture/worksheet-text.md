@@ -28,3 +28,8 @@ retaining typed text and entry arms. Clipboard data and
 platform identifiers are version 2. Old WB1–WB3 Open leaves live state untouched.
 No strings in formulas, connectors, projections or permanent dynamic namespace are
 introduced. Native AOT remains a separate regression gate.
+
+
+ADR-0021 adds a distinct Blank definition and text-ignoring MIN/MAX/AVERAGE/COUNT
+without changing strict scalar/SUM text errors. Current saves use WB5 with validated
+legacy WB4 reading; [aggregate architecture](spreadsheet-aggregates.md).

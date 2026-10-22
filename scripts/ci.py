@@ -62,6 +62,7 @@ def main():
             ("rust-lint", ["cargo", "clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"]),
             ("rust-tests", ["cargo", "test", "--locked", "--workspace"]),
             ("dotnet-build", ["dotnet", "build", "Pivot.slnx", "-c", "Release", "--disable-build-servers", "-warnaserror"]),
+            ("aggregate-reference", [sys.executable, "tests/decimal-parity/aggregate_reference.py", "--check"]),
             ("decimal-parity", [sys.executable, "tests/decimal-parity/verify.py", "--configuration", "Release", "--output-dir", str(output / "decimal-parity")]),
             ("protocol-parity", [sys.executable, "tests/protocol-parity/verify.py", "--output-dir", str(output / "protocol-parity")]),
             ("local-ipc", [sys.executable, "tests/ipc/verify.py", "--output-dir", str(output / "ipc")]),

@@ -263,6 +263,7 @@ impl Transaction<'_> {
             .batch
             .add_input(format!("N{}", self.data.records.len()), PivotDecimal::ZERO)
             .map_err(graph_error)?;
+        self.batch.set_blank(node).map_err(graph_error)?;
         drop(identity_profile);
         let _profile = profile::scope(3);
         self.journal.cells.insert(id);
@@ -328,7 +329,12 @@ impl Transaction<'_> {
                 return Err(Error::InvalidTarget);
             }
             let t = match token {
-                Token::SumAt { first, last, span } => {
+                Token::SumAt {
+                    kind,
+                    first,
+                    last,
+                    span,
+                } => {
                     self.book.axes_at(*first)?;
                     self.book.axes_at(*last)?;
                     let rectangle = pivot_core::model::selection::Rectangle {
@@ -345,6 +351,7 @@ impl Transaction<'_> {
                         .define_selection(id, rectangle)
                         .map_err(graph_error)?;
                     Token::Sum {
+                        kind: *kind,
                         id,
                         rectangle,
                         first: *first,
@@ -418,7 +425,13 @@ impl Transaction<'_> {
                     };
                     ResolvedToken::Node(adapter)
                 }
-                Token::Sum { id, .. } => ResolvedToken::Sum(*id),
+                Token::Sum { kind, id, .. } => {
+                    if *kind == pivot_core::expression::AggregateKind::Sum {
+                        ResolvedToken::Sum(*id)
+                    } else {
+                        ResolvedToken::Aggregate(*kind, *id)
+                    }
+                }
                 Token::Decimal(v) => ResolvedToken::Decimal(v.value()),
                 Token::Cell(r) => {
                     ResolvedToken::Node(self.data.bindings.get(&r.cell).unwrap().runtime)
@@ -581,10 +594,7 @@ impl Transaction<'_> {
                     && self.data.records.get(&id).unwrap().content != Some(Content::Blank)
                 {
                     self.batch
-                        .replace_input(
-                            self.data.bindings.get(&id).unwrap().runtime,
-                            PivotDecimal::ZERO,
-                        )
+                        .set_blank(self.data.bindings.get(&id).unwrap().runtime)
                         .map_err(graph_error)?;
                     self.set(id, Content::Blank)?;
                 }
@@ -899,6 +909,9 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
                             }
                             _ => CellError::InvalidExpression,
                         },
+                        EvaluationError::NoNumericValues { operation, .. } => {
+                            CellError::NoNumericValues(*operation)
+                        }
                         EvaluationError::NonNumericInput { .. } => CellError::NonNumericInput,
                         EvaluationError::Arithmetic { error, .. } => CellError::Arithmetic(*error),
                         EvaluationError::DependencyFailed { origin, .. } => {

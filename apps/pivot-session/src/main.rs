@@ -90,6 +90,8 @@ fn readable_error(error: impl std::fmt::Display) -> String {
         "Invalid formula; edit it to repair this cell.".into()
     } else if detail.contains("DivisionByZero") {
         "Division by zero.".into()
+    } else if detail.contains("NoNumericValues") {
+        "No numeric values in this range.".into()
     } else if detail.contains("Overflow") {
         "Decimal overflow.".into()
     } else {

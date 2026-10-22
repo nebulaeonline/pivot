@@ -78,3 +78,6 @@ pre-existing WSLg startup, mounted-filesystem Save and historical timing limits 
 No MEDIAN/MODE/aliases, function registry, general argument lists, structured-data
 expansion, permanent # syntax, connectors, formatting, Undo/Redo, structural row editing
 or capacity expansion. Formatting/Undo/Redo remain candidate later priorities.
+
+Implementation follow-up: [current bounded implementation and validation](2026-10-22-spreadsheet-aggregate-implementation.md).
+Design acceptance above does not constitute implementation acceptance.

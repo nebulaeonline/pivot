@@ -1,6 +1,6 @@
 # Spreadsheet aggregate functions — design review packet
 
-Date: 2026-10-22. **Design approved with canonical MIN/MAX equality clarification; implementation authorized, not started.**
+Date: 2026-10-22. **Design approved with canonical MIN/MAX equality clarification; bounded implementation in place; validation and implementation acceptance are separate.**
 [Approval and implementation boundary](2026-10-22-spreadsheet-aggregate-design-review.md).
 The decision requests below record design provenance; no implementation or new
 platform acceptance is claimed.
@@ -98,3 +98,6 @@ protocol, clipboard or persistence implementation was changed for this packet.
 No new dependency or capacity increase was introduced. The feasibility arithmetic
 exploration is the only new executable observation. Formatting and Undo/Redo remain
 candidate subsequent priorities, not bundled implementation work.
+
+[Subsequent implementation and platform evidence](2026-10-22-spreadsheet-aggregate-implementation.md).
+Design-phase statements above are provenance, not the current implementation status.

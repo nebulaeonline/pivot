@@ -98,6 +98,18 @@ impl Workbook {
         }) {
             return Err(Error::InvalidTarget);
         }
+        let blank_slots: BTreeSet<_> = image.graph.blanks.iter().copied().collect();
+        let expected_blanks: BTreeSet<_> = image
+            .cells
+            .iter()
+            .enumerate()
+            .filter_map(|(slot, (_, _, r))| {
+                matches!(r.content, Some(Content::Blank)).then_some(slot)
+            })
+            .collect();
+        if blank_slots.len() != image.graph.blanks.len() || blank_slots != expected_blanks {
+            return Err(Error::InvalidTarget);
+        }
         let mut data = persistent::Data::new(runtime.memory());
         let mut cells = BTreeSet::new();
         let mut ids = BTreeSet::new();

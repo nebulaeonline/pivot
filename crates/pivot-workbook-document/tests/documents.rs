@@ -191,7 +191,7 @@ fn sum_document_keeps_bound_geometry_identity_and_member_affinity() {
     .unwrap();
     let formula = book.cell_at(p(1, 4)).unwrap().unwrap();
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&bytes.bytes[..8], b"PIVOTWB4");
+    assert_eq!(&bytes.bytes[..8], b"PIVOTWB5");
     let (mut restored, _) =
         pivot_workbook_document::Document::open_document(&bytes.bytes, Limits::default(), &runtime)
             .unwrap();
@@ -340,7 +340,7 @@ fn text_roundtrip_preserves_marker_identity_and_old_versions_reject() {
     .unwrap();
     let cell = b.cell_at(p(1, 1)).unwrap().unwrap();
     let exported = pivot_workbook_document::Document::export_document(&b, b.expected()).unwrap();
-    assert_eq!(&exported.bytes[..8], b"PIVOTWB4");
+    assert_eq!(&exported.bytes[..8], b"PIVOTWB5");
     let (restored, checkpoint) = pivot_workbook_document::Document::open_document(
         &exported.bytes,
         Limits::default(),
@@ -374,6 +374,115 @@ fn text_roundtrip_preserves_marker_identity_and_old_versions_reject() {
     drop(capture);
     drop(restored);
     drop(b);
+    let memory = runtime.memory();
+    assert!(runtime.finish().is_ok());
+    assert_eq!(memory.stats().charged, 0);
+}
+
+#[test]
+fn genuine_wb4_migrates_blanks_without_changing_sum_and_resaves_wb5() {
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    let hex = include_str!("fixtures/legacy-wb4-aggregates.hex").trim();
+    let bytes: Vec<u8> = (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+        .collect();
+    let (mut book, _) =
+        pivot_workbook_document::Document::open_document(&bytes, Limits::default(), &runtime)
+            .unwrap();
+    let old = book.cell_at(p(1, 2)).unwrap().unwrap();
+    fn value(
+        book: &Workbook,
+        at: Position,
+    ) -> std::result::Result<pivot_types::PivotDecimal, CellError> {
+        let c = book.capture_local(book.expected()).unwrap();
+        let cell = c.cell_at(at).unwrap();
+        c.evaluate(&[cell]).unwrap().values[0].1.clone()
+    }
+    assert_eq!(value(&book, p(1, 2)), Ok(6.into()));
+    assert_eq!(value(&book, p(2, 2)), Err(CellError::NonNumericInput));
+    assert_eq!(value(&book, p(1, 3)), Ok(0.into()));
+    book.apply(
+        book.expected(),
+        &[
+            Edit::SetFormulaText {
+                position: p(3, 3),
+                source: "=COUNT(A1:A4)".into(),
+            },
+            Edit::SetFormulaText {
+                position: p(4, 3),
+                source: "=AVERAGE(A1:A4)".into(),
+            },
+        ],
+    )
+    .unwrap();
+    assert_eq!(value(&book, p(3, 3)), Ok(2.into()));
+    assert_eq!(value(&book, p(4, 3)), Ok(3.into()));
+    book.apply(book.expected(), &[number(p(4, 1), "0")])
+        .unwrap();
+    assert_eq!(value(&book, p(3, 3)), Ok(3.into()));
+    assert_eq!(value(&book, p(4, 3)), Ok(2.into()));
+    let saved = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
+    assert_eq!(&saved.bytes[..8], b"PIVOTWB5");
+    let (restored, checkpoint) =
+        pivot_workbook_document::Document::open_document(&saved.bytes, Limits::default(), &runtime)
+            .unwrap();
+    assert_eq!(checkpoint, saved.checkpoint);
+    assert_eq!(restored.cell_at(p(1, 2)).unwrap().unwrap(), old);
+    assert_eq!(value(&restored, p(2, 2)), Err(CellError::NonNumericInput));
+    assert_eq!(value(&restored, p(3, 3)), Ok(3.into()));
+    assert!(matches!(
+        restored.cell_at(p(2, 3)).unwrap().unwrap().content,
+        Content::TextFormula(TextFormula {
+            diagnostic: Some(_),
+            ..
+        })
+    ));
+    drop((book, restored));
+    let memory = runtime.memory();
+    assert!(runtime.finish().is_ok());
+    assert_eq!(memory.stats().charged, 0);
+}
+#[test]
+fn wb5_unknown_aggregate_rejects_even_with_a_valid_checksum() {
+    use sha2::{Digest, Sha256};
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    let mut book = Workbook::new_in("bad aggregate", Limits::default(), &runtime).unwrap();
+    book.apply(
+        book.expected(),
+        &[
+            number(p(1, 1), "7"),
+            Edit::SetFormulaText {
+                position: p(1, 2),
+                source: "=MIN(A1:A1)".into(),
+            },
+        ],
+    )
+    .unwrap();
+    let image = book.export_portable(book.expected()).unwrap();
+    let id = match image.graph.formulas[0].tokens[0] {
+        pivot_core::model::transfer::SelectionToken::Aggregate(_, id) => id,
+        _ => panic!(),
+    };
+    drop(image);
+    let mut bytes = pivot_workbook_document::Document::export_document(&book, book.expected())
+        .unwrap()
+        .bytes;
+    let mut pattern = 5u64.to_le_bytes().to_vec();
+    pattern.extend(1u64.to_le_bytes());
+    pattern.extend(id.0);
+    let offset = bytes
+        .windows(pattern.len())
+        .position(|s| s == pattern)
+        .unwrap();
+    bytes[offset + 8..offset + 16].copy_from_slice(&99u64.to_le_bytes());
+    let digest = Sha256::digest(&bytes[48..]);
+    bytes[16..48].copy_from_slice(&digest);
+    assert!(
+        pivot_workbook_document::Document::open_document(&bytes, Limits::default(), &runtime)
+            .is_err()
+    );
+    drop(book);
     let memory = runtime.memory();
     assert!(runtime.finish().is_ok());
     assert_eq!(memory.stats().charged, 0);

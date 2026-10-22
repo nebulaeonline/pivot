@@ -477,14 +477,15 @@ impl Workbook {
                                     });
                                 }
                                 (
-                                    Token::SumAt { first, last, span },
+                                    Token::SumAt { kind, first, last, span },
                                     Token::Sum {
+                                        kind:k,
                                         first: a,
                                         last: b,
                                         span: s,
                                         ..
                                     },
-                                ) if first == a && last == b && span == s => (),
+                                ) if kind==k && first == a && last == b && span == s => (),
                                 (a, b) if a == b => (),
                                 _ => return Err(invalid()),
                             }

@@ -133,6 +133,8 @@ impl Graph {
                 node: slot,
             };
             let definition = match &*record.definition {
+                Compiled::Blank if allow_selections => Definition::Input(PivotDecimal::ZERO),
+                Compiled::Blank => Definition::Blank,
                 Compiled::NonNumeric => Definition::NonNumeric,
                 Compiled::CapturedScalar(id) => Definition::CapturedScalar(*id),
                 Compiled::Input => Definition::Input(**self.values.get(slot).unwrap()),
@@ -173,7 +175,9 @@ impl Graph {
                 source,
                 binding: Ok((tokens, _)),
             } = &node.definition
-                && tokens.iter().any(|t| matches!(t, BoundToken::Sum(_)))
+                && tokens
+                    .iter()
+                    .any(|t| matches!(t, BoundToken::Sum(_) | BoundToken::Aggregate(_, _)))
             {
                 let translated = tokens
                     .iter()
@@ -183,6 +187,9 @@ impl Graph {
                             BoundToken::Node(n) => transfer::SelectionToken::Node(
                                 *slots.get(n).ok_or(Error::InvalidTransfer)?,
                             ),
+                            BoundToken::Aggregate(kind, id) => {
+                                transfer::SelectionToken::Aggregate(*kind, *id)
+                            }
                             BoundToken::Sum(id) => transfer::SelectionToken::Sum(*id),
                             BoundToken::Unary(op) => transfer::SelectionToken::Unary(*op),
                             BoundToken::Binary(op) => transfer::SelectionToken::Binary(*op),
@@ -222,7 +229,21 @@ impl Graph {
             })
             .collect::<Result<Vec<_>, Error>>()?;
         Ok(transfer::SelectionImage {
-            version: 2,
+            version: 3,
+            blanks: self
+                .records
+                .iter()
+                .filter(|(_, record)| record.live && matches!(*record.definition, Compiled::Blank))
+                .map(|(slot, _)| {
+                    slots
+                        .get(&NodeId {
+                            model: self.version.model,
+                            node: slot,
+                        })
+                        .copied()
+                        .ok_or(Error::InvalidTransfer)
+                })
+                .collect::<Result<Vec<_>, Error>>()?,
             scalar_skeleton,
             formulas,
             identities: selections.identities,
@@ -234,7 +255,7 @@ impl Graph {
             r.live
                 && matches!(
                     *r.definition,
-                    Compiled::NonNumeric | Compiled::CapturedScalar(_)
+                    Compiled::Blank | Compiled::NonNumeric | Compiled::CapturedScalar(_)
                 )
         }) {
             return Err(
@@ -325,6 +346,7 @@ impl Graph {
             .filter_map(|id| {
                 self.record(id).filter(|r| r.live).map(|r| {
                     let definition = match &*r.definition {
+                        Compiled::Blank => Definition::Blank,
                         Compiled::NonNumeric => Definition::NonNumeric,
                         Compiled::CapturedScalar(id) => Definition::CapturedScalar(*id),
                         Compiled::Input => Definition::Input(**self.values.get(id.node).unwrap()),

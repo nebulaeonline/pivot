@@ -28,7 +28,8 @@ The first Avalonia worksheet now edits and calculates through a real Rust-owned
 local session. It supports decimal/formula entry, clear/move and bounded scrolling.
 Native workbook files now support New, Open, Save, Save As and Close, preserving
 stable bindings and editable drafts. Same-sheet `SUM(A1:B20)` uses current occupants
-of a fixed rectangle and checked decimal arithmetic. Native files now use WB3; WB1/WB2 files are unsupported. Advanced spreadsheet features and deployment
+of a fixed rectangle and checked decimal arithmetic. MIN, MAX, AVERAGE and COUNT
+also operate on rectangular ranges. Advanced spreadsheet features and deployment
 are still ahead.
 
 ## Run the desktop
@@ -51,7 +52,10 @@ matching destination shape.
 Use a leading apostrophe to store numeric/formula-looking text literally (for
 example, `'001.20`). Numeric formulas and SUM report a type error when they consume
 text. Text is single-line and limited to 4,096 UTF-8 bytes. Native documents now use
-WB4; WB1–WB3 are unsupported.
+WB5; existing WB4 files can be opened and their next Save writes WB5. WB1–WB3
+are unsupported. MIN/MAX/AVERAGE/COUNT ignore direct blanks and literal text;
+formula errors propagate. AVERAGE uses exact accumulation and normal midpoint-away
+rounding.
 The active outline dims when unfocused; caret blinking is configurable.
 See the [clipboard handoff](docs/handoffs/2026-10-20-rectangular-clipboard.md)
 for workflow, limits and validation status.
@@ -60,7 +64,9 @@ The transport-independent Protobuf protocol has Rust/C# serialization tests and 
 in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)
 to run the demo daemon and CLI. Engine/daemon coverage includes Windows, WSL2 Linux
 and macOS ARM64. The preceding clipboard foundation is accepted on all three platforms.
-Worksheet text/WB4 passes Windows/Linux/native Mac automated validation and is accepted. See [platform validation](docs/platform-validation.md) for
+The worksheet text and structured-binding foundations are accepted. The aggregate
+slice has a separate [implementation handoff](docs/handoffs/2026-10-22-spreadsheet-aggregate-implementation.md).
+See [platform validation](docs/platform-validation.md) for
 coverage and the recorded WSLg startup limitation.
 
 See [implementation status](docs/STATUS.md) and

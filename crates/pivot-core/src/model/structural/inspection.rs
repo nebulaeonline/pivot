@@ -3,6 +3,7 @@ use crate::model::integration::NodeView;
 impl Graph {
     fn view_record<'a>(&self, id: NodeId, record: &'a Record) -> NodeView<'a> {
         let (definition, tokens) = match &*record.definition {
+            Compiled::Blank => (DraftDefinition::Blank, None),
             Compiled::NonNumeric => (DraftDefinition::NonNumeric, None),
             Compiled::CapturedScalar(id) => (DraftDefinition::CapturedScalar(*id), None),
             Compiled::Input => (

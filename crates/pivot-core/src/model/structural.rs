@@ -245,6 +245,7 @@ impl Footprint for Record {
     }
 }
 enum Compiled {
+    Blank,
     NonNumeric,
     CapturedScalar(crate::captured::CapturedScalarId),
     Input,
@@ -256,7 +257,7 @@ enum Compiled {
 impl Footprint for Compiled {
     fn heap_bytes(&self) -> usize {
         match self {
-            Self::Input | Self::NonNumeric | Self::CapturedScalar(_) => 0,
+            Self::Blank | Self::Input | Self::NonNumeric | Self::CapturedScalar(_) => 0,
             Self::Formula { source, binding } => {
                 source.capacity()
                     + match binding {
@@ -297,7 +298,7 @@ impl Compiled {
             } => tokens
                 .iter()
                 .filter_map(|t| {
-                    if let BoundToken::Sum(id) = t {
+                    if let BoundToken::Sum(id) | BoundToken::Aggregate(_, id) = t {
                         Some(*id)
                     } else {
                         None
@@ -309,7 +310,7 @@ impl Compiled {
     }
     fn bytes(&self) -> usize {
         match self {
-            Self::Input | Self::NonNumeric | Self::CapturedScalar(_) => 0,
+            Self::Blank | Self::Input | Self::NonNumeric | Self::CapturedScalar(_) => 0,
             Self::Formula { source, binding } => {
                 source.len()
                     + binding.as_ref().map_or(0, |(t, d)| {
@@ -363,6 +364,7 @@ pub enum Edit {
     Placement(selection::SpaceId, u32, u32, Option<NodeId>),
     Input(NodeId, PivotDecimal),
     ReplaceInput(NodeId, PivotDecimal),
+    Blank(NodeId),
     NonNumeric(NodeId),
     CapturedScalar(NodeId, crate::captured::CapturedScalarId),
     Formula(NodeId, String),
@@ -505,7 +507,10 @@ impl Graph {
             .nodes
             .values()
             .map(|node| match &node.definition {
-                Definition::NonNumeric | Definition::CapturedScalar(_) | Definition::Input(_) => 0,
+                Definition::Blank
+                | Definition::NonNumeric
+                | Definition::CapturedScalar(_)
+                | Definition::Input(_) => 0,
                 Definition::Computed { source, binding } => {
                     source.capacity()
                         + binding.as_ref().map_or(0, |(t, d)| {
@@ -561,6 +566,7 @@ impl Graph {
         };
         for (&id, node) in &model.nodes {
             let definition = match &node.definition {
+                Definition::Blank => Compiled::Blank,
                 Definition::NonNumeric => Compiled::NonNumeric,
                 Definition::CapturedScalar(id) => Compiled::CapturedScalar(*id),
                 Definition::Input(v) => {
@@ -635,6 +641,7 @@ impl Graph {
                     node: slot,
                 };
                 let definition = match &*r.definition {
+                    Compiled::Blank => DraftDefinition::Blank,
                     Compiled::NonNumeric => DraftDefinition::NonNumeric,
                     Compiled::CapturedScalar(id) => DraftDefinition::CapturedScalar(*id),
                     Compiled::Input => DraftDefinition::Input(**self.values.get(slot).unwrap()),
@@ -1012,6 +1019,7 @@ impl Graph {
             }
             match &edit {
                 Edit::CapturedScalar(id, _)
+                | Edit::Blank(id)
                 | Edit::NonNumeric(id)
                 | Edit::Input(id, _)
                 | Edit::ReplaceInput(id, _)
@@ -1054,6 +1062,11 @@ impl Graph {
                 }
                 Edit::CapturedScalar(id, slot) => {
                     candidate.replace(id, Compiled::CapturedScalar(slot))?;
+                    changed.insert(id);
+                    topology = true;
+                }
+                Edit::Blank(id) => {
+                    candidate.replace(id, Compiled::Blank)?;
                     changed.insert(id);
                     topology = true;
                 }
@@ -1109,6 +1122,18 @@ impl Graph {
                     let mut bound = Vec::with_capacity(tokens.len());
                     for token in tokens {
                         bound.push(match token {
+                            transfer::ResolvedToken::Aggregate(kind, id) => {
+                                if kind == crate::expression::AggregateKind::Sum
+                                    || candidate
+                                        .selections
+                                        .as_ref()
+                                        .and_then(|s| s.descriptor(id))
+                                        .is_none()
+                                {
+                                    return Err(Error::InvalidTransfer);
+                                }
+                                BoundToken::Aggregate(kind, id)
+                            }
                             transfer::ResolvedToken::Sum(id) => {
                                 if candidate
                                     .selections
@@ -1634,6 +1659,7 @@ impl Capture {
                 }
                 let record = self.0.live_record(id).unwrap();
                 let value = match &*record.definition {
+                    Compiled::Blank => Ok(PivotDecimal::ZERO),
                     Compiled::NonNumeric => Err(EvaluationError::NonNumericInput { node: id }),
                     Compiled::CapturedScalar(slot) => match sources.and_then(|s| s.get(slot)) {
                         Some(crate::captured::ScalarValue::Decimal(value)) => Ok(*value),
@@ -1654,13 +1680,33 @@ impl Capture {
                         ..
                     } => {
                         let _stack = self.0.memory.reserve(tokens.len().saturating_mul(64))?;
+                        // Operation-bearing keys, cached results and their tree metadata
+                        // are separately reserved; pure SUM retains its existing admission.
+                        let _aggregate_cache = if tokens
+                            .iter()
+                            .any(|t| matches!(t, BoundToken::Aggregate(_, _)))
+                        {
+                            Some(self.0.memory.reserve(tokens.len().saturating_mul(192))?)
+                        } else {
+                            None
+                        };
                         let mut sums = BTreeMap::new();
                         if let Some(state) = self.0.selections.as_ref() {
                             let _members = self
                                 .0
                                 .memory
                                 .reserve(state.metrics().points.saturating_mul(64) + 4096)?;
-                            for selection in record.definition.selection_ids() {
+                            let operations: BTreeSet<_> = tokens
+                                .iter()
+                                .filter_map(|t| match t {
+                                    BoundToken::Sum(id) => {
+                                        Some((crate::expression::AggregateKind::Sum, *id))
+                                    }
+                                    BoundToken::Aggregate(kind, id) => Some((*kind, *id)),
+                                    _ => None,
+                                })
+                                .collect();
+                            for (kind, selection) in operations {
                                 let members = state
                                     .members(selection, &mut visits, &cancelled)
                                     .map_err(|_| {
@@ -1670,34 +1716,98 @@ impl Capture {
                                             ComputeError::WorkBudget
                                         }
                                     })?;
-                                let mut sum = Ok(PivotDecimal::ZERO);
+                                let mut total = PivotDecimal::ZERO;
+                                let mut extremum: Option<PivotDecimal> = None;
+                                let mut count = 0u64;
+                                let mut mean = crate::aggregate::Mean::default();
+                                let mut failure = None;
                                 for member in members {
                                     if cancelled() {
                                         return Err(ComputeError::Cancelled);
                                     }
-                                    sum = sum.and_then(|total| {
-                                        let value = values
-                                            .get(&member)
-                                            .ok_or(EvaluationError::InvalidExpression { node: id })?
-                                            .as_ref()
-                                            .map_err(|e| e.dependency(id, member))?;
-                                        total.checked_add(*value).map_err(|error| {
-                                            EvaluationError::Arithmetic { node: id, error }
+                                    if kind != crate::expression::AggregateKind::Sum {
+                                        work.add(64)?;
+                                    }
+                                    if kind != crate::expression::AggregateKind::Sum
+                                        && self.0.live_record(member).is_ok_and(|r| {
+                                            matches!(
+                                                *r.definition,
+                                                Compiled::Blank | Compiled::NonNumeric
+                                            )
                                         })
-                                    });
-                                    if sum.is_err() {
+                                    {
+                                        continue;
+                                    }
+                                    let value = match values
+                                        .get(&member)
+                                        .ok_or(EvaluationError::InvalidExpression { node: id })
+                                        .and_then(|v| {
+                                            v.as_ref()
+                                                .copied()
+                                                .map_err(|e| e.dependency(id, member))
+                                        }) {
+                                        Ok(v) => v,
+                                        Err(e) => {
+                                            failure = Some(e);
+                                            break;
+                                        }
+                                    };
+                                    count = count.checked_add(1).ok_or(ComputeError::WorkBudget)?;
+                                    use crate::expression::AggregateKind as K;
+                                    let result = match kind {
+                                        K::Sum => total.checked_add(value).map(|v| {
+                                            total = v;
+                                        }),
+                                        K::Average => mean.push(value),
+                                        K::Min => {
+                                            extremum =
+                                                Some(extremum.map_or(value, |v| v.min(value)));
+                                            Ok(())
+                                        }
+                                        K::Max => {
+                                            extremum =
+                                                Some(extremum.map_or(value, |v| v.max(value)));
+                                            Ok(())
+                                        }
+                                        K::Count => Ok(()),
+                                    };
+                                    if let Err(error) = result {
+                                        failure =
+                                            Some(EvaluationError::Arithmetic { node: id, error });
                                         break;
                                     }
                                 }
-                                sums.insert(selection, sum);
+                                use crate::expression::AggregateKind as K;
+                                let result = if let Some(error) = failure {
+                                    Err(error)
+                                } else if kind != K::Sum && kind != K::Count && count == 0 {
+                                    Err(EvaluationError::NoNumericValues {
+                                        node: id,
+                                        operation: kind,
+                                        selection,
+                                    })
+                                } else {
+                                    match kind {
+                                        K::Sum => Ok(total),
+                                        K::Count => Ok(PivotDecimal::from(count as i64)),
+                                        K::Min | K::Max => Ok(extremum.unwrap().normalize()),
+                                        K::Average => {
+                                            work.add(8192)?;
+                                            mean.finish().map_err(|error| {
+                                                EvaluationError::Arithmetic { node: id, error }
+                                            })
+                                        }
+                                    }
+                                };
+                                sums.insert((kind, selection), result);
                             }
                         }
                         crate::evaluation::evaluate_expression_with_selections(
                             id,
                             tokens,
                             &values,
-                            |selection| {
-                                sums.get(&selection)
+                            |kind, selection| {
+                                sums.get(&(kind, selection))
                                     .cloned()
                                     .unwrap_or(Err(EvaluationError::InvalidExpression { node: id }))
                             },

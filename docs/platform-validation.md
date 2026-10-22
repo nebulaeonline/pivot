@@ -1,6 +1,20 @@
 # Linux and macOS validation
 
-## Current candidate: document-owned worksheet text
+## Current candidate: spreadsheet aggregate functions
+
+ADR-0021 implementation passes Windows/Linux/native Mac managed CI, strict all-feature tests
+and actual Native AOT with eleven desktop fields and zero-charge peers. Rust totals
+are 338/354 on Windows and 339/355 on Linux/Mac. Mac run
+`macos-validation-20261022T233650Z` matched 405 source files and 207 build inputs;
+453 returned evidence hashes were independently verified. The current source
+includes WB4 migration. Interim parent guidance requires its removal and final
+three-platform validation before acceptance; those steps remain pending.
+[Current evidence](handoffs/2026-10-22-spreadsheet-aggregate-implementation.md),
+[Mac packet](handoffs/2026-10-22-macos-aggregate-instructions.md).
+New saves use WB5 with validated WB4 reading; CB2/private v4/hosted v1 remain unchanged.
+Earlier accepted milestones below retain their historical formats and counts.
+
+## Accepted preceding: document-owned worksheet text
 
 ADR-0018 design and implementation are accepted; the worksheet-text milestone is closed. The new text candidate
 passes final Windows/Linux managed CI (314/315 default Rust tests), strict
@@ -17,7 +31,7 @@ one stale clipboard-v1 sentence; source/version evidence confirms v2, as documen
 in the handoff. Prior WB3/AOT evidence below remains historical. [Implementation/current evidence](handoffs/2026-10-21-worksheet-text-implementation.md),
 [Mac APFS packet](handoffs/2026-10-21-macos-worksheet-text-instructions.md).
 
-## Current: Native AOT baseline
+## Accepted baseline: Native AOT
 
 Windows x64 and Ubuntu/WSLg x64 Native AOT publish-and-execute gates pass without
 warnings. The Linux final image executes from ext4. Native main/helper windows

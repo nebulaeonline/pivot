@@ -116,6 +116,10 @@ impl Batch {
         self.push(Edit::CapturedScalar(id, slot), 0)?;
         Ok((id, slot))
     }
+    /// Blank scalar evaluates to zero, but is excluded by numeric-member reducers.
+    pub fn set_blank(&mut self, id: NodeId) -> Result<(), ModelError> {
+        self.push(Edit::Blank(id), 0)
+    }
     pub fn replace_input(&mut self, id: NodeId, value: PivotDecimal) -> Result<(), ModelError> {
         self.push(Edit::ReplaceInput(id, value), 0)
     }
@@ -297,7 +301,7 @@ impl IntegrationRuntime {
     ) -> Result<transfer::Imported, ModelError> {
         use selection::{MAX_CONSUMERS, MAX_IDENTITIES, MAX_POINTS, MAX_SELECTIONS};
         let invalid = || ModelError::Backend("invalid selection-aware transfer");
-        if image.version != 2
+        if image.version != 3
             || image.identities.len() > MAX_IDENTITIES
             || image.points.len() > MAX_POINTS
             || image.formulas.len() > MAX_CONSUMERS
@@ -322,7 +326,9 @@ impl IntegrationRuntime {
             .iter()
             .flat_map(|f| {
                 f.tokens.iter().filter_map(|t| {
-                    if let transfer::SelectionToken::Sum(id) = t {
+                    if let transfer::SelectionToken::Sum(id)
+                    | transfer::SelectionToken::Aggregate(_, id) = t
+                    {
                         Some(*id)
                     } else {
                         None
@@ -350,11 +356,19 @@ impl IntegrationRuntime {
                 return Err(invalid());
             }
         }
-        let capacity = image.identities.len() + image.points.len() + image.formulas.len();
+        let mut blank_slots = BTreeSet::new();
+        for slot in &image.blanks {
+            if !blank_slots.insert(*slot) || !image.scalar_skeleton.nodes.iter().any(|n| n.slot==*slot && matches!(n.definition,transfer::NodeDefinition::Input(v) if v==PivotDecimal::ZERO)){return Err(invalid());}
+        }
+        let capacity =
+            image.identities.len() + image.points.len() + image.formulas.len() + image.blanks.len();
         let mut imported = self.import_portable(image.scalar_skeleton, cancel)?;
         let mut batch = imported
             .model
             .begin_batch(capacity, sources.saturating_add(capacity * 128))?;
+        for slot in image.blanks {
+            batch.set_blank(*imported.nodes.get(slot).ok_or_else(invalid)?)?;
+        }
         for (id, rectangle) in image.identities {
             if let Some(rectangle) = rectangle {
                 batch.define_selection(id, rectangle)?;
@@ -381,6 +395,9 @@ impl IntegrationRuntime {
                         transfer::SelectionToken::Node(slot) => transfer::ResolvedToken::Node(
                             *imported.nodes.get(slot).ok_or_else(invalid)?,
                         ),
+                        transfer::SelectionToken::Aggregate(kind, id) => {
+                            transfer::ResolvedToken::Aggregate(kind, id)
+                        }
                         transfer::SelectionToken::Sum(id) => transfer::ResolvedToken::Sum(id),
                         transfer::SelectionToken::Unary(op) => transfer::ResolvedToken::Unary(op),
                         transfer::SelectionToken::Binary(op) => transfer::ResolvedToken::Binary(op),

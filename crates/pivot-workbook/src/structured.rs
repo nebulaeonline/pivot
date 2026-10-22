@@ -447,7 +447,15 @@ impl Workbook {
                                 .and_then(|r| r.position)
                                 .ok_or(Error::InvalidTarget)?,
                         ),
-                        (Token::SumAt { .. }, Token::Sum { first, last, .. }) => {
+                        (
+                            Token::SumAt { kind, .. },
+                            Token::Sum {
+                                kind: k,
+                                first,
+                                last,
+                                ..
+                            },
+                        ) if kind == k => {
                             effective.push(*first);
                             effective.push(*last);
                         }

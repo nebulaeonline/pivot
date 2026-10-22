@@ -9,3 +9,5 @@ pub mod experiment_profile;
 
 #[doc(hidden)]
 pub mod captured;
+
+mod aggregate;

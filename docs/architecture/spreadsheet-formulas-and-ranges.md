@@ -1,5 +1,9 @@
 # Spreadsheet formula, reference and range analysis
 
+Current MIN/MAX/AVERAGE/COUNT implementation: [aggregate architecture](spreadsheet-aggregates.md),
+[ADR-0021](../adr/0021-spreadsheet-aggregate-functions.md). Earlier future/unimplemented
+function statements below are historical design context.
+
 Historical scalar Slice B design context. The accepted range policies and current
 implementation are now governed by [ADR-0016](../adr/0016-first-class-ranges-and-sum.md)
 and the [Slice C handoff](../handoffs/2026-10-20-ranges-and-sum-slice-c.md).

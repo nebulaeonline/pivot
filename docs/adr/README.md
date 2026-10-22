@@ -55,4 +55,4 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0019: Structured results and projection identities](0019-structured-results-and-projection-identities.md) — Design approved with clarifications; bounded experimental implementation accepted and milestone closed (2026-10-22).
 
-- [ADR-0020: Worksheet bindings to structured numeric outputs](0020-worksheet-structured-output-bindings.md) — Proposed design; parent review pending, no implementation authorized (2026-10-22).
+- [ADR-0020: Worksheet bindings to structured numeric outputs](0020-worksheet-structured-output-bindings.md) — Proposed; architectural direction approved, focused contract addendum pending parent review; no implementation authorized (2026-10-22).

@@ -1,6 +1,9 @@
 # ADR-0020: Worksheet bindings to structured numeric outputs
 
-Status: **Proposed — design only; parent review required before implementation**.
+Status: **Proposed — architectural direction approved (2026-10-22); required concrete-contract addendum awaiting parent approval; implementation deferred**.
+[Review decision](../handoffs/2026-10-22-structured-output-binding-design-review.md),
+[focused contract addendum](../handoffs/2026-10-22-structured-output-binding-contract-addendum.md).
+The addendum specifies proposed details wherever this initial ADR leaves a contract open.
 Date: 2026-10-22.
 Predecessors: [stable references](0003-stable-references-and-public-interfaces.md),
 [structured identities](0019-structured-results-and-projection-identities.md),
@@ -87,7 +90,8 @@ user-overridable invocation ports. The document coordinator alone supplies them.
 If future external invocation exposes an output, its authority rules need review.
 
 Source faults propagate through existing scalar/SUM dependency evaluation with the
-origin slot and bounded document-side diagnostic metadata. Independent branches
+origin slot, a generic stable fault identity and bounded document-side diagnostics.
+The core does not enumerate producer-specific error categories. Independent branches
 remain calculable. Multiple faults follow the core's deterministic dependency/order
 policy rather than whichever task completes first; the implementation must specify
 and test that traversal policy before exposing stable error precedence. No error

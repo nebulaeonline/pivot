@@ -98,3 +98,11 @@ an explicitly published unavailable head must propagate an error without last-go
 fallback. Composite calculation identity includes source roots, not just worksheet
 revision. Names resolve only on authoring and projections never participate in binding.
 Permanent syntax, persistence, clipboard encoding and code changes await review.
+
+The parent approves ADR-0020's architectural direction but defers implementation.
+[Review decision](../handoffs/2026-10-22-structured-output-binding-design-review.md).
+The [focused addendum](../handoffs/2026-10-22-structured-output-binding-contract-addendum.md)
+proposes the exact scalar-context/fault contract, private token occurrences, authority,
+copy restrictions and quotas. In particular the numeric core propagates only a generic
+stable fault identity; source-specific meanings remain document diagnostics. Those
+concrete details await review; no new leaf, token or copy command is implemented.

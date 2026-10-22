@@ -1,6 +1,9 @@
 # Worksheet structured-output binding — design review packet
 
-Date: 2026-10-22. **Proposed; no implementation authorization or product changes.**
+Date: 2026-10-22. **Architectural direction approved; concrete contracts pending review. No implementation authorization or product changes.**
+[Parent decision](2026-10-22-structured-output-binding-design-review.md), [focused contract addendum](2026-10-22-structured-output-binding-contract-addendum.md).
+The original decision requests below are retained as design provenance; the linked
+review approves direction and requires the addendum before implementation.
 The user authorized design work after the accepted ADR-0019 proof.
 [ADR-0020](../adr/0020-worksheet-structured-output-bindings.md),
 [preceding acceptance](2026-10-22-structured-results-projection-implementation-review.md).

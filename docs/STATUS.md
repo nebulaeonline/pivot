@@ -13,9 +13,12 @@ Linux and macOS. All nine desktop fields and peers pass with zero charge. Mac/AP
 validation matched 373 source hashes and 190 inputs; 441 returned files are present.
 
 Current design work: **worksheet bindings to structured numeric outputs — proposed;
-parent design review pending**. The user authorized design work on 2026-10-22.
+architectural direction approved; focused contract addendum awaiting parent review**.
+The parent authorizes addendum work only; no implementation yet.
 [ADR-0020](adr/0020-worksheet-structured-output-bindings.md),
-[review packet and acceptance matrix](handoffs/2026-10-22-structured-output-binding-design.md).
+[review packet and acceptance matrix](handoffs/2026-10-22-structured-output-binding-design.md),
+[review decision](handoffs/2026-10-22-structured-output-binding-design-review.md),
+[concrete contract addendum](handoffs/2026-10-22-structured-output-binding-contract-addendum.md).
 The proposal binds stable DocumentId/ProducerId/OutputId/type, prepares capture-local
 numeric/fault inputs for the canonical graph, and separates rejected publication
 attempts from authoritative unavailable heads. It covers rename/delete/recreation,

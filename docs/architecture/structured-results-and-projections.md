@@ -84,3 +84,17 @@ Publication/layout buttons are test scaffolding. There is no automatic refresh o
 persistence. The UI advertises the experimental document, refuses Save/Save As before
 opening a picker, and uses only Discard/Cancel for a modified proof. Ordinary New/Open
 replace the proof only through the existing successful lifecycle/discard boundary.
+
+## Proposed follow-up: ordinary worksheet output bindings
+
+[ADR-0020](../adr/0020-worksheet-structured-output-bindings.md) and its
+[review packet](../handoffs/2026-10-22-structured-output-binding-design.md) propose
+stable document/producer/output/type operands and one shared scalar source leaf per
+referenced numeric output in the canonical graph. The document captures source-head
+and result roots and prepares an immutable Decimal96-or-fault context; the core would
+not acquire data or understand records. This leaf and fault boundary are proposed
+extensions, not implemented capabilities. Rejected candidates retain the prior head;
+an explicitly published unavailable head must propagate an error without last-good
+fallback. Composite calculation identity includes source roots, not just worksheet
+revision. Names resolve only on authoring and projections never participate in binding.
+Permanent syntax, persistence, clipboard encoding and code changes await review.

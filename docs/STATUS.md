@@ -12,14 +12,18 @@ AOT pass. Default/all-feature Rust totals are 318/334 on Windows and 319/335 on
 Linux and macOS. All nine desktop fields and peers pass with zero charge. Mac/APFS
 validation matched 373 source hashes and 190 inputs; 441 returned files are present.
 
-Next recommended step, not begun: a focused design for ordinary worksheet-formula
-bindings to stable ProducerId/OutputId, independently of projection location. Cover
-renames, errors, captured generations and publication consistency before permanent
-reference behavior. Keep `#` syntax provisional; wait for direction before starting.
-The accepted numeric adapter is not worksheet `#` binding. Current ordinal anchors
-are experimental only; structural row editing needs reviewed identity/affinity rules.
-No connectors, persistence/WB5, scheduler, collection evaluator, formatting or capacity
-expansion is authorized by this acceptance.
+Current design work: **worksheet bindings to structured numeric outputs — proposed;
+parent design review pending**. The user authorized design work on 2026-10-22.
+[ADR-0020](adr/0020-worksheet-structured-output-bindings.md),
+[review packet and acceptance matrix](handoffs/2026-10-22-structured-output-binding-design.md).
+The proposal binds stable DocumentId/ProducerId/OutputId/type, prepares capture-local
+numeric/fault inputs for the canonical graph, and separates rejected publication
+attempts from authoritative unavailable heads. It covers rename/delete/recreation,
+composite capture/authority, error propagation and copy boundaries. Permanent `#`
+grammar, persistence and implementation remain unapproved. No product code changed.
+Current ordinal projection anchors stay experimental; structural row editing needs
+reviewed identity/affinity rules. No connectors, persistence/WB5, scheduler, collection
+evaluator, formatting or capacity expansion is included.
 
 Accepted preceding milestone: **Bounded Document-Owned Worksheet Text — accepted; workstream closed**.
 [Acceptance and scope closure](handoffs/2026-10-21-worksheet-text-implementation-review.md),

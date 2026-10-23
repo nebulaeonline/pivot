@@ -24,3 +24,7 @@ required-features = ["scaling-experiment"]
 [[example]]
 name = "history_feasibility"
 required-features = ["history-experiment"]
+
+[[example]]
+name = "history_identity_inventory"
+required-features = ["history-experiment"]

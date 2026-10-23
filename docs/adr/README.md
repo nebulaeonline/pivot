@@ -61,4 +61,4 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0022: Four-direction rectangular Fill](0022-four-direction-rectangular-fill.md) — Design and three-platform-validated implementation accepted; workstream closed (2026-10-23).
 
-- [ADR-0023: Tiered recoverable document transaction history](0023-document-transaction-history.md) — root-activation feasibility accepted; revised memory/disk architecture and bounded experiment plan ready for review; disk experiment and production integration deferred (2026-10-23).
+- [ADR-0023: Tiered recoverable document transaction history](0023-document-transaction-history.md) — revised architecture and cold-identity clarification approved; bounded experiment authorized; same-session runtime identity preserved, restart remapping permitted; production integration deferred (2026-10-23).

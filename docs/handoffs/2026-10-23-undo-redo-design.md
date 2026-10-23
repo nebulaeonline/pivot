@@ -1,6 +1,8 @@
 # Tiered Undo/Redo architecture — revised parent review packet
 
-Date: 2026-10-23. **Design revision only; submitted for architecture review.**
+Date: 2026-10-23. **Revised architecture approved with safeguards; bounded experiment authorized.**
+[Parent approval and next boundary](2026-10-23-tiered-history-design-review.md).
+[Subsequent cold-identity clarification](2026-10-23-cold-history-identity-review.md).
 [Revised ADR-0023](../adr/0023-document-transaction-history.md),
 [bounded disk-history feasibility plan](../architecture/disk-history-feasibility-plan.md),
 [parent acceptance and revised direction](2026-10-23-undo-redo-feasibility-review.md).
@@ -21,6 +23,14 @@ fresh activation authority, monotonic allocation floors, independent captures,
 atomic branch replacement and the saved-content/in-flight-save/uncertainty contracts.
 Keep one user-visible linear timeline; an intentional changed edit after Undo still
 replaces Redo at commit. Unlimited Undo is not a permanent branch archive.
+
+The identity clarification preserves durable logical UUIDs, ContentStateIds,
+TransactionIds and bound-target relationships across restart, while permitting fresh
+process-local runtime mappings. Hot or cold activation within one live session must
+preserve exact runtime NodeIds. All states in a reopened session share one coherent
+mapping, and independently opened copies have isolated runtime namespaces. Persist
+discarded-branch logical reservations; never restore old request authority. The plan
+now tests these three cases separately. No core NodeId migration is included.
 
 ## Review decisions
 
@@ -65,7 +75,9 @@ The plan defines measurements, failure injection and stop conditions. It is not 
 production history coordinator and does not authorize session, protocol or desktop
 work. No opcodes/fields, cache defaults, database or container are selected here.
 
-After architecture review, authorize the narrow experiment separately. Its findings
-must return for feasibility review before full implementation. Existing clipboard,
+The parent has authorized the narrow experiment with separate identity-exhaustion
+measurements, non-destructive recovery decline and independent optimization/deletion.
+Its findings must return for feasibility review before production container selection
+or full implementation. Existing clipboard,
 WSLg startup, mounted-filesystem Save uncertainty and Linux timing issues remain
 open and outside this design round.

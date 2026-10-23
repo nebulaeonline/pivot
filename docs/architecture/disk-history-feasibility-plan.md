@@ -1,7 +1,10 @@
 # Bounded disk-history feasibility plan
 
-Date: 2026-10-23. **Proposed experiment, awaiting revised architecture review.
-No disk-history code, measurements or production integration claimed.**
+Date: 2026-10-23. **Bounded experiment authorized with three safeguards; Stage 1 inventory/probes started.
+No cold adapter, disk-history measurements or production integration claimed.**
+[Inventory, identity-boundary probes and allocation measurements](cold-history-state-inventory.md).
+[Resolved logical/runtime/authority contract](../handoffs/2026-10-23-cold-history-identity-review.md).
+[Architecture approval and safeguards](../handoffs/2026-10-23-tiered-history-design-review.md).
 [ADR-0023](../adr/0023-document-transaction-history.md),
 [parent direction](../handoffs/2026-10-23-undo-redo-feasibility-review.md),
 [accepted hot-root foundation](../handoffs/2026-10-23-undo-redo-feasibility.md).
@@ -47,10 +50,25 @@ a structurally valid but malicious length/reference must not cause uncontrolled
 allocation or bypass validation. A cold representation must not reparse/rebind or
 run Fill's stricter candidate-cycle validator on accepted historical drafts.
 
-Gate: A → B → evict A → load A → branch C, retaining B's capture. Original IDs,
-bindings, errors and ContentStateId match A; stale authority rejects; C cannot reuse
-B-only IDs. Repeat after process restart with no prior in-memory roots. If preserving
-canonical IDs requires broad core redesign, stop and report before storage work grows.
+Use three separate Stage 1 gates:
+
+1. A → B → evict A → load A → branch C within one live session, retaining B's
+   capture. Preserve exact runtime NodeIds as well as durable IDs, bindings, drafts,
+   errors and ContentStateId; stale authority rejects and C cannot reuse B-only IDs.
+2. Restart in a real new process with no surviving roots. Allocate a fresh runtime
+   graph namespace and preserve durable identities, reservations and exact logical
+   bound-target relationships. Compare logical equivalence, not old NodeId bits.
+   Repeat A/B/C loads using one coherent reopened-session mapping, including after
+   unrelated models have already been allocated. Preserve original provenance as
+   non-authoritative data and issue fresh session/request authority.
+3. Open independent copies simultaneously with overlapping historical logical IDs;
+   demonstrate isolated runtime graph namespaces, request authority and captures.
+
+Do not change core NodeId representation or add persistent model-number ownership.
+If same-session cold activation cannot preserve runtime IDs without broad redesign,
+stop and report before weakening the invariant or expanding storage work. Fresh
+restart namespaces do not reset lifetime identity ceilings or discarded-branch
+logical reservations. Existing probes do not establish these cold-restoration gates.
 
 ## Stage 2 — representation comparison
 
@@ -89,6 +107,12 @@ Use existing quotas and both sparse/formula-heavy states. Reuse the accepted cas
 identities up to actual existing admission. Never assume all 8,192 allocations fit
 other limits. Long timelines replace existing content rather than increasing the
 node ledger beyond current ceilings.
+Separately measure repeated create/Undo/branch cycles under the existing lifetime
+identity ceilings. Record attempted/committed transactions, new/retired identities,
+ledger floors and the first actual limiting admission reason. Compare that result
+with fixed-identity 1,000/10,000-edit runs. If finite identity allocation prevents
+realistic authoring, report the product constraint; do not claim that disk history
+removes it or increase quotas to reach the transaction target.
 
 | Workload | Required history behavior |
 | --- | --- |
@@ -164,6 +188,10 @@ replacement and two processes trying to attach the same history instance. All
 association decisions must use more than path/DocumentId. A valid independent workbook
 must remain openable if history is absent or mismatched; report history unavailable,
 do not merge histories or destroy quarantined data.
+Explicitly decline recovery of a newer journal head, reopen the saved workbook
+normally, then restart and accept recovery later. Assert that declining did not
+delete or truncate the journal and that later activation restores its exact content,
+timeline and ledger. Recovery decline and history deletion must be separate decisions.
 
 Exercise explicit retain across close/restart, session-only successful close,
 cancelled/failed close, Clear History, relocation and disk unavailable during each.

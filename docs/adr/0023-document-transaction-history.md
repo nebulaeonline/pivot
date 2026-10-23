@@ -1,7 +1,14 @@
 # ADR-0023: Tiered recoverable document transaction history
 
-Status: **Revised proposal for parent review; root-activation feasibility accepted;
-disk-history experiment and production integration not yet authorized (2026-10-23)**.
+Status: **Revised architecture approved with three safeguards; bounded disk-history
+experiment authorized; production integration deferred (2026-10-23)**.
+[Architecture approval and experiment boundary](../handoffs/2026-10-23-tiered-history-design-review.md).
+[Stage-one inventory and identity-boundary findings](../architecture/cold-history-state-inventory.md).
+The experiment has begun with boundary probes and separate transaction/identity
+measurements. Exact cold restoration remains unproven. The
+[parent identity clarification](../handoffs/2026-10-23-cold-history-identity-review.md)
+approves restart remapping while requiring exact same-session runtime IDs.
+No disk-history implementation is claimed.
 [Superseding parent direction](../handoffs/2026-10-23-undo-redo-feasibility-review.md),
 [accepted foundation](../handoffs/2026-10-23-undo-redo-feasibility.md),
 [review packet](../handoffs/2026-10-23-undo-redo-design.md),
@@ -41,6 +48,8 @@ no transition and preserve Redo.
 
 | Identity | Contract |
 | --- | --- |
+| Durable logical cell/node/range UUIDs | Serialized identity preserved across hot/cold restoration and restart, including original bound-target relationships |
+| Runtime NodeId | Process-local; preserved exactly within one live session, including cold restoration after eviction; remapped coherently across restart |
 | ContentStateId | Identifies committed content, preserved on hot/cold restoration and restart; not a byte hash or saved-file checkpoint |
 | TransactionId | Stable identity of one committed transition, with before/after ContentStateIds, parent and fixed action kind; not a request revision |
 | HistoryInstanceId and epoch | Scope a store lineage and control/cursor authority; document ancestry or path alone cannot attach it |
@@ -53,14 +62,29 @@ its original identity but mints new request authority. Returning to A never make
 requests from the original A valid. Historical diagnostic/binding provenance remains
 data. No pointers, sessions, tickets or old request handles become authority on load.
 
+After restart, allocate a fresh runtime graph namespace and consistently map durable
+identities for all history loaded into that reopened session. Do not assign a new,
+conflicting mapping independently per retrieved state. Independent copies may share
+historical logical UUIDs within their lineages but must have isolated runtime graph
+namespaces and request authority. Referential equivalence, rather than old runtime
+bitwise equality, is the cross-process oracle. Preserve historical provenance as data.
+Do not change core NodeId representation or add persistent model-number ownership.
+
 The allocation ledger covers canonical node/port IDs, portable cell/node identities
 and selection/range identities, including retired/discarded-branch reservations.
+Persist durable logical reservations and allocation authority, not old runtime
+namespaces as authority. Restart remapping must preserve those reservations even
+for objects absent from the current root or reachable timeline.
 Committing a new branch cannot reuse B-only identities even after B is evicted or
 unreachable. Existing captures of B remain isolated. Failed, definitely uncommitted
 candidates change no committed ledger. A committed-but-unacknowledged transaction
 retains its ledger advance. Current allocation ceilings are not reset by disk paging,
 Clear History or restart of the same attached history instance. Standalone document
 imports remain a different lifecycle and must not reconnect old runtime handles.
+Unlimited transaction retention is not unlimited identity allocation. Measure
+existing-cell edits separately from create/Undo/branch cycles and report finite
+identity exhaustion as a distinct product scaling constraint. Do not raise limits
+or weaken identity guarantees without separate review.
 
 ## Hot and cold state boundary
 
@@ -83,8 +107,12 @@ necessary; unlike a hot switch it is not claimed constant-time.
 WB5 is the current-document format, not the history codec. Do not add compatibility
 readers or use WB5 Open as a history activation shortcut. Existing portable transfer
 is reference material, not assumed sufficient: it does not itself establish preserved
-runtime IDs, durable floors or fresh-authority cold restoration. Stop if a narrow
+same-session runtime IDs, coherent restart mapping, durable floors or fresh-authority
+cold restoration. Stop if a narrow
 validated cold adapter requires broad graph redesign or cannot fit existing quotas.
+In particular, report inability to preserve exact same-session runtime NodeIds
+after cold eviction before weakening that contract. Test same-session restoration,
+fresh-process remapping and simultaneous copies separately.
 
 ## Resident cache and retrieval
 
@@ -180,6 +208,10 @@ new metadata in this round; proving an external association is part of feasibili
 | Two independent copies/windows | Exclusive writer per history instance; independent history instances or explicit read-only access, no merge or last-writer-wins attachment |
 | Failed/cancelled Open/New/close | Preserve the existing live session, history and pending authority |
 
+Declining immediate recovery does not authorize deletion of the recoverable journal.
+Preserve it for later explicit recovery or separately authorized discard; prove that
+decline followed by restart and later recovery retains exact content and history.
+
 A clean close may retain disk history; closing releases live roots, not necessarily
 the store. Recovery/open issues fresh session authority; persisted revisions never
 resurrect handles from a previous process. Association, leases and save reconciliation
@@ -259,9 +291,10 @@ logical needs and workload measurements; no SQLite versus bespoke format decisio
 is made here. The experiment must include a simple checkpoint baseline and compare
 local-delta and shared-object approaches before selecting one.
 
-Next authorization requested: the bounded plan linked above. No disk experiment is
-claimed executed. Stop for revised architecture review before implementation; after
-experimentation, stop again with evidence before a production coordinator, saves,
+The parent authorizes the bounded plan linked above with the three safeguards in
+the approval receipt. No disk experiment is claimed executed. Execute its staged
+gates; after experimentation, stop with evidence before production container selection,
+a production coordinator, saves,
 session/protocol or desktop work. Preserve the accepted hot-root tests and manifests.
 
 Optimize Worksheet remains separate future design: compiled/fused execution and

@@ -18,7 +18,24 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **Undo/Redo root-activation feasibility accepted; revised tiered history architecture ready for parent review; disk experiment and production integration deferred**.
+Current workstream: **Tiered history experiment started; Stage 1 identity contract clarified; exact cold restoration remains unproven; production integration deferred**.
+[Architecture approval and experiment authorization](handoffs/2026-10-23-tiered-history-design-review.md).
+[Parent cold-identity clarification](handoffs/2026-10-23-cold-history-identity-review.md).
+[Cold-state inventory and executable boundary probes](architecture/cold-history-state-inventory.md).
+Windows/Linux probes distinguish portable UUIDs from process-local runtime NodeIds;
+separate processes legitimately reuse the same numeric model/node pair. Portable
+transfer is not a history capsule and rejects an older root with a later allocation
+floor. No cold codec or restoration implementation has been introduced. The parent
+approves durable logical IDs/reservations across restart, exact runtime NodeIds for
+hot/cold activation in a live session, and coherent remapping in a fresh reopened
+runtime namespace. Separate gates cover same-session eviction, restart logical
+equivalence and simultaneous-copy isolation. No NodeId representation change or
+persistent model-number ownership is authorized; the identity-contract hold is resolved.
+
+The separate identity measurement completed 10,000 existing-cell replacements using
+one identity, while create/restore/branch reached the unchanged floor of 8,192 after
+8,191 new commits with one active cell. Both platforms finished at zero charge.
+This reports the requested product scaling constraint, not retained disk history.
 [Parent acceptance and superseding direction](handoffs/2026-10-23-undo-redo-feasibility-review.md),
 [accepted executable foundation and evidence](handoffs/2026-10-23-undo-redo-feasibility.md),
 [revised ADR-0023](adr/0023-document-transaction-history.md),
@@ -37,14 +54,17 @@ storage and explicit user retention/failure policy. Across-session history is an
 intended capability. Keep transaction/content identities, fresh authority, monotonic
 allocation floors and existing save/dirty/uncertain-installation contracts separate.
 
-Next gate: parent review of the revised ADR and proposed experiment. They compare
+Next work: execute the authorized staged experiment. It compares
 checkpoints, canonical record deltas and shared persistent-state objects with commit
 journaling, without choosing a container/database. The proposal covers cold restoration,
 durable-before-publish transaction/cursor/ledger decisions, uncertain-write reconciliation,
 saved-file association, copies/moves/replacement, explicit retention/failure policies
 and resident eviction without history loss. No disk-history code or measurements are
-claimed. Architecture review precedes experiment authorization; experiment evidence
-precedes full history/session/desktop integration. Optimize Worksheet is separate; no JIT,
+claimed. Additional safeguards require separate create/Undo/branch identity-exhaustion
+measurements, preserved journals when recovery is declined, and independent history
+deletion/compilation decisions. Return experiment evidence for parent feasibility
+review before production container selection or full history/session/desktop integration.
+Optimize Worksheet is separate; no JIT,
 SIMD, format changes or irreversible history compaction begin here. ADR-0022 remains
 accepted and closed.
 

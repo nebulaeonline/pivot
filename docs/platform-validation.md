@@ -1,6 +1,6 @@
 # Linux and macOS validation
 
-## Current candidate: four-direction Fill
+## Accepted: four-direction Fill
 
 ADR-0022 is implemented with source-edge capture, identity-preserving no-ops,
 blank/zero semantics, typed request, accessible menu/shortcuts and one cancel-aware
@@ -10,8 +10,8 @@ with twelve desktop fields, warning-free publication and zero-charge main/peers.
 Fresh Mac run `macos-validation-20261023T121442Z` matched 419 source hashes and 211
 build inputs before these documentation edits. Windows independently verified 465
 APFS-original per-file evidence hashes, the manifest hash and receipt checksum.
-No Mac product changes/setup failures/gate reruns occurred. Final parent acceptance
-is pending. The 739 returned Linux hashes remain verified; historical failed
+No Mac product changes/setup failures/gate reruns occurred. Final parent implementation acceptance was received on 2026-10-23; ADR-0022
+is closed. The 739 returned Linux hashes remain verified; historical failed
 projection-test runs and all existing reliability issues remain visible.
 [Current evidence](handoffs/2026-10-23-four-direction-fill-implementation.md),
 [completed Mac packet](handoffs/2026-10-23-macos-fill-instructions.md).

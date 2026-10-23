@@ -1,7 +1,7 @@
 # ADR-0022 — Four-direction Fill implementation
 
 Date: 2026-10-23. **Implemented; final Windows/Linux/native Mac/APFS validation passed;
-parent implementation acceptance pending.**
+parent implementation acceptance received; ADR-0022 closed.**
 [Approved design](../adr/0022-four-direction-rectangular-fill.md),
 [governing clarifications](2026-10-23-four-direction-fill-design-review.md),
 [architecture](../architecture/rectangular-fill.md).
@@ -181,8 +181,9 @@ Windows clipboard issue below remains open; this Mac pass does not diagnose it.
 
 ## Stop point and existing limits
 
-Three-platform gates and source/transfer reconciliation are complete. Submit this
-handoff for parent implementation review; final acceptance remains pending.
+Three-platform gates and source/transfer reconciliation are complete. The parent
+accepted the implementation on 2026-10-23; ADR-0022 is closed.
+[Final acceptance and scope closure](2026-10-23-four-direction-fill-final-review.md).
 The [Mac packet](2026-10-23-macos-fill-instructions.md) is completed run provenance,
 not a request to repeat validation. No recurring manual checklist is added.
 No series/drag handles/history/formatting/new functions/structural edits/persistent

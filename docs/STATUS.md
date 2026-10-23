@@ -2,14 +2,15 @@
 
 Date: 2026-10-23
 
-Latest accepted milestone: **Bounded Spreadsheet Aggregate Functions — accepted; ADR-0021 closed (2026-10-23)**.
-[Final implementation acceptance](handoffs/2026-10-23-spreadsheet-aggregate-final-review.md),
-[corrected implementation and evidence](handoffs/2026-10-23-wb5-only-aggregate-correction.md).
-MIN/MAX/AVERAGE/COUNT, canonical Blank semantics, exact AVERAGE and WB5-only
-read/write are accepted. Windows 339/355 and Linux/Mac 340/356 Rust tests pass,
-with managed/Native AOT desktop coverage, all eleven fields and zero-charge peers.
-Mac source/input verification and the accepted transfer-receipt limitation remain
-recorded in the handoff. Earlier ADR-0020 work remains accepted and closed.
+Latest accepted milestone: **Four-Direction Rectangular Fill — accepted; ADR-0022 closed (2026-10-23)**.
+[Final implementation acceptance](handoffs/2026-10-23-four-direction-fill-final-review.md),
+[implementation and three-platform evidence](handoffs/2026-10-23-four-direction-fill-implementation.md).
+Four-direction source-edge Fill, typed identity/no-op semantics, atomicity and the
+focused staged cycle validator are accepted. Windows 346/362 and Linux/Mac 347/363
+Rust tests pass, with managed/Native AOT execution, twelve fields and zero-charge
+main/peers. Mac 419 source hashes, 211 inputs and 465 APFS-original evidence hashes
+were independently verified, including manifest/receipt checksums. ADR-0021 remains
+accepted/closed; its earlier evidence limitations remain historical.
 
 **Open reliability issue:** intermittent Windows ClipboardChecklistAsync null
 destination after paste. The unchanged rerun passed; the cause remains unresolved.
@@ -17,28 +18,21 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current milestone: **Four-Direction Rectangular Fill — ADR-0022 design approved with clarifications; implemented; three-platform validation complete; parent implementation review pending**.
-[Design approval and implementation boundary](handoffs/2026-10-23-four-direction-fill-design-review.md).
-[Accepted design](adr/0022-four-direction-rectangular-fill.md),
-[design packet and acceptance matrix](handoffs/2026-10-23-four-direction-fill-design.md).
-[Implementation and evidence](handoffs/2026-10-23-four-direction-fill-implementation.md),
-[architecture](architecture/rectangular-fill.md).
-Command-driven Fill uses original source-edge capture, effective-binding translation
-and one atomic document mutation. Implementation retains a 256-position work-area limit,
-scoped keyboard/menu actions and unchanged capacities; no-op and active-editor
-behavior are explicit. Final Windows/Linux/native Mac managed CI, strict all-feature checks and actual
-Native AOT pass: 346/362 Windows and 347/363 Linux/Mac Rust tests; twelve desktop
-fields, warning-free native publication and zero-charge main/peers. All 211 Linux
-inputs and 739 returned hashes were verified. Fresh Mac run
-`macos-validation-20261023T121442Z` matched 419 source hashes/211 inputs and 465
-APFS-original evidence hashes, with manifest/receipt checksums independently verified.
-No Mac product changes, setup failures or gate reruns occurred. Final parent
-acceptance is pending; no additional feature or Undo/Redo design has started.
-Manifests freeze 419 source files and 211 build inputs for the
-[completed Mac packet](handoffs/2026-10-23-macos-fill-instructions.md).
-Existing eleven desktop fields gain a distinct rectangular_fill field.
-Undo/Redo remains a following architecture-design milestone, with one Fill as one
-transaction. No history implementation begins in this slice. ADR-0021 stays closed.
+Current workstream: **Undo/Redo architecture — direction conditionally approved; bounded feasibility authorized, not yet started; full implementation deferred**.
+[Architecture review and feasibility boundary](handoffs/2026-10-23-undo-redo-design-review.md).
+[Conditionally approved architecture](adr/0023-document-transaction-history.md),
+[review packet and acceptance matrix](handoffs/2026-10-23-undo-redo-design.md).
+The design separates document content identity, fresh mutation authority and immutable
+calculation captures. It proposes one action per committed transaction, lifetime
+identity floors, bounded retention/atomic branch admission, saved-content cleanliness
+and in-flight-save semantics. Ordinary-workbook-only scope, proof-mode history barriers,
+32-transition/16 MiB bounds and rejection of edits whose required history cannot fit
+remain design targets subject to measured feasibility. First prove historical root
+activation under fresh guards/lifetime allocation floors, retained-capture isolation
+and bounded weight/accounting on realistic workloads, including invalid/cyclic drafts.
+Stop for parent feasibility review before a general history stack, production save
+changes, session/protocol surface or desktop integration. No runtime/history code or
+feasibility results are claimed. ADR-0022 remains accepted and closed.
 
 Accepted preceding milestone: **Bounded Structured-Result and Presentation-Projection Proof — accepted; workstream closed**.
 [Acceptance and scope closure](handoffs/2026-10-22-structured-results-projection-implementation-review.md),

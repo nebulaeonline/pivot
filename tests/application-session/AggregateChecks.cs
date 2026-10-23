@@ -17,9 +17,16 @@ internal static class AggregateChecks {
    await s.ApplyAsync(s.Revision,[new Edit{At=P(5),Clear=true},new Edit{At=P(1,3),Formula="=MIN(E1:E5)"}]);Check((await s.ReadAsync(P(1,3),P(1,3))).Cells.Single().Error.Contains("No numeric values"),"no numeric values explicit");
    string root=Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath();string path=Path.Combine(root,"pivot-aggregate-"+Guid.NewGuid()+".pivot");await s.SaveAsync(s.Revision,path);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..8])=="PIVOTWB5","new save WB5");
    await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path,discard:true);Check(!s.IsDirty&&WorkbookSession.Decode((await s.ReadAsync(P(4,2),P(4,2))).Cells.Single().Value)==3,"saved blank remains excluded");
-   string fixture=Path.Combine(Directory.GetCurrentDirectory(),"crates","pivot-workbook-document","tests","fixtures","legacy-wb4-aggregates.hex");string legacy=Path.Combine(root,"pivot-legacy-"+Guid.NewGuid()+".pivot");await File.WriteAllBytesAsync(legacy,Convert.FromHexString((await File.ReadAllTextAsync(fixture)).Trim()));
-   await s.OpenAsync(s.Revision,legacy,discard:true);Check(!s.IsDirty&&WorkbookSession.Decode((await s.ReadAsync(P(1,2),P(1,2))).Cells.Single().Value)==6,"real legacy WB4 checkpoint and SUM");
-   await s.ApplyAsync(s.Revision,[new Edit{At=P(3,3),Formula="=COUNT(A1:A4)"}]);Check(WorkbookSession.Decode((await s.ReadAsync(P(3,3),P(3,3))).Cells.Single().Value)==2,"legacy blank reconstructed");await s.SaveAsync(s.Revision);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(legacy))[..8])=="PIVOTWB5","legacy next save WB5");
+   await s.ApplyAsync(s.Revision,[new Edit{At=P(6),Number=WorkbookSession.Encode(99)}]);
+   string revision=s.Revision, document=s.DocumentId, checkpoint=s.SavedCheckpoint, savedPath=s.DocumentPath;
+   for(int version=1;version<=4;version++){
+    string obsolete=Path.Combine(root,"pivot-unsupported-"+Guid.NewGuid()+".pivot");await File.WriteAllTextAsync(obsolete,"PIVOTWB"+version);
+    bool rejected=false;try{await s.OpenAsync(s.Revision,obsolete,discard:true);}catch(WorkbookSessionException e){rejected=e.Message.Contains("unsupported native workbook version");}
+    Check(rejected,"old format explicitly rejected");
+    Check(s.Revision==revision&&s.DocumentId==document&&s.DocumentPath==savedPath&&s.SavedCheckpoint==checkpoint&&s.IsDirty,"failed Open preserves lifecycle state");
+    Check(WorkbookSession.Decode((await s.ReadAsync(P(6),P(6))).Cells.Single().Value)==99,"failed Open preserves root");
+   }
+   await s.SaveAsync(s.Revision);Check(!s.IsDirty,"preserved path and checkpoint remain savable");
   }finally{await s.DisposeAsync();}
   Check(s.FinalCharge==0,"zero charge");await File.WriteAllTextAsync(Path.Combine(output,"aggregates.json"),JsonSerializer.Serialize(new{status="passed",remaining_charge=s.FinalCharge}));
  }

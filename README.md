@@ -52,8 +52,7 @@ matching destination shape.
 Use a leading apostrophe to store numeric/formula-looking text literally (for
 example, `'001.20`). Numeric formulas and SUM report a type error when they consume
 text. Text is single-line and limited to 4,096 UTF-8 bytes. Native documents now use
-WB5; existing WB4 files can be opened and their next Save writes WB5. WB1–WB3
-are unsupported. MIN/MAX/AVERAGE/COUNT ignore direct blanks and literal text;
+WB5 only; WB1–WB4 are explicitly unsupported. MIN/MAX/AVERAGE/COUNT ignore direct blanks and literal text;
 formula errors propagate. AVERAGE uses exact accumulation and normal midpoint-away
 rounding.
 The active outline dims when unfocused; caret blinking is configurable.
@@ -65,7 +64,7 @@ in-process host adapter for discovery and invocation. See [local IPC usage](docs
 to run the demo daemon and CLI. Engine/daemon coverage includes Windows, WSL2 Linux
 and macOS ARM64. The preceding clipboard foundation is accepted on all three platforms.
 The worksheet text and structured-binding foundations are accepted. The aggregate
-slice has a separate [implementation handoff](docs/handoffs/2026-10-22-spreadsheet-aggregate-implementation.md).
+slice has a separate [implementation handoff](docs/handoffs/2026-10-23-wb5-only-aggregate-correction.md).
 See [platform validation](docs/platform-validation.md) for
 coverage and the recorded WSLg startup limitation.
 

@@ -2,17 +2,23 @@
 
 ## Current candidate: spreadsheet aggregate functions
 
-ADR-0021 implementation passes Windows/Linux/native Mac managed CI, strict all-feature tests
-and actual Native AOT with eleven desktop fields and zero-charge peers. Rust totals
-are 338/354 on Windows and 339/355 on Linux/Mac. Mac run
-`macos-validation-20261022T233650Z` matched 405 source files and 207 build inputs;
-453 returned evidence hashes were independently verified. The current source
-includes WB4 migration. Interim parent guidance requires its removal and final
-three-platform validation before acceptance; those steps remain pending.
-[Current evidence](handoffs/2026-10-22-spreadsheet-aggregate-implementation.md),
-[Mac packet](handoffs/2026-10-22-macos-aggregate-instructions.md).
-New saves use WB5 with validated WB4 reading; CB2/private v4/hosted v1 remain unchanged.
-Earlier accepted milestones below retain their historical formats and counts.
+ADR-0021 now uses WB5-only read/write; obsolete WB4 decoding and migration are
+removed. Windows final managed CI, strict all-feature checks and actual Native AOT
+pass (339/355 Rust tests), eleven desktop fields and zero-charge peers. Final Linux
+managed/strict all-feature/Native AOT gates pass (340/356 Rust tests), with eleven
+fields and zero-charge peers. Fresh native Mac/APFS gates also pass (340/356),
+all eleven fields, actual ARM64 Native AOT/adjacent Rust child and zero-charge peers.
+Mac run `macos-validation-20261023T090419Z` matched 407 source and 206 build-input
+hashes; its receipt reports 458 returned files verified against APFS originals.
+Windows independently matched source/input hashes and inventoried returned evidence;
+the Mac receipt omits per-file original hashes for independent transfer comparison.
+[Corrected candidate](handoffs/2026-10-23-wb5-only-aggregate-correction.md),
+[completed Mac packet](handoffs/2026-10-23-macos-wb5-only-instructions.md).
+The previous Mac run `macos-validation-20261022T233650Z` passed against the old
+WB4-reading source, with 405 source, 207 build-input and 453 returned hashes checked.
+That evidence is preserved, not claimed for this correction. Final acceptance is
+pending. CB2/private v4/hosted v1 remain unchanged. Earlier milestones below retain
+their historical formats and counts.
 
 ## Accepted preceding: document-owned worksheet text
 

@@ -1,5 +1,9 @@
 # ADR-0021 aggregate functions — implementation and validation
 
+Historical pre-correction evidence: this handoff describes the WB4-reading source.
+The [WB5-only correction](2026-10-23-wb5-only-aggregate-correction.md) supersedes its
+current-source statements. Original manifests and Mac evidence remain unchanged.
+
 Date: 2026-10-22. **Bounded implementation validated on Windows/Linux/native macOS;
 WB5-only correction and final implementation acceptance remain pending.**
 [Accepted design](../adr/0021-spreadsheet-aggregate-functions.md),

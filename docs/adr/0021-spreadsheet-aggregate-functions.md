@@ -1,6 +1,6 @@
 # ADR-0021: Bounded spreadsheet aggregate functions
 
-Status: **Accepted with MIN/MAX canonical-equality clarification; bounded implementation in place; three-platform validation passed for current source; WB5-only correction and final acceptance pending (2026-10-22)**.
+Status: **Accepted with MIN/MAX canonical-equality clarification; bounded implementation in place; WB5-only correction implemented; revised-source three-platform validation passed; final parent acceptance pending (2026-10-23)**.
 [Design acceptance and implementation boundary](../handoffs/2026-10-22-spreadsheet-aggregate-design-review.md).
 Date: 2026-10-22.
 [Review packet](../handoffs/2026-10-22-spreadsheet-aggregate-design.md).
@@ -10,17 +10,13 @@ Predecessors: [range semantics and SUM](0016-first-class-ranges-and-sum.md),
 ADR-0020 remains accepted and closed. This proposal returns attention to conventional
 spreadsheet functionality; no new structured-data milestone is proposed.
 
-## Interim compatibility correction — final acceptance condition
+## Final compatibility correction
 
-The interim parent response supersedes the WB4 compatibility target below:
-final ADR-0021 acceptance requires WB5-only read/write and explicit WB1–WB4
-rejection, retaining current-format identity, blank/SUM, atomic Open and dirty-state
-invariants. The currently validated source still includes WB4 migration. The
-completed Mac run is valid only for that source. Reader removal and fresh final
-three-platform validation remain pending; the interim response explicitly is not
-an implementation assignment or acceptance decision.
-[Evidence and policy record](../handoffs/2026-10-22-spreadsheet-aggregate-implementation.md#completed-macos-evidence-and-interim-policy-correction).
-Historical design approval below documents the earlier decision.
+The final parent review requires WB5-only read/write before acceptance. The WB4
+reader has now been removed; final Windows/Linux/native Mac/APFS validation passes. Final parent acceptance
+remains pending. Earlier three-platform evidence covers the previous
+WB4-reading source only.
+[Review direction](../handoffs/2026-10-22-spreadsheet-aggregate-implementation-review.md).
 
 ## Scope and authoring
 
@@ -138,28 +134,22 @@ MIN/MAX/COUNT need only scalar running state. All share existing graph/selection
 
 ## Persistence, transfer and clipboard — explicit review decision
 
-Inspection found WB4 explicitly serializes SUM-only graph/workbook tokens. It also
-stores blank backing as zero. Reusing that meaning for another operation or silently
-reading new aggregate tags as SUM would be incompatible. This proposal therefore
-records approval for **WB5 writing with bounded legacy WB4 reading**, not a silent
-reinterpretation of WB4. This is ordinary workbook evolution, not persisted structured
-producers/projections; the ADR-0020 experiment remains non-savable.
+WB4 encoded SUM-only tokens and blank backing as zero. New aggregate and Blank
+metadata require WB5. The final parent review supersedes the initial WB4-reading
+approval: **WB5-only read/write**, explicit WB1–WB4 rejection and no obsolete
+decoder or migration path. Historical approvals remain in the design review record.
+This is ordinary workbook evolution, not persisted structured producers/projections.
 
-WB5 stores explicit aggregate operation/selection metadata and blank-kind metadata,
-with redundant workbook/graph source, identity and type consistency validated before
-installation. The existing scalar document skeleton may retain zero placeholders
-only inside this validated workbook envelope with explicit blank overlay; a standalone
-frozen scalar export must not silently erase observable blank or aggregate semantics.
-Keep hosted v1 and model-database formats unchanged; unsupported exports reject.
+WB5 stores aggregate operation/selection and blank-kind metadata. Redundant source,
+identity and type representations must match before installation. Scalar skeleton
+zero placeholders are permitted only inside this validated envelope with explicit
+blank overlay; frozen scalar exports must not erase observable semantics. Keep
+hosted v1 and model-database formats unchanged; unsupported exports reject.
 
-A legacy WB4 reader first validates the old document under its original rules, then
-reconstructs blank-kind backing from authoritative Content::Blank metadata, preserving
-ordinary CellIds, bound targets, ranges, text, rejected drafts and numeric values.
-Open does not re-resolve source names or execute rejected drafts. Successful legacy
-Open creates the normal saved checkpoint; subsequent Save writes WB5. WB1/2/3 remain
-unsupported. Malformed/unsupported Open preserves live workbook, dirty state, path
-and checkpoint. New WB5 files reject in old readers by magic/version. No automatic
-batch file conversion or database migration is included.
+Malformed/unsupported Open preserves live workbook roots, revision, dirty state,
+path and saved checkpoint. Retain current-format tests of blank identity, explicit
+zero, strict SUM, bound references, text, rejected drafts and checkpoints, alongside
+small old-version rejection fixtures. No batch conversion or migration is included.
 
 PIVOTCB2 carries formula source and effective reference coordinates rather than an
 encoded SUM opcode. Retain its layout if new functions can use the same validated
@@ -179,7 +169,7 @@ and session request/read bounds do not limit computational range cardinality.
 No capacity increase, scheduler or new graph architecture is authorized by this design.
 
 The linked acceptance matrix requires parser/binder, real evaluator, decimal reference,
-copy/native/TSV, WB4 legacy/WB5 round trips, immutable captures, fault precedence,
+copy/native/TSV, WB5 round trips and WB1–WB4 rejection, immutable captures, fault precedence,
 atomic rejection, cancellation/accounting and desktop/IPC tests. Later implementation
 must produce full managed CI, strict all-feature checks and actual Native AOT desktop
 coverage on Windows, native Linux/WSLg and native macOS/APFS, with zero charge.

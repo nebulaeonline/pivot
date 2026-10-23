@@ -40,15 +40,17 @@ reservations; pure SUM admission is unchanged. Extra work is charged through
 existing invocation budgets, and member traversal polls cancellation. The fixed
 finalization loop is bounded independently of input values.
 
-New workbook writes use PIVOTWB5. The bounded WB4 decoder validates legacy encoding,
-checksums, tokens, source/projection consistency and strict SUM rules first, then
-reconstructs Blank from workbook content. WB5 additionally stores explicit blank
-slots and aggregate operation metadata; redundant representations must match before
-installation. Graph aggregate token tag 5 and workbook aggregate token tag 5 carry
-kind values MIN=1, MAX=2, AVERAGE=3, COUNT=4; original SUM tags remain distinct.
-WB1/2/3 are unsupported. Failed Open preserves live roots/path/checkpoint/dirty state.
-Successful WB4 Open is clean, and its next Save writes WB5. No model-database or
-frozen hosted format changed, and structured proof documents remain non-savable.
+Native workbook read/write supports PIVOTWB5 only. WB1–WB4 explicitly reject;
+no obsolete decoder or migration path remains. WB5 stores explicit blank slots
+and aggregate metadata; redundant workbook/graph representations must match before
+installation. Graph/workbook aggregate tag 5 carries MIN=1, MAX=2, AVERAGE=3,
+COUNT=4; original SUM tags remain distinct. Failed Open preserves live roots, path,
+revision, checkpoint and dirty state. Model-database and frozen hosted formats are
+unchanged; structured proof documents remain non-savable.
+
+Experimental workbook, native clipboard and private application formats support
+only their current versions unless an identified consumer and explicit support
+commitment justify compatibility. A feature alone does not require a version cut.
 
 PIVOTCB2 still carries source/effective reference coordinates; new names reuse its
 endpoint annotations. Translation preserves dollar flags, reversed ranges, scalar

@@ -18,37 +18,36 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current milestone: **Bounded MIN/MAX/AVERAGE/COUNT — implemented; three-platform validation complete for current source; WB5-only correction and final acceptance pending**.
-ADR-0021 design is approved with canonical MIN/MAX equality. The bounded implementation
-is in place; implementation acceptance remains separate.
-[Implementation and evidence](handoffs/2026-10-22-spreadsheet-aggregate-implementation.md),
-[Mac/APFS validation packet](handoffs/2026-10-22-macos-aggregate-instructions.md).
-Windows/Linux/native Mac managed CI, strict all-feature lint/tests and actual Native AOT pass.
-Rust totals: Windows 338/354, Linux and Mac 339/355; all eleven desktop fields and peers pass
-with zero charge. The private reducer matches 544 independently generated rational
-reference cases. WB4 migration uses a genuine prior-writer fixture. The initial AOT
-check still expected WB4; it was corrected to require WB5 and checksum validation,
-and its passing rerun and failed report are retained.
-[ADR-0021](adr/0021-spreadsheet-aggregate-functions.md),
-[approval and bounded implementation scope](handoffs/2026-10-22-spreadsheet-aggregate-design-review.md),
-[acceptance matrix](handoffs/2026-10-22-spreadsheet-aggregate-design.md).
-Ignore direct blanks/text, include numeric zeros/formula values and propagate formula
-errors. Preserve strict SUM. Distinguish Blank definitions from numeric zero and
-invalidate on transitions. MIN/MAX return canonical numeric extrema, independent of
-scale/signed-zero ties or traversal order. AVERAGE uses private fixed-width exact
-accumulation and final midpoint-away rounding, tested against independent rationals.
-The tested source writes WB5 and reads WB4. Interim parent guidance now requires
-WB5-only read/write before final acceptance; the correction is pending, and current
-Mac evidence does not validate it. Preserve SUM, identities and failed-Open atomicity. Keep CB2/private v4 if faithful; stop for review
-if a genuine representation conflict requires change. Hosted/model formats stay frozen.
-Focused Rust tests preceded desktop integration. Final Windows/Linux gates pass;
-207 Linux build-input hashes match and 774 returned files were verified. Complete
-Mac/APFS review verified all 405 source hashes, 207 inputs and 453 returned files
-from `macos-validation-20261022T233650Z`. No failed gates or reruns occurred.
-The interim policy response is not implementation authorization or acceptance.
-WB5-only correction and final Windows/Linux/Mac validation remain outstanding. MEDIAN/MODE/aliases,
-formatting, Undo/Redo, structured-data expansion, connectors, structural row editing
-and capacity increases remain excluded. ADR-0020 remains accepted and closed.
+Current milestone: **Bounded MIN/MAX/AVERAGE/COUNT — WB5-only correction implemented; three-platform validation complete; final parent acceptance pending**.
+The parent finds aggregate functionality and prior three-platform evidence acceptable,
+but defers final acceptance until WB4 migration is removed and the revised candidate
+passes all platform gates. The decoder now supports WB5 only, explicitly rejecting
+WB1–WB4. No obsolete migration code remains. CB2/private v4/hosted v1 are unchanged.
+[Final direction](handoffs/2026-10-22-spreadsheet-aggregate-implementation-review.md),
+[corrected candidate and evidence](handoffs/2026-10-23-wb5-only-aggregate-correction.md),
+[fresh Mac packet](handoffs/2026-10-23-macos-wb5-only-instructions.md).
+
+Windows final managed/desktop CI, strict all-feature checks and actual Native AOT
+pass: 339 default / 355 all-feature Rust tests; eleven desktop fields and three peers
+in each mode pass with zero charge and no native publication warnings. Linux final
+managed, strict all-feature and Native AOT gates also pass (340/356 Rust tests),
+with eleven fields and zero-charge peers. Fresh native Mac/APFS gates also pass
+(340/356), with all eleven fields, native peers, no warnings and zero charge.
+Mac run `macos-validation-20261023T090419Z` matched all 407 source hashes and 206
+build inputs; its transfer receipt reports 458 files verified against APFS originals.
+Windows independently repeated source/input comparisons and inventoried the returned
+files; individual original transfer hashes were not retained by the Mac receipt.
+WB5 tests preserve blank identity/explicit zero, strict SUM, aggregate metadata,
+bound references, literal text, rejected drafts, CellIds and checkpoints. Actual
+session tests verify WB1–WB4 failed Open preserves roots, revision, path and dirty
+checkpoint state. The private reducer and 544 independent rational cases are unchanged.
+The prior Mac run matched 405 source hashes, 207 build inputs and 453 returned files,
+but validates the previous WB4-reading source only. It remains historical evidence.
+
+No new manual checklist, ADR or architecture review is required. Final
+three-platform gates are complete; stop for parent acceptance. MEDIAN/MODE, formatting, Undo/Redo,
+structured-data expansion, connectors and capacity increases remain excluded.
+ADR-0020 remains accepted and closed. The Windows clipboard issue above remains open.
 
 Accepted preceding milestone: **Bounded Structured-Result and Presentation-Projection Proof — accepted; workstream closed**.
 [Acceptance and scope closure](handoffs/2026-10-22-structured-results-projection-implementation-review.md),

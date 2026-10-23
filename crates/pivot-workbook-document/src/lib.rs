@@ -35,7 +35,6 @@ use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 4 * 1024 * 1024;
 const MAGIC: &[u8; 8] = b"PIVOTWB5";
-const LEGACY_MAGIC: &[u8; 8] = b"PIVOTWB4";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -170,7 +169,6 @@ impl Writer {
     }
 }
 struct Reader<'a> {
-    legacy: bool,
     bytes: &'a [u8],
     at: usize,
 }
@@ -254,7 +252,7 @@ impl<'a> Reader<'a> {
             out.push(match self.n()? {
                 0 => SelectionToken::Decimal(self.dec()?.value()),
                 1 => SelectionToken::Node(self.count(8191)?),
-                5 if !self.legacy => SelectionToken::Aggregate(
+                5 => SelectionToken::Aggregate(
                     self.aggregate_kind()?,
                     SelectionId(*self.id()?.as_bytes()),
                 ),
@@ -282,7 +280,7 @@ impl<'a> Reader<'a> {
         for _ in 0..n {
             let tag = self.n()?;
             out.push(match tag {
-                4 | 5 if tag == 4 || !self.legacy => {
+                4 | 5 => {
                     let kind = if tag == 4 {
                         expression::AggregateKind::Sum
                     } else {
@@ -495,14 +493,14 @@ impl Document {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Limit);
         }
-        for version in ["WB1", "WB2", "WB3"] {
+        for version in ["WB1", "WB2", "WB3", "WB4"] {
             if bytes.starts_with(format!("PIVOT{version}").as_bytes()) {
                 return Err(Error::Graph(format!(
-                    "unsupported native workbook version {version}; WB4 or WB5 required"
+                    "unsupported native workbook version {version}; WB5 required"
                 )));
             }
         }
-        if bytes.len() < 48 || (&bytes[..8] != MAGIC && &bytes[..8] != LEGACY_MAGIC) {
+        if bytes.len() < 48 || &bytes[..8] != MAGIC {
             return Err(malformed());
         }
         if u64::from_le_bytes(bytes[8..16].try_into().unwrap()) != (bytes.len() - 48) as u64
@@ -510,9 +508,7 @@ impl Document {
         {
             return Err(malformed());
         }
-        let legacy = &bytes[..8] == LEGACY_MAGIC;
         let mut r = Reader {
-            legacy,
             bytes: &bytes[48..],
             at: 0,
         };
@@ -580,9 +576,7 @@ impl Document {
             }
             formulas.push(f);
         }
-        let declared_blanks = if legacy {
-            None
-        } else {
+        let declared_blanks = {
             let n = r.count(8192)?;
             let mut slots = BTreeSet::new();
             for _ in 0..n {
@@ -590,7 +584,7 @@ impl Document {
                     return Err(malformed());
                 }
             }
-            Some(slots)
+            slots
         };
         let count = r.count(limits.allocated_cells.min(8192))?;
         if count != document.graph.node_ids.len() {
@@ -992,7 +986,7 @@ impl Document {
                 matches!(records[id].content, Some(Content::Blank)).then_some(slot)
             })
             .collect();
-        if declared_blanks.is_some_and(|slots| slots != blanks.iter().copied().collect()) {
+        if declared_blanks != blanks.iter().copied().collect() {
             return Err(malformed());
         }
         let graph = SelectionImage {

@@ -380,16 +380,47 @@ fn text_roundtrip_preserves_marker_identity_and_old_versions_reject() {
 }
 
 #[test]
-fn genuine_wb4_migrates_blanks_without_changing_sum_and_resaves_wb5() {
+fn wb5_preserves_blank_identity_sum_and_checkpoint() {
     let runtime = IntegrationRuntime::standalone().unwrap();
-    let hex = include_str!("fixtures/legacy-wb4-aggregates.hex").trim();
-    let bytes: Vec<u8> = (0..hex.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
-        .collect();
-    let (mut book, _) =
-        pivot_workbook_document::Document::open_document(&bytes, Limits::default(), &runtime)
+    let mut original = Workbook::new_in("WB5 invariants", Limits::default(), &runtime).unwrap();
+    original
+        .apply(
+            original.expected(),
+            &[
+                number(p(1, 1), "2"),
+                number(p(2, 1), "4"),
+                Edit::SetText {
+                    position: p(3, 1),
+                    text: "Label".into(),
+                },
+                Edit::SetFormulaText {
+                    position: p(1, 2),
+                    source: "=SUM(A1:A2)".into(),
+                },
+                Edit::SetFormulaText {
+                    position: p(2, 2),
+                    source: "=SUM(A1:A3)".into(),
+                },
+                Edit::SetFormulaText {
+                    position: p(1, 3),
+                    source: "=A4".into(),
+                },
+                Edit::SetFormulaText {
+                    position: p(2, 3),
+                    source: "=(".into(),
+                },
+            ],
+        )
+        .unwrap();
+    let first =
+        pivot_workbook_document::Document::export_document(&original, original.expected()).unwrap();
+    let original_blank = original.cell_at(p(4, 1)).unwrap().unwrap();
+    let (mut book, checkpoint) =
+        pivot_workbook_document::Document::open_document(&first.bytes, Limits::default(), &runtime)
             .unwrap();
+    assert_eq!(checkpoint, first.checkpoint);
+    assert_eq!(book.cell_at(p(4, 1)).unwrap().unwrap(), original_blank);
+    drop(original);
     let old = book.cell_at(p(1, 2)).unwrap().unwrap();
     fn value(
         book: &Workbook,
@@ -483,6 +514,25 @@ fn wb5_unknown_aggregate_rejects_even_with_a_valid_checksum() {
             .is_err()
     );
     drop(book);
+    let memory = runtime.memory();
+    assert!(runtime.finish().is_ok());
+    assert_eq!(memory.stats().charged, 0);
+}
+
+#[test]
+fn obsolete_workbook_versions_are_explicitly_rejected() {
+    let runtime = IntegrationRuntime::standalone().unwrap();
+    for version in 1..=4 {
+        let bytes = format!("PIVOTWB{version}");
+        let error = pivot_workbook_document::Document::open_document(
+            bytes.as_bytes(),
+            Limits::default(),
+            &runtime,
+        )
+        .err()
+        .unwrap();
+        assert!(format!("{error:?}").contains("unsupported native workbook version"));
+    }
     let memory = runtime.memory();
     assert!(runtime.finish().is_ok());
     assert_eq!(memory.stats().charged, 0);

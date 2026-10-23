@@ -34,6 +34,11 @@ pub trait Footprint {
 }
 impl Footprint for pivot_types::PivotDecimal {}
 impl Memory {
+    /// Research measurement boundary; call only after quiescing this domain.
+    #[cfg(feature = "history-experiment")]
+    pub fn history_reset_peak(&self) {
+        self.0.peak.store(self.0.used.load(Relaxed), Relaxed);
+    }
     pub fn new(limit: usize) -> Self {
         Self(Arc::new(Ledger {
             limit,

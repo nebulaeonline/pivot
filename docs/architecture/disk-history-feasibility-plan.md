@@ -1,10 +1,13 @@
 # Bounded disk-history feasibility plan
 
-Date: 2026-10-23. **Bounded experiment authorized with three safeguards; inventory accepted;
-Stage 1 cold adapter/proofs implemented and ready for review. Production integration deferred.**
+Date: 2026-10-23. **Inventory and Stage 1 cold reconstruction accepted;
+Stage 2 fixed-interval representation comparison measured; review pending. Production integration deferred.**
+[Stage 1 acceptance and Stage 2 resource qualifications](../handoffs/2026-10-23-cold-history-stage1-review.md).
 [Stage 1 implementation and executed evidence](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
-The stages below remain the experiment plan. Only Stage 1 has an implemented adapter;
-representation comparison, durable journal recovery and file association remain unproven.
+[Stage 2 implementation, measurements and qualifications](../handoffs/2026-10-23-history-representation-stage2.md).
+The stages below remain the experiment plan. Stage 1 is accepted; Stage 2 now has
+Windows/Linux comparison evidence. Additional adaptive cumulative-work checkpoint/fallback tests and measurements are
+reported separately from the fixed-interval baseline. Durable journal recovery and file association remain unproven.
 [Inventory acceptance and cold-restoration gate](../handoffs/2026-10-23-cold-history-inventory-review.md).
 [Inventory, identity-boundary probes and allocation measurements](cold-history-state-inventory.md).
 [Resolved logical/runtime/authority contract](../handoffs/2026-10-23-cold-history-identity-review.md).
@@ -77,6 +80,15 @@ restart namespaces do not reset lifetime identity ceilings or discarded-branch
 logical reservations. Existing probes do not establish these cold-restoration gates.
 
 ## Stage 2 — representation comparison
+
+Stage 1's complete checkpoint is the accepted semantic baseline, not an approved
+memory policy. Replace loose fixed-buffer admission where appropriate with checked
+bounds tied to actual serialization/reconstruction work. Report encoded bytes,
+working-buffer capacities, required and reserved scratch, reconstructed domain
+allocations and peak simultaneous owners separately. Retain existing hard limits.
+Compare exact identities, bound targets, diagnostics/order, provenance, invalidation
+and ledger reservations independently of numerical output equality. Keep the
+same-session and restart/copy identity contracts in the representation tests.
 
 Implement the smallest independently verifiable baseline first, then bounded
 comparators. These are research encodings over the same logical inventory, not three

@@ -29,3 +29,7 @@ required-features = ["history-experiment"]
 [[example]]
 name = "history_identity_inventory"
 required-features = ["history-experiment"]
+
+[[example]]
+name = "history_representation"
+required-features = ["history-experiment"]

@@ -1,7 +1,10 @@
 # ADR-0023 Stage 1 — exact cold-history restoration
 
-Date: 2026-10-23. **Feature-only Stage 1 proofs pass on Windows/Linux; submitted
-for cold-restoration review. Not acceptance of a production history implementation.**
+Date: 2026-10-23. **Stage 1 Windows/Linux semantic feasibility accepted, with resource-accounting
+qualifications. Production history remains deferred.**
+[Parent acceptance and Stage 2 authorization](2026-10-23-cold-history-stage1-review.md).
+The original submission/evidence below is preserved; its fixed reservations are
+not approved production cache/staging defaults.
 [Inventory acceptance and required gate](2026-10-23-cold-history-inventory-review.md),
 [identity contract](2026-10-23-cold-history-identity-review.md),
 [ADR-0023](../adr/0023-document-transaction-history.md),
@@ -126,8 +129,10 @@ proof was suppressed or replaced with replay/portable import.
 
 ## Next boundary
 
-These results satisfy the implemented three-case Stage 1 test gate, pending parent
-review. They do not prove recoverable extensible disk history. Remaining authorized
+The parent accepts these results as the Stage 1 semantic gate. They do not prove
+recoverable extensible disk history. Stage 2 is authorized with the resource and
+independent semantic-oracle qualifications in the acceptance receipt. Remaining
+authorized
 research compares full checkpoints, canonical record deltas and shared immutable
 objects; then real durable commits/cursor/branch decisions, failure/restart
 reconciliation, corruption/disk exhaustion and native workbook/history association.
@@ -138,5 +143,5 @@ Native macOS/APFS storage validation precedes cross-platform durability claims.
 No general history stack, durable commit journal, production container, session/save
 integration, protocol/desktop operations, identity recycling/limit expansion or
 Optimize/JIT/SIMD was implemented. Existing reliability issues and the 8,192 lifetime
-identity scaling constraint remain open. Submit this cold gate before treating it
-as accepted evidence for representation work; production integration stays deferred.
+identity scaling constraint remain open. Stage 1 now supplies the accepted semantic
+baseline for representation work; production integration stays deferred.

@@ -3,6 +3,7 @@ use crate::*;
 use pivot_core::model::integration::{CancellationToken, HistoryMetrics, resources::Charge};
 mod cold;
 pub use cold::ColdLedger;
+pub mod representation;
 pub struct HistoricalRoot {
     session: Uuid,
     worksheet: WorksheetId,

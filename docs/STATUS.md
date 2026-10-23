@@ -18,7 +18,15 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **Stage 1 cold-restoration proofs implemented and ready for review; production integration deferred**.
+Current workstream: **Stage 1 cold-restoration feasibility accepted; Stage 2 representation comparison measured on Windows/Linux, review pending; production integration deferred**.
+[Stage 2 comparison, evidence and bounded adaptive checkpoint experiment](handoffs/2026-10-23-history-representation-stage2.md).
+100 baseline/final-policy runs passed; cache counts/capacities remain fixed from
+1,000 to 10,000 edits. Windows 346/378 and Linux 347/379 Rust suites and strict lint
+pass; 792 original sample hashes verified.
+Checkpoint plus canonical-record deltas are recommended for further research; fixed
+intervals and the additional adaptive byte/work thresholds are experimental.
+No durable transaction recovery, production container or Undo/Redo integration is claimed.
+[Acceptance and Stage 2 resource-accounting qualifications](handoffs/2026-10-23-cold-history-stage1-review.md).
 [Cold reconstruction, identity/capture proofs and validation](handoffs/2026-10-23-cold-history-restoration-stage1.md).
 [Parent inventory acceptance and next gate](handoffs/2026-10-23-cold-history-inventory-review.md).
 [Architecture approval and experiment authorization](handoffs/2026-10-23-tiered-history-design-review.md).
@@ -43,9 +51,9 @@ one identity, while create/restore/branch reached the unchanged floor of 8,192 a
 This reports the requested product scaling constraint, not retained disk history.
 The parent accepts the inventory/probes and measurements. Identity-space scalability
 is a separate prerequisite for removing experimental workbook limits; no quota increase,
-recycling or rebasing is authorized. The three cold-restoration proofs are implemented
-above and await review before they are treated as accepted evidence for representation,
-durable fault/recovery or association work. Portable transfer remains unchanged.
+recycling or rebasing is authorized. The three cold-restoration proofs above are
+accepted as the semantic foundation for representation comparison. Portable transfer
+remains unchanged. Durable fault/recovery and association remain later gates.
 [Parent acceptance and superseding direction](handoffs/2026-10-23-undo-redo-feasibility-review.md),
 [accepted executable foundation and evidence](handoffs/2026-10-23-undo-redo-feasibility.md),
 [revised ADR-0023](adr/0023-document-transaction-history.md),
@@ -65,7 +73,7 @@ storage and explicit user retention/failure policy. Across-session history is an
 intended capability. Keep transaction/content identities, fresh authority, monotonic
 allocation floors and existing save/dirty/uncertain-installation contracts separate.
 
-Next work: review the Stage 1 packet, then continue the authorized experiment comparing
+Next work: execute the authorized Stage 2 comparison of
 checkpoints, canonical record deltas and shared persistent-state objects with commit
 journaling, without choosing a container/database. The proposal covers cold restoration,
 durable-before-publish transaction/cursor/ledger decisions, uncertain-write reconciliation,
@@ -76,6 +84,11 @@ require separate create/Undo/branch identity-exhaustion measurements (completed 
 inventory finding), preserved journals when recovery is declined, and independent history
 deletion/compilation decisions. Return experiment evidence for parent feasibility
 review before production container selection or full history/session/desktop integration.
+The Stage 1 16 MiB image/8 MiB ledger reservations are prototype bounds, not production
+defaults. Stage 2 must separate serialized bytes, actual working buffers, required/
+reserved scratch, reconstructed allocations and peak simultaneous ownership across
+small/medium/formula-heavy/near-capacity cases. Preserve independent exact identity,
+binding, diagnostic/provenance and invalidation oracles; output equality alone is insufficient.
 Optimize Worksheet is separate; no JIT,
 SIMD, format changes or irreversible history compaction begin here. ADR-0022 remains
 accepted and closed.

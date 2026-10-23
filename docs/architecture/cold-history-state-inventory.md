@@ -3,7 +3,9 @@
 Date: 2026-10-23. **Stage-one inventory/probes accepted. Original inventory evidence below
 does not prove cold restoration.**
 [Subsequent feature-only cold adapter and executed Stage 1 proofs](../handoffs/2026-10-23-cold-history-restoration-stage1.md)
-are separate evidence pending review; the original manifests remain unchanged.
+are separate accepted semantic evidence with
+[Stage 2 resource-accounting qualifications](../handoffs/2026-10-23-cold-history-stage1-review.md);
+the original manifests remain unchanged.
 [Parent inventory acceptance and next gate](../handoffs/2026-10-23-cold-history-inventory-review.md).
 [Authorized plan](disk-history-feasibility-plan.md),
 [architecture approval](../handoffs/2026-10-23-tiered-history-design-review.md),
@@ -159,8 +161,9 @@ Inventory and boundary probes are accepted; the identity contract is resolved.
 The inventory itself did not implement restoration. The subsequent adapter now
 passes the separate same-session exact-runtime-ID, fresh-process logical-equivalence
 and simultaneous-copy tests under the approved mapping contract. See the linked
-Stage 1 packet for actual implementation/coverage and limitations; acceptance remains
-pending. The stop condition for broad redesign or weakened invariants is unchanged.
+Stage 1 packet for actual implementation/coverage and limitations. Its semantic
+results are accepted; loose buffer/ledger reservations are not production defaults.
+The stop condition for broad redesign or weakened invariants is unchanged.
 
 No checkpoint/delta/shared-object comparison, commit journal, recovery/decline,
 store association or corruption/disk-full experiment is claimed by the inventory.

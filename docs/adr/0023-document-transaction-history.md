@@ -6,13 +6,23 @@ experiment authorized; production integration deferred (2026-10-23)**.
 [Stage-one inventory and identity-boundary findings](../architecture/cold-history-state-inventory.md).
 [Parent inventory acceptance and required next proofs](../handoffs/2026-10-23-cold-history-inventory-review.md).
 The inventory/probes are accepted. A separate feature-only complete-checkpoint adapter
-now passes the implemented Stage 1 cold-restoration proofs on Windows/Linux, pending
-parent review: [implementation and evidence](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
+now has accepted Stage 1 Windows/Linux cold-restoration evidence:
+[implementation](../handoffs/2026-10-23-cold-history-restoration-stage1.md),
+[acceptance and Stage 2 qualifications](../handoffs/2026-10-23-cold-history-stage1-review.md).
+[Stage 2 representation measurements](../handoffs/2026-10-23-history-representation-stage2.md)
+are ready for review: 100 baseline/final-policy Windows/Linux runs compare full checkpoints, record deltas
+and shared objects. Work-scaled admission replaces loose fixed reservations;
+checkpoint-plus-record-deltas is the recommendation for further research. Fixed
+intervals and the additional adaptive byte/work checkpoint thresholds are experimental.
+Loose prototype buffer/ledger reservations are
+not approved production defaults. Measure actual work/ownership separately and
+retain exact semantic comparisons rather than numerical-output-only checks.
 The
 [parent identity clarification](../handoffs/2026-10-23-cold-history-identity-review.md)
 approves restart remapping while requiring exact same-session runtime IDs.
 No extensible disk-history store, durable commit journal or production integration
-is claimed. The remaining comparison/recovery/association stages are unproven.
+is claimed. Representation measurements do not establish durable recovery or file association;
+those stages and production checkpoint policy remain unproven.
 [Superseding parent direction](../handoffs/2026-10-23-undo-redo-feasibility-review.md),
 [accepted foundation](../handoffs/2026-10-23-undo-redo-feasibility.md),
 [review packet](../handoffs/2026-10-23-undo-redo-design.md),

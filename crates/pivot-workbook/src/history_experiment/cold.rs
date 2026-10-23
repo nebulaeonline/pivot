@@ -3,7 +3,7 @@ use super::*;
 use pivot_core::model::{
     integration::{
         IntegrationRuntime,
-        history_codec::{self, Blob, Reader, Writer},
+        history_codec::{self, Blob, Reader, RecordKey, Writer},
     },
     selection::{Rectangle, SelectionId, SpaceId},
 };
@@ -305,7 +305,7 @@ impl ColdLedger {
                 .core
                 .allocation_domain()
                 .map_err(graph_error)?
-                .reserve(8 * 1024 * 1024)
+                .reserve(4096)
                 .map_err(|_| Error::Limit)?,
         };
         x.observe(book)?;
@@ -322,6 +322,15 @@ impl ColdLedger {
         if m.next_node > 8192 {
             return Err(Error::Limit);
         }
+        let memory = book.core.allocation_domain().map_err(graph_error)?;
+        let _scratch = memory
+            .reserve(
+                (m.next_node as usize)
+                    .saturating_mul(384)
+                    .saturating_add(m.lifetime_selections.saturating_mul(128))
+                    .saturating_add(4096),
+            )
+            .map_err(|_| Error::Limit)?;
         let mut additions = Vec::new();
         let mut cells: BTreeSet<_> = self.identities.values().map(|x| x.0).collect();
         let mut nodes: BTreeSet<_> = self.identities.values().map(|x| x.1).collect();
@@ -360,29 +369,42 @@ impl ColdLedger {
         {
             return Err(bad());
         }
+        let charge = memory
+            .reserve(
+                (floor as usize)
+                    .saturating_mul(512)
+                    .saturating_add(selection_floor.saturating_mul(128))
+                    .saturating_add(4096),
+            )
+            .map_err(|_| Error::Limit)?;
         for (n, pair) in additions {
             self.identities.insert(n, pair);
         }
         self.selections.extend(ids);
         self.floor = floor;
         self.selection_floor = selection_floor;
+        self._charge = charge;
         Ok(())
     }
     pub fn allocated_floor(&self) -> u64 {
         self.floor
     }
     fn write(&self, w: &mut Writer) {
+        w.boundary(RecordKey::new(1, &[]));
         w.raw(self.instance.as_bytes());
         w.n(self.floor);
         w.n(self.selection_floor as u64);
         w.n(self.identities.len() as u64);
         for (n, (c, p)) in &self.identities {
+            w.boundary(RecordKey::number(2, *n));
             w.n(*n);
             w.raw(c.uuid().as_bytes());
             w.raw(p.uuid().as_bytes());
         }
+        w.boundary(RecordKey::new(3, &[]));
         w.n(self.selections.len() as u64);
         for s in &self.selections {
+            w.boundary(RecordKey::new(4, &s.0));
             w.raw(&s.0);
         }
     }
@@ -392,18 +414,29 @@ impl ColdLedger {
         worksheet: WorksheetId,
         graph: Uuid,
     ) -> Result<Self> {
-        let charge = book
-            .core
-            .allocation_domain()
-            .map_err(graph_error)?
-            .reserve(8 * 1024 * 1024)
-            .map_err(|_| Error::Limit)?;
         let instance = id(r)?;
         let floor = r.n().map_err(graph_error)?;
         let selection_floor = usize::try_from(r.n().map_err(graph_error)?).map_err(|_| bad())?;
         if floor > book.limits.allocated_cells as u64 || selection_floor > 8192 {
             return Err(Error::Limit);
         }
+        let memory = book.core.allocation_domain().map_err(graph_error)?;
+        let charge = memory
+            .reserve(
+                (floor as usize)
+                    .saturating_mul(512)
+                    .saturating_add(selection_floor.saturating_mul(128))
+                    .saturating_add(4096),
+            )
+            .map_err(|_| Error::Limit)?;
+        let _scratch = memory
+            .reserve(
+                (floor as usize)
+                    .saturating_mul(256)
+                    .saturating_add(selection_floor.saturating_mul(64))
+                    .saturating_add(2048),
+            )
+            .map_err(|_| Error::Limit)?;
         let mut identities = BTreeMap::new();
         let mut cells = BTreeSet::new();
         let mut nodes = BTreeSet::new();
@@ -513,7 +546,7 @@ impl Workbook {
             return Err(bad());
         }
         let memory = self.core.allocation_domain().map_err(graph_error)?;
-        let _scratch = memory.reserve(8 * 1024 * 1024).map_err(|_| Error::Limit)?;
+        let _scratch = memory.reserve(2048).map_err(|_| Error::Limit)?;
         let mut w = Writer::new(&memory).map_err(graph_error)?;
         w.raw(b"PIVHWB01");
         w.raw(self.worksheet.uuid().as_bytes());
@@ -525,10 +558,14 @@ impl Workbook {
         w.raw(self.history_content.as_bytes());
         ledger.write(&mut w);
         let core = self.core.history_cold_export().map_err(graph_error)?;
-        w.bytes(&core.bytes);
+        w.boundary(RecordKey::new(5, &[]));
+        w.n(core.bytes.len() as u64);
+        w.append_blob(&core);
         let d = persistent::state(self);
+        w.boundary(RecordKey::new(15, &[]));
         w.n(d.records.len() as u64);
         for (cell, r) in d.records.iter() {
+            w.boundary(RecordKey::new(16, cell.uuid().as_bytes()));
             let b = d.bindings.get(cell).ok_or_else(bad)?;
             let n = self
                 .core
@@ -553,7 +590,8 @@ impl Workbook {
         if blob.bytes.len() + 32 > history_codec::MAX_BYTES {
             return Err(Error::Limit);
         }
-        blob.bytes.extend_from_slice(&digest);
+        blob.append(RecordKey::new(17, &[]), &digest)
+            .map_err(graph_error)?;
         Ok(blob)
     }
     fn cold_candidate(
@@ -578,12 +616,7 @@ impl Workbook {
         }
         let memory = self.core.allocation_domain().map_err(graph_error)?;
         let _scratch = memory
-            .reserve(
-                bytes
-                    .len()
-                    .saturating_mul(16)
-                    .saturating_add(8 * 1024 * 1024),
-            )
+            .reserve(bytes.len().saturating_mul(8).saturating_add(4096))
             .map_err(|_| Error::Limit)?;
         let (mut r, worksheet, graph, rows, columns, content, embedded) = header(bytes, self)?;
         if !authority.includes(&embedded)

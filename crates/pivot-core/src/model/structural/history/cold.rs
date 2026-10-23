@@ -1,7 +1,7 @@
 //! Separate research reconstruction seam; ordinary portable transfer is unchanged.
 use super::*;
 use crate::expression::AggregateKind;
-use codec::{Blob, Reader, Writer, malformed};
+use codec::{Blob, Reader, RecordKey, Writer, malformed};
 fn node(r: &mut Reader<'_>, model: u64, floor: u64) -> Result<NodeId, ModelError> {
     let n = r.n()?;
     if n >= floor {
@@ -144,15 +144,23 @@ impl Graph {
         }
         let _scratch = self
             .memory
-            .reserve(8 * 1024 * 1024)
+            .reserve(
+                self.selection_metrics()
+                    .identities
+                    .saturating_mul(128)
+                    .saturating_add(self.selection_metrics().points.saturating_mul(128))
+                    .saturating_add(4096),
+            )
             .map_err(|_| malformed())?;
         let mut w = Writer::new(&self.memory)?;
+        w.boundary(RecordKey::new(6, &[]));
         w.raw(b"PIVHGC01");
         w.text(&self.model_name);
         w.n(self.next);
         w.n(self.history.selections as u64);
         w.n(self.records.iter().count() as u64);
         for (slot, r) in self.records.iter() {
+            w.boundary(RecordKey::number(7, slot));
             w.n(slot);
             w.flag(r.live);
             w.text(&r.name);
@@ -181,8 +189,10 @@ impl Graph {
             }
         }
         let image = self.selection_image();
+        w.boundary(RecordKey::new(8, &[]));
         w.n(image.identities.len() as u64);
         for (id, rect) in image.identities {
+            w.boundary(RecordKey::new(9, &id.0));
             w.raw(&id.0);
             w.flag(rect.is_some());
             if let Some(r) = rect {
@@ -192,18 +202,27 @@ impl Graph {
                 }
             }
         }
+        w.boundary(RecordKey::new(10, &[]));
         w.n(image.points.len() as u64);
         for (space, row, col, n) in image.points {
+            let mut key = [0; 24];
+            key[..16].copy_from_slice(&space.0);
+            key[16..20].copy_from_slice(&row.to_be_bytes());
+            key[20..].copy_from_slice(&col.to_be_bytes());
+            w.boundary(RecordKey::new(11, &key));
             w.raw(&space.0);
             w.n(row.into());
             w.n(col.into());
             w.n(n.node);
         }
+        w.boundary(RecordKey::new(12, &[]));
         w.n(self.invalid.len() as u64);
         for (id, e) in self.invalid.iter() {
+            w.boundary(RecordKey::number(13, id.node));
             w.n(id.node);
             write_error(&mut w, e)?;
         }
+        w.boundary(RecordKey::new(14, &[]));
         let invalidated = self.invalidated_selection_nodes();
         w.n(invalidated.len() as u64);
         for n in invalidated {
@@ -220,7 +239,7 @@ impl Graph {
         let bad = || Error::InvalidTransfer;
         let _scratch = self
             .memory
-            .reserve(bytes.len().saturating_mul(16).saturating_add(8192 * 512))?;
+            .reserve(bytes.len().saturating_mul(12).saturating_add(4096))?;
         let mut r = Reader::new(bytes)?;
         if r.take(8)? != b"PIVHGC01" {
             return Err(bad());

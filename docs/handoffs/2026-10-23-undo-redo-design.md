@@ -4,7 +4,8 @@ Date: 2026-10-23. **Revised architecture approved with safeguards; bounded exper
 [Parent approval and next boundary](2026-10-23-tiered-history-design-review.md).
 [Subsequent cold-identity clarification](2026-10-23-cold-history-identity-review.md).
 [Inventory accepted; next cold-restoration gate](2026-10-23-cold-history-inventory-review.md).
-[Subsequent Stage 1 cold adapter and executed proofs, pending review](2026-10-23-cold-history-restoration-stage1.md).
+[Accepted Stage 1 cold adapter and executed proofs](2026-10-23-cold-history-restoration-stage1.md),
+[Stage 1 acceptance and Stage 2 authorization](2026-10-23-cold-history-stage1-review.md).
 [Revised ADR-0023](../adr/0023-document-transaction-history.md),
 [bounded disk-history feasibility plan](../architecture/disk-history-feasibility-plan.md),
 [parent acceptance and revised direction](2026-10-23-undo-redo-feasibility-review.md).

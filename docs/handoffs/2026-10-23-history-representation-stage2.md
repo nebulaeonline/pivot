@@ -1,7 +1,10 @@
 # ADR-0023 Stage 2 — cold-history representation comparison
 
-Date: 2026-10-23. **Windows/Linux comparison implemented and measured; parent review pending. Production integration and durability remain deferred.**
+Date: 2026-10-23. **Windows/Linux representation feasibility accepted; Stage 3 research authorized. Production integration and durability remain deferred.**
 [Stage 1 acceptance](2026-10-23-cold-history-stage1-review.md), [ADR-0023](../adr/0023-document-transaction-history.md), [experiment plan](../architecture/disk-history-feasibility-plan.md).
+
+[Parent acceptance, qualifications and Stage 3 gate](2026-10-23-history-representation-stage2-review.md).
+The measurements below describe the submitted source; original evidence/manifests are preserved.
 
 ## Recommendation
 

@@ -18,14 +18,22 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **Stage 1 cold-restoration feasibility accepted; Stage 2 representation comparison measured on Windows/Linux, review pending; production integration deferred**.
+Current workstream: **Stage 2 representation feasibility accepted; Stage 3 Windows/Linux decision/restart research implemented, review pending; production integration deferred**.
+[Stage 3 decision protocol, fault/restart evidence and limitations](handoffs/2026-10-23-history-durability-stage3.md).
+366 scenarios passed across Windows/Linux, including parent-killed workers, ambiguous
+outcomes, atomic branch/cursor decisions, corrupt-payload rejection and acknowledged
+restart controls. Rust default/all-feature suites: Windows 346/380, Linux 347/381;
+strict lint passes. Full export, research reconstruction and linear disk-ID lookup
+remain costs; power-loss/macOS durability and Stage 4 remain unproven.
+[Stage 2 acceptance and Stage 3 safeguards](handoffs/2026-10-23-history-representation-stage2-review.md).
 [Stage 2 comparison, evidence and bounded adaptive checkpoint experiment](handoffs/2026-10-23-history-representation-stage2.md).
 100 baseline/final-policy runs passed; cache counts/capacities remain fixed from
 1,000 to 10,000 edits. Windows 346/378 and Linux 347/379 Rust suites and strict lint
 pass; 792 original sample hashes verified.
-Checkpoint plus canonical-record deltas are recommended for further research; fixed
+Checkpoint plus canonical-record deltas are accepted as the preferred Stage 3 candidate; fixed
 intervals and the additional adaptive byte/work thresholds are experimental.
-No durable transaction recovery, production container or Undo/Redo integration is claimed.
+Stage 2 alone establishes neither durable transaction recovery nor production
+container or Undo/Redo integration.
 [Acceptance and Stage 2 resource-accounting qualifications](handoffs/2026-10-23-cold-history-stage1-review.md).
 [Cold reconstruction, identity/capture proofs and validation](handoffs/2026-10-23-cold-history-restoration-stage1.md).
 [Parent inventory acceptance and next gate](handoffs/2026-10-23-cold-history-inventory-review.md).

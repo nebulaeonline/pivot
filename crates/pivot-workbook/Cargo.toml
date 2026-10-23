@@ -33,3 +33,7 @@ required-features = ["history-experiment"]
 [[example]]
 name = "history_representation"
 required-features = ["history-experiment"]
+
+[[example]]
+name = "history_durability"
+required-features = ["history-experiment"]

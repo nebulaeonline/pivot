@@ -82,13 +82,13 @@ fn read_buffer(f: &mut File, offset: u64, len: u64, memory: &Memory) -> Result<B
         _charge: charge,
     })
 }
-struct Records {
+pub(super) struct Records {
     map: BTreeMap<RecordKey, Vec<u8>>,
     bytes: usize,
     _charge: Charge,
 }
 impl Records {
-    fn from_blob(blob: &Blob, memory: &Memory) -> Result<Self> {
+    pub(super) fn from_blob(blob: &Blob, memory: &Memory) -> Result<Self> {
         let charge = memory
             .reserve(
                 blob.bytes
@@ -124,7 +124,7 @@ impl Records {
             _charge: charge,
         })
     }
-    fn encode(&self, memory: &Memory) -> Result<Blob> {
+    pub(super) fn encode(&self, memory: &Memory) -> Result<Blob> {
         let mut w = Writer::new(memory).map_err(graph_error)?;
         w.n(self.map.len() as u64);
         for (k, v) in &self.map {
@@ -133,7 +133,7 @@ impl Records {
         }
         w.finish().map_err(graph_error)
     }
-    fn decode(bytes: &[u8], memory: &Memory) -> Result<Self> {
+    pub(super) fn decode(bytes: &[u8], memory: &Memory) -> Result<Self> {
         let mut r = Reader::new(bytes).map_err(graph_error)?;
         let count = r.count(65536).map_err(graph_error)?;
         let charge = memory
@@ -171,7 +171,7 @@ impl Records {
             _charge: charge,
         })
     }
-    fn delta(&self, old: &Self, memory: &Memory) -> Result<(Blob, usize)> {
+    pub(super) fn delta(&self, old: &Self, memory: &Memory) -> Result<(Blob, usize)> {
         let mut changes = 0;
         for (k, v) in &self.map {
             if old.map.get(k) != Some(v) {
@@ -200,7 +200,7 @@ impl Records {
         }
         Ok((w.finish().map_err(graph_error)?, changes))
     }
-    fn apply_delta(&mut self, bytes: &[u8], memory: &Memory) -> Result<usize> {
+    pub(super) fn apply_delta(&mut self, bytes: &[u8], memory: &Memory) -> Result<usize> {
         let _scratch = memory
             .reserve(bytes.len().saturating_mul(4).saturating_add(4096))
             .map_err(|_| Error::Limit)?;
@@ -259,7 +259,7 @@ impl Records {
         self._charge = charge;
         Ok(count)
     }
-    fn assemble(&self, memory: &Memory) -> Result<Blob> {
+    pub(super) fn assemble(&self, memory: &Memory) -> Result<Blob> {
         let mut w = Writer::new(memory).map_err(graph_error)?;
         for (k, v) in &self.map {
             w.boundary(*k);
@@ -281,7 +281,7 @@ struct Entry {
     kind: u64,
 }
 impl Entry {
-    fn encode(&self) -> [u8; 96] {
+    pub(super) fn encode(&self) -> [u8; 96] {
         let mut b = [0; 96];
         b[..8].copy_from_slice(&self.offset.to_le_bytes());
         b[8..16].copy_from_slice(&self.len.to_le_bytes());
@@ -291,7 +291,7 @@ impl Entry {
         b[88..].copy_from_slice(&self.kind.to_le_bytes());
         b
     }
-    fn decode(b: [u8; 96]) -> Self {
+    pub(super) fn decode(b: [u8; 96]) -> Self {
         Self {
             offset: u64::from_le_bytes(b[..8].try_into().unwrap()),
             len: u64::from_le_bytes(b[8..16].try_into().unwrap()),

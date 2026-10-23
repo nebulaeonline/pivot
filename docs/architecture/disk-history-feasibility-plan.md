@@ -1,13 +1,16 @@
 # Bounded disk-history feasibility plan
 
 Date: 2026-10-23. **Inventory and Stage 1 cold reconstruction accepted;
-Stage 2 fixed-interval representation comparison measured; review pending. Production integration deferred.**
+Stage 2 representation feasibility accepted; Stage 3 Windows/Linux decision/restart research implemented, review pending. Production integration deferred.**
 [Stage 1 acceptance and Stage 2 resource qualifications](../handoffs/2026-10-23-cold-history-stage1-review.md).
 [Stage 1 implementation and executed evidence](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
 [Stage 2 implementation, measurements and qualifications](../handoffs/2026-10-23-history-representation-stage2.md).
-The stages below remain the experiment plan. Stage 1 is accepted; Stage 2 now has
-Windows/Linux comparison evidence. Additional adaptive cumulative-work checkpoint/fallback tests and measurements are
-reported separately from the fixed-interval baseline. Durable journal recovery and file association remain unproven.
+[Stage 2 acceptance and Stage 3 safeguards](../handoffs/2026-10-23-history-representation-stage2-review.md).
+The stages below remain the experiment plan. Stages 1 and 2 are accepted research evidence. Additional adaptive cumulative-work checkpoint/fallback tests and measurements are
+reported separately from the fixed-interval baseline.
+[Stage 3 persisted decision/fault/restart evidence](../handoffs/2026-10-23-history-durability-stage3.md)
+is ready for review, with explicit process-crash versus power-loss and scaling limits.
+File association remains unproven; Stage 4 is deferred until Stage 3 review.
 [Inventory acceptance and cold-restoration gate](../handoffs/2026-10-23-cold-history-inventory-review.md).
 [Inventory, identity-boundary probes and allocation measurements](cold-history-state-inventory.md).
 [Resolved logical/runtime/authority contract](../handoffs/2026-10-23-cold-history-identity-review.md).
@@ -168,6 +171,17 @@ independent of document size. Retrieval budgets and defaults return for review w
 the data; the 16 MiB research window is not reused as a disk-history retention cap.
 
 ## Stage 3 — commit, cursor and restart fault harness
+
+Checkpoint-plus-canonical-record-deltas is the preferred research candidate; complete
+checkpoints remain the independent reference/fallback. Start experimentally at interval
+16; retain selected interval-64/adaptive comparisons. No threshold or production
+container is selected. Reuse full export if needed to isolate durability, with a
+separate authoritative transaction-record construction seam for later mutation-local
+encoding. Measure full export, delta construction, writes, sync and acknowledgment
+separately. Recovery must bind TransactionId, ContentStateId, state, head/cursor/Redo,
+lifetime ledger and acknowledged outcome coherently. A valid decision checksum cannot
+substitute for durable referenced data: test missing payloads and actual sync ordering,
+including directory metadata where relevant. Stop for parent review after this stage.
 
 Use a controlled I/O seam and child-process termination harness. Commit identities
 and reachability determine results, not whether the client received an acknowledgment.

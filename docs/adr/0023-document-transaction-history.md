@@ -1,273 +1,271 @@
-# ADR-0023: Bounded document transaction history
+# ADR-0023: Tiered recoverable document transaction history
 
-Status: **Architectural direction conditionally approved; bounded feasibility implemented and awaiting review; full implementation deferred (2026-10-23)**.
-[Executable foundation and measured findings](../handoffs/2026-10-23-undo-redo-feasibility.md).
-[Parent architecture review and feasibility boundary](../handoffs/2026-10-23-undo-redo-design-review.md).
-Date: 2026-10-23.
-[Design packet and acceptance matrix](../handoffs/2026-10-23-undo-redo-design.md).
-Predecessors: [portable workbook lifecycle](0009-portable-documents-and-local-lifecycle.md),
-[accepted Fill](../handoffs/2026-10-23-four-direction-fill-final-review.md),
-[Fill transaction design](0022-four-direction-rectangular-fill.md).
+Status: **Revised proposal for parent review; root-activation feasibility accepted;
+disk-history experiment and production integration not yet authorized (2026-10-23)**.
+[Superseding parent direction](../handoffs/2026-10-23-undo-redo-feasibility-review.md),
+[accepted foundation](../handoffs/2026-10-23-undo-redo-feasibility.md),
+[review packet](../handoffs/2026-10-23-undo-redo-design.md),
+[bounded disk-history feasibility plan](../architecture/disk-history-feasibility-plan.md).
+Predecessors: [document lifecycle](0009-portable-documents-and-local-lifecycle.md),
+[accepted Fill](../handoffs/2026-10-23-four-direction-fill-final-review.md).
 
-## Purpose and first implementation boundary
+## Decision proposed
 
-Provide document-owned Undo/Redo for ordinary workbook mutations. One changed
-committed request is one history transition: cell entry, rejected-draft commit,
-clear, move/retire where exposed, rectangular paste, trusted duplication and Fill.
-An entire changed Fill or paste is one Undo, irrespective of destination count.
-No-op operations and rejected/cancelled-before-install requests create no entry.
-Do not infer change from displayed values: typed content, bindings, identities and
-the existing authoritative mutator result govern the transaction boundary.
-Explicit formula resubmission retains its existing rebinding/provenance semantics.
-No cross-commit typing coalescing in this first slice.
+Provide effectively unlimited recoverable Undo/Redo transactions, constrained by
+available storage and explicit user retention policy. Rust owns document-history
+semantics; the core remains independent of files and storage providers. A bounded
+cache of immutable roots accelerates recent Undo/Redo. Older states remain
+recoverable from a document-layer history store after resident eviction.
 
-History is in-memory, per open document, and owned in Rust. Do not implement inverse
-formula edits, persist an undo log, add a database/journal, replay historical commands,
-or treat calculation captures as editable history. WB5 remains the document format;
-Undo/Redo stacks and history tokens are not serialized. No formatting, extra functions,
-structural row/column operations, collaboration or capacity expansion is included.
+The accepted experiment establishes fast hot-root activation, not a cold-state
+representation or restart protocol. Its 32-transition/33-state and 16 MiB limits
+are experimental settings, not product retention limits. A full cache never by
+itself rejects a valid edit or deletes recoverable history. Existing live-workbook,
+identity, allocation-domain, staging and cleanup quotas still apply; this decision
+does not promise infinite storage or increase current workbook capacity.
 
-Initial history supports ordinary workbook mode only. Successful entry into either
-non-savable projection/structured-binding experiment is an explicit history barrier:
-release both stacks, disable document history and report that reason in the existing
-experimental UI. Proof publications/layout/rename/retirement are not history actions.
-There is no Undo across that mode transition or back into an old ordinary document.
-Failed mode entry preserves the old history. Leaving the experiment by successful
-New/Open establishes a new ordinary baseline. This bounded exclusion requires review;
-it is not a permanent policy for future structured documents. Do not snapshot and
-rewind external source contexts to fake proof-mode Undo.
+Current workbook content, recoverable history and compiled execution artifacts
+are separate. This proposal selects logical contracts and an experiment, not a
+container, database, sidecar placement, codec or public storage-plugin framework.
+WB5, CB2, private v4 and frozen hosted v1 remain unchanged in this design round.
 
-## Three different identities
+## Transaction and identity contracts retained
 
-| Identity | Meaning | Behavior on Undo/Redo |
-| --- | --- | --- |
-| ContentStateId | Opaque identity of an authoritative committed document state | Revisit the original ID |
-| Mutation generation / Expected / private revision | Authority for the next request | Always fresh; never rewind or reuse |
-| Calculation CaptureId/context | Immutable invocation state, owned independently | Remains pinned to its captured state |
+One changed committed authoring transaction creates one history transition: cell
+entry (including accepted invalid/cyclic drafts), clear, move/retire where exposed,
+Paste, trusted duplication or an entire directional Fill. Preserve the authoritative
+mutator's typed change result. Equal displayed values do not establish a no-op;
+explicit formula resubmission retains existing rebinding/provenance semantics.
+No implicit keystroke coalescing. Failed/no-op/pre-commit-cancelled requests create
+no transition and preserve Redo.
 
-A ContentStateId is not a file checkpoint UUID, backend revision, pointer or content
-hash. A genuinely changed commit creates a fresh ID; exact historical root activation
-restores its ID. Re-entering equivalent text in a later changed transaction does not
-make it the saved state by numeric or serialized-content equality.
-
-Undo/Redo republishes historical definitions under a fresh canonical mutation
-generation, increments the live workbook Expected.state and issues a fresh private
-revision/computational-state token. Old Expected values and pending authoring handles
-must reject even after returning to the same content. Never reinstall an old Workbook
-wrapper containing its old public state counter. Stored formula diagnostic/binding
-provenance remains historical data; it is not new request authority.
-
-## What a history root owns
-
-A private, version-pinned DocumentState owns the canonical definition/index/value
-roots together with workbook persistent records, positions, portable/runtime bindings,
-blank markers, literal/draft payloads, selection geometry/identities and sheet/axis/
-graph identity metadata. It also carries ContentStateId. Both halves switch together.
-Do not rebuild formulas from text, import a WB5 image, materialize the whole workbook,
-resolve names, evaluate cells or regenerate identities during Undo/Redo.
-
-Share existing persistent storage with admitted wrappers and existing deferred
-reclamation. A history root is not CalculationCapture: it retains editable document
-definitions rather than a prepared invocation/source context. History must not retain
-unrelated calculated results, viewport frames, OS clipboard data or producer records.
-
-Do not rewind document-lifetime allocation authority. Keep high-water/tombstone
-reservations for runtime node/port identities, portable cell/node IDs and range
-identities outside undoable content. A new branch may not allocate an identity that
-belonged to an undone or evicted future state. Redo reactivates the original IDs;
-branching uses fresh IDs. Preserve current allocated-identity ceilings over the
-whole open-document lifetime, including identities absent from the active root.
-History eviction is not permission to reuse IDs or recover an allocated-identity
-quota. Failed candidates publish neither allocation floors nor reservation changes.
-
-The canonical activation API must republish an owned historical root with current
-allocation floors/fresh generation while preserving its definitions and bindings.
-It must work with ordinary invalid/rejected/cyclic drafts already accepted by
-historical authoring. Do not run Fill's candidate-cycle rejection over a trusted
-historical root and thereby make an accepted old draft impossible to restore.
-Existing captures can outlive branch deletion/eviction, continue evaluating their
-original generation and never alias nodes allocated by a later branch.
-
-## Transaction and branch contract
-
-Keep a linear cursor over at most 32 retained transitions/33 document states. Each
-transition has trusted bounded action metadata (for example Edit cells, Paste,
-Fill Down), not arbitrary client-provided text or stored cell contents in menu labels.
-Before/after roots are adjacent states, not independently duplicated per action.
-
-For a changed ordinary edit, stage mutation, before/after root ownership, fresh
-identity tokens, history admission, proposed pruning and the new cursor together.
-Install document roots, allocation authority and history metadata atomically once.
-If any preparation fails, preserve live contents/identities, both stacks/cursor,
-revision, dirty state, path and saved marker. In particular, do not destroy Redo
-or evict old Undo entries before a new branch has successfully committed.
-
-Undo activates the preceding state and moves the cursor back; Redo activates the
-following state. Neither executes the old command. A changed edit after Undo drops
-the future branch only at successful commit. A no-op/failed edit after Undo leaves
-Redo intact. Empty-stack Undo/Redo returns an unchanged validated no-op, preserving
-all tokens. Stale state, invalid mode and pre-install cancellation still reject.
-
-Cancellation before installation changes nothing. After installation the session
-must return or drain/reconcile the committed transition; caller cancellation cannot
-undo it and must not trigger automatic retry. A dispatched ambiguous transport
-failure follows existing session-failure rules, never command replay.
-
-## Bounded ownership and eviction — proposed concrete policy
-
-Initial design targets pending accounting feasibility: **32 transitions**, plus a
-**16 MiB conservative history-state weight**.
-When transitions exist, the weight counts all retained states including the current
-state, so moving the cursor cannot change admission. Empty-history baselines own
-only their normal current workbook root; their weight is checked with the first
-candidate transition. These bounds are additional admission constraints, not an
-increase to current workbook, graph, runtime, capture or cleanup capacities.
-
-A backend-supplied conservative weight must cover full reachable canonical/workbook
-state, including allocated/retired records, selection/index structure, strings,
-tokens, reference metadata and wrapper overhead. Maintain trusted checked counters
-at mutation boundaries; do not scan/serialize every root on each edit. Shared leaves
-may be charged conservatively in more than one state weight. This is a retention
-quota, not a claim of exact RSS or incremental unique-node measurement.
-
-Actual allocation-domain accounting continues to charge each distinct live allocation
-once. Metadata/wrappers/plans and cleanup tickets require actual domain admission;
-do not reserve the full logical weight a second time as fake heap allocation. The
-existing domain remains the hard limit, even if the logical history quota has room.
-
-For changed-edit admission, propose dropping the Redo branch, then evict oldest past
-transitions until count/weight fit. Retain the immediate before/after pair as an
-indivisible mandatory unit. If even that pair cannot fit, reject the edit explicitly
-as history-capacity admission, leaving its content and existing history unchanged.
-Do not silently perform a non-undoable edit. Thus some otherwise admissible workbook
-edits can reject under the new bounded history contract; approving this policy is
-an explicit review decision, not an undocumented fallback. Valid Open can establish
-an empty baseline even when the first subsequent edit would exceed this quota.
-
-Admission must accommodate candidate/transient owners and existing history together;
-do not assume planned evictions have freed memory before commit. An operation may
-reject on actual domain/cleanup pressure even if post-pruning logical weight fits.
-After commit, detach pruned owners promptly and reclaim them through the established
-bounded cleanup lanes. Captures or other owners may keep storage resident; do not
-claim eviction releases their memory. No synchronous deep destruction or unbounded
-waiting on the UI/request thread. Final flush/finish must show zero remaining charge.
-
-Provide explicit Clear History as a recovery/control action: release Undo/Redo
-ownership, leave the current document, ContentStateId, saved marker, file association,
-dirty state and mutation revision unchanged, and refresh only history epoch/status.
-It cannot release capture-owned or current-root storage, recover lifetime identity
-quotas or guarantee that an oversized before/after pair will fit. It creates no undo
-entry and is not itself undoable. Clearing an already empty history is a no-op.
-
-If safe constant/bounded root activation, generation/allocation-floor handling or
-conservative retention-weight maintenance cannot be established without larger core
-changes, stop and report the evidence for design review. Do not substitute a codec
-round trip, increase quotas, weaken ID isolation or silently turn history off.
-
-## Saved state and file lifecycle
-
-Replace revision-equality dirty detection with ordinary document content-state
-comparison: clean when current ContentStateId equals the last successfully saved
-ContentStateId and file installation is not uncertain. A new untouched workbook
-has a clean initial baseline without inventing a path or saved-file checkpoint.
-Guard revisions remain fresh regardless of cleanliness.
-
-The saved marker is metadata, not an extra root pin or a protected history entry.
-It may refer to a state no longer reachable through history. It persists through
-pruning, branching and Clear History until another successful Save/New/Open/close.
-Do not silently mark a branch clean because it renders the same values as the file.
-
-| Sequence | Required result |
+| Identity | Contract |
 | --- | --- |
-| Save A; edit B; Undo to A | Clean, with a new request revision |
-| Save A; Undo to predecessor | Dirty |
-| Save A; Undo; Redo to A | Clean |
-| Save A; edit B; Undo A; changed edit C | Dirty; discarded B cannot Redo |
-| Evict saved A; edit/recreate similar values | Dirty until a successful Save or exact reachable saved-state return |
+| ContentStateId | Identifies committed content, preserved on hot/cold restoration and restart; not a byte hash or saved-file checkpoint |
+| TransactionId | Stable identity of one committed transition, with before/after ContentStateIds, parent and fixed action kind; not a request revision |
+| HistoryInstanceId and epoch | Scope a store lineage and control/cursor authority; document ancestry or path alone cannot attach it |
+| Session/Expected/generation | Fresh authority on every activation; a new session namespace on reopen prevents old requests becoming valid |
+| Allocation ledger | Monotonic committed identity floors/reservations across branches, disk eviction and restart; not undoable content |
+| Calculation capture | Independent immutable invocation owner; never a history representation |
 
-PrepareSave captures immutable exported bytes, captured ContentStateId and the
-existing ticket/document/location authority. It need not pin an additional history
-root once encoding is complete. Allow edits and Undo/Redo while a save is prepared.
-Committing Save of S marks S as the saved content, not whichever content is currently
-active. If Undo returned to S under fresh guards before Save completed, S is clean;
-if current content is T, it remains dirty. Pruning S from history does not invalidate
-its prepared bytes or ticket. Preserve current one-ticket bounds and no-replay rules.
+Changed content gets a fresh ContentStateId. Exact historical activation restores
+its original identity but mints new request authority. Returning to A never makes
+requests from the original A valid. Historical diagnostic/binding provenance remains
+data. No pointers, sessions, tickets or old request handles become authority on load.
 
-Save/Save As and file fingerprints/path/checkpoint are not undoable content. Undo
-never restores an old filesystem observation or reverses a successful write/Save As.
-A failed Save preserves prior successful saved marker/location as currently specified;
-installation uncertainty remains a separate sticky condition. Undo/Redo/Clear cannot
-clear uncertainty or certify the disk file; even equal saved content must retain the
-existing uncertain/dirty close safeguards until a successful permitted save/reopen.
+The allocation ledger covers canonical node/port IDs, portable cell/node identities
+and selection/range identities, including retired/discarded-branch reservations.
+Committing a new branch cannot reuse B-only identities even after B is evicted or
+unreachable. Existing captures of B remain isolated. Failed, definitely uncommitted
+candidates change no committed ledger. A committed-but-unacknowledged transaction
+retains its ledger advance. Current allocation ceilings are not reset by disk paging,
+Clear History or restart of the same attached history instance. Standalone document
+imports remain a different lifecycle and must not reconnect old runtime handles.
 
-Successful New/Open/Close Document clears history and invalidates pending tickets/
-old document handles under existing lifecycle rules. Failed/cancelled Open/New/close
-preserves everything. Open creates a clean new in-memory content baseline with empty
-history, not persisted history. Do not support Undo Open, Undo New or Undo Save As.
+## Hot and cold state boundary
 
-## Source, presentation and editor boundaries
+A resident DocumentState owns canonical definitions/index/value roots and workbook
+records, positions, blank markers, exact typed literals, draft/source text, bound
+references, diagnostics, range identities/geometry and worksheet/axis/graph metadata.
+Canonical and workbook halves activate together under fresh guards and current
+ledger authority. Reuse the accepted activation and bounded cleanup foundation.
 
-Read/evaluate/capture/release, viewport/selection/focus changes, refresh and clipboard
-Copy do not create document-history entries. Computed cache values are derived, not
-restored document content. Editor keystrokes use TextBox-local undo where supported;
-a successful cell commit creates one document action. Document Undo/Redo does not
-implicitly commit/discard a live draft and is disabled until that draft is finished.
+A cold representation must preserve those logical definitions and identity mappings,
+including accepted invalid/cyclic drafts, without authoring-command replay, name
+resolution, formula rebind, recalculation or invented IDs. Cold loading may decode
+and reconstruct private persistent structures and derived indexes; it must verify
+integrity, references and resource bounds before publication. Logical bindings and
+historical errors cannot be changed by reconstruction. Do not serialize memory
+addresses, allocation charges, locks or calculation caches. Restoring native root
+layout verbatim is not required. Reconstructing a bounded complete state may be
+necessary; unlike a hot switch it is not claimed constant-time.
 
-The initial proof-mode barrier above prevents restoring stale source contexts or
-producer registries. Future structured-document history must partition user-owned
-bindings/layout from externally published source state in a separately reviewed
-contract; source refresh must never be undone as if it were a user cell edit.
+WB5 is the current-document format, not the history codec. Do not add compatibility
+readers or use WB5 Open as a history activation shortcut. Existing portable transfer
+is reference material, not assumed sufficient: it does not itself establish preserved
+runtime IDs, durable floors or fresh-authority cold restoration. Stop if a narrow
+validated cold adapter requires broad graph redesign or cannot fit existing quotas.
 
-History activation preserves the current logical selection/anchor/active coordinate,
-scroll and focus rather than restoring old UI selection. A cell that disappears on
-Undo is displayed as blank at the same valid coordinate. Invalidate pending viewport,
-clipboard/selection callbacks and prepared authoring handles with fresh guards;
-never retarget late work onto a restored state. Captured calculations remain valid
-against their own IDs/contexts, not the refreshed live document.
+## Resident cache and retrieval
 
-## Private session and desktop proposal
+Store content/transition IDs in a disk-addressable index; do not retain the full
+transaction catalog, every checkpoint or every root in RAM. Cache size, index pages,
+decoder buffers, prefetch, candidate roots and cleanup tickets are bounded. Root
+weights can guide cache admission conservatively, but do not measure disk retention
+or actual distinct allocation. Shared allocations remain charged once by the domain.
 
-Propose additive operations UNDO=32, REDO=33, CLEAR_HISTORY=34. Request field 29 is
-`expected_history_epoch`, mandatory for these control operations alongside exact
-revision/computational state. Return response field 42 `HistoryStatus` containing
-opaque epoch, enabled, undo_count, redo_count, fixed bounded undo/redo labels and an
-unavailable reason. Use a fresh epoch on changed edits/cursor moves/pruning/clear/
-lifecycle or mode barriers; no-op operations preserve it. Counts and labels describe
-one coherent installed result, never a C#-maintained imitation stack.
+Before detaching a resident representation, verify that its canonical state is
+recoverable from a committed checkpoint/delta chain. A newly durable candidate may
+be committed with no resident history pin if needed. Plan eviction before staging
+where safe, but do not assume that captures or deferred cleanup have freed memory.
+Existing hard live-memory failure still rejects atomically, with a distinct reason
+from disk/cache retention. Eviction changes no logical cursor, saved marker or Redo.
 
-Clear History changes only history epoch/status, so stale history-control requests
-must reject even if the document revision has not changed. Normal cell requests
-continue using exact document authority; they need not carry a history cursor or
-client-supplied root. Old native clipboard payloads are data, not history authority.
+Cold retrieval has explicit byte/work/depth bounds independent of total transaction
+count. Checkpoint scheduling must bound chain depth and decoded bytes; the experiment
+will select measured settings, not a product Undo count. Reject an oversized or corrupt
+record before unbounded allocation. If restoration cannot fit existing staging limits,
+leave the current document/cursor intact and return for architecture review.
 
-Retain private v4 only if actual older peers reject new opcodes without side effects
-and additive fields leave existing operations intact; stop for version-cut review
-if a real incompatibility is found. WB5, CB2 and frozen hosted v1 remain unchanged.
-No compatibility adapters or persisted history representation are proposed.
+## Logical timeline and durable commit
 
-Add accessible Undo/Redo menu commands showing the current fixed action label and
-availability, plus explicit Clear Undo/Redo History. Grid-only shortcuts: Ctrl/Cmd+Z
-Undo; Ctrl/Cmd+Shift+Z Redo; Ctrl+Y additionally on Windows/Linux. Do not intercept
-inside TextBoxes or unrelated controls. Disable document-history controls during
-a draft, drag, pending mutation/lifecycle action, or proof mode; expose why unavailable.
-Apply one typed request, refresh from its response and preserve logical viewport/
-selection. No native dialogs or recurring physical-keyboard checklist are required.
+Expose one linear Undo/Redo cursor. A changed edit after Undo replaces the reachable
+Redo branch only when that edit commits. Failed/no-op edits preserve the branch.
+Discarded futures cease to be user-reachable but may remain physical garbage until
+safe collection; no branch browser or permanent revision archive is promised.
+Undo/Redo activates the exact predecessor/successor; it never re-executes its command.
+Empty Undo/Redo is a validated no-op. Presentation state and captures do not move.
 
-## Validation and stop point
+Serialize session mutations and give each prepared transaction a durable identity.
+Proposed sequence for a history-retaining operation:
 
-The linked matrix requires branch/ID ABA isolation, historical invalid drafts,
-atomic admission and cancellation, saved-marker/in-flight-save behavior, proof
-barriers and captures surviving history eviction. Validate runtime reclamation and
-all existing regressions; only then add actual desktop automation and normal final
-managed/all-feature/Native AOT gates on Windows/Linux/native Mac/APFS with matched
-manifests and APFS-original per-file evidence hashes. No test counts are predicted.
+1. Validate exact authority; privately stage content, before/after identities,
+   ledger, branch/cursor change, resource ownership and bounded cold records.
+2. Persist all referenced payload, then a verifiable commit decision containing
+   the new head/cursor/ledger. Until this decision, new records are unreachable.
+3. Once the store confirms the decision, publish the already prepared live state
+   and status without further fallible semantic work; then acknowledge its ID.
 
-The parent conditionally approves the architecture and authorizes only bounded
-root-activation/ownership feasibility. Prove A → B → restore A → branch C with a B
-capture retained, including invalid/cyclic drafts, monotonic identity floors, bounded
-weight maintenance and realistic charge measurements. The 16 MiB target and fail-closed
-admission require practical evidence. Saved-content/file-authority separation remains
-mandatory. Stop for parent feasibility review before a general history stack or any
-production save/session/protocol/desktop integration. No runtime work is claimed
-by this approval record.
-ADR-0022 remains accepted/closed; existing reliability issues remain unresolved.
+A cursor move without changed content also commits its cursor/ledger metadata for
+restart consistency before publishing fresh live authority. Reads/evaluation create
+no journal transactions. A failed prepare or definitely uncommitted write preserves
+live state/history. Cancellation before the durable decision aborts; cancellation
+after it must drain/reconcile the committed result, never replay or pretend rollback.
+
+An ambiguous write/flush result is not an ordinary failure. Freeze further mutation
+of that history instance, retain current visible state and reconcile the transaction
+by ID before claiming success/failure or offering a destructive bypass. Recovery
+may find a durable transaction that was never acknowledged; surface it as recovered
+work, not an automatic retry. Exact durability primitives/platform guarantees are a
+feasibility gate; do not claim power-loss guarantees from a successful process test.
+
+## Saved content, recovery and file authority
+
+Clean means current ContentStateId equals the last verified saved ContentStateId,
+with no installation uncertainty. An untouched new document has its clean baseline
+without a file association. Saved markers/checkpoints do not pin history roots.
+Returning to the exact saved identity can be clean under fresh guards; independently
+recreating equal values does not make it the saved state.
+
+PrepareSave owns immutable bytes, captured content identity/checkpoint and existing
+ticket/location authority independently of resident/disk history retention. Completing
+Save S records S, not current T. Evicting/clearing S does not invalidate a valid ticket.
+Keep one-ticket bounds and existing no-replay rules. Save As/path/fingerprints are
+not undoable. Undo/Redo/Clear cannot clear uncertain file installation or restore an
+old filesystem observation. Failed Save preserves its prior successful marker.
+
+A history commit does not Save the workbook. Conversely, verified workbook installation
+and history metadata acknowledgment are not assumed one atomic filesystem transaction.
+Persist a save-intent/receipt association between checkpoint, ContentStateId and verified
+file identity as needed; recovery must reconcile a crash between these operations.
+Never mark clean solely because the journal says Save succeeded. If file observation
+and checkpoint cannot prove the saved baseline, keep recovery detached/uncertain and
+require existing conflict/reopen handling. History I/O uncertainty is distinct from
+workbook installation uncertainty; neither resolves the other.
+
+On open, validate current document bytes independently before considering history.
+Attach only after checking an explicit association: history instance/lineage, exact
+saved checkpoint/content correspondence and applicable file observation. DocumentId,
+path and numeric state counter alone are insufficient. Current WB5 does not acquire
+new metadata in this round; proving an external association is part of feasibility.
+
+| Situation | Proposed behavior |
+| --- | --- |
+| Matching retained history and saved baseline | Open the saved content clean with its proven identity; restore reachable history/cursor consistently |
+| Journal head newer than saved file | Offer explicit recovered unsaved work; do not silently replace the workbook's normal saved-open content |
+| Workbook copied without history | Open a valid standalone baseline, report unavailable prior history; never fetch an unrelated store by shared DocumentId |
+| Workbook moved/renamed | Offer verified reassociation; preserve history only on a proven match, never by filename |
+| Save As | Keep the live instance; commit the new association only after verified file installation; old copy cannot share a writable history instance automatically |
+| External replacement or mismatched history | Open/retain the valid workbook independently; quarantine/detach mismatched history without deleting it |
+| Two independent copies/windows | Exclusive writer per history instance; independent history instances or explicit read-only access, no merge or last-writer-wins attachment |
+| Failed/cancelled Open/New/close | Preserve the existing live session, history and pending authority |
+
+A clean close may retain disk history; closing releases live roots, not necessarily
+the store. Recovery/open issues fresh session authority; persisted revisions never
+resurrect handles from a previous process. Association, leases and save reconciliation
+require explicit executable evidence before across-session history is advertised.
+
+## Retention and storage failures
+
+Support explicit policies for retaining history across sessions and for session-only
+disk history removed on a successfully completed close. Choose the default and
+placement after review; the application must disclose the selected policy. Save
+alone does not discard history. Crash-orphan cleanup must not silently erase retained
+or potentially recoverable work. History contains deleted cell data; disclose that
+retention consequence. No automatic age/count/size deletion is proposed.
+
+Clear History requires an explicit destructive decision: establish a durable baseline
+for current content and ledger, then remove reachable Undo/Redo metadata atomically.
+It is not undoable and changes history-control epoch, not content, mutation revision,
+saved marker, dirty state or path. Keep the allocation ledger and any save-ticket
+ownership. Physical reclamation follows reachability and active reader pins; this
+is not secure erasure. Failure to establish the baseline preserves old history.
+
+| Condition | Required default and explicit recovery choices |
+| --- | --- |
+| Cache full | Evict recoverable resident state; preserve logical history |
+| Actual domain/cleanup capacity exhausted | Reject before commit without partial state change; no quota increase |
+| Disk full/unavailable before commit | Preserve content/history/Redo; offer retry/free space, relocation or explicit clear after a safe baseline can be established |
+| User chooses an unretained operation | After reconciliation, explicitly end/detach the old timeline and establish a new baseline; never leave Undo implying continuity across the missing operation |
+| Commit outcome uncertain | Suspend mutation and reconcile by transaction ID; no automatic retry, truncation or bypass |
+| Corruption/incompatible history | Fail the affected history load safely; retain valid current content and evidence; offer deliberate detach/recovery, not silent fallback |
+| Retained history relocation | Copy/verify committed reachable content and ledger, switch association atomically, keep old data until confirmed; failure leaves original authoritative |
+
+Continuing without history cannot evade existing edit-memory or uncertain-file
+safeguards. It requires explicit disclosure of unavailable Undo across the boundary;
+if no safe baseline/decision can be recorded, close the old instance and start a
+fresh explicit standalone baseline rather than claiming durable continuity.
+
+Disk garbage collection may delete only records proven unreachable from current
+retained timeline, recovery/save metadata and active store readers. It must never
+affect resident calculation captures or rely on their memory being released. Compact
+physical storage without deleting logical transactions; destructive history compaction
+is a separate explicit choice. Bound work and transient disk overhead, including
+failure when insufficient space exists to compact.
+
+## Mode, editor and protocol boundaries
+
+Ordinary workbook history remains the first scope. External publications, captures,
+producer registries and presentation/selection/focus changes are not undoable content.
+Proof-mode entry cannot silently clear retained history: require explicit history
+boundary consent or preserve the ordinary timeline detached and unavailable while
+in proof mode. Failed entry preserves it. The specific UI is deferred. Future permanent
+structured documents need a separately reviewed partitioned history contract.
+
+Keep editor-local undo local; disable document history during drafts/drag/pending
+lifecycle work. Activation preserves current logical selection/viewport and invalidates
+late authoring/viewport/clipboard callbacks with fresh guards. Calculation captures
+retain their own IDs/contexts. No implicit draft commit/discard on Undo.
+
+Rust will own coherent cursor/status/action labels. History controls require both
+current document authority and a fresh history epoch; Clear may change only the epoch.
+Do not allocate protocol opcodes/fields or choose count widths in this revision.
+Do not inherit old fixed-count status assumptions; disk-index queries must remain
+bounded. Private protocol compatibility/version cuts need later review and actual
+older-peer evidence. Desktop shortcuts/menu integration remains deferred.
+
+## Alternatives and next gate
+
+| Candidate | Benefit to investigate | Main correctness/cost question |
+| --- | --- | --- |
+| Independent logical checkpoint per transaction | Simple bounded retrieval and oracle | Duplicate payload/disk amplification and durable write latency |
+| Checkpoints plus canonical record deltas | Small local edits; bounded chains via checkpoints | Complete delta semantics, indices, drafts, ledger and atomic mixed state |
+| Content-addressed persistent-state objects plus root journal | Reuse immutable state/subtrees | Object identity, schema coupling, bounded indexing/GC and integrity |
+| Journal of ordinary authoring commands | Superficially compact | Rejected: replay/rebinding and changed semantics cannot restore authoritative history |
+
+Journaling is a commit/recovery mechanism usable with any accepted representation,
+not itself proof of content correctness. Evaluate physical containers only after
+logical needs and workload measurements; no SQLite versus bespoke format decision
+is made here. The experiment must include a simple checkpoint baseline and compare
+local-delta and shared-object approaches before selecting one.
+
+Next authorization requested: the bounded plan linked above. No disk experiment is
+claimed executed. Stop for revised architecture review before implementation; after
+experimentation, stop again with evidence before a production coordinator, saves,
+session/protocol or desktop work. Preserve the accepted hot-root tests and manifests.
+
+Optimize Worksheet remains separate future design: compiled/fused execution and
+possible SIMD must preserve exact Decimal96 rounding, overflow, error and dependency
+semantics. Canonical computational definitions remain authoritative. Compilation does
+not imply history deletion; destructive compaction requires explicit user approval.
+No JIT, SIMD, format migration or optimization implementation is included.

@@ -1,7 +1,10 @@
 # ADR-0023 root activation and ownership feasibility
 
-Date: 2026-10-23. **Bounded experiment implemented; submitted for feasibility review.
-Full Undo/Redo remains deferred.**
+Date: 2026-10-23. **Root-activation feasibility accepted; full Undo/Redo remains deferred.**
+[Parent acceptance and superseding retention direction](2026-10-23-undo-redo-feasibility-review.md).
+The measurements and original submission below are preserved. The 32-transition/
+16 MiB limits are no longer proposed product policy; the next gate is a revised
+tiered memory/disk architecture, not production coordinator implementation.
 [Authorization and stop point](2026-10-23-undo-redo-design-review.md),
 [ADR-0023](../adr/0023-document-transaction-history.md).
 

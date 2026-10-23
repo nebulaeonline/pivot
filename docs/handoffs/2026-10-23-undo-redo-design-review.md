@@ -1,5 +1,9 @@
 # ADR-0023 architecture review — feasibility foundation authorized
 
+Historical first review. The [subsequent acceptance and retention direction](2026-10-23-undo-redo-feasibility-review.md)
+supersedes the fixed product retention policy below. See the
+[revised tiered architecture packet](2026-10-23-undo-redo-design.md) for current proposals.
+
 Date: 2026-10-23. **Architectural direction approved with three clarifications.
 Immediate authorization: bounded root-activation and ownership feasibility.
 Full Undo/Redo implementation is not authorized.**

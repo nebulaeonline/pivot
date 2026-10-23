@@ -18,27 +18,35 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **Undo/Redo bounded feasibility implemented; awaiting parent feasibility review; full implementation deferred**.
-[Executable foundation and measured retention/ownership](handoffs/2026-10-23-undo-redo-feasibility.md).
-[Architecture review and feasibility boundary](handoffs/2026-10-23-undo-redo-design-review.md).
-[Conditionally approved architecture](adr/0023-document-transaction-history.md),
-[review packet and acceptance matrix](handoffs/2026-10-23-undo-redo-design.md).
-The design separates document content identity, fresh mutation authority and immutable
-calculation captures. It proposes one action per committed transaction, lifetime
-identity floors, bounded retention/atomic branch admission, saved-content cleanliness
-and in-flight-save semantics. Ordinary-workbook-only scope, proof-mode history barriers,
-32-transition/16 MiB bounds and rejection of edits whose required history cannot fit
-remain design targets subject to measured feasibility. First prove historical root
-activation under fresh guards/lifetime allocation floors, retained-capture isolation
-and bounded weight/accounting on realistic workloads, including invalid/cyclic drafts.
-Stop for parent feasibility review before a general history stack, production save
-changes, session/protocol surface or desktop integration. Feature-only root activation,
-lifetime floors, capture isolation, staged admission and prepared-export ownership
-tests now pass. Windows samples admit 32 changes each; the 16 MiB full-state budget
-retains 33/33/11/29/4 states across small/medium/near/formula/retired-identity cases.
-All measurement runtimes finish at zero charge. This supports the root foundation,
-while shortened history at higher occupancy requires review. No production history
-coordinator or save integration is claimed. ADR-0022 remains accepted and closed.
+Current workstream: **Undo/Redo root-activation feasibility accepted; revised tiered history architecture ready for parent review; disk experiment and production integration deferred**.
+[Parent acceptance and superseding direction](handoffs/2026-10-23-undo-redo-feasibility-review.md),
+[accepted executable foundation and evidence](handoffs/2026-10-23-undo-redo-feasibility.md),
+[revised ADR-0023](adr/0023-document-transaction-history.md),
+[review packet](handoffs/2026-10-23-undo-redo-design.md),
+[bounded disk-history feasibility plan](architecture/disk-history-feasibility-plan.md).
+The accepted feature-only foundation restores historical roots under fresh authority,
+retains lifetime identity floors and isolates existing calculation captures, including
+invalid/cyclic drafts. Windows 346/367 and Linux 347/368 default/all-feature Rust tests
+pass; all ten measurement runtimes finish at zero charge.
+
+The parent declines 32 transitions/33 states and 16 MiB as product history limits.
+These remain experimental measurements, not reasons to discard recoverable history
+or reject otherwise valid edits. The revised target is effectively unlimited logical
+history, bounded resident roots and extensible disk history, constrained by real
+storage and explicit user retention/failure policy. Across-session history is an
+intended capability. Keep transaction/content identities, fresh authority, monotonic
+allocation floors and existing save/dirty/uncertain-installation contracts separate.
+
+Next gate: parent review of the revised ADR and proposed experiment. They compare
+checkpoints, canonical record deltas and shared persistent-state objects with commit
+journaling, without choosing a container/database. The proposal covers cold restoration,
+durable-before-publish transaction/cursor/ledger decisions, uncertain-write reconciliation,
+saved-file association, copies/moves/replacement, explicit retention/failure policies
+and resident eviction without history loss. No disk-history code or measurements are
+claimed. Architecture review precedes experiment authorization; experiment evidence
+precedes full history/session/desktop integration. Optimize Worksheet is separate; no JIT,
+SIMD, format changes or irreversible history compaction begin here. ADR-0022 remains
+accepted and closed.
 
 Accepted preceding milestone: **Bounded Structured-Result and Presentation-Projection Proof — accepted; workstream closed**.
 [Acceptance and scope closure](handoffs/2026-10-22-structured-results-projection-implementation-review.md),

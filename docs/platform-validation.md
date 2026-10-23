@@ -1,6 +1,6 @@
 # Linux and macOS validation
 
-## Current candidate: spreadsheet aggregate functions
+## Accepted: spreadsheet aggregate functions
 
 ADR-0021 now uses WB5-only read/write; obsolete WB4 decoding and migration are
 removed. Windows final managed CI, strict all-feature checks and actual Native AOT
@@ -16,8 +16,7 @@ the Mac receipt omits per-file original hashes for independent transfer comparis
 [completed Mac packet](handoffs/2026-10-23-macos-wb5-only-instructions.md).
 The previous Mac run `macos-validation-20261022T233650Z` passed against the old
 WB4-reading source, with 405 source, 207 build-input and 453 returned hashes checked.
-That evidence is preserved, not claimed for this correction. Final acceptance is
-pending. CB2/private v4/hosted v1 remain unchanged. Earlier milestones below retain
+That evidence is preserved, not claimed for this correction. Final implementation acceptance was received on 2026-10-23; ADR-0021 is closed. CB2/private v4/hosted v1 remain unchanged. Earlier milestones below retain
 their historical formats and counts.
 
 ## Accepted preceding: document-owned worksheet text

@@ -1,6 +1,7 @@
 # ADR-0021: Bounded spreadsheet aggregate functions
 
-Status: **Accepted with MIN/MAX canonical-equality clarification; bounded implementation in place; WB5-only correction implemented; revised-source three-platform validation passed; final parent acceptance pending (2026-10-23)**.
+Status: **Accepted — design and corrected implementation; workstream closed (2026-10-23)**.
+[Final implementation acceptance](../handoffs/2026-10-23-spreadsheet-aggregate-final-review.md).
 [Design acceptance and implementation boundary](../handoffs/2026-10-22-spreadsheet-aggregate-design-review.md).
 Date: 2026-10-22.
 [Review packet](../handoffs/2026-10-22-spreadsheet-aggregate-design.md).
@@ -12,9 +13,8 @@ spreadsheet functionality; no new structured-data milestone is proposed.
 
 ## Final compatibility correction
 
-The final parent review requires WB5-only read/write before acceptance. The WB4
-reader has now been removed; final Windows/Linux/native Mac/APFS validation passes. Final parent acceptance
-remains pending. Earlier three-platform evidence covers the previous
+The final parent review accepts WB5-only read/write. The WB4 reader has been
+removed; final Windows/Linux/native Mac/APFS validation passes. ADR-0021 is closed. Earlier three-platform evidence covers the previous
 WB4-reading source only.
 [Review direction](../handoffs/2026-10-22-spreadsheet-aggregate-implementation-review.md).
 
@@ -185,3 +185,6 @@ Acceptance here is design/scope approval, not implementation acceptance.
 
 Parent implementation review: [computational implementation acceptable; final
 acceptance deferred pending WB5-only correction and fresh three-platform gates](../handoffs/2026-10-22-spreadsheet-aggregate-implementation-review.md).
+
+The final corrected implementation is now accepted; the earlier conditional review
+above remains historical. See the final implementation acceptance linked at the top.

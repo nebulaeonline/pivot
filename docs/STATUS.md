@@ -2,15 +2,14 @@
 
 Date: 2026-10-22
 
-Latest accepted milestone: **Bounded Worksheet-to-Structured-Output Binding Proof — accepted; workstream closed**.
-The parent accepts the experimental ADR-0020 implementation separately from the
-preceding architectural/contract approvals. Permanent integration is not authorized.
-[Acceptance and scope closure](handoffs/2026-10-22-worksheet-structured-binding-implementation-review.md),
-[implementation and three-platform evidence](handoffs/2026-10-22-worksheet-structured-binding-implementation.md).
-Windows/Linux/native macOS ARM64 managed CI, strict all-feature checks and actual
-Native AOT pass. Rust totals are 328/344 on Windows and 329/345 on Linux/macOS.
-All ten desktop fields and peers pass with zero charge. Mac/APFS matched 390 source
-files and 199 build inputs; 475 returned files were independently hash-verified.
+Latest accepted milestone: **Bounded Spreadsheet Aggregate Functions — accepted; ADR-0021 closed (2026-10-23)**.
+[Final implementation acceptance](handoffs/2026-10-23-spreadsheet-aggregate-final-review.md),
+[corrected implementation and evidence](handoffs/2026-10-23-wb5-only-aggregate-correction.md).
+MIN/MAX/AVERAGE/COUNT, canonical Blank semantics, exact AVERAGE and WB5-only
+read/write are accepted. Windows 339/355 and Linux/Mac 340/356 Rust tests pass,
+with managed/Native AOT desktop coverage, all eleven fields and zero-charge peers.
+Mac source/input verification and the accepted transfer-receipt limitation remain
+recorded in the handoff. Earlier ADR-0020 work remains accepted and closed.
 
 **Open reliability issue:** intermittent Windows ClipboardChecklistAsync null
 destination after paste. The unchanged rerun passed; the cause remains unresolved.
@@ -18,36 +17,16 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current milestone: **Bounded MIN/MAX/AVERAGE/COUNT — WB5-only correction implemented; three-platform validation complete; final parent acceptance pending**.
-The parent finds aggregate functionality and prior three-platform evidence acceptable,
-but defers final acceptance until WB4 migration is removed and the revised candidate
-passes all platform gates. The decoder now supports WB5 only, explicitly rejecting
-WB1–WB4. No obsolete migration code remains. CB2/private v4/hosted v1 are unchanged.
-[Final direction](handoffs/2026-10-22-spreadsheet-aggregate-implementation-review.md),
-[corrected candidate and evidence](handoffs/2026-10-23-wb5-only-aggregate-correction.md),
-[fresh Mac packet](handoffs/2026-10-23-macos-wb5-only-instructions.md).
-
-Windows final managed/desktop CI, strict all-feature checks and actual Native AOT
-pass: 339 default / 355 all-feature Rust tests; eleven desktop fields and three peers
-in each mode pass with zero charge and no native publication warnings. Linux final
-managed, strict all-feature and Native AOT gates also pass (340/356 Rust tests),
-with eleven fields and zero-charge peers. Fresh native Mac/APFS gates also pass
-(340/356), with all eleven fields, native peers, no warnings and zero charge.
-Mac run `macos-validation-20261023T090419Z` matched all 407 source hashes and 206
-build inputs; its transfer receipt reports 458 files verified against APFS originals.
-Windows independently repeated source/input comparisons and inventoried the returned
-files; individual original transfer hashes were not retained by the Mac receipt.
-WB5 tests preserve blank identity/explicit zero, strict SUM, aggregate metadata,
-bound references, literal text, rejected drafts, CellIds and checkpoints. Actual
-session tests verify WB1–WB4 failed Open preserves roots, revision, path and dirty
-checkpoint state. The private reducer and 544 independent rational cases are unchanged.
-The prior Mac run matched 405 source hashes, 207 build inputs and 453 returned files,
-but validates the previous WB4-reading source only. It remains historical evidence.
-
-No new manual checklist, ADR or architecture review is required. Final
-three-platform gates are complete; stop for parent acceptance. MEDIAN/MODE, formatting, Undo/Redo,
-structured-data expansion, connectors and capacity increases remain excluded.
-ADR-0020 remains accepted and closed. The Windows clipboard issue above remains open.
+Current milestone: **Four-Direction Rectangular Fill — ADR-0022 design approved with clarifications; bounded implementation authorized, not yet started**.
+[Design approval and implementation boundary](handoffs/2026-10-23-four-direction-fill-design-review.md).
+[Accepted design](adr/0022-four-direction-rectangular-fill.md),
+[design packet and acceptance matrix](handoffs/2026-10-23-four-direction-fill-design.md).
+Command-driven Fill reuses original source-edge capture, effective-binding translation
+and one atomic document mutation. Design retains a 256-position work-area limit,
+scoped keyboard/menu actions and unchanged capacities; no-op and active-editor
+behavior are explicit. No implementation or passing Fill evidence is claimed.
+Undo/Redo remains a following architecture-design milestone, with one Fill as one
+transaction. No history implementation begins in this slice. ADR-0021 stays closed.
 
 Accepted preceding milestone: **Bounded Structured-Result and Presentation-Projection Proof — accepted; workstream closed**.
 [Acceptance and scope closure](handoffs/2026-10-22-structured-results-projection-implementation-review.md),

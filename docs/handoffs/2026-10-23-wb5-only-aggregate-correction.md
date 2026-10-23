@@ -1,7 +1,7 @@
 # ADR-0021 — WB5-only final correction
 
 Date: 2026-10-23. WB4 decoder removed; revised-source Windows/Linux validation
-passed. Fresh native Mac/APFS validation also passed; final parent acceptance remains pending.
+passed. Fresh native Mac/APFS validation also passed; final parent acceptance received; ADR-0021 closed.
 [Required final direction](2026-10-22-spreadsheet-aggregate-implementation-review.md).
 [Earlier three-platform evidence](2026-10-22-spreadsheet-aggregate-implementation.md)
 is historical evidence for the WB4-reading source, not this corrected candidate.
@@ -116,11 +116,12 @@ issue is not closed by this run.
 
 ## Remaining gate
 
-Three-platform validation of the corrected candidate is complete. Submit this
-handoff for final parent acceptance. The [Mac packet](2026-10-23-macos-wb5-only-instructions.md)
+Three-platform validation of the corrected candidate is complete. The parent
+accepted this corrected implementation on 2026-10-23.
+[Final acceptance and scope closure](2026-10-23-spreadsheet-aggregate-final-review.md). The [Mac packet](2026-10-23-macos-wb5-only-instructions.md)
 is completed run provenance; no repeat run is requested. No new manual checklist, ADR or architecture review is
 required. The unresolved Windows ClipboardChecklistAsync observation remains open;
 successful reruns do not establish its cause. Preserve existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux viewport p95 limits.
 Do not start MEDIAN/MODE, formatting, Undo/Redo, structured-data expansion or further
-compatibility work. ADR-0021 is not yet finally accepted.
+compatibility work. ADR-0021 is finally accepted and closed; no next implementation starts automatically.

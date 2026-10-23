@@ -18,13 +18,23 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **Stage 2 representation feasibility accepted; Stage 3 Windows/Linux decision/restart research implemented, review pending; production integration deferred**.
+Current workstream: **Stage 3 process-crash consistency accepted; Stage 4 Windows/Linux/native APFS association research validated, complete feasibility review pending; production integration deferred**.
+[Stage 4 association, save/retention evidence and remaining limits](handoffs/2026-10-23-history-association-stage4.md).
+Windows/Linux/Mac: 69 cases each (207 total), 2,652 original hashes; Rust suites
+346/382, 347/383 and 347/383, with strict lint passing on all three.
+[Native APFS evidence and independent verification](handoffs/2026-10-23-macos-history-association-validation.md)
+confirm 1,092 evidence hashes, 166 build inputs and 462 copied source hashes
+(461 frozen files plus the ignored GPT baseline). New exports of older historical
+roots with later identity floors still reject; prepared exports survive later
+Undo/Clear. No codec relaxation or production integration was made.
+[Stage 3 acceptance and Stage 4 safeguards](handoffs/2026-10-23-history-durability-stage3-review.md).
 [Stage 3 decision protocol, fault/restart evidence and limitations](handoffs/2026-10-23-history-durability-stage3.md).
 366 scenarios passed across Windows/Linux, including parent-killed workers, ambiguous
 outcomes, atomic branch/cursor decisions, corrupt-payload rejection and acknowledged
 restart controls. Rust default/all-feature suites: Windows 346/380, Linux 347/381;
 strict lint passes. Full export, research reconstruction and linear disk-ID lookup
-remain costs; power-loss/macOS durability and Stage 4 remain unproven.
+remain costs; physical power-loss and general filesystem durability remain unproven. Stage 3 alone did not
+establish file association.
 [Stage 2 acceptance and Stage 3 safeguards](handoffs/2026-10-23-history-representation-stage2-review.md).
 [Stage 2 comparison, evidence and bounded adaptive checkpoint experiment](handoffs/2026-10-23-history-representation-stage2.md).
 100 baseline/final-policy runs passed; cache counts/capacities remain fixed from

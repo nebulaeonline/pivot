@@ -1,7 +1,7 @@
 # Bounded disk-history feasibility plan
 
 Date: 2026-10-23. **Inventory and Stage 1 cold reconstruction accepted;
-Stage 2 representation feasibility accepted; Stage 3 Windows/Linux decision/restart research implemented, review pending. Production integration deferred.**
+Stage 2 representation feasibility accepted; Stage 3 Windows/Linux process-crash consistency accepted; Stage 4 Windows/Linux/native APFS research validated, complete feasibility review pending. Production integration deferred.**
 [Stage 1 acceptance and Stage 2 resource qualifications](../handoffs/2026-10-23-cold-history-stage1-review.md).
 [Stage 1 implementation and executed evidence](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
 [Stage 2 implementation, measurements and qualifications](../handoffs/2026-10-23-history-representation-stage2.md).
@@ -9,8 +9,14 @@ Stage 2 representation feasibility accepted; Stage 3 Windows/Linux decision/rest
 The stages below remain the experiment plan. Stages 1 and 2 are accepted research evidence. Additional adaptive cumulative-work checkpoint/fallback tests and measurements are
 reported separately from the fixed-interval baseline.
 [Stage 3 persisted decision/fault/restart evidence](../handoffs/2026-10-23-history-durability-stage3.md)
-is ready for review, with explicit process-crash versus power-loss and scaling limits.
-File association remains unproven; Stage 4 is deferred until Stage 3 review.
+is accepted within its process-crash, filesystem and scaling qualifications.
+[Stage 3 acceptance and Stage 4 safeguards](../handoffs/2026-10-23-history-durability-stage3-review.md).
+[Stage 4 association and retention evidence](../handoffs/2026-10-23-history-association-stage4.md)
+now covers 69 cases each on Windows, Linux and native APFS (207 total).
+[Native Mac evidence review](../handoffs/2026-10-23-macos-history-association-validation.md)
+records verified inputs and APFS-origin hashes. Complete feasibility acceptance
+remains pending; these are tested-case results, not general power-loss guarantees. Production integration is not authorized. The historical native-export
+limitation and Stage 3 performance/filesystem qualifications remain explicit.
 [Inventory acceptance and cold-restoration gate](../handoffs/2026-10-23-cold-history-inventory-review.md).
 [Inventory, identity-boundary probes and allocation measurements](cold-history-state-inventory.md).
 [Resolved logical/runtime/authority contract](../handoffs/2026-10-23-cold-history-identity-review.md).
@@ -207,6 +213,14 @@ native local storage results. Test real store reopen, not reconstruction from a
 surviving parent process's in-memory catalog.
 
 ## Stage 4 — association, save and retention harness
+
+Authorized by the Stage 3 acceptance above. Keep full-export, repeated validation
+and linear disk lookup as disclosed research mechanisms, not approved production
+paths. Production will need mutation-local encoding, indexed bounded-memory receipt
+lookup and efficient verified startup. Preserve separate cost reporting. Run actual
+research persistence and native workbook installation/Open; test-only success flags
+cannot establish association. Native macOS/APFS is required before cross-platform
+association or durability claims. Stop after this stage for complete feasibility review.
 
 Keep workbook Save and history commit separate; inject interruption around verified
 native installation and its history receipt. Verify the saved checkpoint/content

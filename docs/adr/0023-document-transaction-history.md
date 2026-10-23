@@ -24,10 +24,16 @@ The
 [parent identity clarification](../handoffs/2026-10-23-cold-history-identity-review.md)
 approves restart remapping while requiring exact same-session runtime IDs.
 [Stage 3 decision/restart research](../handoffs/2026-10-23-history-durability-stage3.md)
-now has Windows/Linux process-termination, reconciliation and acknowledgment evidence,
-awaiting parent review. This feature-only journal is not production packaging.
+is accepted as Windows/Linux process-crash consistency evidence.
+[Stage 3 acceptance and Stage 4 authorization](../handoffs/2026-10-23-history-durability-stage3-review.md)
+require non-destructive recovery and independently verified workbook/history association.
+[Stage 4 Windows/Linux/native APFS association research](../handoffs/2026-10-23-history-association-stage4.md)
+is validated on the three tested native filesystems, awaiting complete feasibility review. This feature-only journal is not production packaging.
 Full export/reconstruction and linear disk-ID lookup remain explicit costs. Physical
-power-loss, macOS, file association and production checkpoint policy remain unproven.
+power-loss, general filesystem/cross-platform guarantees and production checkpoint
+policy remain unproven. [Mac evidence review](../handoffs/2026-10-23-macos-history-association-validation.md)
+records the native APFS scope without approving production integration. New WB5 export from an older historical root with later identity floors
+still rejects; the successful late-save proof uses an earlier prepared export.
 No production history integration is claimed.
 [Superseding parent direction](../handoffs/2026-10-23-undo-redo-feasibility-review.md),
 [accepted foundation](../handoffs/2026-10-23-undo-redo-feasibility.md),

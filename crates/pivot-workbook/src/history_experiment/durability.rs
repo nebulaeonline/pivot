@@ -629,6 +629,13 @@ impl Journal {
         self.file.sync_all().map_err(io)?;
         Ok(())
     }
+    /// Stable logical research instance ID; association also needs physical file identity.
+    pub fn instance_id(&mut self) -> Result<Uuid> {
+        self.file.seek(SeekFrom::Start(8)).map_err(io)?;
+        let mut bytes = [0; 16];
+        self.file.read_exact(&mut bytes).map_err(io)?;
+        Ok(Uuid::from_bytes(bytes))
+    }
     pub fn receipt(&self) -> Option<Receipt> {
         if self.pending.is_some() {
             return None;

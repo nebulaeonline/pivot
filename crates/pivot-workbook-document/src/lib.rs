@@ -1023,3 +1023,6 @@ impl Document {
         Ok((book, document.state_id))
     }
 }
+
+#[cfg(feature = "history-experiment")]
+pub mod history_association;

@@ -12,4 +12,8 @@ uuid = { version = "1.28.0", features = ["v4"] }
 sha2 = "0.10"
 
 [features]
-history-experiment = ["pivot-workbook/history-experiment"]
+history-experiment = ["pivot-workbook/history-experiment", "pivot-storage/history-experiment"]
+
+[[example]]
+name = "history_association"
+required-features = ["history-experiment"]

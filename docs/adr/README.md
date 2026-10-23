@@ -61,4 +61,4 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0022: Four-direction rectangular Fill](0022-four-direction-rectangular-fill.md) — Design and three-platform-validated implementation accepted; workstream closed (2026-10-23).
 
-- [ADR-0023: Tiered recoverable document transaction history](0023-document-transaction-history.md) — Stage 2 representation feasibility accepted; Stage 3 Windows/Linux decision/restart research implemented, review pending; adaptive checkpoint thresholds remain experimental; production integration deferred (2026-10-23).
+- [ADR-0023: Tiered recoverable document transaction history](0023-document-transaction-history.md) — Stage 2 representation feasibility accepted; Stage 3 Windows/Linux process-crash consistency accepted; Stage 4 Windows/Linux/native APFS research validated, complete feasibility review pending; adaptive checkpoint thresholds remain experimental; production integration deferred (2026-10-23).

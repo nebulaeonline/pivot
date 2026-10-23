@@ -617,6 +617,16 @@ pub mod native {
         pub path: PathBuf,
         pub fingerprint: Option<Fingerprint>,
     }
+    /// Local, feature-only identity token for association research. Not portable authority.
+    #[cfg(feature = "history-experiment")]
+    pub fn research_identity(path: &Path) -> Result<[u8; 32]> {
+        let file = platform::open_read(path)?;
+        let (a, b) = platform::identity(&file)?;
+        let mut bytes = [0; 16];
+        bytes[..8].copy_from_slice(&a.to_le_bytes());
+        bytes[8..].copy_from_slice(&b.to_le_bytes());
+        Ok(digest(&bytes))
+    }
     pub fn destination(path: &Path) -> Result<Location> {
         let path = target(path)?;
         let fingerprint = match fs::symlink_metadata(&path) {

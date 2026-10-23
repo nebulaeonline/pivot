@@ -1,10 +1,13 @@
 # ADR-0023 Stage 3 — decision durability and restart research
 
 Date: 2026-10-23. **Windows/Linux process-termination and persisted-recovery experiment
-implemented; parent review pending. No power-loss, macOS or production history claim.**
+accepted as process-crash consistency research; Stage 4 authorized. No power-loss, macOS or production history claim.**
 [Stage 2 acceptance and authorization](2026-10-23-history-representation-stage2-review.md),
 [ADR-0023](../adr/0023-document-transaction-history.md),
 [experiment plan](../architecture/disk-history-feasibility-plan.md).
+
+[Parent acceptance and Stage 4 safeguards](2026-10-23-history-durability-stage3-review.md).
+Measurements below describe the submitted implementation; prior manifests remain intact.
 
 ## Result and recommendation
 

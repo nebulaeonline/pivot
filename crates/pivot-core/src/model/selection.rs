@@ -145,6 +145,38 @@ impl State {
         self.descriptors.insert(id, None)?;
         Ok(())
     }
+    #[cfg(feature = "history-experiment")]
+    pub(crate) fn history_has_identity(&self, id: SelectionId) -> bool {
+        self.descriptors.contains_key(&id)
+    }
+    #[cfg(feature = "history-experiment")]
+    pub(crate) fn history_weight(&self) -> u128 {
+        use super::structural::memory::history_allocation_header as h;
+        let rows = self.rows.len() as u128;
+        let loc = self.locations.len() as u128;
+        let consumers = self.consumers.len() as u128;
+        let coverage = self.coverage.len() as u128;
+        h::<Self>() as u128
+            + h::<Counters>() as u128
+            + rows
+                * (Index::<(SpaceId, u32), Shared<Columns>>::history_entry_header()
+                    + h::<Columns>()) as u128
+            + self.points as u128 * Index::<u32, NodeId>::history_entry_header() as u128
+            + loc
+                * (Index::<NodeId, Shared<Locations>>::history_entry_header() + h::<Locations>())
+                    as u128
+            + self.points as u128 * Index::<(SpaceId, u32, u32), ()>::history_entry_header() as u128
+            + self.descriptors.len() as u128
+                * Index::<SelectionId, Option<Rectangle>>::history_entry_header() as u128
+            + consumers
+                * (Index::<SelectionId, Shared<Consumers>>::history_entry_header()
+                    + h::<Consumers>()) as u128
+            + self.uses as u128 * Index::<NodeId, ()>::history_entry_header() as u128
+            + coverage
+                * (Index::<SpaceId, Shared<Coverage>>::history_entry_header() + h::<Coverage>())
+                    as u128
+            + self.live as u128 * h::<Interval>() as u128
+    }
     pub fn descriptor(&self, id: SelectionId) -> Option<Rectangle> {
         self.descriptors.get(&id).copied().flatten()
     }

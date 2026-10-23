@@ -46,6 +46,12 @@ impl Graph {
             node: self.next,
         };
         self.next = self.next.checked_add(1).ok_or(Error::Exhausted)?;
+        #[cfg(feature = "history-experiment")]
+        {
+            self.history.names += name.capacity();
+            self.history.records += 1;
+            self.history.extent = self.next;
+        }
         self.max_name = self.max_name.max(name.len());
         {
             let _profile = crate::experiment_profile::construction::scope(14);

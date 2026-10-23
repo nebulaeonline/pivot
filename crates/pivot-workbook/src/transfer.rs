@@ -180,6 +180,10 @@ impl Workbook {
         }
         let persistent = imported.model.retain_resource(data).map_err(graph_error)?;
         Ok(Self {
+            #[cfg(feature = "history-experiment")]
+            history_content: Uuid::new_v4(),
+            #[cfg(feature = "history-experiment")]
+            history_active: false,
             session: Uuid::new_v4(),
             state: image.state,
             worksheet: image.worksheet,

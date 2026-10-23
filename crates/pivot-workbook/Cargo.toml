@@ -10,6 +10,7 @@ pivot-types = { path = "../pivot-types" }
 uuid = { version = "1.28.0", features = ["v4"] }
 
 [features]
+history-experiment = ["pivot-core/history-experiment"]
 scaling-experiment = ["pivot-core/scaling-experiment"]
 
 [[example]]
@@ -19,3 +20,7 @@ required-features = ["scaling-experiment"]
 [[example]]
 name = "readiness"
 required-features = ["scaling-experiment"]
+
+[[example]]
+name = "history_feasibility"
+required-features = ["history-experiment"]

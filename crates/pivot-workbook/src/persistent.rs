@@ -9,6 +9,8 @@ use pivot_core::model::integration::{
 pub(super) type State = Retained<Data>;
 #[derive(Clone)]
 pub(super) struct Data {
+    #[cfg(feature = "history-experiment")]
+    pub(super) history_payload: usize,
     pub(crate) directory: Option<structured::Directory>,
     pub(crate) adapter: Option<Shared<structured::Adapter>>,
     annotations: Index<CellId, structured::StructuredContent>,
@@ -58,6 +60,8 @@ impl Footprint for Record {
 impl Data {
     pub(super) fn new(memory: Memory) -> Self {
         Self {
+            #[cfg(feature = "history-experiment")]
+            history_payload: 0,
             directory: None,
             adapter: None,
             annotations: Index::new(memory.clone()),
@@ -102,6 +106,11 @@ impl Data {
                 .map_err(|_| Error::Limit)?;
         } else {
             self.annotations.remove(&id).map_err(|_| Error::Limit)?;
+        }
+        #[cfg(feature = "history-experiment")]
+        {
+            let old = self.records.get(&id).map_or(0, |r| (**r).heap_bytes());
+            self.history_payload = self.history_payload - old + record.heap_bytes();
         }
         let shared = self.memory.alloc(record).map_err(|_| Error::Limit)?;
         self.records
@@ -150,6 +159,10 @@ impl Workbook {
             .retain_resource(Data::new(runtime.memory()))
             .map_err(graph_error)?;
         Ok(Self {
+            #[cfg(feature = "history-experiment")]
+            history_content: Uuid::new_v4(),
+            #[cfg(feature = "history-experiment")]
+            history_active: false,
             session: Uuid::new_v4(),
             state: 0,
             worksheet: WorksheetId::fresh(),
@@ -251,6 +264,12 @@ impl Transaction<'_> {
         self.book.axes_at(position)?;
         if let Some(id) = self.data.positions.get(&position) {
             return Ok(*id);
+        }
+        #[cfg(feature = "history-experiment")]
+        if self.book.history_active
+            && self.batch.history_next_node() >= self.book.limits.allocated_cells as u64
+        {
+            return Err(Error::Limit);
         }
         if self.data.positions.len() >= self.book.limits.live_cells
             || self.data.records.len() >= self.book.limits.allocated_cells
@@ -818,6 +837,10 @@ fn apply_mode(
     book.core = core;
     book.persistent = data;
     book.state = next;
+    #[cfg(feature = "history-experiment")]
+    {
+        book.history_content = Uuid::new_v4();
+    }
     Ok(book.expected())
 }
 pub(super) fn read(
@@ -1067,4 +1090,22 @@ impl CalculationCapture {
             content: owned_content(record).unwrap(),
         }))
     }
+}
+
+#[cfg(feature = "history-experiment")]
+pub(super) fn history_weight(book: &Workbook) -> Result<usize> {
+    let d = state(book);
+    if d.directory.is_some() || d.adapter.is_some() || !d.annotations.is_empty() {
+        return Err(Error::InvalidTarget);
+    }
+    let bytes = 4096u128
+        + d.history_payload as u128
+        + d.positions.len() as u128 * Index::<Position, CellId>::history_entry_header() as u128
+        + d.records.len() as u128
+            * (Index::<CellId, Shared<Record>>::history_entry_header()
+                + pivot_core::model::integration::resources::history_allocation_header::<Record>())
+                as u128
+        + d.bindings.len() as u128 * Index::<CellId, Binding>::history_entry_header() as u128
+        + d.nodes.len() as u128 * Index::<NodeId, CellId>::history_entry_header() as u128;
+    usize::try_from(bytes).map_err(|_| Error::Exhausted)
 }

@@ -1,6 +1,7 @@
 # ADR-0023: Bounded document transaction history
 
-Status: **Architectural direction conditionally approved with three clarifications; bounded feasibility authorized; full implementation deferred (2026-10-23)**.
+Status: **Architectural direction conditionally approved; bounded feasibility implemented and awaiting review; full implementation deferred (2026-10-23)**.
+[Executable foundation and measured findings](../handoffs/2026-10-23-undo-redo-feasibility.md).
 [Parent architecture review and feasibility boundary](../handoffs/2026-10-23-undo-redo-design-review.md).
 Date: 2026-10-23.
 [Design packet and acceptance matrix](../handoffs/2026-10-23-undo-redo-design.md).

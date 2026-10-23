@@ -724,6 +724,58 @@ fn next_capture_identity() -> Result<u64, CaptureFailure> {
     .map_err(|_| CaptureFailure::Resource("capture identity exhausted"))
 }
 
+#[cfg(feature = "history-experiment")]
+pub use structural::HistoryMetrics;
+#[cfg(feature = "history-experiment")]
+impl WorkingModel {
+    pub fn history_metrics(&self) -> Result<HistoryMetrics, ModelError> {
+        self.integrated.graph().history_metrics().map_err(map_error)
+    }
+    pub fn history_activate(
+        &self,
+        historical: &Self,
+        cancel: &CancellationToken,
+    ) -> Result<Self, ModelError> {
+        if cancel.is_cancelled()
+            || self.revision.model != historical.revision.model
+            || !Arc::ptr_eq(&self.integrated.runtime, &historical.integrated.runtime)
+        {
+            return Err(ModelError::Backend("history authority"));
+        }
+        let ticket = self
+            .integrated
+            .runtime
+            .cleanup
+            .reserve()
+            .map_err(ModelError::Backend)?;
+        let graph = historical
+            .integrated
+            .graph()
+            .history_activated(self.integrated.graph())
+            .map_err(map_error)?;
+        let version = self
+            .revision
+            .version
+            .max(historical.revision.version)
+            .checked_add(1)
+            .ok_or(ModelError::IdentityExhausted)?;
+        let candidate = Self {
+            integrated: Integrated {
+                graph: ticket.own(graph),
+                runtime: self.integrated.runtime.clone(),
+            },
+            revision: Revision {
+                model: self.revision.model,
+                version,
+            },
+        };
+        if cancel.is_cancelled() {
+            return Err(ModelError::Backend("cancelled"));
+        }
+        Ok(candidate)
+    }
+}
+
 #[cfg(test)]
 mod cancellation_tests {
     use super::*;

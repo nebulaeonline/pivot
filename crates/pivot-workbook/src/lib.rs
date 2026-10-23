@@ -12,6 +12,8 @@ use std::collections::BTreeSet;
 use uuid::Uuid;
 pub mod clipboard;
 mod fill;
+#[cfg(feature = "history-experiment")]
+pub mod history_experiment;
 mod persistent;
 pub use fill::FillDirection;
 #[doc(hidden)]
@@ -335,6 +337,10 @@ pub type LoweredFormula = (
 );
 
 pub struct Workbook {
+    #[cfg(feature = "history-experiment")]
+    history_content: Uuid,
+    #[cfg(feature = "history-experiment")]
+    history_active: bool,
     session: Uuid,
     state: u64,
     worksheet: WorksheetId,

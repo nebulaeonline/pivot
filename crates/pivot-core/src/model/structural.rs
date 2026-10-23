@@ -3,8 +3,12 @@
 use super::*;
 use crate::evaluation::EvaluationError;
 
+#[cfg(feature = "history-experiment")]
+mod history;
 mod index;
 mod inspection;
+#[cfg(feature = "history-experiment")]
+pub use history::HistoryMetrics;
 mod materialization;
 pub mod memory;
 pub mod reclaim;
@@ -378,6 +382,8 @@ pub enum Edit {
 }
 #[derive(Clone)]
 pub struct Graph {
+    #[cfg(feature = "history-experiment")]
+    history: history::Accounting,
     captured_scalar: Option<(NodeId, crate::captured::CapturedScalarId)>,
     pub(super) selections: Option<Shared<selection::State>>,
     selection_invalidated: Option<Shared<Vec<NodeId>>>,
@@ -432,6 +438,8 @@ impl Graph {
     /// Empty persistent root, with no legacy import or global snapshot bridge.
     pub(super) fn empty(name: String, revision: Revision, memory: Memory) -> Result<Self, Error> {
         Ok(Self {
+            #[cfg(feature = "history-experiment")]
+            history: Default::default(),
             local_validation: true,
             captured_scalar: None,
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(true)))?,
@@ -535,6 +543,12 @@ impl Graph {
         )?;
         let initial_error = model.snapshot().err();
         let mut graph = Self {
+            #[cfg(feature = "history-experiment")]
+            history: history::Accounting {
+                records: model.next_node as usize,
+                extent: model.next_node,
+                ..Default::default()
+            },
             local_validation: false,
             captured_scalar: None,
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(
@@ -578,6 +592,13 @@ impl Graph {
                     binding: binding.clone(),
                 },
             };
+            #[cfg(feature = "history-experiment")]
+            {
+                graph.history.payload += definition.heap_bytes();
+                graph.history.names += node.name.len();
+                graph.history.dependencies += definition.deps().len();
+                graph.history.extent = graph.next;
+            }
             graph.bytes += definition.bytes();
             graph.names.insert(node.name.clone(), id)?;
             graph.records.set(
@@ -842,6 +863,13 @@ impl Graph {
         } else if self.captured_scalar.is_some_and(|(node, _)| node == id) {
             self.captured_scalar = None;
         }
+        #[cfg(feature = "history-experiment")]
+        {
+            self.history.payload =
+                self.history.payload - (*old.definition).heap_bytes() + definition.heap_bytes();
+            self.history.dependencies =
+                self.history.dependencies - old.definition.deps().len() + definition.deps().len();
+        }
         self.bytes = self.bytes - old.definition.bytes() + definition.bytes();
         let old_selections = old.definition.selection_ids();
         let new_selections = definition.selection_ids();
@@ -1042,10 +1070,14 @@ impl Graph {
             }
             match edit {
                 Edit::RetiredSelection(id) => {
+                    #[cfg(feature = "history-experiment")]
+                    candidate.history_claim_selection(id)?;
                     candidate.edit_selection(|state| state.retired_identity(id))?;
                     topology = true;
                 }
                 Edit::Selection(id, rectangle) => {
+                    #[cfg(feature = "history-experiment")]
+                    candidate.history_claim_selection(id)?;
                     candidate.edit_selection(|state| state.define(id, rectangle))?;
                     topology = true;
                 }
@@ -1218,6 +1250,11 @@ impl Graph {
                     candidate.names.remove(&old.name)?;
                     candidate.names.insert(name.clone(), id)?;
                     let mut record = (*old).clone();
+                    #[cfg(feature = "history-experiment")]
+                    {
+                        candidate.history.names =
+                            candidate.history.names - old.name.capacity() + name.capacity();
+                    }
                     record.name = name;
                     candidate.records.set(id.node, record)?;
                     topology = true;

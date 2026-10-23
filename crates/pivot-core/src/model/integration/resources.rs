@@ -84,3 +84,6 @@ impl WorkingModel {
         Ok(Reclaimable::new((**value).clone(), ticket))
     }
 }
+
+#[cfg(feature = "history-experiment")]
+pub use structural::memory::history_allocation_header;

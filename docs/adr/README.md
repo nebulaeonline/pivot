@@ -61,4 +61,4 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0022: Four-direction rectangular Fill](0022-four-direction-rectangular-fill.md) — Design and three-platform-validated implementation accepted; workstream closed (2026-10-23).
 
-- [ADR-0023: Bounded document transaction history](0023-document-transaction-history.md) — Undo/Redo architecture conditionally approved; bounded root-activation/ownership feasibility authorized; full implementation deferred (2026-10-23).
+- [ADR-0023: Bounded document transaction history](0023-document-transaction-history.md) — architecture conditionally approved; feature-only root/ownership feasibility implemented, awaiting review; full implementation deferred (2026-10-23).

@@ -72,6 +72,10 @@ impl<K: Key, V: Clone + Footprint> Index<K, V> {
         }
         count
     }
+    #[cfg(feature = "history-experiment")]
+    pub fn history_entry_header() -> usize {
+        super::memory::history_allocation_header::<Node<K, V>>()
+    }
     pub fn len(&self) -> usize {
         len(&self.root)
     }

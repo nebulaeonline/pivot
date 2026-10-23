@@ -3,6 +3,7 @@
 Date: 2026-10-23. **Architectural direction approved with three clarifications.
 Immediate authorization: bounded root-activation and ownership feasibility.
 Full Undo/Redo implementation is not authorized.**
+[Subsequent executable feasibility findings, pending review](2026-10-23-undo-redo-feasibility.md).
 [ADR-0023](../adr/0023-document-transaction-history.md),
 [design packet](2026-10-23-undo-redo-design.md).
 This is architecture approval, not feasibility acceptance or implementation acceptance.

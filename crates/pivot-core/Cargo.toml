@@ -5,6 +5,7 @@ edition.workspace = true
 publish.workspace = true
 
 [features]
+history-experiment = []
 scaling-experiment = []
 
 [dependencies]

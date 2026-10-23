@@ -1,7 +1,8 @@
 # Undo/Redo architecture — parent review packet
 
 Date: 2026-10-23. **Architectural direction conditionally approved; bounded feasibility authorized.
-No code, feasibility results or passing history evidence claimed.**
+The design packet itself claims no implementation acceptance.**
+[Subsequent feature-only feasibility results](2026-10-23-undo-redo-feasibility.md).
 [Review and strict phase boundary](2026-10-23-undo-redo-design-review.md).
 [ADR-0023](../adr/0023-document-transaction-history.md),
 [accepted Fill and next direction](2026-10-23-four-direction-fill-final-review.md).

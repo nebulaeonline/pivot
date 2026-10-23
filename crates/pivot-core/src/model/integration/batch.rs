@@ -192,6 +192,10 @@ impl Batch {
     pub fn retire(&mut self, id: NodeId) -> Result<(), ModelError> {
         self.push(Edit::Retire(id), 0)
     }
+    #[cfg(feature = "history-experiment")]
+    pub fn history_next_node(&self) -> u64 {
+        self.next.node
+    }
     pub fn len(&self) -> usize {
         self.edits.len()
     }

@@ -18,7 +18,8 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **Undo/Redo architecture — direction conditionally approved; bounded feasibility authorized, not yet started; full implementation deferred**.
+Current workstream: **Undo/Redo bounded feasibility implemented; awaiting parent feasibility review; full implementation deferred**.
+[Executable foundation and measured retention/ownership](handoffs/2026-10-23-undo-redo-feasibility.md).
 [Architecture review and feasibility boundary](handoffs/2026-10-23-undo-redo-design-review.md).
 [Conditionally approved architecture](adr/0023-document-transaction-history.md),
 [review packet and acceptance matrix](handoffs/2026-10-23-undo-redo-design.md).
@@ -31,8 +32,13 @@ remain design targets subject to measured feasibility. First prove historical ro
 activation under fresh guards/lifetime allocation floors, retained-capture isolation
 and bounded weight/accounting on realistic workloads, including invalid/cyclic drafts.
 Stop for parent feasibility review before a general history stack, production save
-changes, session/protocol surface or desktop integration. No runtime/history code or
-feasibility results are claimed. ADR-0022 remains accepted and closed.
+changes, session/protocol surface or desktop integration. Feature-only root activation,
+lifetime floors, capture isolation, staged admission and prepared-export ownership
+tests now pass. Windows samples admit 32 changes each; the 16 MiB full-state budget
+retains 33/33/11/29/4 states across small/medium/near/formula/retired-identity cases.
+All measurement runtimes finish at zero charge. This supports the root foundation,
+while shortened history at higher occupancy requires review. No production history
+coordinator or save integration is claimed. ADR-0022 remains accepted and closed.
 
 Accepted preceding milestone: **Bounded Structured-Result and Presentation-Projection Proof — accepted; workstream closed**.
 [Acceptance and scope closure](handoffs/2026-10-22-structured-results-projection-implementation-review.md),

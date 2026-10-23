@@ -143,3 +143,8 @@ impl<T> Shared<T> {
         Arc::get_mut(&mut self.0).map(|v| &mut v.value)
     }
 }
+
+#[cfg(feature = "history-experiment")]
+pub fn history_allocation_header<T>() -> usize {
+    std::mem::size_of::<Charged<T>>() + 2 * std::mem::size_of::<usize>()
+}

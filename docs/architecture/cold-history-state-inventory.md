@@ -1,7 +1,10 @@
 # Cold-history state inventory and identity boundary
 
-Date: 2026-10-23. **Stage-one inventory/probes only. Cold restoration and the disk
-representation are not implemented or proven.**
+Date: 2026-10-23. **Stage-one inventory/probes accepted. Original inventory evidence below
+does not prove cold restoration.**
+[Subsequent feature-only cold adapter and executed Stage 1 proofs](../handoffs/2026-10-23-cold-history-restoration-stage1.md)
+are separate evidence pending review; the original manifests remain unchanged.
+[Parent inventory acceptance and next gate](../handoffs/2026-10-23-cold-history-inventory-review.md).
 [Authorized plan](disk-history-feasibility-plan.md),
 [architecture approval](../handoffs/2026-10-23-tiered-history-design-review.md),
 [ADR-0023](../adr/0023-document-transaction-history.md).
@@ -141,6 +144,9 @@ not a durable history log and does not claim to retain 10,000 Undo actions.
 This isolates the finite identity ceiling from live occupancy and transaction count.
 Disk eviction alone cannot change that ceiling. This is a real product scaling
 constraint to return for review; no quota or identity guarantee was changed.
+The parent accepts this finding and classifies identity-space scalability as a
+separate architectural prerequisite for removing experimental workbook limits.
+No quota increase, recycling or rebasing is part of the current experiment.
 Machine-readable platform results and test/lint logs are in
 `artifacts/history-cold-inventory/`. Timing is incidental, not a disk latency claim.
 Windows elapsed times were 425 ms for replacement and 421 ms for branching; Linux
@@ -149,15 +155,15 @@ no disk-history writes; they are not comparable to durable transaction latency.
 
 ## Gate status
 
-Inventory and boundary probes are complete; the identity contract is now resolved.
-Stage 1 exact cold restoration remains unproven. Continue with a narrow cold adapter
-under the approved mapping contract, requiring separate same-session exact-runtime-ID
-tests, fresh-process logical-equivalence tests with unrelated models already allocated,
-and simultaneous-copy isolation. If same-session preservation requires broad redesign,
-stop and report before weakening it. No cold adapter or remapper is implemented here.
+Inventory and boundary probes are accepted; the identity contract is resolved.
+The inventory itself did not implement restoration. The subsequent adapter now
+passes the separate same-session exact-runtime-ID, fresh-process logical-equivalence
+and simultaneous-copy tests under the approved mapping contract. See the linked
+Stage 1 packet for actual implementation/coverage and limitations; acceptance remains
+pending. The stop condition for broad redesign or weakened invariants is unchanged.
 
 No checkpoint/delta/shared-object comparison, commit journal, recovery/decline,
-store association or corruption/disk-full experiment is claimed. No cold adapter,
-production coordinator, WB5/protocol/desktop/Optimize change was introduced. The
+store association or corruption/disk-full experiment is claimed by the inventory.
+The later adapter adds no production coordinator or WB5/protocol/desktop/Optimize change. The
 remaining authorized stages remain gated on exact cold reconstruction and the
 identity-scaling result above; do not skip them to produce storage-size benchmarks.

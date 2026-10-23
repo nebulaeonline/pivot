@@ -18,14 +18,19 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **Tiered history experiment started; Stage 1 identity contract clarified; exact cold restoration remains unproven; production integration deferred**.
+Current workstream: **Stage 1 cold-restoration proofs implemented and ready for review; production integration deferred**.
+[Cold reconstruction, identity/capture proofs and validation](handoffs/2026-10-23-cold-history-restoration-stage1.md).
+[Parent inventory acceptance and next gate](handoffs/2026-10-23-cold-history-inventory-review.md).
 [Architecture approval and experiment authorization](handoffs/2026-10-23-tiered-history-design-review.md).
 [Parent cold-identity clarification](handoffs/2026-10-23-cold-history-identity-review.md).
 [Cold-state inventory and executable boundary probes](architecture/cold-history-state-inventory.md).
 Windows/Linux probes distinguish portable UUIDs from process-local runtime NodeIds;
 separate processes legitimately reuse the same numeric model/node pair. Portable
 transfer is not a history capsule and rejects an older root with a later allocation
-floor. No cold codec or restoration implementation has been introduced. The parent
+floor. A separate feature-only checkpoint adapter now reconstructs both roots from
+bytes, leaving portable transfer unchanged. Windows/Linux same-session, fresh-process
+and independent-copy proofs pass with exact content/provenance and zero-charge finish.
+Default/all-feature Rust suites pass: Windows 346/377, Linux 347/378. The parent
 approves durable logical IDs/reservations across restart, exact runtime NodeIds for
 hot/cold activation in a live session, and coherent remapping in a fresh reopened
 runtime namespace. Separate gates cover same-session eviction, restart logical
@@ -36,6 +41,11 @@ The separate identity measurement completed 10,000 existing-cell replacements us
 one identity, while create/restore/branch reached the unchanged floor of 8,192 after
 8,191 new commits with one active cell. Both platforms finished at zero charge.
 This reports the requested product scaling constraint, not retained disk history.
+The parent accepts the inventory/probes and measurements. Identity-space scalability
+is a separate prerequisite for removing experimental workbook limits; no quota increase,
+recycling or rebasing is authorized. The three cold-restoration proofs are implemented
+above and await review before they are treated as accepted evidence for representation,
+durable fault/recovery or association work. Portable transfer remains unchanged.
 [Parent acceptance and superseding direction](handoffs/2026-10-23-undo-redo-feasibility-review.md),
 [accepted executable foundation and evidence](handoffs/2026-10-23-undo-redo-feasibility.md),
 [revised ADR-0023](adr/0023-document-transaction-history.md),
@@ -43,8 +53,9 @@ This reports the requested product scaling constraint, not retained disk history
 [bounded disk-history feasibility plan](architecture/disk-history-feasibility-plan.md).
 The accepted feature-only foundation restores historical roots under fresh authority,
 retains lifetime identity floors and isolates existing calculation captures, including
-invalid/cyclic drafts. Windows 346/367 and Linux 347/368 default/all-feature Rust tests
-pass; all ten measurement runtimes finish at zero charge.
+invalid/cyclic drafts. Its original receipt records Windows 346/367 and Linux 347/368
+default/all-feature tests and ten zero-charge measurement runtimes; those historical
+manifests remain intact beside the new Stage 1 evidence.
 
 The parent declines 32 transitions/33 states and 16 MiB as product history limits.
 These remain experimental measurements, not reasons to discard recoverable history
@@ -54,14 +65,15 @@ storage and explicit user retention/failure policy. Across-session history is an
 intended capability. Keep transaction/content identities, fresh authority, monotonic
 allocation floors and existing save/dirty/uncertain-installation contracts separate.
 
-Next work: execute the authorized staged experiment. It compares
+Next work: review the Stage 1 packet, then continue the authorized experiment comparing
 checkpoints, canonical record deltas and shared persistent-state objects with commit
 journaling, without choosing a container/database. The proposal covers cold restoration,
 durable-before-publish transaction/cursor/ledger decisions, uncertain-write reconciliation,
 saved-file association, copies/moves/replacement, explicit retention/failure policies
-and resident eviction without history loss. No disk-history code or measurements are
-claimed. Additional safeguards require separate create/Undo/branch identity-exhaustion
-measurements, preserved journals when recovery is declined, and independent history
+and resident eviction without history loss. No extensible store, durable journal,
+recovery/association implementation or measurements are claimed. Additional safeguards
+require separate create/Undo/branch identity-exhaustion measurements (completed as an
+inventory finding), preserved journals when recovery is declined, and independent history
 deletion/compilation decisions. Return experiment evidence for parent feasibility
 review before production container selection or full history/session/desktop integration.
 Optimize Worksheet is separate; no JIT,

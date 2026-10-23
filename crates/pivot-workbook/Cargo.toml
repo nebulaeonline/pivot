@@ -8,9 +8,10 @@ publish.workspace = true
 pivot-core = { path = "../pivot-core" }
 pivot-types = { path = "../pivot-types" }
 uuid = { version = "1.28.0", features = ["v4"] }
+sha2 = { version = "0.10", optional = true }
 
 [features]
-history-experiment = ["pivot-core/history-experiment"]
+history-experiment = ["pivot-core/history-experiment", "dep:sha2"]
 scaling-experiment = ["pivot-core/scaling-experiment"]
 
 [[example]]

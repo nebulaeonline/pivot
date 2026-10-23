@@ -1,6 +1,8 @@
 //! Feature-only root pins and activation feasibility. No history stack or production controls.
 use crate::*;
 use pivot_core::model::integration::{CancellationToken, HistoryMetrics, resources::Charge};
+mod cold;
+pub use cold::ColdLedger;
 pub struct HistoricalRoot {
     session: Uuid,
     worksheet: WorksheetId,

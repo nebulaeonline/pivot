@@ -727,7 +727,110 @@ fn next_capture_identity() -> Result<u64, CaptureFailure> {
 #[cfg(feature = "history-experiment")]
 pub use structural::HistoryMetrics;
 #[cfg(feature = "history-experiment")]
+pub use structural::history::ColdDefinition;
+#[cfg(feature = "history-experiment")]
+pub use structural::history::codec as history_codec;
+#[cfg(feature = "history-experiment")]
 impl WorkingModel {
+    pub fn history_cold_check_definition(
+        &self,
+        node: NodeId,
+        expected: ColdDefinition<'_>,
+    ) -> Result<(), ModelError> {
+        self.integrated
+            .graph()
+            .cold_check_definition(node, expected)
+            .map_err(map_error)
+    }
+    pub fn history_cold_with_floors(
+        &self,
+        nodes: u64,
+        selections: usize,
+    ) -> Result<Self, ModelError> {
+        let ticket = self
+            .integrated
+            .runtime
+            .cleanup
+            .reserve()
+            .map_err(ModelError::Backend)?;
+        let graph = self
+            .integrated
+            .graph()
+            .cold_with_floors(nodes, selections)
+            .map_err(map_error)?;
+        Ok(Self {
+            integrated: Integrated {
+                graph: ticket.own(graph),
+                runtime: self.integrated.runtime.clone(),
+            },
+            revision: self.revision,
+        })
+    }
+    pub fn history_cold_export(&self) -> Result<history_codec::Blob, ModelError> {
+        self.integrated.graph().cold_export()
+    }
+    pub fn history_cold_node(&self, ordinal: u64) -> Result<NodeId, ModelError> {
+        self.integrated
+            .graph()
+            .cold_node(ordinal)
+            .map_err(map_error)
+    }
+    pub fn history_cold_ordinal(&self, node: NodeId) -> Result<u64, ModelError> {
+        self.integrated
+            .graph()
+            .cold_ordinal(node)
+            .map_err(map_error)
+    }
+    pub fn history_cold_nodes(&self) -> Vec<(u64, bool)> {
+        self.integrated.graph().cold_nodes()
+    }
+    pub fn history_cold_restore(
+        &self,
+        bytes: &[u8],
+        cancel: &CancellationToken,
+    ) -> Result<Self, ModelError> {
+        if cancel.is_cancelled() {
+            return Err(ModelError::Backend("cancelled"));
+        }
+        let ticket = self
+            .integrated
+            .runtime
+            .cleanup
+            .reserve()
+            .map_err(ModelError::Backend)?;
+        let partial = self
+            .integrated
+            .runtime
+            .cleanup
+            .reserve()
+            .map_err(ModelError::Backend)?;
+        let graph = self
+            .integrated
+            .graph()
+            .cold_restore(bytes, &|| cancel.is_cancelled(), move |graph| {
+                partial.retire(graph)
+            })
+            .map_err(map_error)?;
+        let version = self
+            .revision
+            .version
+            .checked_add(1)
+            .ok_or(ModelError::IdentityExhausted)?;
+        let candidate = Self {
+            integrated: Integrated {
+                graph: ticket.own(graph),
+                runtime: self.integrated.runtime.clone(),
+            },
+            revision: Revision {
+                model: self.revision.model,
+                version,
+            },
+        };
+        if cancel.is_cancelled() {
+            return Err(ModelError::Backend("cancelled"));
+        }
+        Ok(candidate)
+    }
     pub fn history_metrics(&self) -> Result<HistoryMetrics, ModelError> {
         self.integrated.graph().history_metrics().map_err(map_error)
     }

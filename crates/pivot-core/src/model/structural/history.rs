@@ -1,5 +1,13 @@
 //! Feature-only root activation/accounting feasibility, not an undo engine.
 use super::*;
+pub mod codec;
+mod cold;
+pub enum ColdDefinition<'a> {
+    Blank,
+    NonNumeric,
+    Input(PivotDecimal),
+    Formula(&'a str, Option<&'a [transfer::ResolvedToken]>),
+}
 #[derive(Clone, Default)]
 pub(super) struct Accounting {
     pub payload: usize,
@@ -19,6 +27,66 @@ pub struct HistoryMetrics {
     pub weight_scan_visits: usize,
 }
 impl Graph {
+    pub(in crate::model) fn cold_check_definition(
+        &self,
+        id: NodeId,
+        expected: ColdDefinition<'_>,
+    ) -> Result<(), Error> {
+        let stored = &*self.live_record(id)?.definition;
+        let matches = match (stored, expected) {
+            (Compiled::Blank, ColdDefinition::Blank)
+            | (Compiled::NonNumeric, ColdDefinition::NonNumeric) => true,
+            (Compiled::Input, ColdDefinition::Input(value)) => {
+                self.values.get(id.node).is_some_and(|v| **v == value)
+            }
+            (Compiled::Formula { source, binding }, ColdDefinition::Formula(original, tokens)) => {
+                if source != original {
+                    false
+                } else {
+                    match (binding, tokens) {
+                        (Err(_), None) => true,
+                        (Ok((bound, _)), Some(tokens)) => {
+                            let tokens: Vec<_> = tokens
+                                .iter()
+                                .map(|token| match token {
+                                    transfer::ResolvedToken::Decimal(v) => BoundToken::Decimal(*v),
+                                    transfer::ResolvedToken::Node(n) => BoundToken::Node(*n),
+                                    transfer::ResolvedToken::Unary(op) => BoundToken::Unary(*op),
+                                    transfer::ResolvedToken::Binary(op) => BoundToken::Binary(*op),
+                                    transfer::ResolvedToken::Sum(s) => BoundToken::Sum(*s),
+                                    transfer::ResolvedToken::Aggregate(k, s) => {
+                                        BoundToken::Aggregate(*k, *s)
+                                    }
+                                })
+                                .collect();
+                            *bound == tokens
+                        }
+                        _ => false,
+                    }
+                }
+            }
+            _ => false,
+        };
+        if matches {
+            Ok(())
+        } else {
+            Err(Error::InvalidTransfer)
+        }
+    }
+    pub(in crate::model) fn cold_with_floors(
+        &self,
+        nodes: u64,
+        selections: usize,
+    ) -> Result<Self, Error> {
+        if nodes > 8192 || selections > selection::MAX_IDENTITIES {
+            return Err(Error::Quota);
+        }
+        let mut graph = self.clone();
+        graph.next = graph.next.max(nodes);
+        graph.history.selections = graph.history.selections.max(selections);
+        graph.check_quota()?;
+        Ok(graph)
+    }
     pub(super) fn history_claim_selection(
         &mut self,
         id: selection::SelectionId,

@@ -4,11 +4,15 @@ Status: **Revised architecture approved with three safeguards; bounded disk-hist
 experiment authorized; production integration deferred (2026-10-23)**.
 [Architecture approval and experiment boundary](../handoffs/2026-10-23-tiered-history-design-review.md).
 [Stage-one inventory and identity-boundary findings](../architecture/cold-history-state-inventory.md).
-The experiment has begun with boundary probes and separate transaction/identity
-measurements. Exact cold restoration remains unproven. The
+[Parent inventory acceptance and required next proofs](../handoffs/2026-10-23-cold-history-inventory-review.md).
+The inventory/probes are accepted. A separate feature-only complete-checkpoint adapter
+now passes the implemented Stage 1 cold-restoration proofs on Windows/Linux, pending
+parent review: [implementation and evidence](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
+The
 [parent identity clarification](../handoffs/2026-10-23-cold-history-identity-review.md)
 approves restart remapping while requiring exact same-session runtime IDs.
-No disk-history implementation is claimed.
+No extensible disk-history store, durable commit journal or production integration
+is claimed. The remaining comparison/recovery/association stages are unproven.
 [Superseding parent direction](../handoffs/2026-10-23-undo-redo-feasibility-review.md),
 [accepted foundation](../handoffs/2026-10-23-undo-redo-feasibility.md),
 [review packet](../handoffs/2026-10-23-undo-redo-design.md),
@@ -85,6 +89,9 @@ Unlimited transaction retention is not unlimited identity allocation. Measure
 existing-cell edits separately from create/Undo/branch cycles and report finite
 identity exhaustion as a distinct product scaling constraint. Do not raise limits
 or weaken identity guarantees without separate review.
+The inventory measurements are accepted. Identity-space scalability is a separate
+architectural prerequisite for removing experimental workbook limits, not a problem
+solved by extensible disk history. No identity recycling or rebasing is authorized.
 
 ## Hot and cold state boundary
 

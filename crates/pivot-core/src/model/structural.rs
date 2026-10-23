@@ -4,7 +4,7 @@ use super::*;
 use crate::evaluation::EvaluationError;
 
 #[cfg(feature = "history-experiment")]
-mod history;
+pub(in crate::model) mod history;
 mod index;
 mod inspection;
 #[cfg(feature = "history-experiment")]

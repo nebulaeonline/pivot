@@ -1,7 +1,11 @@
 # Bounded disk-history feasibility plan
 
-Date: 2026-10-23. **Bounded experiment authorized with three safeguards; Stage 1 inventory/probes started.
-No cold adapter, disk-history measurements or production integration claimed.**
+Date: 2026-10-23. **Bounded experiment authorized with three safeguards; inventory accepted;
+Stage 1 cold adapter/proofs implemented and ready for review. Production integration deferred.**
+[Stage 1 implementation and executed evidence](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
+The stages below remain the experiment plan. Only Stage 1 has an implemented adapter;
+representation comparison, durable journal recovery and file association remain unproven.
+[Inventory acceptance and cold-restoration gate](../handoffs/2026-10-23-cold-history-inventory-review.md).
 [Inventory, identity-boundary probes and allocation measurements](cold-history-state-inventory.md).
 [Resolved logical/runtime/authority contract](../handoffs/2026-10-23-cold-history-identity-review.md).
 [Architecture approval and safeguards](../handoffs/2026-10-23-tiered-history-design-review.md).
@@ -65,6 +69,8 @@ Use three separate Stage 1 gates:
    demonstrate isolated runtime graph namespaces, request authority and captures.
 
 Do not change core NodeId representation or add persistent model-number ownership.
+Do not modify ordinary portable transfer to serve as a history codec; preserve its
+accepted import/export semantics and build a separate narrow reconstruction seam.
 If same-session cold activation cannot preserve runtime IDs without broad redesign,
 stop and report before weakening the invariant or expanding storage work. Fresh
 restart namespaces do not reset lifetime identity ceilings or discarded-branch

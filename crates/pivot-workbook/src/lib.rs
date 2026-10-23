@@ -11,7 +11,9 @@ use pivot_types::{DecimalError, PivotDecimal};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 pub mod clipboard;
+mod fill;
 mod persistent;
+pub use fill::FillDirection;
 #[doc(hidden)]
 pub mod structured;
 pub mod transfer;

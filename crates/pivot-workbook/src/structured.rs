@@ -378,136 +378,18 @@ impl Workbook {
         self.axes_at(source.last)?;
         self.axes_at(destination.first)?;
         self.axes_at(destination.last)?;
-        let _scratch = self
-            .core
-            .allocation_domain()
-            .map_err(graph_error)?
-            .reserve(256 * 8192)
-            .map_err(|_| Error::Limit)?;
-        let capture = self.capture_local(expected)?;
-        let mut edits = Vec::new();
-        for r in 0..height {
-            for c in 0..width {
-                let from = Position::new(source.first.row + r, source.first.column + c);
-                let at = Position::new(destination.first.row + r, destination.first.column + c);
-                let content = capture.pinned_content(from)?.map(|v| v.content);
-                let (text, bound) = match content {
-                    None | Some(Content::Blank) => {
-                        edits.push(Edit::Clear(at));
-                        continue;
-                    }
-                    Some(Content::Decimal(value)) => {
-                        edits.push(Edit::SetDecimal {
-                            position: at,
-                            value,
-                        });
-                        continue;
-                    }
-                    Some(Content::LiteralText(text)) => {
-                        edits.push(Edit::SetText { position: at, text });
-                        continue;
-                    }
-                    Some(Content::TextFormula(f)) if f.diagnostic.is_some() => {
-                        edits.push(Edit::PreserveRejectedFormula {
-                            position: at,
-                            source: f.original_source,
-                        });
-                        continue;
-                    }
-                    Some(Content::TextFormula(f)) => (f.original_source, f.tokens),
-                    Some(Content::Formula { source, tokens }) => (source, tokens),
-                    Some(Content::StructuredFormula(f)) => (f.source().into(), f.tokens().to_vec()),
-                };
-                let proof = bound.iter().any(|t| matches!(t, Token::Output(_)));
-                let parsed = if proof {
-                    expression::parse_structured_proof(&text)
-                } else {
-                    expression::parse_spreadsheet(&text)
-                };
-                let binding = bound.iter().find_map(|t| {
-                    if let Token::Output(b) = t {
-                        Some(*b)
-                    } else {
-                        None
-                    }
-                });
-                let (syntax, _, diagnostic) =
-                    Self::lower_text_axes(&self.rows, &self.columns, &parsed, binding);
-                if diagnostic.is_some() || syntax.len() != bound.len() {
-                    return Err(Error::InvalidDraft);
-                }
-                let mut effective = Vec::new();
-                for (syntax, bound) in syntax.iter().zip(&bound) {
-                    match (syntax, bound) {
-                        (Token::At(_), Token::Cell(target)) => effective.push(
-                            capture
-                                .pinned
-                                .records
-                                .get(&target.cell)
-                                .and_then(|r| r.position)
-                                .ok_or(Error::InvalidTarget)?,
-                        ),
-                        (
-                            Token::SumAt { kind, .. },
-                            Token::Sum {
-                                kind: k,
-                                first,
-                                last,
-                                ..
-                            },
-                        ) if kind == k => {
-                            effective.push(*first);
-                            effective.push(*last);
-                        }
-                        _ => (),
-                    }
-                }
-                // Transform syntax in source order; postfix visits references left-to-right too.
-                let dr = destination.first.row as i64 - source.first.row as i64;
-                let dc = destination.first.column as i64 - source.first.column as i64;
-                let (text, _, _) = clipboard::transform_mode(
-                    &text,
-                    &effective,
-                    dr,
-                    dc,
-                    self.rows.length,
-                    self.columns.length,
-                    proof,
-                )?;
-                let parsed = if proof {
-                    expression::parse_structured_proof(&text)
-                } else {
-                    expression::parse_spreadsheet(&text)
-                };
-                let (mut translated, _, diagnostic) =
-                    Self::lower_text_axes(&self.rows, &self.columns, &parsed, binding);
-                if diagnostic.is_some() {
-                    return Err(Error::InvalidDraft);
-                }
-                let mut preserved = bound.iter().filter_map(|t| {
-                    if let Token::Output(id) = t {
-                        Some(*id)
-                    } else {
-                        None
-                    }
-                });
-                for token in &mut translated {
-                    if let Token::Output(id) = token {
-                        *id = preserved.next().ok_or(Error::InvalidTarget)?;
-                    }
-                }
-                if preserved.next().is_some() {
-                    return Err(Error::InvalidTarget);
-                }
-                edits.push(Edit::SetFormula {
-                    position: at,
-                    source: text,
-                    tokens: translated,
-                });
-            }
-        }
-        drop(capture);
-        self.apply(expected, &edits)
+        self.duplicate_pairs(
+            expected,
+            (0..height).flat_map(|r| {
+                (0..width).map(move |c| {
+                    (
+                        Position::new(source.first.row + r, source.first.column + c),
+                        Position::new(destination.first.row + r, destination.first.column + c),
+                    )
+                })
+            }),
+            &Default::default(),
+        )
     }
 }
 

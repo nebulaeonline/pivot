@@ -22,6 +22,10 @@ public partial class MainWindow
         AutomationCheck(DocumentLabel.Text!.Contains("Cannot save"),"Explicit experimental non-savable footer");
         AutomationCheck(Sheet.VisualRow(9)==19 && (await s.ReadAsync(AutomationPosition(9,1),AutomationPosition(9,1))).Cells.Single().CellId==stable,"Bands preserve ordinary address and identity");
         await SelectAsync(AutomationPosition(8,1));await SelectAsync(AutomationPosition(9,1),true);
+        string beforeFillPresentation=Sheet.ProjectionFrame!.Presentation.ToString();
+        await FillAsync(Request.Types.FillDirection.Down);
+        AutomationCheck(WorkbookSession.Decode((await s.ReadAsync(AutomationPosition(9,1),AutomationPosition(9,1))).Cells.Single().Value)==8 && Sheet.VisualRow(9)==19 && Sheet.ProjectionFrame!.Presentation.ToString()==beforeFillPresentation,"Fill spans bands using only ordinary coordinates");
+        await s.ApplyAsync(s.Revision,[new Edit{At=AutomationPosition(9,1),Number=WorkbookSession.Encode(9)}]);await RefreshAsync();
         await ClipboardAsync(false);
         var copied=await s.CopyBlockAsync(s.Revision,AutomationPosition(8,1),AutomationPosition(9,1));
         AutomationCheck(copied.ClipboardText.Replace("\r", "").TrimEnd('\n')=="8\n9","Logical rectangle crossing bands excludes projected records");
@@ -33,6 +37,8 @@ public partial class MainWindow
         var row=frame.Rows.Single(r=>r.Projection==frame.Placements[0].Id && r.Key=="L2");
         var target=new ProjectionTarget(row.Projection,frame.Producer,frame.Generation,row.Key,frame.FieldIds[0],frame.Epoch,frame.Presentation);
         AutomationCheck(Sheet.ApplyProjectionTarget(target),"Select keyed L2 record");
+        UpdateFillMenu();string projectedRevision=s.Revision;
+        AutomationCheck(!FillDownItem.IsEnabled,"Projected Fill menu disabled");await FillAsync(Request.Types.FillDirection.Down);AutomationCheck(s.Revision==projectedRevision,"Projected record cannot be a Fill source");
         string revision=s.Revision;BeginCellEdit(true,"999");await ClipboardAsync(true,()=>Task.FromResult<string?>("999"));
         AutomationCheck(draftCell is null && s.Revision==revision,"Projected data rejects editor and paste");
         // Hold an already-read target across publication: the same visual ordinal now belongs to L3.

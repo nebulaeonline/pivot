@@ -148,7 +148,8 @@ impl Session {
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
         self.proof_frame.take();
         if (self.book.as_ref().is_some_and(|b| b.is_structured_proof())
-            || operation == wire::request::Operation::BindingStart)
+            || operation == wire::request::Operation::BindingStart
+            || operation == wire::request::Operation::Fill)
             && !matches!(
                 operation,
                 wire::request::Operation::Read
@@ -377,6 +378,32 @@ impl Session {
             return Err("expected-state conflict".into());
         }
         match operation {
+            Op::Fill => {
+                let direction = match wire::request::FillDirection::try_from(q.fill_direction) {
+                    Ok(wire::request::FillDirection::Up) => pivot_workbook::FillDirection::Up,
+                    Ok(wire::request::FillDirection::Down) => pivot_workbook::FillDirection::Down,
+                    Ok(wire::request::FillDirection::Left) => pivot_workbook::FillDirection::Left,
+                    Ok(wire::request::FillDirection::Right) => pivot_workbook::FillDirection::Right,
+                    _ => return Err("Specify Fill Up, Down, Left or Right".into()),
+                };
+                let before = book.expected();
+                book.fill(
+                    before,
+                    Rectangle {
+                        first: pos(q.first.as_ref())?,
+                        last: pos(q.last.as_ref())?,
+                    },
+                    direction,
+                    &Default::default(),
+                )
+                .map_err(|e| {
+                    format!("Fill rejected ({e}); check references and the 256-position limit.")
+                })?;
+                if book.expected() != before {
+                    self.revision = Uuid::new_v4().to_string();
+                }
+                r.revision = self.revision.clone();
+            }
             Op::CopyBlock => {
                 let rectangle = Rectangle {
                     first: pos(q.first.as_ref())?,

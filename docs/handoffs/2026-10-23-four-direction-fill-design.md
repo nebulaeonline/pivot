@@ -1,5 +1,8 @@
 # Four-direction Fill — design review packet
 
+Historical design packet. The bounded implementation is now in place; see
+[implementation and evidence](2026-10-23-four-direction-fill-implementation.md).
+
 Date: 2026-10-23. **Design approved with implementation clarifications; no implementation or passing Fill evidence claimed.**
 [Parent approval and implementation boundary](2026-10-23-four-direction-fill-design-review.md).
 [ADR-0022](../adr/0022-four-direction-rectangular-fill.md).

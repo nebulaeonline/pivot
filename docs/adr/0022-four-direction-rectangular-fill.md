@@ -1,6 +1,6 @@
 # ADR-0022: Four-direction rectangular Fill
 
-Status: **Accepted design with three implementation clarifications; bounded implementation authorized; implementation not yet started (2026-10-23)**.
+Status: **Accepted design with three implementation clarifications; bounded implementation in place; final Windows/Linux/native Mac validation passed; parent implementation review pending (2026-10-23)**.
 [Design approval and governing clarifications](../handoffs/2026-10-23-four-direction-fill-design-review.md).
 Date: 2026-10-23.
 [Review packet and acceptance matrix](../handoffs/2026-10-23-four-direction-fill-design.md).
@@ -176,3 +176,5 @@ another design cycle; no passing implementation evidence is claimed.
 After approved implementation/validation, stop for acceptance; do not start Undo/Redo
 code. Follow with a separate transaction-history architecture design that treats
 one Fill as one undoable action.
+
+The bounded implementation is now in place; [implementation and current evidence](../handoffs/2026-10-23-four-direction-fill-implementation.md). Design approval is not implementation acceptance.

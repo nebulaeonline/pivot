@@ -1,6 +1,6 @@
 # Pivot implementation status
 
-Date: 2026-10-22
+Date: 2026-10-23
 
 Latest accepted milestone: **Bounded Spreadsheet Aggregate Functions — accepted; ADR-0021 closed (2026-10-23)**.
 [Final implementation acceptance](handoffs/2026-10-23-spreadsheet-aggregate-final-review.md),
@@ -17,14 +17,26 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current milestone: **Four-Direction Rectangular Fill — ADR-0022 design approved with clarifications; bounded implementation authorized, not yet started**.
+Current milestone: **Four-Direction Rectangular Fill — ADR-0022 design approved with clarifications; implemented; three-platform validation complete; parent implementation review pending**.
 [Design approval and implementation boundary](handoffs/2026-10-23-four-direction-fill-design-review.md).
 [Accepted design](adr/0022-four-direction-rectangular-fill.md),
 [design packet and acceptance matrix](handoffs/2026-10-23-four-direction-fill-design.md).
-Command-driven Fill reuses original source-edge capture, effective-binding translation
-and one atomic document mutation. Design retains a 256-position work-area limit,
+[Implementation and evidence](handoffs/2026-10-23-four-direction-fill-implementation.md),
+[architecture](architecture/rectangular-fill.md).
+Command-driven Fill uses original source-edge capture, effective-binding translation
+and one atomic document mutation. Implementation retains a 256-position work-area limit,
 scoped keyboard/menu actions and unchanged capacities; no-op and active-editor
-behavior are explicit. No implementation or passing Fill evidence is claimed.
+behavior are explicit. Final Windows/Linux/native Mac managed CI, strict all-feature checks and actual
+Native AOT pass: 346/362 Windows and 347/363 Linux/Mac Rust tests; twelve desktop
+fields, warning-free native publication and zero-charge main/peers. All 211 Linux
+inputs and 739 returned hashes were verified. Fresh Mac run
+`macos-validation-20261023T121442Z` matched 419 source hashes/211 inputs and 465
+APFS-original evidence hashes, with manifest/receipt checksums independently verified.
+No Mac product changes, setup failures or gate reruns occurred. Final parent
+acceptance is pending; no additional feature or Undo/Redo design has started.
+Manifests freeze 419 source files and 211 build inputs for the
+[completed Mac packet](handoffs/2026-10-23-macos-fill-instructions.md).
+Existing eleven desktop fields gain a distinct rectangular_fill field.
 Undo/Redo remains a following architecture-design milestone, with one Fill as one
 transaction. No history implementation begins in this slice. ADR-0021 stays closed.
 

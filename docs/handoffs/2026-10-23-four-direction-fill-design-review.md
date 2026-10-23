@@ -69,4 +69,5 @@ edits, persistent structured data, new clipboard formats or capacity increases.
 Only after Fill acceptance begin a separate Undo/Redo architecture design; immutable
 calculation captures are not document mutation history. One Fill is one future Undo.
 
-This record captures the parent's approval. Runtime implementation has not begun.
+This record captures the parent's approval before implementation. The bounded
+implementation is now in place; [current evidence](2026-10-23-four-direction-fill-implementation.md).

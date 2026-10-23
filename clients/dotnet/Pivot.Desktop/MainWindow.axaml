@@ -17,6 +17,14 @@
         <Button Content="Close workbook" Click="CloseDocumentClick" />
         <Button Content="Copy" Click="CopyClick" ToolTip.Tip="Copy selected text, or the selected rectangle (up to 256 cells)" />
         <Button Content="Paste" Click="PasteClick" ToolTip.Tip="Paste text into the editor or atomically paste a rectangle" />
+        <Menu VerticalAlignment="Center">
+          <MenuItem x:Name="FillRoot" Header="_Fill" SubmenuOpened="FillOpened">
+            <MenuItem x:Name="FillDownItem" Header="Fill _Down" Tag="Down" Click="FillClick" />
+            <MenuItem x:Name="FillUpItem" Header="Fill _Up" Tag="Up" Click="FillClick" />
+            <MenuItem x:Name="FillRightItem" Header="Fill _Right" Tag="Right" Click="FillClick" />
+            <MenuItem x:Name="FillLeftItem" Header="Fill _Left" Tag="Left" Click="FillClick" />
+          </MenuItem>
+        </Menu>
         <CheckBox x:Name="BlinkCaret" Content="Blink caret" IsChecked="True" IsCheckedChanged="CaretOptionChanged" VerticalAlignment="Center" />
       </StackPanel>
       <StackPanel x:Name="ProofPanel" IsVisible="False" Spacing="5">

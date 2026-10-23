@@ -665,11 +665,28 @@ impl Transaction<'_> {
             .all(|p| self.data.positions.get(p) == original.positions.get(p))
     }
 }
+pub(super) fn apply_fill(
+    book: &mut Workbook,
+    expected: Expected,
+    edits: &[Edit],
+    cancel: &CancellationToken,
+) -> Result<Expected> {
+    apply_mode(book, expected, edits, cancel, true)
+}
 fn apply(
     book: &mut Workbook,
     expected: Expected,
     edits: &[Edit],
     cancel: &CancellationToken,
+) -> Result<Expected> {
+    apply_mode(book, expected, edits, cancel, false)
+}
+fn apply_mode(
+    book: &mut Workbook,
+    expected: Expected,
+    edits: &[Edit],
+    cancel: &CancellationToken,
+    reject_cycles: bool,
 ) -> Result<Expected> {
     let _profile = profile::scope(11);
     book.check(expected)?;
@@ -766,6 +783,21 @@ fn apply(
         tx.batch.retire(adapter.node).map_err(graph_error)?;
     }
     let next = book.state.checked_add(1).ok_or(Error::Exhausted)?;
+    let cycle_outputs = if reject_cycles {
+        tx.journal
+            .positions
+            .iter()
+            .filter_map(|p| {
+                tx.data
+                    .positions
+                    .get(p)
+                    .and_then(|id| tx.data.bindings.get(id))
+                    .map(|b| b.runtime)
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
     let Transaction { data, batch, .. } = tx;
     let mut core = core;
     {
@@ -776,6 +808,12 @@ fn apply(
         return Err(Error::Graph("cancelled".into()));
     }
     let _profile = profile::scope(9);
+    if reject_cycles {
+        core.capture_local()
+            .map_err(graph_error)?
+            .validate_acyclic(&cycle_outputs, cancel)
+            .map_err(graph_error)?;
+    }
     let data = data.freeze();
     book.core = core;
     book.persistent = data;

@@ -99,6 +99,12 @@ public partial class MainWindow : Window
         var primary=OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
         if ((e.KeyModifiers & primary)==0 || e.KeyModifiers.HasFlag(KeyModifiers.Alt)) return;
         var focused=FocusManager?.GetFocusedElement();
+        if (focused==Sheet && e.Key is Key.D or Key.R) {
+            e.Handled=true;
+            bool reverse=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            await FillAsync(e.Key==Key.D ? (reverse ? Request.Types.FillDirection.Up : Request.Types.FillDirection.Down) : (reverse ? Request.Types.FillDirection.Left : Request.Types.FillDirection.Right));
+            return;
+        }
         if (focused!=Sheet && focused!=CellEditor && focused!=FormulaEntry) return;
         if(e.Key==Key.X && focused==Sheet && session?.IsBindingProof==true){e.Handled=true;StatusLabel.Text="Cut is unavailable in this experimental document; use Duplicate for bound formulas.";return;}
         if (e.Key==Key.A && focused is TextBox box) { e.Handled=true; box.SelectAll(); return; }
@@ -285,6 +291,7 @@ public partial class MainWindow : Window
         displayedRevision="";displayedGeneration="";Sheet.SetProofFrame(null);Sheet.SetCells([]);FormulaEntry.Text="";StatusLabel.Text="Workbook closed. Choose New or Open.";
     });
     private void SetEditing(bool enabled) {
+        UpdateFillMenu();
         ClearButton.IsEnabled = MoveButton.IsEnabled = FormulaEntry.IsEnabled = CellEditor.IsEnabled = enabled && !shuttingDown && !fileAction && Sheet.ProjectedSelection is null;
         BindingPanel.IsVisible=session?.IsBindingProof==true;BindingPanel.IsEnabled=enabled&&!shuttingDown&&!fileAction;
         ProofPanel.IsVisible=session?.IsProjectionProof==true;ProofPanel.IsEnabled=enabled && !shuttingDown && !fileAction;
@@ -293,6 +300,7 @@ public partial class MainWindow : Window
     }
     private void SelectCell()
     {
+        UpdateFillMenu();
         if(ShowProjectedSelection())return;
         AddressLabel.Text = Pivot.Avalonia.WorksheetView.Address(Sheet.Selected);
         SelectionLabel.Text=$"Selection {Pivot.Avalonia.WorksheetView.Address(Sheet.SelectionFirst)}:{Pivot.Avalonia.WorksheetView.Address(Sheet.SelectionLast)} · Active {AddressLabel.Text} · Copy/Paste target selection · Edit/Clear/Move target active cell only";
@@ -370,6 +378,7 @@ public partial class MainWindow : Window
     }
     private void PositionEditor()
     {
+        UpdateFillMenu();
         bool visible = draftCell is not null && Sheet.IsVisibleCell(draftCell);
         CellEditor.IsVisible = visible && inlineEditing;
         EditorLayer.IsHitTestVisible = CellEditor.IsVisible;
@@ -486,6 +495,7 @@ public partial class MainWindow : Window
 
     private async Task SmokeAsync(string report)
     {
+        await FillAutomationAsync(report);
         await AggregateAutomationAsync(report);
         await BindingAutomationAsync(report);
         await ProjectionAutomationAsync(report);
@@ -772,7 +782,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { status="passed", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { status="passed", rectangular_fill="passed: routed four-direction menu/shortcuts, typed edge translation, identity/no-op, editor exclusion, unchanged clipboard and WB5 save/reopen", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
         allowClose = true; Close();
     }
 }

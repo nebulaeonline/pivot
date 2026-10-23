@@ -42,3 +42,5 @@ if not report.get("structured_projection", "").startswith("passed:"): raise Syst
 if not report.get("worksheet_binding", "").startswith("passed:"): raise SystemExit("Worksheet binding acceptance missing")
 
 if not report.get("spreadsheet_aggregates", "").startswith("passed:"): raise SystemExit("Spreadsheet aggregate acceptance missing")
+
+if not report.get("rectangular_fill", "").startswith("passed:"): raise SystemExit("Rectangular Fill acceptance missing")

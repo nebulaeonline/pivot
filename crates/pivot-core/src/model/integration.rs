@@ -101,6 +101,18 @@ impl CalculationCapture {
     pub fn revision(&self) -> Revision {
         self.revision
     }
+    /// Cycle-only validation for a staged document transaction; does not run numeric reducers.
+    pub fn validate_acyclic(
+        &self,
+        outputs: &[NodeId],
+        cancel: &CancellationToken,
+    ) -> Result<(), CalculationFailure> {
+        self.state
+            .value
+            .get()
+            .validate_acyclic(outputs, || cancel.is_cancelled())
+            .map_err(compute_failure)
+    }
     pub fn evaluate(&self, outputs: &[NodeId]) -> Result<CapturedResult, CalculationFailure> {
         let _copy = {
             let s = &self.state;

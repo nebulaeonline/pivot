@@ -1512,6 +1512,54 @@ impl Capture {
             .into_iter()
             .collect()
     }
+    /// Validate dependency cycles without evaluating values or requiring captured inputs.
+    /// Invalid editable drafts/missing dependencies are leaves; only reachable cycles reject.
+    pub(super) fn validate_acyclic(
+        &self,
+        outputs: &[NodeId],
+        cancelled: impl Fn() -> bool,
+    ) -> Result<(), ComputeError> {
+        let mut work = Work::new(self.0.memory.clone());
+        work.add(4096 + outputs.len() * 128)?;
+        let mut active = BTreeSet::new();
+        let mut done = BTreeSet::new();
+        let mut pending: Vec<_> = outputs.iter().map(|&id| (id, false)).collect();
+        let mut visits = 1_000_000usize;
+        while let Some((id, exit)) = pending.pop() {
+            if cancelled() {
+                return Err(ComputeError::Cancelled);
+            }
+            visits = visits.checked_sub(1).ok_or(ComputeError::WorkBudget)?;
+            if exit {
+                active.remove(&id);
+                done.insert(id);
+                continue;
+            }
+            if active.contains(&id) {
+                return Err(ComputeError::Invalid(SnapshotError::Unorderable {
+                    nodes: active.iter().copied().collect(),
+                }));
+            }
+            if done.contains(&id) || self.0.live_record(id).is_err() {
+                continue;
+            }
+            let deps = self
+                .0
+                .selection_dependencies(id, &mut visits, &cancelled)
+                .map_err(|_| {
+                    if cancelled() {
+                        ComputeError::Cancelled
+                    } else {
+                        ComputeError::WorkBudget
+                    }
+                })?;
+            work.add(512 + deps.items.len() * 64)?;
+            active.insert(id);
+            pending.push((id, true));
+            pending.extend(deps.items.iter().map(|&d| (d, false)));
+        }
+        Ok(())
+    }
     pub fn evaluate(&self, outputs: &[NodeId]) -> Result<Calculation, ComputeError> {
         self.evaluate_retiring(outputs, drop)
     }

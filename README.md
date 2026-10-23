@@ -55,6 +55,10 @@ text. Text is single-line and limited to 4,096 UTF-8 bytes. Native documents now
 WB5 only; WB1–WB4 are explicitly unsupported. MIN/MAX/AVERAGE/COUNT ignore direct blanks and literal text;
 formula errors propagate. AVERAGE uses exact accumulation and normal midpoint-away
 rounding.
+Use the Fill menu to copy a selection's top, bottom, left or right edge across
+its remaining cells. Fill supports all four directions and translates formula
+references. Finish editing before Fill; selections are limited to 256 positions.
+Fill copies content rather than generating a series.
 The active outline dims when unfocused; caret blinking is configurable.
 See the [clipboard handoff](docs/handoffs/2026-10-20-rectangular-clipboard.md)
 for workflow, limits and validation status.

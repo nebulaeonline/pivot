@@ -19,6 +19,7 @@ static async Task Cancelled(Task action)
     try { await action; throw new Exception("Expected cancellation."); }
     catch (OperationCanceledException) { }
 }
+await FillChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await AggregateChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await StructuredBindingChecks.Run(args[0]);
 await ProjectionChecks.Run(args[0]);

@@ -59,4 +59,4 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0021: Bounded spreadsheet aggregate functions](0021-spreadsheet-aggregate-functions.md) — Design and WB5-only corrected implementation accepted; three-platform validation complete; workstream closed (2026-10-23).
 
-- [ADR-0022: Four-direction rectangular Fill](0022-four-direction-rectangular-fill.md) — Design approved with three implementation clarifications; bounded implementation authorized, not yet started (2026-10-23).
+- [ADR-0022: Four-direction rectangular Fill](0022-four-direction-rectangular-fill.md) — Design approved with three implementation clarifications; bounded implementation in place; final Windows/Linux/native Mac validation passed; parent implementation review pending (2026-10-23).

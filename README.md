@@ -84,14 +84,18 @@ Pivot is licensed under the [Apache License 2.0](LICENSE).
 Run `python scripts/ci.py` to check Rust formatting, linting, tests, the .NET
 Release build, cross-language decimal/protocol compatibility, real IPC, and the
 Rust/C# application session. Logs and a JSON summary
-are saved under `artifacts/ci/`. See [local CI setup](docs/local-ci.md).
+are saved under `artifacts/ci/`. See [testing and desktop safety](docs/testing.md)
+and [local CI setup](docs/local-ci.md). No VM is required for contributor CI.
 
 For desktop acceptance, run `python scripts/ci.py --desktop`. This includes real
 window, cross-process clipboard and Save/Discard/Cancel checks and saves screenshots.
-A desktop session is required. The runners serialize Windows/WSLg clipboard suites
-through a shared lock. Routine manual replay is optional.
+A desktop session and explicit interactive confirmation are required. These tests
+change focus and use the system clipboard; avoid other applications during the run.
+Unattended GUI execution is blocked until guest isolation is independently approved.
+The shared clipboard lock only serializes cooperating suites.
 
 For separate Native AOT publication and desktop acceptance, run
 `python scripts/verify_native_aot.py`. It builds the native desktop and places the
-Rust child beside it for validation. The current text candidate passes Windows,
+Rust child beside it for validation. This also launches graphical/clipboard tests
+and requires the same interactive consent. The current text candidate passes Windows,
 Linux and native Mac ARM64; the worksheet-text implementation is accepted. See the [text handoff](docs/handoffs/2026-10-21-worksheet-text-implementation.md).

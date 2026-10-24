@@ -9,7 +9,7 @@ fn node(r: &mut Reader<'_>, model: u64, floor: u64) -> Result<NodeId, ModelError
     }
     Ok(NodeId { model, node: n })
 }
-fn write_error(w: &mut Writer, e: &SnapshotError) -> Result<(), ModelError> {
+pub(super) fn write_error(w: &mut Writer, e: &SnapshotError) -> Result<(), ModelError> {
     match e {
         SnapshotError::Parse { node, error } => {
             w.n(0);
@@ -62,7 +62,7 @@ fn read_error(r: &mut Reader<'_>, model: u64, floor: u64) -> Result<SnapshotErro
         _ => return Err(malformed()),
     })
 }
-fn token(w: &mut Writer, t: &BoundToken) {
+pub(super) fn token(w: &mut Writer, t: &BoundToken) {
     match t {
         BoundToken::Decimal(d) => {
             w.n(0);

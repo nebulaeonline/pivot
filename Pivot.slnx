@@ -12,6 +12,9 @@
   <Folder Name="/tests/decimal-parity/">
     <Project Path="tests/decimal-parity/DecimalParity.csproj" />
   </Folder>
+  <Folder Name="/tests/execution-safety/">
+    <Project Path="tests/execution-safety/PolicyProbe.csproj" />
+  </Folder>
   <Folder Name="/tests/protocol-parity/">
     <Project Path="tests/protocol-parity/ProtocolParity.csproj" />
   </Folder>

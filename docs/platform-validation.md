@@ -1,5 +1,11 @@
 # Linux and macOS validation
 
+Current execution policy: contributor headless tests require no VMs. Explicit local
+desktop and Native AOT graphical acceptance require interactive consent; unattended
+GUI is blocked pending independently approved isolation. Existing platform receipts
+below are historical, not VM/isolation proof. See the [testing guide](testing.md)
+and [owner target inventory and audit](architecture/validation-execution-safety.md).
+
 ## Accepted: four-direction Fill
 
 ADR-0022 is implemented with source-edge capture, identity-preserving no-ops,

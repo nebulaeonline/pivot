@@ -1,8 +1,9 @@
 # G1 ordinary Save promotion — macOS reconciliation and final review
 
 Date: 2026-10-24. **Promoted ordinary Save has passed all applicable three-platform
-Rust, managed/session/IPC, desktop and actual Native AOT gates. Ready for parent G1
-closure review; closure is not yet accepted. G2–G7 remain deferred.**
+Rust, managed/session/IPC, desktop and actual Native AOT gates. Parent accepts and
+closes G1; G2 is separately authorized feature-only work and G3–G7 remain deferred.**
+[Parent G1 closure and G2 authorization](2026-10-24-g1-closure-g2-authorization.md).
 [Promotion implementation](2026-10-24-historical-save-g1-promotion.md),
 [parent authorization](2026-10-24-historical-save-g1-internal-review.md),
 [original Mac report](../../artifacts/macos-validation-20261024T133957Z/summary.md),
@@ -90,8 +91,8 @@ managed/AOT fixtures were independently verified as valid WB5 envelopes.
 
 The promoted source now has **207 native cases and 2,652 original-file hashes**,
 24 verified main/peer managed/AOT zero-charge reports and six independently checked
-main saved WB5 fixtures across the three platforms. Recommend parent acceptance
-of ordinary Save promotion and **G1 closure**, within the authorized scope.
+main saved WB5 fixtures across the three platforms. The parent accepts ordinary
+Save promotion and **closes G1**, within the linked review scope.
 
 Preserve the initial Clippy failures, Linux managed Fill selection/scroll failure
 and Windows AOT unsupported-copy clipboard failure, together with their final
@@ -105,5 +106,5 @@ exclusions and retirement versus physical reclamation distinctions. There is no
 format/protocol change, capability expansion, limit increase, history coordinator,
 new backend, mutation-local producer or desktop Undo/Redo integration.
 Only documentation and independent review evidence were added in reconciliation;
-all 236 implementation/gate inputs remain unchanged. Stop for parent G1 closure;
-G2 requires separate authorization.
+all 236 implementation/gate inputs remained unchanged during reconciliation. G1 is
+now closed; the separate G2 authorization does not authorize G3–G7.

@@ -2,6 +2,7 @@
 use super::*;
 pub mod codec;
 mod cold;
+pub mod records;
 pub enum ColdDefinition<'a> {
     Blank,
     NonNumeric,
@@ -10,6 +11,9 @@ pub enum ColdDefinition<'a> {
 }
 #[derive(Clone, Default)]
 pub(super) struct Accounting {
+    pub record_trace: Option<Index<codec::RecordKey, ()>>,
+    pub record_writes: usize,
+    pub record_work: Option<Shared<records::TraceWork>>,
     pub payload: usize,
     pub names: usize,
     pub dependencies: usize,
@@ -195,3 +199,5 @@ impl Graph {
         })
     }
 }
+
+impl super::Key for codec::RecordKey {}

@@ -440,6 +440,8 @@ impl Workbook {
             history_content: Uuid::new_v4(),
             #[cfg(feature = "history-experiment")]
             history_active: false,
+            #[cfg(feature = "history-experiment")]
+            history_recording: None,
             session: Uuid::new_v4(),
             state: image.state,
             worksheet: image.worksheet,

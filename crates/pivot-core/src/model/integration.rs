@@ -907,6 +907,35 @@ impl WorkingModel {
     }
 }
 
+#[cfg(feature = "history-experiment")]
+impl WorkingModel {
+    /// Private feature-only mutation tracing; never changes logical authority.
+    pub fn history_recording_stage(&self, enabled: bool) -> Result<Self, ModelError> {
+        let mut staged = self.stage();
+        let i = &mut staged.integrated;
+        let ticket = i.runtime.cleanup.reserve().map_err(ModelError::Backend)?;
+        let mut graph = i.graph().clone();
+        if enabled {
+            graph.history_begin_records().map_err(map_error)?;
+        } else {
+            graph.history_end_records().map_err(map_error)?;
+        }
+        i.graph = ticket.own(graph);
+        Ok(staged)
+    }
+    pub fn history_record_keys(
+        &self,
+    ) -> Result<structural::history::records::RecordKeys, ModelError> {
+        self.integrated.graph().history_record_keys()
+    }
+    pub fn history_export_records(
+        &self,
+        keys: &[history_codec::RecordKey],
+    ) -> Result<history_codec::Blob, ModelError> {
+        self.integrated.graph().history_export_records(keys)
+    }
+}
+
 #[cfg(test)]
 mod cancellation_tests {
     use super::*;

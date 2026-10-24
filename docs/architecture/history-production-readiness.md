@@ -1,8 +1,11 @@
 # ADR-0023 production-readiness architecture packet
 
-Date: 2026-10-24. **G0 approved; internal G1 correction and three-platform evidence
-accepted. Ordinary Save promotion implemented and three-platform full gates pass;
-ready for parent G1 closure review. G2–G7 remain deferred; production Undo/Redo is not authorized.**
+Date: 2026-10-24. **G0 approved; G1 and feature-only G2 accepted/closed.
+G3 indexed-store feasibility is authorized in principle but held, not started,
+during the infrastructure detour. G4–G7 and production Undo/Redo remain gated.**
+[G2 acceptance and owner scheduling hold](../handoffs/2026-10-24-g2-acceptance-g3-held.md).
+[G2 implementation, independent oracle and measurement evidence](../handoffs/2026-10-24-mutation-local-records-g2.md).
+[G1 closure, reliability qualifications and exact G2 scope](../handoffs/2026-10-24-g1-closure-g2-authorization.md).
 [Final ordinary Save validation and closure recommendation](../handoffs/2026-10-24-macos-g1-promotion-validation.md).
 [Internal G1 acceptance and ordinary Save promotion scope](../handoffs/2026-10-24-historical-save-g1-internal-review.md).
 [Parent approval, clarifications and G1 promotion gate](../handoffs/2026-10-24-history-readiness-g1-authorization.md).
@@ -18,7 +21,7 @@ projection in default builds, with no fallback from strict transfer. The separat
 experimental historical exporter was removed; the real Rust session and research
 association call the same ordinary exporter. Generic full-ledger transfer remains
 strict. Windows/Linux/Mac full gates pass with source-matched managed/desktop/AOT
-validation; parent G1 closure review is pending. No production history integration.
+validation; the parent accepts promotion and closes G1. No production history integration.
 [Mac evidence reconciliation and three-platform review readiness](../handoffs/2026-10-24-macos-historical-save-g1-validation.md)
 record 207 native cases, 2,652 original-file hashes and matching 168-input source.
 Internal G1 acceptance is recorded under the linked review; ordinary Save promotion
@@ -271,11 +274,20 @@ the custom alternative. No dual production backend/provider abstraction is presu
 
 ## 3. Mutation-local authoritative record production
 
-Extend the private candidate path conceptually with owned `PreparedRecordChanges`
+The feature-only G2 implementation extends the private candidate path with owned `PreparedRecordChanges`
 alongside paired canonical/workbook roots. Use resolved stable identities, not client
 names or commands to replay. Starting seams are the workbook's
 [Transaction/apply_mode](../../crates/pivot-workbook/src/persistent.rs) and core
 [Batch](../../crates/pivot-core/src/model/integration/batch.rs).
+
+G2 records mutation keys at the canonical and workbook seams, then reads original/
+final values only for those keys and fixed metadata. The source must have a validated
+ledger/content pairing; an ephemeral marker established by existing observation or
+cold validation avoids a full source-directory scan in the local edit path. Guarded
+feature-only in-memory publication advances only new reservations and the marker.
+It creates no persisted decision, journal entry, durable witness or production
+coordinator. Whole-state oracle work is separate; a local 48-step chain requires no
+full observation between edits. Existing persisted reconstruction remains unchanged.
 
 Track semantic changes at mutation primitives, coalesce by stable key within the
 batch and seal after normal candidate validation. Include typed definition/payload,
@@ -294,7 +306,7 @@ Persist typed/versioned logical records, not Arc addresses, collection layouts o
 cached calculations. Decimal96 parts stay exact. Future IEEE values need separately
 approved semantics/encoding, not conversion through decimal or assumed WB5 support.
 
-Proposed sequence: validate private candidate once → seal record/reservation changes
+Future production sequence (not persisted by G2): validate private candidate once → seal record/reservation changes
 → admit buffers/index/write capacity → persist atomic decision/index → establish receipt
 eligibility → publish paired roots/fresh guard → acknowledge. Pre-commit failure preserves
 old content/Redo; uncertainty blocks continuation. Existing allocator behavior does not
@@ -425,9 +437,9 @@ authorization inferred from this packet.
 | Gate | Bounded deliverable after approval | Acceptance and stop |
 | --- | --- | --- |
 | G0 — approved | Review P1–P9 and adversarial plan | Resolve Save/ledger semantics and policy choices; no runtime edits yet |
-| G1 — internal accepted; ordinary Save promoted, three-platform validated; closure review pending | One explicit validated native export path for ordinary and historical roots; existing WB5 | Preserve strict generic transfer/IDs/Redo/L; full three-platform Rust/managed/session/desktop/AOT gates; return for G1 closure before G2 |
-| G2 | Experimental typed mutation-local producer | Full-image differential oracle, coupled changes and work/admission counters; stop on incomplete coverage/broad redesign |
-| G3 | Approved indexed-store candidate evaluation | Large-history lookup/startup/tail/cache and real sync/fault evidence; return backend/configuration choice for separate approval |
+| G1 — accepted/closed | One explicit validated native export path for ordinary and historical roots; existing WB5 | Preserve strict generic transfer/IDs/Redo/L; full three-platform Rust/managed/session/desktop/AOT gates accepted; preserve original evidence |
+| G2 — accepted/closed, feature-only | Mutation-local PreparedRecordChanges from staged core/workbook candidates; no persisted journal integration | Independently reconstructed prior-state/full-checkpoint oracle; complete coupled changes, deterministic original-state coalescing, failed/no-op isolation and ownership/work measures; three-platform evidence accepted |
+| G3 — authorized but held for infrastructure; not started | Bounded SQLite-first indexed-store feasibility, no production backend adoption | Large-history lookup/startup/tail/cache and real sync/fault evidence; return backend/configuration choice for separate approval |
 | G4 | Durable index/decision publication and independent witness | Child restart at payload/index/root/witness windows; lost ACK/suffix, branch/cursor/ledger and wrong-instance checks; no production integration |
 | G5 | Resource, lifecycle and reclamation contracts | Real native Save/decline/Clear/close with tickets/readers, exhaustion and interrupted compaction/relocation; approve numeric budgets/filesystem profiles |
 | G6 | Separately approved Rust session ownership slice | Keep guards, saved content, tickets and uncertainty distinct; review any private protocol cut separately; hosted v1 unchanged |
@@ -449,12 +461,30 @@ slices use appropriate Rust gates; session/desktop slices also run managed/proto
 native/AOT and automated interactions. Manual inspection is optional unless an actually
 changed native interaction requires it.
 
-## Authorization after parent review
+## Accepted G2 boundaries and held G3 authorization
 
-G0 is approved; G1's internal correction is accepted. Its bounded ordinary Save
-promotion is authorized under the linked implementation review.
-Return G1 implementation evidence before seeking any G2 authorization. The concrete
-first correction is a validated WB5 document projection, not a floor workaround.
-Indexed lookup and mutation-local production must precede UI history integration.
-Storage, witness, reclamation and product choices remain explicit approvals. This
-packet records design/tests and limited G1 authorization; G2–G7 remain gated.
+G0 is approved; G1 and G2 are accepted/closed. The owner keeps infrastructure work
+active and holds G3, notwithstanding the parent's bounded SQLite-first feasibility
+authorization. No G3 design, dependency, implementation or experiment has begun.
+The accepted G2 contract below remains feature-only and does not promote a backend.
+Produce
+resolved stable-key semantic changes from private mutation, not command replay or
+touched coordinates. Coalesce repeated stable keys relative to the transaction's
+original state; failed/no-op candidates publish neither a transition nor ledger
+advance. Include definitions, workbook and range/selection metadata, provenance,
+invalidation, ContentStateId and lifetime reservations.
+
+Keep complete checkpoints as an independent semantic oracle: apply local records
+to an independently constructed prior authoritative image, then compare the complete
+result with the candidate's full checkpoint. Cover edits/Clear/Move/copy, four-way
+Fill, native/external Paste, mixed repeated batches, branch-after-Undo, cancellation,
+failed/no-op and cold-restored roots. Measure local versus full-oracle visits/work,
+emitted records, scratch admission, whole-domain peak and zero-charge cleanup.
+
+Do not replace the accepted journal's persisted reconstruction with unverified
+records. No coordinator, indexed store, SQLite/provider framework, witness, new
+journal, protocol fields, UI history, changed production semantics/limits, recycling,
+migration, JIT/SIMD or compaction. Stop on incomplete coverage, mismatched semantics,
+stale authority, lost reservations, broad redesign or a required capacity increase.
+The parent has accepted the G2 evidence. G3 remains held for infrastructure;
+G4–G7 and production backend/session/UI choices still require separate reviews.

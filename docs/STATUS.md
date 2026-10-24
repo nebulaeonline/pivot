@@ -2,7 +2,30 @@
 
 Date: 2026-10-24
 
-Latest accepted milestone: **Four-Direction Rectangular Fill — accepted; ADR-0022 closed (2026-10-23)**.
+Infrastructure workstream: **optional isolated-validation architecture approved;
+first execution-safety gate accepted/closed; bounded read-only guest qualification
+is the next authorized deliverable, not yet begun**.
+Contributor headless CI remains VM-independent. Local desktop/AOT acceptance needs
+interactive consent; direct self-checks need a live consent permit before Avalonia
+startup. Unattended isolation remains NotConfigured pending host/guest/sentinel
+verification. No VM dispatch, provisioning or new target acceptance.
+[Contributor testing](testing.md), [policy and transitive audit](architecture/validation-execution-safety.md).
+[Safety acceptance and next qualification boundary](handoffs/2026-10-24-execution-safety-acceptance.md).
+[Implementation and safety evidence](handoffs/2026-10-24-execution-safety.md).
+[Mac safety reconciliation](handoffs/2026-10-24-macos-execution-safety-validation.md)
+verifies 366 returned hashes and 247 inputs; shared documentation drift matches the
+recorded G2 acceptance update, with no tested code changes. All three platforms pass
+13 headless steps and nine safety tests each; no guest/GUI acceptance is claimed.
+Owner-provisioned guests: Hyper-V `Pivot-Win11-x64` / `Pivot-Ubuntu-x64`;
+UTM `Pivot-Win11-arm64` / `Pivot-Ubuntu-arm64`. Names are inventory, not validated
+isolation or native architecture evidence. History G2 is accepted/closed; G3 is held, not started, during this infrastructure detour.
+
+Latest accepted milestone: **ADR-0023 G2 mutation-local authoritative records — accepted and closed (2026-10-24)**.
+[G2 acceptance and G3 scheduling hold](handoffs/2026-10-24-g2-acceptance-g3-held.md).
+G1 ordinary native Save promotion remains accepted/closed.
+[G1 closure and bounded G2 authorization](handoffs/2026-10-24-g1-closure-g2-authorization.md).
+
+Previous accepted application milestone: **Four-Direction Rectangular Fill; ADR-0022 closed (2026-10-23)**.
 [Final implementation acceptance](handoffs/2026-10-23-four-direction-fill-final-review.md),
 [implementation and three-platform evidence](handoffs/2026-10-23-four-direction-fill-implementation.md).
 Four-direction source-edge Fill, typed identity/no-op semantics, atomicity and the
@@ -19,10 +42,27 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 retains a Linux managed Fill selection/scroll failure and a Windows Native AOT
 unsupported-copy clipboard assertion failure. Final unchanged-source runs passed;
 causes remain unresolved and distinct from the older null-destination issue.
+G2 also retains a separate Linux Rust clipboard-test shutdown assertion failure:
+`runtime.finish().is_ok()`. An unchanged-source targeted rerun and final hardened-
+source full gates passed; the cause is unresolved. [G2 evidence/qualification](handoffs/2026-10-24-mutation-local-records-g2.md).
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **ADR-0023 four-stage feasibility accepted and closed; G0 architecture approved with clarifications; G1 internal historical native Save accepted; ordinary Save promotion implemented and three-platform validated; ready for parent G1 closure review; G2–G7 and production Undo/Redo gated**.
+History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is authorized in principle but held, not started, while the infrastructure detour remains active. G4–G7 and production Undo/Redo remain gated**.
+[G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
+[Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
+G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.
+Format and strict default/all-feature lint pass. **135 fresh-process zero-charge
+samples** measure staging, guarded in-memory publication and the independent full
+oracle separately. The **173-input** G2 source is validated on all three platforms;
+Mac reconciliation verifies 483 frozen source entries and 85 returned evidence hashes.
+[Fresh native Mac G2 reconciliation](handoffs/2026-10-24-macos-mutation-local-records-g2-validation.md). No default mutation or persisted journal integration.
+Existing-input/scalar changes emit three records independent of sampled root size;
+range-formula validation and the existing large range/ledger reservations remain
+explicit costs. G2 includes deterministic original-state coalescing, source/ledger
+validation, local reservation publication, full-checkpoint reconstruction oracles,
+failed/no-op/stale/cancellation/admission isolation and concurrent capture proofs.
+[G1 acceptance, unresolved reliability observations and exact G2 scope](handoffs/2026-10-24-g1-closure-g2-authorization.md).
 [Ordinary Save promotion and final validation packet](handoffs/2026-10-24-historical-save-g1-promotion.md).
 [Final Mac reconciliation and G1 closure recommendation](handoffs/2026-10-24-macos-g1-promotion-validation.md).
 [Internal acceptance and ordinary Save promotion authorization](handoffs/2026-10-24-historical-save-g1-internal-review.md).
@@ -41,13 +81,14 @@ execution pass on all three platforms. Rust totals: Windows **347/390**, Linux/M
 cases / 2,652 original hashes** pass. Fresh Mac evidence verifies **236 build inputs**,
 474 frozen source files plus the ignored baseline, 1,522 transferred evidence hashes
 and 884 retained native-file hashes. All twelve desktop fields and 24 managed/AOT
-main/peer zero-charge reports pass across the three platforms. Recommend parent
-G1 closure; acceptance remains pending. G2–G7 remain deferred.
+main/peer zero-charge reports pass across the three platforms. The parent accepts
+ordinary Save promotion and closes G1. That review authorized G2 alone; the later
+G2 closure and held G3 authorization are recorded above.
 The ordinary path uses one validated export contract without fallback, format/protocol
 changes or capability expansion. Generic full-ledger transfer remains strict. Preserve live Expected,
 ContentStateId, lifetime ledger, runtime IDs, Redo/cursor and calculation captures.
 Ordinary Save promotion has passed the required managed/session/desktop Save/Open
-and actual AOT gates on Windows, native Linux and Mac ARM64/APFS; parent closure review is next.
+and actual AOT gates on Windows, native Linux and Mac ARM64/APFS; G1 is closed.
 [Production-readiness design packet and proposed gates](handoffs/2026-10-23-history-production-readiness-design.md).
 Recommend validated current-root WB5 projection with full live/history ledger and
 Redo preserved, atomic durable indexing, mutation-local records and explicit
@@ -57,11 +98,15 @@ the research association and real Rust session call the same ordinary exporter.
 Generic full-ledger transfer stays strict. No production history integration,
 protocol change, capability expansion, format cut or quota increase was added.
 [Final feasibility acceptance and next design gate](handoffs/2026-10-23-disk-history-final-feasibility-review.md).
-Historical-state Save promotion remains gated. The architecture packet also covers
-durable indexing/startup, mutation-local encoding, resources/filesystems/reclamation
-and staged gates; their implementation remains outside G1.
-Save must preserve Redo. G1 alone is authorized; no producer/backend, witness, coordinator, UI/protocol or
-container implementation is authorized beyond that correction.
+Historical-state Save promotion is accepted and closed. G2 now produces typed
+stable-key authoritative changes during private mutation, coalesced against the
+original transaction state and verified against an independent full checkpoint.
+Failed/no-op candidates cannot publish a transition or ledger advance. Preserve
+bound definitions, workbook/selection metadata, provenance, invalidation, content
+identity, captures, Redo and lifetime reservations. G2 measurements must separate
+mutation-local and full-oracle work, scratch admission, peak ownership and cleanup.
+No default mutation promotion, persisted journal replacement, backend, witness,
+coordinator, protocol or desktop history integration is authorized.
 [Stage 4 association, save/retention evidence and remaining limits](handoffs/2026-10-23-history-association-stage4.md).
 Windows/Linux/Mac: 69 cases each (207 total), 2,652 original hashes; Rust suites
 346/382, 347/383 and 347/383, with strict lint passing on all three.

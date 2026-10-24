@@ -12,6 +12,10 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (!DesktopExecutionPolicy.CheckBeforeStartup()) {
+            Environment.ExitCode = 2;
+            return;
+        }
         Startup.Restart();
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }

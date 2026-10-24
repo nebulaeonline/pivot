@@ -163,6 +163,8 @@ impl Workbook {
             history_content: Uuid::new_v4(),
             #[cfg(feature = "history-experiment")]
             history_active: false,
+            #[cfg(feature = "history-experiment")]
+            history_recording: None,
             session: Uuid::new_v4(),
             state: 0,
             worksheet: WorksheetId::fresh(),
@@ -750,6 +752,12 @@ fn apply_mode(
         .saturating_add(edits.len().saturating_mul(2))
         .saturating_add(text / 4);
     let core = book.core.stage();
+    #[cfg(feature = "history-experiment")]
+    let core = if book.history_recording.is_some() {
+        core.history_recording_stage(true).map_err(graph_error)?
+    } else {
+        core
+    };
     let charge = core
         .allocation_domain()
         .map_err(graph_error)?
@@ -817,6 +825,16 @@ fn apply_mode(
     } else {
         Vec::new()
     };
+    #[cfg(feature = "history-experiment")]
+    let recording = if let Some(keys) = &book.history_recording {
+        let mut keys = keys.clone();
+        for id in &tx.journal.cells {
+            keys.insert(*id, ()).map_err(|_| Error::Limit)?;
+        }
+        Some(keys)
+    } else {
+        None
+    };
     let Transaction { data, batch, .. } = tx;
     let mut core = core;
     {
@@ -840,6 +858,7 @@ fn apply_mode(
     #[cfg(feature = "history-experiment")]
     {
         book.history_content = Uuid::new_v4();
+        book.history_recording = recording;
     }
     Ok(book.expected())
 }

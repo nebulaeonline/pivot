@@ -1,6 +1,7 @@
 //! Feature-only root pins and activation feasibility. No history stack or production controls.
 use crate::*;
 use pivot_core::model::integration::{CancellationToken, HistoryMetrics, resources::Charge};
+pub mod changes;
 mod cold;
 pub use cold::ColdLedger;
 pub mod durability;
@@ -110,6 +111,8 @@ impl Workbook {
             limits: self.limits,
             history_content: self.history_content,
             history_active: self.history_active,
+            #[cfg(feature = "history-experiment")]
+            history_recording: None,
         })
     }
 }

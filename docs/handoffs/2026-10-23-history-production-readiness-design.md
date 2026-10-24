@@ -51,3 +51,8 @@ three-platform managed/session/desktop/AOT gates. G1 closure and G2 authorizatio
 
 [Ordinary Save final three-platform validation](2026-10-24-macos-g1-promotion-validation.md)
 now supports parent G1 closure review. G1 closure has not been inferred and G2 remains deferred.
+
+[Parent G1 closure and G2 authorization](2026-10-24-g1-closure-g2-authorization.md)
+now close ordinary Save promotion and authorize only the bounded feature-only
+mutation-local producer. G3–G7 remain gated; earlier authorization notes above are
+historical decisions rather than the current gate status.

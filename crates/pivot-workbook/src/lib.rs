@@ -341,6 +341,8 @@ pub struct Workbook {
     history_content: Uuid,
     #[cfg(feature = "history-experiment")]
     history_active: bool,
+    #[cfg(feature = "history-experiment")]
+    history_recording: Option<pivot_core::model::integration::resources::Index<CellId, ()>>,
     session: Uuid,
     state: u64,
     worksheet: WorksheetId,

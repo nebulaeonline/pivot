@@ -1,5 +1,15 @@
 # Local CI
 
+## Current execution safety
+
+Ordinary CI stays headless and needs no VM configuration. Desktop and Native AOT
+acceptance now require interactive consent before graphical work; unattended GUI
+execution is blocked until guest isolation is independently approved. Direct
+self-check variables cannot bypass the live consent guard. The clipboard lock
+alone is not isolation. See the [current testing guide](testing.md) and
+[policy/audit](architecture/validation-execution-safety.md); historical commands
+and acceptance receipts below do not override this policy.
+
 ## Workbook persistence Slice B
 
 The existing application-session gate now also runs independent-process workbook

@@ -71,6 +71,12 @@ pub struct Metrics {
 }
 #[derive(Clone)]
 pub(crate) struct State {
+    #[cfg(feature = "history-experiment")]
+    record_trace: Option<Index<super::integration::history_codec::RecordKey, ()>>,
+    #[cfg(feature = "history-experiment")]
+    record_writes: usize,
+    #[cfg(feature = "history-experiment")]
+    record_scans: usize,
     rows: Index<(SpaceId, u32), Shared<Columns>>,
     locations: Index<NodeId, Shared<Locations>>,
     coverage: Index<SpaceId, Shared<Coverage>>,
@@ -97,6 +103,12 @@ impl From<Admission> for Error {
 impl State {
     pub fn new(memory: Memory) -> Result<Self, Error> {
         Ok(Self {
+            #[cfg(feature = "history-experiment")]
+            record_trace: None,
+            #[cfg(feature = "history-experiment")]
+            record_writes: 0,
+            #[cfg(feature = "history-experiment")]
+            record_scans: 0,
             rows: Index::new(memory.clone()),
             locations: Index::new(memory.clone()),
             coverage: Index::new(memory.clone()),
@@ -131,6 +143,8 @@ impl State {
         coverage.root = interval_insert(&self.memory, &coverage.root, id, rectangle)?;
         self.coverage
             .insert(rectangle.space, self.memory.alloc(coverage)?)?;
+        #[cfg(feature = "history-experiment")]
+        self.history_note(super::integration::history_codec::RecordKey::new(9, &id.0))?;
         self.descriptors.insert(id, Some(rectangle))?;
         self.live += 1;
         Ok(())
@@ -142,6 +156,8 @@ impl State {
         if self.descriptors.len() >= MAX_IDENTITIES {
             return Err(Error::Quota);
         }
+        #[cfg(feature = "history-experiment")]
+        self.history_note(super::integration::history_codec::RecordKey::new(9, &id.0))?;
         self.descriptors.insert(id, None)?;
         Ok(())
     }
@@ -223,6 +239,8 @@ impl State {
                 }
             }
         }
+        #[cfg(feature = "history-experiment")]
+        self.history_note(history_point_key(space, row, column))?;
         let exists = old.is_some();
         match node {
             Some(node) => {
@@ -276,6 +294,10 @@ impl State {
         Ok(())
     }
     pub fn retire_unused(&mut self) -> Result<(), Error> {
+        #[cfg(feature = "history-experiment")]
+        if self.record_trace.is_some() {
+            self.record_scans += self.descriptors.len();
+        }
         let ids: Vec<_> = self
             .descriptors
             .iter()
@@ -294,6 +316,8 @@ impl State {
                 self.coverage
                     .insert(rectangle.space, self.memory.alloc(coverage)?)?;
             }
+            #[cfg(feature = "history-experiment")]
+            self.history_note(super::integration::history_codec::RecordKey::new(9, &id.0))?;
             self.descriptors.insert(id, None)?;
             self.live -= 1;
         }
@@ -609,5 +633,68 @@ fn interval_query(
             }
         }
         interval_query(&n.right, row, column, out, nodes, candidates);
+    }
+}
+
+#[cfg(feature = "history-experiment")]
+pub(crate) fn history_point_key(
+    space: SpaceId,
+    row: u32,
+    column: u32,
+) -> super::integration::history_codec::RecordKey {
+    let mut key = [0; 24];
+    key[..16].copy_from_slice(&space.0);
+    key[16..20].copy_from_slice(&row.to_be_bytes());
+    key[20..].copy_from_slice(&column.to_be_bytes());
+    super::integration::history_codec::RecordKey::new(11, &key)
+}
+#[cfg(feature = "history-experiment")]
+impl State {
+    pub(crate) fn history_start_records(&mut self) {
+        self.record_trace = Some(Index::new(self.memory.clone()));
+        self.record_writes = 0;
+        self.record_scans = 0;
+    }
+    pub(crate) fn history_enable_records(&mut self) {
+        if self.record_trace.is_none() {
+            self.history_start_records();
+        }
+    }
+    pub(crate) fn history_end_records(&mut self) {
+        self.record_trace = None;
+        self.record_writes = 0;
+        self.record_scans = 0;
+    }
+    fn history_note(
+        &mut self,
+        key: super::integration::history_codec::RecordKey,
+    ) -> Result<(), Error> {
+        if let Some(trace) = &mut self.record_trace {
+            trace.insert(key, ())?;
+            self.record_writes += 1;
+        }
+        Ok(())
+    }
+    pub(crate) fn history_record_scans(&self) -> usize {
+        self.record_scans
+    }
+    pub(crate) fn history_record_writes(&self) -> usize {
+        self.record_writes
+    }
+    pub(crate) fn history_record_keys(
+        &self,
+    ) -> impl Iterator<Item = super::integration::history_codec::RecordKey> + '_ {
+        self.record_trace
+            .iter()
+            .flat_map(|t| t.iter().map(|(k, _)| *k))
+    }
+    pub(crate) fn history_descriptor(&self, id: SelectionId) -> Option<Option<Rectangle>> {
+        self.descriptors.get(&id).copied()
+    }
+    pub(crate) fn history_point(&self, space: SpaceId, row: u32, col: u32) -> Option<NodeId> {
+        self.rows
+            .get(&(space, row))
+            .and_then(|r| r.0.get(&col))
+            .copied()
     }
 }

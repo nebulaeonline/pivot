@@ -15,7 +15,7 @@ fn bad() -> Error {
 fn id(r: &mut Reader<'_>) -> Result<Uuid> {
     Ok(Uuid::from_bytes(r.id().map_err(graph_error)?))
 }
-fn pos(w: &mut Writer, p: Position) {
+pub(super) fn pos(w: &mut Writer, p: Position) {
     w.n(p.row.into());
     w.n(p.column.into());
 }
@@ -183,7 +183,7 @@ fn read_tokens(r: &mut Reader<'_>) -> Result<Vec<Token>> {
     }
     Ok(out)
 }
-fn content(w: &mut Writer, c: &Content) -> Result<()> {
+pub(super) fn content(w: &mut Writer, c: &Content) -> Result<()> {
     match c {
         Content::Blank => w.n(0),
         Content::Decimal(d) => {
@@ -280,19 +280,45 @@ fn read_content(r: &mut Reader<'_>) -> Result<Content> {
 /// Research identity authority outside undoable content. Observe every committed state.
 /// Persistence/commit ordering is deliberately left to later journal experiments.
 pub struct ColdLedger {
-    instance: Uuid,
-    session: Uuid,
-    worksheet: WorksheetId,
-    graph: Uuid,
-    floor: u64,
-    selection_floor: usize,
-    identities: BTreeMap<u64, (CellId, GraphNodeId)>,
-    selections: BTreeSet<SelectionId>,
+    /// Ephemeral source certification, never serialized. Established only after
+    /// full identity validation/observation or verified cold restoration.
+    pub(super) validated_content: Option<Uuid>,
+    pub(super) instance: Uuid,
+    pub(super) session: Uuid,
+    pub(super) worksheet: WorksheetId,
+    pub(super) graph: Uuid,
+    pub(super) floor: u64,
+    pub(super) selection_floor: usize,
+    pub(super) identities: BTreeMap<u64, (CellId, GraphNodeId)>,
+    pub(super) selections: BTreeSet<SelectionId>,
     _charge: Charge,
 }
 impl ColdLedger {
+    /// Full-state differential oracle only. This O(L) clone is not used by the
+    /// mutation-local producer or any persisted decision protocol.
+    pub fn clone_for_oracle(
+        &self,
+        memory: &pivot_core::model::integration::resources::Memory,
+    ) -> Result<Self> {
+        let charge = memory
+            .reserve(self.identities.len() * 512 + self.selections.len() * 128 + 4096)
+            .map_err(|_| Error::Limit)?;
+        Ok(Self {
+            validated_content: self.validated_content,
+            instance: self.instance,
+            session: self.session,
+            worksheet: self.worksheet,
+            graph: self.graph,
+            floor: self.floor,
+            selection_floor: self.selection_floor,
+            identities: self.identities.clone(),
+            selections: self.selections.clone(),
+            _charge: charge,
+        })
+    }
     pub fn new(book: &Workbook) -> Result<Self> {
         let mut x = Self {
+            validated_content: None,
             instance: Uuid::new_v4(),
             session: book.session,
             worksheet: book.worksheet,
@@ -384,6 +410,73 @@ impl ColdLedger {
         self.floor = floor;
         self.selection_floor = selection_floor;
         self._charge = charge;
+        self.validated_content = Some(book.history_content_id());
+        Ok(())
+    }
+    /// Feature-only O(changes log L) append after a sealed local candidate. No
+    /// journal/receipt/ACK is created; persisted reconstruction remains unchanged.
+    pub(super) fn append_local_records(
+        &mut self,
+        book: &Workbook,
+        next_content: Uuid,
+        change: &super::changes::Reservations,
+    ) -> Result<()> {
+        if self.session != book.session
+            || self.worksheet != book.worksheet
+            || self.graph != book.graph_id
+            || self.instance != change.instance
+            || self.validated_content != Some(book.history_content_id())
+            || self.floor != change.nodes.0
+            || self.selection_floor != change.selections.0
+            || change.nodes.0.checked_add(change.added_nodes.len() as u64) != Some(change.nodes.1)
+            || change
+                .selections
+                .0
+                .checked_add(change.added_selections.len())
+                != Some(change.selections.1)
+        {
+            return Err(bad());
+        }
+        for (index, (n, _)) in change.added_nodes.iter().enumerate() {
+            if *n != self.floor + index as u64 || self.identities.contains_key(n) {
+                return Err(bad());
+            }
+        }
+        if change.added_selections.windows(2).any(|v| v[0] >= v[1])
+            || change
+                .added_selections
+                .iter()
+                .any(|id| self.selections.contains(id))
+        {
+            return Err(bad());
+        }
+        let memory = book.core.allocation_domain().map_err(graph_error)?;
+        let charge = if self.floor != change.nodes.1 || self.selection_floor != change.selections.1
+        {
+            Some(
+                memory
+                    .reserve(
+                        (change.nodes.1 as usize)
+                            .saturating_mul(512)
+                            .saturating_add(change.selections.1.saturating_mul(128))
+                            .saturating_add(4096),
+                    )
+                    .map_err(|_| Error::Limit)?,
+            )
+        } else {
+            None
+        };
+        for (n, pair) in &change.added_nodes {
+            self.identities.insert(*n, *pair);
+        }
+        self.selections
+            .extend(change.added_selections.iter().copied());
+        self.floor = change.nodes.1;
+        self.selection_floor = change.selections.1;
+        if let Some(charge) = charge {
+            self._charge = charge;
+        }
+        self.validated_content = Some(next_content);
         Ok(())
     }
     pub fn allocated_floor(&self) -> u64 {
@@ -465,6 +558,7 @@ impl ColdLedger {
             return Err(bad());
         }
         Ok(Self {
+            validated_content: None,
             instance,
             session: book.session,
             worksheet,
@@ -875,6 +969,8 @@ impl Workbook {
             limits: self.limits,
             history_content: content,
             history_active: true,
+            #[cfg(feature = "history-experiment")]
+            history_recording: None,
         };
         if cancel.is_cancelled() {
             return Err(bad());
@@ -902,9 +998,10 @@ impl Workbook {
         runtime: &IntegrationRuntime,
     ) -> Result<(Self, ColdLedger)> {
         let baseline = Self::new_in("cold reopen", limits, runtime)?;
-        let (_, _, _, _, _, _, ledger) = header(authority_bytes, &baseline)?;
+        let (_, _, _, _, _, _, mut ledger) = header(authority_bytes, &baseline)?;
         let book =
             baseline.cold_candidate(state_bytes, &ledger, &CancellationToken::default(), true)?;
+        ledger.validated_content = Some(book.history_content_id());
         Ok((book, ledger))
     }
 }

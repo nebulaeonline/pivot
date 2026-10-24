@@ -1,5 +1,7 @@
 """Local CI: python scripts/ci.py (Python 3.8+, no third-party packages)."""
 import argparse
+from contextlib import nullcontext
+from execution_policy import Blocked, ExecutionClass, blocked_exit, desktop_environment, desktop_session, headless_environment
 import datetime
 import json
 import pathlib
@@ -19,7 +21,8 @@ def run_step(name, command, output):
     try:
         # No shell interpolation; arguments and paths remain separate.
         with log.open("w", encoding="utf-8") as stream:
-            process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE,
+            environment = desktop_environment() if name == "desktop-ui" else headless_environment()
+            process = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT, text=True,
                                        encoding="utf-8", errors="replace")
             try:
@@ -46,9 +49,18 @@ def main():
     parser.add_argument("--output-dir", type=pathlib.Path, default=ROOT / "artifacts/ci")
     parser.add_argument("--desktop", action="store_true", help="Include actual-window/clipboard/close checks; requires an interactive desktop.")
     args = parser.parse_args()
+    try:
+        with desktop_session("CI including desktop acceptance") if args.desktop else nullcontext():
+            return execute(args)
+    except Blocked as error:
+        return blocked_exit(error)
+
+
+def execute(args):
     output = args.output_dir.resolve() / datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True)
     print(f"CI reports: {output}", flush=True)
+    print("Execution classes: headless, fixture-contained-fault" + (", gui-isolated-or-interactive" if args.desktop else ""), flush=True)
     missing = [tool for tool in ["cargo", "rustc", "dotnet"] if not shutil.which(tool)]
     steps = []
     if missing:
@@ -62,6 +74,7 @@ def main():
             ("rust-lint", ["cargo", "clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"]),
             ("rust-tests", ["cargo", "test", "--locked", "--workspace"]),
             ("dotnet-build", ["dotnet", "build", "Pivot.slnx", "-c", "Release", "--disable-build-servers", "-warnaserror"]),
+            ("execution-safety", [sys.executable, "tests/execution-safety/verify.py"]),
             ("aggregate-reference", [sys.executable, "tests/decimal-parity/aggregate_reference.py", "--check"]),
             ("decimal-parity", [sys.executable, "tests/decimal-parity/verify.py", "--configuration", "Release", "--output-dir", str(output / "decimal-parity")]),
             ("protocol-parity", [sys.executable, "tests/protocol-parity/verify.py", "--output-dir", str(output / "protocol-parity")]),
@@ -77,7 +90,7 @@ def main():
                 break
     passed = not missing and all(step["exit_code"] == 0 for step in steps)
     summary = {"status": "passed" if passed else "failed", "python": sys.version,
-               "platform": sys.platform, "desktop": args.desktop, "missing_tools": missing, "steps": steps}
+               "platform": sys.platform, "desktop": args.desktop, "execution_classes": [ExecutionClass.HEADLESS.value, ExecutionClass.FIXTURE_FAULT.value] + ([ExecutionClass.GUI.value] if args.desktop else []), "missing_tools": missing, "steps": steps}
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(f"CI {summary['status'].upper()}: {output / 'summary.json'}", flush=True)
     return 0 if passed else 1

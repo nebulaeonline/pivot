@@ -1,8 +1,9 @@
 # G1 ordinary native Save promotion
 
 Date: 2026-10-24. **Ordinary WB5 export now uses the accepted validated projection.
-Windows/native Linux/native Mac full gates pass; parent review is required
-for G1 closure. G2–G7 remain deferred.**
+Windows/native Linux/native Mac full gates pass; the parent accepts promotion and
+closes G1. G2 feature-only records are authorized separately; G3–G7 remain deferred.**
+[G1 closure and exact G2 authorization](2026-10-24-g1-closure-g2-authorization.md).
 [Final Mac reconciliation and G1 closure recommendation](2026-10-24-macos-g1-promotion-validation.md).
 [Parent authorization](2026-10-24-historical-save-g1-internal-review.md),
 [accepted internal correction](2026-10-24-historical-native-save-g1.md),
@@ -132,8 +133,8 @@ the two actual main WB5 fixtures. Mac had no setup/gate failures or reruns.
 
 The promoted source has **207 cases and 2,652 original-file hashes** across all
 three platforms, full managed/session/desktop/AOT passes and matched inputs.
-Recommend parent acceptance of promotion and G1 closure, retaining all failure and
-filesystem qualifications above. No closure is inferred from passing tests.
+The parent accepts promotion and closes G1 under the linked review, retaining all
+failure and filesystem qualifications above. Closure follows that explicit decision.
 
 Report: `artifacts/macos-validation-20261024T133957Z/`; independent reconciliation:
 `artifacts/history-save-g1-promotion-macos-review/verification.json`. Original
@@ -142,6 +143,5 @@ receipt records its original preparation point. The 168-input internal-only Mac 
 is not reused as validation of this source. No manual checklist or implementation
 change was required during reconciliation.
 
-Return final ordinary-path evidence for parent G1 closure. Do not advance to G2,
-a storage backend, mutation-local producer, protocol revision, history coordinator
-or desktop Undo/Redo.
+G1 is closed. Only the separately authorized feature-only G2 producer may follow;
+backend, protocol, coordinator and desktop history work remain gated.

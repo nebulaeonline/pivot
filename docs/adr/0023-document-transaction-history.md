@@ -1,9 +1,12 @@
 # ADR-0023: Tiered recoverable document transaction history
 
-Status: **Four-stage feasibility accepted/closed; G0 approved; internal G1 correction
-and three-platform evidence accepted. Ordinary Save promotion implemented and three-platform full gates pass;
-ready for parent G1 closure review. G2–G7 and production history integration
-remain gated (2026-10-24)**.
+Status: **Four-stage feasibility accepted/closed; G0 approved; G1 ordinary native
+Save and feature-only G2 mutation-local authoritative records accepted/closed.
+G3 indexed-store feasibility authorized in principle but held, not started, during
+the infrastructure detour. G4–G7 and production history integration remain gated (2026-10-24)**.
+[G2 acceptance and owner scheduling hold](../handoffs/2026-10-24-g2-acceptance-g3-held.md).
+[Accepted G2 implementation](../handoffs/2026-10-24-mutation-local-records-g2.md).
+[G1 closure and exact G2 authorization](../handoffs/2026-10-24-g1-closure-g2-authorization.md).
 [Final promotion validation and closure recommendation](../handoffs/2026-10-24-macos-g1-promotion-validation.md).
 [Ordinary Save promotion implementation and remaining gates](../handoffs/2026-10-24-historical-save-g1-promotion.md).
 [Internal G1 acceptance and bounded promotion assignment](../handoffs/2026-10-24-historical-save-g1-internal-review.md).
@@ -12,8 +15,9 @@ remain gated (2026-10-24)**.
 [G0 approval and bounded G1 authorization](../handoffs/2026-10-24-history-readiness-g1-authorization.md).
 [Production-readiness proposal: decisions P1–P9 and gates G0–G7](../architecture/history-production-readiness.md).
 The proposal recommends a separate validated WB5 projection, not a lower allocation
-floor; generic transfer and Redo remain intact. Only G1 implementation is authorized;
-G2–G7 and all production backend/UI choices require separate reviews.
+floor; generic transfer and Redo remain intact. G1/G2 are closed. Bounded feature-only
+G3 feasibility is authorized but held for infrastructure; no production backend/UI
+choice or G4–G7 implementation is authorized.
 [Final feasibility acceptance and next deliverable](../handoffs/2026-10-23-disk-history-final-feasibility-review.md).
 Historical native Save is a mandatory design gate: preserve lifetime floors and
 Redo, compare content/ledger separation with a validated export projection, and

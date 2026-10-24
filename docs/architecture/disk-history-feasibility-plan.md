@@ -3,20 +3,20 @@
 Date: 2026-10-24. **Four-stage feasibility accepted and closed. This document retains
 the completed research plan; it is not production implementation authorization.**
 [Final acceptance and production-readiness design gate](../handoffs/2026-10-23-disk-history-final-feasibility-review.md).
-[Production-readiness packet](history-production-readiness.md) has G0 approval with
-clarifications. Only historical native Save correction G1 is authorized under the
-[G1 review and promotion gate](../handoffs/2026-10-24-history-readiness-g1-authorization.md).
-The [internal G1 correction](../handoffs/2026-10-24-historical-native-save-g1.md) now
-implements a separate experimental native WB5 projection; it does not reopen these
-four research stages or promote ordinary application Save.
-[G1 three-platform validation](../handoffs/2026-10-24-macos-historical-save-g1-validation.md)
-is complete and accepted for the internal correction.
-[Ordinary Save promotion](../handoffs/2026-10-24-historical-save-g1-internal-review.md)
-was authorized as the remaining G1 work; its completed three-platform validation
-and pending parent closure are recorded in the final reconciliation linked below.
-Mutation-local production, durable indexing, witness/filesystem, resource/reclamation,
-session and desktop stages remain deferred pending separate reviews. This completed
-research plan does not authorize G2–G7 or production coordination.
+[Production-readiness packet](history-production-readiness.md) has G0 approval;
+G1 ordinary Save promotion is accepted/closed. The
+[parent G1 closure/G2 authorization](../handoffs/2026-10-24-g1-closure-g2-authorization.md)
+permits only a bounded feature-only Rust mutation-local producer.
+[G2 implementation](../handoffs/2026-10-24-mutation-local-records-g2.md) now has
+Windows/Linux/native Mac gates and measurements; G2 is accepted/closed.
+[G2 acceptance and owner scheduling hold](../handoffs/2026-10-24-g2-acceptance-g3-held.md)
+records bounded G3 feasibility authorization, held and not started during the
+infrastructure detour. G4–G7 remain deferred. This completed feasibility plan does not independently
+authorize implementation or reopen the four accepted research stages.
+[Final promotion evidence](../handoffs/2026-10-24-macos-g1-promotion-validation.md)
+records all three-platform full gates. Preserve original source/evidence manifests,
+negatives and unresolved reliability observations. No persisted journal replacement,
+backend, witness, resource-policy, session or desktop history work is authorized by G2.
 [Stage 1 acceptance and Stage 2 resource qualifications](../handoffs/2026-10-23-cold-history-stage1-review.md).
 [Stage 1 implementation and executed evidence](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
 [Stage 2 implementation, measurements and qualifications](../handoffs/2026-10-23-history-representation-stage2.md).
@@ -293,4 +293,5 @@ parent feasibility review before production Undo/Redo, session/save/protocol/UI 
 The [ordinary Save promotion](../handoffs/2026-10-24-historical-save-g1-promotion.md)
 is now implemented with all three-platform full gates passed;
 [final Mac reconciliation](../handoffs/2026-10-24-macos-g1-promotion-validation.md)
-is complete and parent G1 closure review is pending. This does not reopen feasibility or authorize G2.
+is complete and G1 is accepted/closed. The separate parent review authorizes
+feature-only G2; this does not reopen feasibility or authorize later gates.

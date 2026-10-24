@@ -684,6 +684,11 @@ impl Graph {
         self.names.get(name).copied()
     }
     fn record(&self, id: NodeId) -> Option<&Shared<Record>> {
+        #[cfg(feature = "history-experiment")]
+        if let Some(work) = &self.history.record_work {
+            work.reads
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
         (id.model == self.version.model)
             .then(|| self.records.get(id.node))
             .flatten()
@@ -699,6 +704,10 @@ impl Graph {
             Some(s) => (**s).clone(),
             None => selection::State::new(self.memory.clone()).map_err(|_| Error::Admission)?,
         };
+        #[cfg(feature = "history-experiment")]
+        if self.history.record_trace.is_some() {
+            state.history_enable_records();
+        }
         edit(&mut state).map_err(|e| match e {
             selection::Error::Quota => Error::Quota,
             selection::Error::Invalid => Error::InvalidTransfer,
@@ -854,6 +863,8 @@ impl Graph {
     fn replace(&mut self, id: NodeId, definition: Compiled) -> Result<(), Error> {
         let _profile = crate::experiment_profile::construction::scope(5);
         let _phase = crate::experiment_profile::scope(4);
+        #[cfg(feature = "history-experiment")]
+        self.history_note_record(history::codec::RecordKey::number(7, id.node))?;
         let old = self.live_record(id)?.clone();
         if let Compiled::CapturedScalar(slot) = definition {
             if self.captured_scalar.is_some_and(|(node, _)| node != id) {
@@ -1045,6 +1056,8 @@ impl Graph {
             if bulk.is_some_and(|check| check()) {
                 return Err(Error::Cancelled);
             }
+            #[cfg(feature = "history-experiment")]
+            candidate.history_note_edit(&edit)?;
             match &edit {
                 Edit::CapturedScalar(id, _)
                 | Edit::Blank(id)
@@ -1273,16 +1286,18 @@ impl Graph {
         if topology && candidate.has_selection_formulas() {
             // The scalar incremental proof cannot certify a graph with selection edges.
             // Validate the canonical dynamic relation; retain invalid drafts, not prefixes.
-            changed.extend(
-                candidate
-                    .records
-                    .iter()
-                    .filter(|(_, r)| r.live)
-                    .map(|(slot, _)| NodeId {
-                        model: candidate.version.model,
-                        node: slot,
-                    }),
-            );
+            let records = candidate.records.iter();
+            #[cfg(feature = "history-experiment")]
+            let records = records.inspect(|_| {
+                if let Some(work) = &candidate.history.record_work {
+                    work.scans
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
+            });
+            changed.extend(records.filter(|(_, r)| r.live).map(|(slot, _)| NodeId {
+                model: candidate.version.model,
+                node: slot,
+            }));
             candidate.invalid = Index::new(candidate.memory.clone());
             candidate.import_invalid = false;
             if let Some((id, error)) =
@@ -1376,6 +1391,20 @@ impl Graph {
             }
             candidate.selection_invalidated =
                 Some(candidate.memory.alloc(seen.into_iter().collect())?);
+        }
+        #[cfg(feature = "history-experiment")]
+        if topology && candidate.history.record_trace.is_some() {
+            for (id, _) in self.invalid.iter() {
+                candidate.history_note_record(history::codec::RecordKey::number(13, id.node))?;
+            }
+            let keys: Vec<_> = candidate
+                .invalid
+                .iter()
+                .map(|(id, _)| history::codec::RecordKey::number(13, id.node))
+                .collect();
+            for key in keys {
+                candidate.history_note_record(key)?;
+            }
         }
         if !topology && !inputs {
             return Ok(self.version);

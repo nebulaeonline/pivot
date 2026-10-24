@@ -13,6 +13,7 @@ import sys
 import time
 
 from desktop_test_lock import clipboard_lock
+from execution_policy import Blocked, blocked_exit, declare_execution, desktop_environment, desktop_session
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,10 +31,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, default=ROOT/'artifacts/native-aot')
     args = parser.parse_args()
+    declare_execution(__file__)
+    try:
+        with desktop_session("Native AOT publish and real desktop/clipboard acceptance"):
+            return execute(args)
+    except Blocked as error:
+        return blocked_exit(error)
+
+
+def execute(args):
     output = args.output_dir.resolve()/datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     output.mkdir(parents=True)
     summary = {'status': 'failed', 'platform': platform.platform(), 'machine': platform.machine(),
-               'python': sys.version, 'steps': [], 'output': str(output)}
+               'python': sys.version, 'execution_classes': ['headless', 'gui-isolated-or-interactive'], 'steps': [], 'output': str(output)}
     print(f'Native AOT reports: {output}', flush=True)
 
     def run(name, command, **options):
@@ -84,7 +94,7 @@ def main():
         summary['runtime_payload_bytes'] = sum(p['bytes'] for p in summary['published_files'] if not p['path'].lower().endswith(('.pdb', '.dbg')) and '.dsym/' not in p['path'].lower().replace('\\', '/'))
         ui = output/'desktop-ui'
         ui.mkdir()
-        env = os.environ.copy()
+        env = desktop_environment()
         # Exercise real adjacent-child discovery, not a developer override.
         env.pop('PIVOT_SESSION_PATH', None)
         env.pop('PIVOT_UI_PEER_REPORT', None)

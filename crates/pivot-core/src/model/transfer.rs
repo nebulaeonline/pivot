@@ -199,6 +199,17 @@ pub(super) fn export_image(
     {
         return Err(invalid());
     }
+    encode_mapped_image(model, nodes, ports, &node_slots, &port_slots)
+}
+
+/// Encoding only. Callers must validate their distinct authority contracts first.
+fn encode_mapped_image(
+    model: &GraphImage,
+    nodes: &[NodeId],
+    ports: &[PortId],
+    node_slots: &BTreeMap<NodeId, usize>,
+    port_slots: &BTreeMap<PortId, usize>,
+) -> Result<Image, ModelError> {
     let mut image = Image {
         name: model.name.clone(),
         node_slots: nodes.len(),
@@ -276,6 +287,48 @@ pub(super) fn export_image(
         });
     }
     Ok(image)
+}
+
+/// Trusted document-only projection; the graph layer verifies exhaustive record coverage.
+#[cfg(feature = "history-experiment")]
+pub(super) fn project_document_image(
+    model: &GraphImage,
+    nodes: &[NodeId],
+) -> Result<Image, ModelError> {
+    if nodes.len() > 8192
+        || model.nodes.len() > 4096
+        || model.next_port != 0
+        || !model.interface.inputs.is_empty()
+        || !model.interface.outputs.is_empty()
+    {
+        return Err(invalid());
+    }
+    let slots: BTreeMap<_, _> = nodes
+        .iter()
+        .enumerate()
+        .map(|(slot, id)| (*id, slot))
+        .collect();
+    if slots.len() != nodes.len()
+        || nodes
+            .iter()
+            .any(|id| id.model != model.revision.model || id.node >= model.next_node)
+        || model.nodes.keys().any(|id| !slots.contains_key(id))
+    {
+        return Err(invalid());
+    }
+    let mut work = nodes.len();
+    for node in model.nodes.values() {
+        if let Definition::Computed { source, binding } = &node.definition {
+            work = work.saturating_add(source.len());
+            if let Ok((tokens, _)) = binding {
+                work = work.saturating_add(tokens.len());
+            }
+        }
+        if work > 1_048_576 {
+            return Err(invalid());
+        }
+    }
+    encode_mapped_image(model, nodes, &[], &slots, &BTreeMap::new())
 }
 
 /// Exports captured definitions, never the possibly edited source WorkingModel.
@@ -533,6 +586,18 @@ pub struct SelectionImage {
     pub formulas: Vec<SelectionFormula>,
     pub identities: Vec<(selection::SelectionId, Option<selection::Rectangle>)>,
     pub points: Vec<(selection::SpaceId, u32, u32, usize)>,
+}
+#[cfg(feature = "history-experiment")]
+impl WorkingModel {
+    /// Internal exhaustive document projection, not the full allocation-ledger transfer API.
+    #[doc(hidden)]
+    pub fn project_document_definitions(
+        &self,
+        nodes: &[NodeId],
+        cancel: &integration::CancellationToken,
+    ) -> Result<SelectionImage, ModelError> {
+        self.integrated_document_projection(nodes, cancel)
+    }
 }
 impl WorkingModel {
     pub fn export_selections(

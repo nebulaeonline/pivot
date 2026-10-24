@@ -455,19 +455,75 @@ fn exercise(base: &Path, case: &str) {
             finish(rt);
             return;
         }
-        "historical-export-limit" => {
+        "historical-native-save" => {
             a.undo().unwrap();
             let (b, l) = a.restore(&rt).unwrap();
-            assert!(a.prepare(&b, &path, Hook::default()).is_err());
-            assert!(a.save_pending().unwrap().is_none());
+            let before = oracle(&b);
+            let expected = b.expected();
+            let ledger = format!("{:?}", b.history_metrics().unwrap());
+            let capture = b.capture_local(expected).unwrap();
+            // The original full-ledger contract continues to reject historical holes.
+            assert!(b.export_portable(expected).is_err());
+            let t = a.prepare(&b, &path, Hook::default()).unwrap();
+            assert_eq!(b.expected(), expected);
+            assert_eq!(oracle(&b), before);
+            assert_eq!(format!("{:?}", b.history_metrics().unwrap()), ledger);
+            a.finish(&t, &rt, Hook::default(), |_| Ok(())).unwrap();
+            assert!(a.is_clean(&b, &path, &rt).unwrap());
+            let (opened, checkpoint) = open_saved(&path, &rt).unwrap();
+            assert_eq!(checkpoint, t.content_checkpoint());
+            for r in 1..=4 {
+                for c in 1..=7 {
+                    assert_eq!(
+                        opened.cell_at(p(r, c)).unwrap(),
+                        b.cell_at(p(r, c)).unwrap()
+                    );
+                }
+            }
+            // Independent Open remaps runtime traversal order. With both a cycle
+            // and a parse draft, the core first-failure choice is not an ordering
+            // contract. Exact stored content/provenance is compared above; isolated
+            // cycles have a complete diagnostic comparison in history_projection.
+            let diagnostics = |book: &Workbook| {
+                book.validate(book.expected())
+                    .unwrap()
+                    .into_iter()
+                    .filter(|d| !matches!(d, Diagnostic::Unorderable { .. }))
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(diagnostics(&opened), diagnostics(&b));
+            for original in [&b, &opened] {
+                let mut probe = original
+                    .stage_history_candidate(original.expected())
+                    .unwrap();
+                probe
+                    .apply(probe.expected(), &[Edit::Clear(p(1, 4))])
+                    .unwrap();
+                let cyclic = probe.cell_at(p(1, 5)).unwrap().unwrap().reference;
+                assert_eq!(
+                    probe.validate(probe.expected()).unwrap(),
+                    vec![Diagnostic::Unorderable {
+                        cells: vec![cyclic]
+                    }]
+                );
+            }
+            assert_eq!(value(&opened), value(&b));
+            let cell = capture.cell_at(p(1, 1)).unwrap();
             assert_eq!(
-                native::read(&path).unwrap().0,
-                fs::read(base.join("saved-a.wb5")).unwrap()
+                capture.evaluate(&[cell]).unwrap().values[0].1,
+                Ok(20.into())
             );
-            drop((b, l));
+            drop((t, capture, opened, b, l));
             a.redo().unwrap();
             check(&mut a, base, "d", &rt);
-            println!("KNOWN_PORTABLE_EXPORT_LIMIT_REJECTED_WITHOUT_PUBLICATION");
+            let (d, dl) = a.restore(&rt).unwrap();
+            assert!(!a.is_clean(&d, &path, &rt).unwrap());
+            drop((d, dl));
+            a.undo().unwrap();
+            let (b, bl) = a.restore(&rt).unwrap();
+            assert!(a.is_clean(&b, &path, &rt).unwrap());
+            drop((b, bl));
+            println!("HISTORICAL_NATIVE_SAVE_OPEN_REDO_AND_CLEANLINESS_PASSED");
         }
         "unavailable" => {
             let old = base.join("history");

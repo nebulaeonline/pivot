@@ -1,13 +1,23 @@
 # ADR-0023 production-readiness architecture packet
 
-Date: 2026-10-23. **Proposed for parent review. Design and adversarial test plan only;
-no correction, backend, coordinator, protocol or UI implementation is authorized.**
+Date: 2026-10-24. **G0 approved with clarifications; only G1 historical native Save
+implemented internally and three-platform validated; parent review and ordinary Save promotion pending.
+G2–G7 remain deferred; production Undo/Redo is not authorized.**
+[Parent approval, clarifications and G1 promotion gate](../handoffs/2026-10-24-history-readiness-g1-authorization.md).
 [Assignment and feasibility acceptance](../handoffs/2026-10-23-disk-history-final-feasibility-review.md),
 [ADR-0023](../adr/0023-document-transaction-history.md),
 [Stage 4 evidence](../handoffs/2026-10-23-history-association-stage4.md),
 [native APFS evidence](../handoffs/2026-10-23-macos-history-association-validation.md).
 
-## Recommendation and decisions requiring approval
+[G1 implementation, exact experimental boundary and validation](../handoffs/2026-10-24-historical-native-save-g1.md).
+Ordinary `Document::export_document` remains on full-ledger transfer. The explicit
+feature-only `export_historical_document` is used only by the research association.
+The G1 tests do not constitute ordinary Save promotion.
+[Mac evidence reconciliation and three-platform review readiness](../handoffs/2026-10-24-macos-historical-save-g1-validation.md)
+record 207 native cases, 2,652 original-file hashes and matching 168-input source.
+Parent G1 acceptance remains pending.
+
+## Approved direction and decisions still requiring approval
 
 First resolve historical native Save with an exhaustive, validated **current-root
 document projection into existing WB5 slots**. Keep lifetime allocation authority
@@ -67,7 +77,7 @@ ID assumptions must not silently become a historical-document export contract.
 | --- | --- | --- |
 | P: content B | Paired workbook/canonical root, current identity directory, definitions/bindings/provenance and ContentStateId B | Project exactly this snapshot |
 | L: lifetime | All committed reservations/floors, including later/discarded D-only identities | Remain monotonic in the same history instance |
-| G: request/revision | Fresh mutation/session authority after activation/restart | Validate capture; never substitute G for B's content identity |
+| G: request/revision | Fresh mutation/session authority after activation/restart | Validate capture without advancing live Expected; never substitute G for B |
 | Saved checkpoint/file observation | Actual verified WB5 installation | Update only after the exact captured bytes/checkpoint are installed |
 
 | Alternative | Assessment |
@@ -93,7 +103,8 @@ than a general arbitrary-subset export/provider API.
    D-only reservations absent from P are not document content.
 3. Build a bijection from those runtime IDs to deterministic portable-UUID-ordered
    wire slots. Translate scalar targets, selection/aggregate formulas, points and
-   blank markers through it. Slots are encoding coordinates, not rebased durable IDs
+   blank markers through it. Range endpoints/members and any supported port/selection
+   metadata must use the same verified mapping. Slots are encoding coordinates, not rebased durable IDs
    or rewritten live NodeIds. Do not edit any source allocator or materialized floor.
 4. Preserve real retired slots as holes without active definitions. Preserve exact
    Decimal96 parts/text, rejected/cyclic drafts, source/provenance and dollar/range
@@ -135,6 +146,10 @@ stale requests even if numeric NodeId bits coincide across processes. Attaching 
 history still requires its verified lineage and full L; file contents cannot replace
 that ledger. This is not a promise that a standalone workbook contains discarded history.
 
+Constructing the Save candidate must not mutate B, live Expected, original runtime
+IDs, L, cursor/Redo or independent calculation captures. The existing WB5 reader must
+reconstruct equivalent durable relationships, not merely accept the encoded image.
+
 A new Save takes B's identity from its captured content, never from the live model at
 completion. Fresh native checkpoint/revision metadata are not ContentStateId. Save
 metadata can need its own durable control decision but creates no document Undo step.
@@ -160,6 +175,7 @@ IDs, bindings, diagnostics/order and ledger as well as native bytes/checkpoints.
 | Partial/uncertain install or lost receipt | Native uncertainty/reopen safeguards remain; journal cannot declare file success |
 | Independent open/copies versus attachment of original history | Fresh authorities for copies; only verified original attachment restores L |
 | Foreign/duplicate/missing IDs, extra live node or missing range point | Projection rejects before publication; quotas and generic transfer stay strict |
+| Independent captures alive across preparation, Save and subsequent activation | Capture definitions/results/authority remain isolated; completed owners finish at zero charge |
 | Existing full-ledger historical-floor negative test | Still rejects that generic request; add a separate native-Save positive proof |
 
 Preserve Stage 4's original failed-export source/artifacts. Update the current native
@@ -399,8 +415,8 @@ authorization inferred from this packet.
 
 | Gate | Bounded deliverable after approval | Acceptance and stop |
 | --- | --- | --- |
-| G0 | Review P1–P9 and adversarial plan | Resolve Save/ledger semantics and policy choices; no runtime edits yet |
-| G1 | Native historical projection only, existing WB5 | Positive new historical Save and strict generic-transfer negatives; exact IDs/Redo/L on Windows/Linux/APFS; stop before backend/coordinator |
+| G0 — approved | Review P1–P9 and adversarial plan | Resolve Save/ledger semantics and policy choices; no runtime edits yet |
+| G1 — internal implementation, three-platform validated; review pending | Native historical projection only, existing WB5 | Positive new historical Save and strict generic-transfer negatives; exact IDs/Redo/L on Windows/Linux/APFS; stop before backend/coordinator |
 | G2 | Experimental typed mutation-local producer | Full-image differential oracle, coupled changes and work/admission counters; stop on incomplete coverage/broad redesign |
 | G3 | Approved indexed-store candidate evaluation | Large-history lookup/startup/tail/cache and real sync/fault evidence; return backend/configuration choice for separate approval |
 | G4 | Durable index/decision publication and independent witness | Child restart at payload/index/root/witness windows; lost ACK/suffix, branch/cursor/ledger and wrong-instance checks; no production integration |
@@ -424,10 +440,11 @@ slices use appropriate Rust gates; session/desktop slices also run managed/proto
 native/AOT and automated interactions. Manual inspection is optional unless an actually
 changed native interaction requires it.
 
-## Review result requested
+## Authorization after parent review
 
-Approve/revise these contracts and G1's narrow implementation scope first. The concrete
+G0 is approved and G1's narrow implementation is authorized under the linked review.
+Return G1 implementation evidence before seeking any G2 authorization. The concrete
 first correction is a validated WB5 document projection, not a floor workaround.
 Indexed lookup and mutation-local production must precede UI history integration.
 Storage, witness, reclamation and product choices remain explicit approvals. This
-packet contains proposed design/tests only; implementation remains gated.
+packet records design/tests and limited G1 authorization; G2–G7 remain gated.

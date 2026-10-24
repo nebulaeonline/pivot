@@ -1,6 +1,6 @@
 # Pivot implementation status
 
-Date: 2026-10-23
+Date: 2026-10-24
 
 Latest accepted milestone: **Four-Direction Rectangular Fill — accepted; ADR-0022 closed (2026-10-23)**.
 [Final implementation acceptance](handoffs/2026-10-23-four-direction-fill-final-review.md),
@@ -18,26 +18,42 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **ADR-0023 four-stage feasibility accepted and closed; production-readiness architecture packet prepared, parent design approval pending; production implementation gated**.
+Current workstream: **ADR-0023 four-stage feasibility accepted and closed; G0 architecture approved with clarifications; G1 historical native Save implemented internally and three-platform validated, parent review pending; G2–G7 and production Undo/Redo gated**.
+[G1 internal implementation and remaining promotion gate](handoffs/2026-10-24-historical-native-save-g1.md).
+[macOS/APFS validation and independent evidence review](handoffs/2026-10-24-macos-historical-save-g1-validation.md).
+[G0 acceptance, G1 authorization and promotion requirements](handoffs/2026-10-24-history-readiness-g1-authorization.md).
+Windows default/all-feature Rust tests: **346/389**; native Linux and Mac: **347/390**
+each. Strict lint/format pass on all three. Release matrices: **207 cases and 2,652
+original hashes** in total. Mac verification checks 1,097 returned evidence hashes,
+168 inputs and 471 copied source files (470 frozen plus the ignored GPT baseline).
+The internal correction is ready for parent G1 review; acceptance remains pending.
+No ordinary Save promotion, production backend or history integration was added.
+Only the exhaustive WB5 projection correction is authorized. Preserve live Expected,
+ContentStateId, lifetime ledger, runtime IDs, Redo/cursor and calculation captures.
+Ordinary Save promotion requires full applicable managed/session/desktop Save/Open
+and actual AOT gates on Windows, native Linux and Mac ARM64/APFS; then parent review.
 [Production-readiness design packet and proposed gates](handoffs/2026-10-23-history-production-readiness-design.md).
 Recommend validated current-root WB5 projection with full live/history ledger and
 Redo preserved, atomic durable indexing, mutation-local records and explicit
 witness/resource/reclamation contracts. SQLite is an evaluation candidate only.
-No correction or runtime integration was implemented.
+The new explicit feature-only Rust projection corrects historical Save in the research
+association. Ordinary application Save still uses strict full-ledger transfer; no
+production history integration or ordinary Save promotion is included.
 [Final feasibility acceptance and next design gate](handoffs/2026-10-23-disk-history-final-feasibility-review.md).
-Historical-state native Save is a production integration blocker: the prepared deliverable
-is one architecture packet covering that correction, durable indexing/startup,
-mutation-local encoding, resource/filesystem/reclamation contracts and staged gates.
-Save must preserve Redo. No correction, production coordinator, UI/protocol or container
-implementation is authorized during this design phase.
+Historical-state Save promotion remains gated. The architecture packet also covers
+durable indexing/startup, mutation-local encoding, resources/filesystems/reclamation
+and staged gates; their implementation remains outside G1.
+Save must preserve Redo. G1 alone is authorized; no producer/backend, witness, coordinator, UI/protocol or
+container implementation is authorized beyond that correction.
 [Stage 4 association, save/retention evidence and remaining limits](handoffs/2026-10-23-history-association-stage4.md).
 Windows/Linux/Mac: 69 cases each (207 total), 2,652 original hashes; Rust suites
 346/382, 347/383 and 347/383, with strict lint passing on all three.
 [Native APFS evidence and independent verification](handoffs/2026-10-23-macos-history-association-validation.md)
 confirm 1,092 evidence hashes, 166 build inputs and 462 copied source hashes
-(461 frozen files plus the ignored GPT baseline). New exports of older historical
-roots with later identity floors still reject; prepared exports survive later
-Undo/Clear. No codec relaxation or production integration was made.
+(461 frozen files plus the ignored GPT baseline). On that original Stage 4 source, new exports of older historical
+roots with later identity floors rejected; prepared exports survived later Undo/Clear.
+G1 supersedes that native-export limitation only in the explicit experimental seam;
+original evidence and strict generic-transfer rejection remain intact.
 [Stage 3 acceptance and Stage 4 safeguards](handoffs/2026-10-23-history-durability-stage3-review.md).
 [Stage 3 decision protocol, fault/restart evidence and limitations](handoffs/2026-10-23-history-durability-stage3.md).
 366 scenarios passed across Windows/Linux, including parent-killed workers, ambiguous

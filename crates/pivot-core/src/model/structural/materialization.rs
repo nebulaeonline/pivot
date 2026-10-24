@@ -2,6 +2,52 @@
 use super::*;
 use std::ops::Deref;
 
+#[cfg(all(test, feature = "history-experiment"))]
+mod projection_cancellation {
+    use super::*;
+    #[test]
+    fn cancellation_during_materialization_leaves_authority_and_accounting_intact() {
+        let memory = Memory::new(16 * 1024 * 1024);
+        let image = GraphImage::empty("cancel projection").unwrap();
+        let mut graph =
+            Graph::empty("cancel projection".into(), image.revision, memory.clone()).unwrap();
+        graph
+            .apply(
+                graph.version(),
+                (0..32)
+                    .map(|i| Edit::AddInput(format!("n{i}"), i.into()))
+                    .collect(),
+            )
+            .unwrap();
+        let nodes: Vec<_> = graph
+            .records
+            .iter()
+            .map(|(node, _)| NodeId {
+                model: graph.version.model,
+                node,
+            })
+            .collect();
+        let before = graph.version();
+        let floor = graph.next;
+        let charged = memory.stats().charged;
+        let polls = std::cell::Cell::new(0);
+        assert!(matches!(
+            graph.project_document(&nodes, || {
+                polls.set(polls.get() + 1);
+                polls.get() > 7
+            }),
+            Err(Error::Cancelled)
+        ));
+        assert!(polls.get() > 7);
+        assert_eq!(graph.version(), before);
+        assert_eq!(graph.next, floor);
+        assert_eq!(memory.stats().charged, charged);
+        assert!(graph.project_document(&nodes, || false).is_ok());
+        drop(graph);
+        assert_eq!(memory.stats().charged, 0);
+    }
+}
+
 /// Admitted complete definition image for diagnostics and codecs.
 pub struct MaterializedImage {
     model: GraphImage,
@@ -169,14 +215,54 @@ impl Graph {
         nodes: &[NodeId],
         ports: &[PortId],
     ) -> Result<transfer::SelectionImage, Error> {
-        let mut image = self.materialize_mode(|| false, true)?;
+        self.selection_transfer(nodes, ports, || false, false)
+    }
+    #[cfg(feature = "history-experiment")]
+    pub(in crate::model) fn project_document(
+        &self,
+        nodes: &[NodeId],
+        cancel: impl Fn() -> bool,
+    ) -> Result<transfer::SelectionImage, Error> {
+        self.selection_transfer(nodes, &[], cancel, true)
+    }
+    fn selection_transfer(
+        &self,
+        nodes: &[NodeId],
+        ports: &[PortId],
+        cancel: impl Fn() -> bool,
+        projection: bool,
+    ) -> Result<transfer::SelectionImage, Error> {
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
+        let mut image = self.materialize_mode(&cancel, true)?;
+
         let slots: BTreeMap<_, _> = nodes
             .iter()
             .enumerate()
             .map(|(slot, id)| (*id, slot))
             .collect();
+        if projection
+            && (slots.len() != nodes.len()
+                || self.next_port != 0
+                || !ports.is_empty()
+                || nodes
+                    .iter()
+                    .any(|id| id.model != self.version.model || id.node >= self.next)
+                || self.records.iter().any(|(ordinal, _)| {
+                    !slots.contains_key(&NodeId {
+                        model: self.version.model,
+                        node: ordinal,
+                    })
+                }))
+        {
+            return Err(Error::InvalidTransfer);
+        }
         let mut formulas = Vec::new();
         for (id, node) in image.model.nodes.iter_mut() {
+            if cancel() {
+                return Err(Error::Cancelled);
+            }
             if let Definition::Computed {
                 source,
                 binding: Ok((tokens, _)),
@@ -220,7 +306,21 @@ impl Graph {
             }
         }
         formulas.sort_by_key(|f| f.slot);
-        let scalar_skeleton = transfer::export_image(&image.model, nodes, ports)?;
+        let scalar_skeleton = if projection {
+            #[cfg(feature = "history-experiment")]
+            {
+                transfer::project_document_image(&image.model, nodes)?
+            }
+            #[cfg(not(feature = "history-experiment"))]
+            {
+                return Err(Error::InvalidTransfer);
+            }
+        } else {
+            transfer::export_image(&image.model, nodes, ports)?
+        };
+        if cancel() {
+            return Err(Error::Cancelled);
+        }
         let selections = self.selection_image();
         let points = selections
             .points

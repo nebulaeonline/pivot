@@ -1,13 +1,19 @@
 # Bounded disk-history feasibility plan
 
-Date: 2026-10-23. **Four-stage feasibility accepted and closed. This document retains
+Date: 2026-10-24. **Four-stage feasibility accepted and closed. This document retains
 the completed research plan; it is not production implementation authorization.**
 [Final acceptance and production-readiness design gate](../handoffs/2026-10-23-disk-history-final-feasibility-review.md).
-[Production-readiness packet](history-production-readiness.md) is now prepared for
-parent review, starting with historical native Save, then
-durable indexing/verified startup, mutation-local encoding, measured resources,
-filesystem/reclamation/retention contracts and independent three-platform gates.
-Do not implement the historical-Save correction or production coordination yet.
+[Production-readiness packet](history-production-readiness.md) has G0 approval with
+clarifications. Only historical native Save correction G1 is authorized under the
+[G1 review and promotion gate](../handoffs/2026-10-24-history-readiness-g1-authorization.md).
+The [internal G1 correction](../handoffs/2026-10-24-historical-native-save-g1.md) now
+implements a separate experimental native WB5 projection; it does not reopen these
+four research stages or promote ordinary application Save.
+[G1 three-platform validation](../handoffs/2026-10-24-macos-historical-save-g1-validation.md)
+is complete for the internal correction; parent implementation review is pending.
+Mutation-local production, durable indexing, witness/filesystem, resource/reclamation,
+session and desktop stages remain deferred pending separate reviews. This completed
+research plan does not authorize G2–G7 or production coordination.
 [Stage 1 acceptance and Stage 2 resource qualifications](../handoffs/2026-10-23-cold-history-stage1-review.md).
 [Stage 1 implementation and executed evidence](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
 [Stage 2 implementation, measurements and qualifications](../handoffs/2026-10-23-history-representation-stage2.md).

@@ -47,7 +47,7 @@ def hashes(root):
 
 
 for case in ("matching", "late-save", "late-clear", "cancel", "retained", "session-only",
-             "rename", "copy", "replace", "save-as", "relocate", "unavailable", "unretained", "historical-export-limit"):
+             "rename", "copy", "replace", "save-as", "relocate", "unavailable", "unretained", "historical-native-save"):
     result = run(["exercise", native / case, case], case + ".log")
     summary.append({"case": case, "result": result})
     print(f"PASS {platform} {case}", flush=True)

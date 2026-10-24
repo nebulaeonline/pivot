@@ -339,8 +339,74 @@ pub struct Export {
     pub expected: Expected,
 }
 pub struct Document;
+
+#[cfg(all(test, feature = "history-experiment"))]
+mod historical_codec_failures {
+    use super::*;
+    use pivot_core::model::integration::{CancellationToken, IntegrationRuntime};
+    #[test]
+    fn codec_rejection_and_post_capture_cancellation_preserve_source_authority() {
+        let rt = IntegrationRuntime::standalone().unwrap();
+        let mut b = Workbook::new_in("codec failures", Limits::default(), &rt).unwrap();
+        b.apply(
+            b.expected(),
+            &[pivot_workbook::Edit::SetEntry {
+                position: Position::new(1, 1),
+                source: "10".into(),
+            }],
+        )
+        .unwrap();
+        let expected = b.expected();
+        let content = b.history_content_id();
+        let before = b.cell_at(Position::new(1, 1)).unwrap();
+        let metrics = format!("{:?}", b.history_metrics().unwrap());
+        let (mut image, lease) = b.project_document(expected, &Default::default()).unwrap();
+        // A captured codec image is rejected by the real WB5 graph encoder.
+        // This fault is never installed in the live workbook.
+        image.graph.scalar_skeleton.nodes[0].slot = usize::MAX;
+        assert!(
+            Document::encode_projection(image, expected, std::time::Instant::now(), None).is_err()
+        );
+        drop(lease);
+        let (image, lease) = b.project_document(expected, &Default::default()).unwrap();
+        let cancel = CancellationToken::default();
+        cancel.cancel();
+        assert!(
+            Document::encode_projection(image, expected, std::time::Instant::now(), Some(&cancel))
+                .is_err()
+        );
+        drop(lease);
+        assert_eq!(b.expected(), expected);
+        assert_eq!(b.history_content_id(), content);
+        assert_eq!(b.cell_at(Position::new(1, 1)).unwrap(), before);
+        assert_eq!(format!("{:?}", b.history_metrics().unwrap()), metrics);
+        drop(b);
+        rt.flush();
+        let memory = rt.memory();
+        assert!(rt.finish().is_ok());
+        assert_eq!(memory.stats().charged, 0);
+    }
+}
 impl Document {
     pub fn export_document(book: &Workbook, expected: Expected) -> Result<Export> {
+        Self::export_content(book, expected, None)
+    }
+    /// Experimental G1 projection. Ordinary native Save remains on full-ledger transfer
+    /// until the independently reviewed promotion gates have completed.
+    #[cfg(feature = "history-experiment")]
+    #[doc(hidden)]
+    pub fn export_historical_document(
+        book: &Workbook,
+        expected: Expected,
+        cancel: &pivot_core::model::integration::CancellationToken,
+    ) -> Result<Export> {
+        Self::export_content(book, expected, Some(cancel))
+    }
+    fn export_content(
+        book: &Workbook,
+        expected: Expected,
+        cancel: Option<&pivot_core::model::integration::CancellationToken>,
+    ) -> Result<Export> {
         if book.is_structured_proof() {
             return Err(malformed());
         }
@@ -348,7 +414,23 @@ impl Document {
             return Err(Error::StaleRevision);
         }
         let started = std::time::Instant::now();
+        #[cfg(feature = "history-experiment")]
+        let (projection, _projection_lease) = if let Some(cancel) = cancel {
+            let (image, lease) = book.project_document(expected, cancel)?;
+            (image, Some(lease))
+        } else {
+            (book.export_portable(expected)?, None)
+        };
+        #[cfg(not(feature = "history-experiment"))]
         let projection = book.export_portable(expected)?;
+        Self::encode_projection(projection, expected, started, cancel)
+    }
+    fn encode_projection(
+        projection: pivot_workbook::transfer::PortableWorkbook,
+        expected: Expected,
+        started: std::time::Instant,
+        cancel: Option<&pivot_core::model::integration::CancellationToken>,
+    ) -> Result<Export> {
         let pairs = &projection.cells;
         let checkpoint = Uuid::new_v4();
         let graph = storage::from_image(
@@ -403,6 +485,9 @@ impl Document {
         }
         w.n(pairs.len() as u64);
         for (id, node, record) in pairs {
+            if cancel.is_some_and(|c| c.is_cancelled()) {
+                return Err(malformed());
+            }
             w.id(id.uuid());
             w.id(node.uuid());
             if let (Some(p), Some(c)) = (record.position, record.content.as_ref()) {
@@ -465,6 +550,9 @@ impl Document {
         bytes.extend((w.0.len() as u64).to_le_bytes());
         bytes.extend(Sha256::digest(&w.0));
         bytes.extend(w.0);
+        if cancel.is_some_and(|c| c.is_cancelled()) {
+            return Err(malformed());
+        }
         Ok(Export {
             timings: Timings {
                 capture_ns,

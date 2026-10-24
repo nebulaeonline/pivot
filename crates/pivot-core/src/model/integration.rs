@@ -432,6 +432,35 @@ impl WorkingModel {
             .map_err(ModelError::Backend)?
             .map_err(map_error)
     }
+    #[cfg(feature = "history-experiment")]
+    pub(super) fn integrated_document_projection(
+        &self,
+        nodes: &[NodeId],
+        cancel: &CancellationToken,
+    ) -> Result<transfer::SelectionImage, ModelError> {
+        let i = &self.integrated;
+        if nodes.len() > 8192 || i.graph().live_count() > 4096 {
+            return Err(ModelError::Backend("document projection limit"));
+        }
+        let _request = i
+            .graph()
+            .memory()
+            .reserve(65536 + nodes.len() * 256)
+            .map_err(|_| ModelError::Backend("document projection admission"))?;
+        let graph = i.graph.clone();
+        let nodes = nodes.to_vec();
+        let token = cancel.clone();
+        i.runtime
+            .heavy
+            .run(&i.runtime.cleanup, cancel, move || {
+                let _copy = graph.get().copy_reservation()?;
+                graph
+                    .get()
+                    .project_document(&nodes, || token.is_cancelled())
+            })
+            .map_err(ModelError::Backend)?
+            .map_err(map_error)
+    }
     pub(super) fn integrated_export(
         &self,
         nodes: &[NodeId],

@@ -1,10 +1,15 @@
 # ADR-0023: Tiered recoverable document transaction history
 
 Status: **Four-stage research feasibility accepted and closed; production-readiness
-architecture packet prepared for review; production implementation remains gated (2026-10-23)**.
+architecture approved with clarifications; G1 native Save correction implemented internally,
+three-platform validation complete; parent review and ordinary Save promotion pending; production history integration gated (2026-10-24)**.
+[Mac validation and G1 review readiness](../handoffs/2026-10-24-macos-historical-save-g1-validation.md).
+[G1 internal implementation and remaining gates](../handoffs/2026-10-24-historical-native-save-g1.md).
+[G0 approval and bounded G1 authorization](../handoffs/2026-10-24-history-readiness-g1-authorization.md).
 [Production-readiness proposal: decisions P1–P9 and gates G0–G7](../architecture/history-production-readiness.md).
 The proposal recommends a separate validated WB5 projection, not a lower allocation
-floor; generic transfer and Redo remain intact. It is not approved implementation.
+floor; generic transfer and Redo remain intact. Only G1 implementation is authorized;
+G2–G7 and all production backend/UI choices require separate reviews.
 [Final feasibility acceptance and next deliverable](../handoffs/2026-10-23-disk-history-final-feasibility-review.md).
 Historical native Save is a mandatory design gate: preserve lifetime floors and
 Redo, compare content/ledger separation with a validated export projection, and

@@ -432,7 +432,6 @@ impl WorkingModel {
             .map_err(ModelError::Backend)?
             .map_err(map_error)
     }
-    #[cfg(feature = "history-experiment")]
     pub(super) fn integrated_document_projection(
         &self,
         nodes: &[NodeId],

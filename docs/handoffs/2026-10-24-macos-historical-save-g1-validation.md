@@ -1,8 +1,10 @@
 # G1 native macOS/APFS validation — evidence review
 
 Date: 2026-10-24. **Three-platform validation of the internal G1 correction is
-complete; ready for parent implementation review. Acceptance and ordinary Save
-promotion remain separate decisions. G2–G7 remain deferred.**
+complete and accepted by the parent. The later ordinary Save promotion is implemented separately;
+this Mac run does not validate that new source. G1 closure awaits its final gates. G2–G7 remain deferred.**
+[Promotion source and fresh full Mac gate requirement](2026-10-24-historical-save-g1-promotion.md).
+[Internal acceptance and promotion authorization](2026-10-24-historical-save-g1-internal-review.md).
 [Implementation packet](2026-10-24-historical-native-save-g1.md),
 [original Mac report](../../artifacts/macos-validation-20261024T100245Z/summary.md),
 [independent verification](../../artifacts/history-save-g1-macos-review/verification.json).
@@ -77,8 +79,8 @@ the four-stage feasibility program is already accepted/closed; this submission i
 G1 now has **207 passing native cases** and **2,652 original-file hashes** across
 Windows NTFS, native Linux ext4 and native macOS ARM64/APFS. Rust totals are
 346/389, 347/390 and 347/390 (default/all-feature), with strict lint on all three.
-Recommend acceptance of the **internal experimental correction** within that scope.
-No implementation acceptance is inferred from passing tests.
+The parent accepts the **internal experimental correction** within that scope under
+the linked review. Ordinary Save promotion and final G1 closure remain separate.
 
 This run deliberately did not include managed/session, desktop, Native AOT or
 manual UI checks. Ordinary application Save still uses strict full-ledger export;

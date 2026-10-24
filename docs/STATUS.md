@@ -15,10 +15,17 @@ accepted/closed; its earlier evidence limitations remain historical.
 **Open reliability issue:** intermittent Windows ClipboardChecklistAsync null
 destination after paste. The unchanged rerun passed; the cause remains unresolved.
 [Failure evidence and recurrence diagnostics](handoffs/2026-10-22-worksheet-structured-binding-implementation-review.md#open-reliability-issue--windows-clipboard-checklist).
+[G1 promotion attempt history](handoffs/2026-10-24-historical-save-g1-promotion.md)
+retains a Linux managed Fill selection/scroll failure and a Windows Native AOT
+unsupported-copy clipboard assertion failure. Final unchanged-source runs passed;
+causes remain unresolved and distinct from the older null-destination issue.
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **ADR-0023 four-stage feasibility accepted and closed; G0 architecture approved with clarifications; G1 historical native Save implemented internally and three-platform validated, parent review pending; G2–G7 and production Undo/Redo gated**.
+Current workstream: **ADR-0023 four-stage feasibility accepted and closed; G0 architecture approved with clarifications; G1 internal historical native Save accepted; ordinary Save promotion implemented with Windows/native Linux gates passed; G1 closure pending fresh Mac gates and parent review; G2–G7 and production Undo/Redo gated**.
+[Ordinary Save promotion and final validation packet](handoffs/2026-10-24-historical-save-g1-promotion.md).
+[Fresh macOS/APFS full-gate instructions](handoffs/2026-10-24-macos-g1-promotion-instructions.md).
+[Internal acceptance and ordinary Save promotion authorization](handoffs/2026-10-24-historical-save-g1-internal-review.md).
 [G1 internal implementation and remaining promotion gate](handoffs/2026-10-24-historical-native-save-g1.md).
 [macOS/APFS validation and independent evidence review](handoffs/2026-10-24-macos-historical-save-g1-validation.md).
 [G0 acceptance, G1 authorization and promotion requirements](handoffs/2026-10-24-history-readiness-g1-authorization.md).
@@ -26,19 +33,27 @@ Windows default/all-feature Rust tests: **346/389**; native Linux and Mac: **347
 each. Strict lint/format pass on all three. Release matrices: **207 cases and 2,652
 original hashes** in total. Mac verification checks 1,097 returned evidence hashes,
 168 inputs and 471 copied source files (470 frozen plus the ignored GPT baseline).
-The internal correction is ready for parent G1 review; acceptance remains pending.
-No ordinary Save promotion, production backend or history integration was added.
-Only the exhaustive WB5 projection correction is authorized. Preserve live Expected,
+The parent accepts the internal correction and its three-platform evidence.
+Ordinary Save now uses the validated projection directly in default builds.
+Promotion Windows/Linux full CI, managed/session/IPC, actual managed desktop and
+Native AOT execution pass. Promotion Rust totals: Windows **347/390**, Linux
+**348/391** (default/all-feature); strict all-feature lint and 69 historical native
+cases/884 original hashes per platform pass. Fresh Mac full gates for the **236
+Rust/managed/test/script inputs** are pending; the internal 168-input Mac evidence
+above is not promotion evidence. G1 is not closed; G2–G7 remain deferred.
+Promote one explicit validated export path, without fallback, format/protocol changes
+or capability expansion. Keep generic full-ledger transfer strict. Preserve live Expected,
 ContentStateId, lifetime ledger, runtime IDs, Redo/cursor and calculation captures.
-Ordinary Save promotion requires full applicable managed/session/desktop Save/Open
+Ordinary Save promotion is authorized and requires full applicable managed/session/desktop Save/Open
 and actual AOT gates on Windows, native Linux and Mac ARM64/APFS; then parent review.
 [Production-readiness design packet and proposed gates](handoffs/2026-10-23-history-production-readiness-design.md).
 Recommend validated current-root WB5 projection with full live/history ledger and
 Redo preserved, atomic durable indexing, mutation-local records and explicit
 witness/resource/reclamation contracts. SQLite is an evaluation candidate only.
-The new explicit feature-only Rust projection corrects historical Save in the research
-association. Ordinary application Save still uses strict full-ledger transfer; no
-production history integration or ordinary Save promotion is included.
+The accepted feature-only correction is now promoted into ordinary native export;
+the research association and real Rust session call the same ordinary exporter.
+Generic full-ledger transfer stays strict. No production history integration,
+protocol change, capability expansion, format cut or quota increase was added.
 [Final feasibility acceptance and next design gate](handoffs/2026-10-23-disk-history-final-feasibility-review.md).
 Historical-state Save promotion remains gated. The architecture packet also covers
 durable indexing/startup, mutation-local encoding, resources/filesystems/reclamation

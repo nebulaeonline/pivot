@@ -44,3 +44,7 @@ Ordinary Save promotion and G2–G7 remain gated; the original design packet is 
 
 [G1 three-platform validation and parent review packet](2026-10-24-macos-historical-save-g1-validation.md)
 are now ready. This completes internal-correction validation, not ordinary Save promotion or G2 authorization.
+
+[Parent G1 implementation review](2026-10-24-historical-save-g1-internal-review.md) accepts
+the internal correction and authorizes bounded ordinary Save promotion with final
+three-platform managed/session/desktop/AOT gates. G1 closure and G2 authorization remain separate.

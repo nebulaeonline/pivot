@@ -290,7 +290,6 @@ fn encode_mapped_image(
 }
 
 /// Trusted document-only projection; the graph layer verifies exhaustive record coverage.
-#[cfg(feature = "history-experiment")]
 pub(super) fn project_document_image(
     model: &GraphImage,
     nodes: &[NodeId],
@@ -587,7 +586,6 @@ pub struct SelectionImage {
     pub identities: Vec<(selection::SelectionId, Option<selection::Rectangle>)>,
     pub points: Vec<(selection::SpaceId, u32, u32, usize)>,
 }
-#[cfg(feature = "history-experiment")]
 impl WorkingModel {
     /// Internal exhaustive document projection, not the full allocation-ledger transfer API.
     #[doc(hidden)]

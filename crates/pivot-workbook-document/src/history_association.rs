@@ -682,8 +682,7 @@ impl Association {
             .memory
             .reserve(MAX_BYTES * 2 + 32768)
             .map_err(io)?;
-        let export =
-            Document::export_historical_document(book, book.expected(), &Default::default())?;
+        let export = Document::export_document(book, book.expected())?;
         let location = native::destination(path).map_err(io)?;
         if location.path.starts_with(&self.root) {
             return Err(bad());

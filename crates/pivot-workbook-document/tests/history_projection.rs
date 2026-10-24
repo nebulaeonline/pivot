@@ -95,8 +95,7 @@ fn sparse_and_cold_historical_documents_preserve_exact_content_and_live_authorit
     let node = b.history_runtime_node(p(5, 1)).unwrap();
     let metrics = format!("{:?}", b.history_metrics().unwrap());
     assert!(b.export_portable(expected).is_err());
-    assert!(Document::export_document(&b, expected).is_err());
-    let export = Document::export_historical_document(&b, expected, &Default::default()).unwrap();
+    let export = Document::export_document(&b, expected).unwrap();
     let (opened, checkpoint) =
         Document::open_document(&export.bytes, Limits::default(), &rt).unwrap();
     same(&b, &opened);
@@ -105,9 +104,7 @@ fn sparse_and_cold_historical_documents_preserve_exact_content_and_live_authorit
     let (cold_book, cold_ledger) =
         Workbook::history_cold_reopen(&authority.bytes, &cold_b.bytes, Limits::default(), &rt)
             .unwrap();
-    let e =
-        Document::export_historical_document(&cold_book, cold_book.expected(), &Default::default())
-            .unwrap();
+    let e = Document::export_document(&cold_book, cold_book.expected()).unwrap();
     let (cold_opened, _) = Document::open_document(&e.bytes, Limits::default(), &rt).unwrap();
     same(&cold_book, &cold_opened);
     same(&b, &cold_book);
@@ -146,15 +143,15 @@ fn sparse_and_cold_historical_documents_preserve_exact_content_and_live_authorit
     std::fs::remove_dir_all(&scratch).unwrap();
     let cancelled = CancellationToken::default();
     cancelled.cancel();
-    assert!(Document::export_historical_document(&b, expected, &cancelled).is_err());
+    assert!(Document::export_document_cancellable(&b, expected, &cancelled).is_err());
     let mut stale = expected;
     stale.state += 1;
-    assert!(Document::export_historical_document(&b, stale, &Default::default()).is_err());
+    assert!(Document::export_document(&b, stale).is_err());
     rt.flush();
     let memory = rt.memory();
     let stats = memory.stats();
     let pressure = memory.reserve(stats.limit - stats.charged).unwrap();
-    assert!(Document::export_historical_document(&b, expected, &Default::default()).is_err());
+    assert!(Document::export_document(&b, expected).is_err());
     drop(pressure);
     assert_eq!(b.expected(), expected);
     assert_eq!(b.history_content_id(), content);
@@ -196,7 +193,7 @@ fn cold_process_worker() {
     let content = b.history_content_id();
     let metrics = format!("{:?}", b.history_metrics().unwrap());
     assert!(b.export_portable(expected).is_err());
-    let export = Document::export_historical_document(&b, expected, &Default::default()).unwrap();
+    let export = Document::export_document(&b, expected).unwrap();
     let path = root.join("historical.pivot");
     native::install(&native::destination(&path).unwrap(), &export.bytes).unwrap();
     let (bytes, _) = native::read(&path).unwrap();
@@ -220,8 +217,7 @@ fn isolated_cycles_and_numeric_captures_survive_native_projection() {
     for source in ["=A1", "=A1+1", "=(", "=SUM(A1:A2)"] {
         let mut b = Workbook::new_in("draft", Limits::default(), &rt).unwrap();
         entry(&mut b, 1, 1, source);
-        let export =
-            Document::export_historical_document(&b, b.expected(), &Default::default()).unwrap();
+        let export = Document::export_document(&b, b.expected()).unwrap();
         let (opened, _) = Document::open_document(&export.bytes, Limits::default(), &rt).unwrap();
         same(&b, &opened);
         assert_eq!(
@@ -242,8 +238,7 @@ fn isolated_cycles_and_numeric_captures_survive_native_projection() {
     entry(&mut b, 3, 1, "future");
     b.activate_history_root(b.expected(), &root, &Default::default())
         .unwrap();
-    let export =
-        Document::export_historical_document(&b, b.expected(), &Default::default()).unwrap();
+    let export = Document::export_document(&b, b.expected()).unwrap();
     let (opened, _) = Document::open_document(&export.bytes, Limits::default(), &rt).unwrap();
     same(&b, &opened);
     assert_eq!(capture.evaluate(&cells).unwrap().values, before);

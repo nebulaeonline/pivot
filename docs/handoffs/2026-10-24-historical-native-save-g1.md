@@ -1,8 +1,12 @@
 # G1 — historical-state native WB5 Save
 
-Date: 2026-10-24. **Internal Rust correction implemented; ordinary Save promotion
-validated on all three platforms; ready for parent G1 review. Acceptance and ordinary
-Save promotion pending. G2–G7 deferred.**
+Date: 2026-10-24. **Internal correction and its three-platform Rust validation
+accepted. The separate ordinary Save promotion is now implemented; G1 closure
+pending final three-platform managed/session/desktop/AOT gates. G2–G7 deferred.**
+[Promotion implementation and current gates](2026-10-24-historical-save-g1-promotion.md).
+This packet records the accepted internal source; the promotion packet supersedes
+its experimental-only export call boundary below. Original manifests remain intact.
+[Parent acceptance and bounded promotion assignment](2026-10-24-historical-save-g1-internal-review.md).
 [Authorization](2026-10-24-history-readiness-g1-authorization.md),
 [architecture](../architecture/history-production-readiness.md),
 [ADR-0023](../adr/0023-document-transaction-history.md).
@@ -17,8 +21,8 @@ Save creates no history transaction. Save B → Redo D → Undo B becomes clean 
 only against verified saved-file authority and the exact saved ContentStateId.
 
 `Document::export_historical_document` is an explicit, hidden Rust seam under
-`history-experiment`; only the experimental association calls it. Ordinary
-`Document::export_document` and application/session Save still use the original
+`history-experiment`; only the experimental association calls it. In that accepted internal snapshot, ordinary
+`Document::export_document` and application/session Save used the original
 full-ledger export contract. This is the initial internal correction authorized
 by G1, **not ordinary Save promotion or desktop Undo/Redo integration**.
 
@@ -136,7 +140,7 @@ independently verifies 1,097 evidence hashes, 168 matching inputs, 470 frozen so
 files plus the ignored GPT baseline, and 884 retained native hashes. The actual
 historical Save case and zero-charge worker checks passed. Across all three
 platforms: **207 cases and 2,652 original-file hashes**. Recommend acceptance of
-the internal correction; parent G1 implementation review is now ready.
+the internal correction; the parent has accepted it under the linked review.
 
 Mac report: `artifacts/macos-validation-20261024T100245Z/`; independent receipt:
 `artifacts/history-save-g1-macos-review/verification.json`. Original G1 and Mac
@@ -149,4 +153,5 @@ must pass the full applicable managed/session, desktop Save/Open and actual Nati
 AOT gates on Windows, native Linux and native macOS ARM64/APFS, with matched inputs
 and zero-charge cleanup. Existing ordinary-path evidence alone cannot prove a
 promotion of this new seam. No new manual checklist is required for this internal
-Rust correction. Parent G1 review remains the stopping point; G2 is not authorized.
+Rust correction. Ordinary Save promotion is now authorized under the linked bounded assignment.
+Return with its final evidence for G1 closure; G2 is not authorized.

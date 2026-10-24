@@ -217,7 +217,6 @@ impl Graph {
     ) -> Result<transfer::SelectionImage, Error> {
         self.selection_transfer(nodes, ports, || false, false)
     }
-    #[cfg(feature = "history-experiment")]
     pub(in crate::model) fn project_document(
         &self,
         nodes: &[NodeId],
@@ -307,14 +306,7 @@ impl Graph {
         }
         formulas.sort_by_key(|f| f.slot);
         let scalar_skeleton = if projection {
-            #[cfg(feature = "history-experiment")]
-            {
-                transfer::project_document_image(&image.model, nodes)?
-            }
-            #[cfg(not(feature = "history-experiment"))]
-            {
-                return Err(Error::InvalidTransfer);
-            }
+            transfer::project_document_image(&image.model, nodes)?
         } else {
             transfer::export_image(&image.model, nodes, ports)?
         };

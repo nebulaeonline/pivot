@@ -340,72 +340,17 @@ pub struct Export {
 }
 pub struct Document;
 
-#[cfg(all(test, feature = "history-experiment"))]
-mod historical_codec_failures {
-    use super::*;
-    use pivot_core::model::integration::{CancellationToken, IntegrationRuntime};
-    #[test]
-    fn codec_rejection_and_post_capture_cancellation_preserve_source_authority() {
-        let rt = IntegrationRuntime::standalone().unwrap();
-        let mut b = Workbook::new_in("codec failures", Limits::default(), &rt).unwrap();
-        b.apply(
-            b.expected(),
-            &[pivot_workbook::Edit::SetEntry {
-                position: Position::new(1, 1),
-                source: "10".into(),
-            }],
-        )
-        .unwrap();
-        let expected = b.expected();
-        let content = b.history_content_id();
-        let before = b.cell_at(Position::new(1, 1)).unwrap();
-        let metrics = format!("{:?}", b.history_metrics().unwrap());
-        let (mut image, lease) = b.project_document(expected, &Default::default()).unwrap();
-        // A captured codec image is rejected by the real WB5 graph encoder.
-        // This fault is never installed in the live workbook.
-        image.graph.scalar_skeleton.nodes[0].slot = usize::MAX;
-        assert!(
-            Document::encode_projection(image, expected, std::time::Instant::now(), None).is_err()
-        );
-        drop(lease);
-        let (image, lease) = b.project_document(expected, &Default::default()).unwrap();
-        let cancel = CancellationToken::default();
-        cancel.cancel();
-        assert!(
-            Document::encode_projection(image, expected, std::time::Instant::now(), Some(&cancel))
-                .is_err()
-        );
-        drop(lease);
-        assert_eq!(b.expected(), expected);
-        assert_eq!(b.history_content_id(), content);
-        assert_eq!(b.cell_at(Position::new(1, 1)).unwrap(), before);
-        assert_eq!(format!("{:?}", b.history_metrics().unwrap()), metrics);
-        drop(b);
-        rt.flush();
-        let memory = rt.memory();
-        assert!(rt.finish().is_ok());
-        assert_eq!(memory.stats().charged, 0);
-    }
-}
 impl Document {
     pub fn export_document(book: &Workbook, expected: Expected) -> Result<Export> {
-        Self::export_content(book, expected, None)
+        Self::export_document_cancellable(book, expected, &Default::default())
     }
-    /// Experimental G1 projection. Ordinary native Save remains on full-ledger transfer
-    /// until the independently reviewed promotion gates have completed.
-    #[cfg(feature = "history-experiment")]
+    /// Validated current-content projection for native WB5, including historical roots.
+    /// Generic full-ledger graph transfer retains its separate strict contract.
     #[doc(hidden)]
-    pub fn export_historical_document(
+    pub fn export_document_cancellable(
         book: &Workbook,
         expected: Expected,
         cancel: &pivot_core::model::integration::CancellationToken,
-    ) -> Result<Export> {
-        Self::export_content(book, expected, Some(cancel))
-    }
-    fn export_content(
-        book: &Workbook,
-        expected: Expected,
-        cancel: Option<&pivot_core::model::integration::CancellationToken>,
     ) -> Result<Export> {
         if book.is_structured_proof() {
             return Err(malformed());
@@ -414,16 +359,8 @@ impl Document {
             return Err(Error::StaleRevision);
         }
         let started = std::time::Instant::now();
-        #[cfg(feature = "history-experiment")]
-        let (projection, _projection_lease) = if let Some(cancel) = cancel {
-            let (image, lease) = book.project_document(expected, cancel)?;
-            (image, Some(lease))
-        } else {
-            (book.export_portable(expected)?, None)
-        };
-        #[cfg(not(feature = "history-experiment"))]
-        let projection = book.export_portable(expected)?;
-        Self::encode_projection(projection, expected, started, cancel)
+        let (projection, _projection_lease) = book.project_document(expected, cancel)?;
+        Self::encode_projection(projection, expected, started, Some(cancel))
     }
     fn encode_projection(
         projection: pivot_workbook::transfer::PortableWorkbook,
@@ -1114,3 +1051,161 @@ impl Document {
 
 #[cfg(feature = "history-experiment")]
 pub mod history_association;
+
+#[cfg(test)]
+mod ordinary_projection_equivalence {
+    use super::*;
+    use pivot_core::model::integration::IntegrationRuntime;
+    #[test]
+    fn ordinary_projection_matches_strict_transfer_without_advancing_save_authority() {
+        let rt = IntegrationRuntime::standalone().unwrap();
+        let mut b = Workbook::new_in("ordinary equivalence", Limits::default(), &rt).unwrap();
+        use pivot_workbook::Edit;
+        let p = |r, c| Position::new(r, c);
+        b.apply(
+            b.expected(),
+            &[
+                Edit::SetEntry {
+                    position: p(1, 1),
+                    source: "1.2300".into(),
+                },
+                Edit::SetEntry {
+                    position: p(1, 2),
+                    source: "=A1*2".into(),
+                },
+                Edit::SetEntry {
+                    position: p(1, 3),
+                    source: "=SUM(A1:A2)".into(),
+                },
+                Edit::SetEntry {
+                    position: p(2, 3),
+                    source: "=AVERAGE(A1:A2)".into(),
+                },
+                Edit::SetEntry {
+                    position: p(3, 1),
+                    source: "text \u{03bb}".into(),
+                },
+                Edit::SetEntry {
+                    position: p(3, 2),
+                    source: "=(".into(),
+                },
+                Edit::SetDecimal {
+                    position: p(3, 3),
+                    value: DecimalInput::from_parts(0, 0, 0, true, 5).unwrap(),
+                },
+            ],
+        )
+        .unwrap();
+        b.apply(
+            b.expected(),
+            &[
+                Edit::Move {
+                    from: p(1, 1),
+                    to: p(4, 1),
+                },
+                Edit::Retire(p(3, 1)),
+            ],
+        )
+        .unwrap();
+        let expected = b.expected();
+        let capture = b.capture_local(expected).unwrap();
+        let cell = capture.cell_at(p(1, 2)).unwrap();
+        let before = capture.evaluate(&[cell]).unwrap().values;
+        let strict = b.export_portable(expected).unwrap();
+        let (projected, lease) = b.project_document(expected, &Default::default()).unwrap();
+        assert_eq!(
+            format!("{:?}", strict.graph.scalar_skeleton),
+            format!("{:?}", projected.graph.scalar_skeleton)
+        );
+        assert_eq!(strict.graph.blanks, projected.graph.blanks);
+        assert_eq!(strict.graph.points, projected.graph.points);
+        assert_eq!(strict.graph.identities, projected.graph.identities);
+        assert_eq!(strict.cells.len(), projected.cells.len());
+        for (a, b) in strict.cells.iter().zip(&projected.cells) {
+            assert_eq!(
+                (a.0, a.1, a.2.position, &a.2.content),
+                (b.0, b.1, b.2.position, &b.2.content)
+            );
+        }
+        let legacy =
+            Document::encode_projection(strict, expected, std::time::Instant::now(), None).unwrap();
+        drop((projected, lease));
+        let ordinary = Document::export_document(&b, expected).unwrap();
+        let (a, _) = Document::open_document(&legacy.bytes, Limits::default(), &rt).unwrap();
+        let (c, _) = Document::open_document(&ordinary.bytes, Limits::default(), &rt).unwrap();
+        for r in 1..=4 {
+            for col in 1..=3 {
+                assert_eq!(a.cell_at(p(r, col)).unwrap(), c.cell_at(p(r, col)).unwrap());
+                assert_eq!(b.cell_at(p(r, col)).unwrap(), c.cell_at(p(r, col)).unwrap());
+            }
+        }
+        assert_eq!(b.expected(), expected);
+        assert_eq!(ordinary.expected, expected);
+        assert_eq!(capture.evaluate(&[cell]).unwrap().values, before);
+        let cancelled = pivot_core::model::integration::CancellationToken::default();
+        cancelled.cancel();
+        assert!(Document::export_document_cancellable(&b, expected, &cancelled).is_err());
+        let mut stale = expected;
+        stale.state += 1;
+        assert!(Document::export_document(&b, stale).is_err());
+        rt.flush();
+        let memory = rt.memory();
+        let stats = memory.stats();
+        let pressure = memory.reserve(stats.limit - stats.charged).unwrap();
+        assert!(Document::export_document(&b, expected).is_err());
+        drop(pressure);
+        assert_eq!(b.expected(), expected);
+        drop((a, c, b, capture));
+        rt.flush();
+        assert!(rt.finish().is_ok());
+        assert_eq!(memory.stats().charged, 0);
+    }
+}
+
+#[cfg(all(test, feature = "history-experiment"))]
+mod historical_codec_failures {
+    use super::*;
+    use pivot_core::model::integration::{CancellationToken, IntegrationRuntime};
+    #[test]
+    fn codec_rejection_and_post_capture_cancellation_preserve_source_authority() {
+        let rt = IntegrationRuntime::standalone().unwrap();
+        let mut b = Workbook::new_in("codec failures", Limits::default(), &rt).unwrap();
+        b.apply(
+            b.expected(),
+            &[pivot_workbook::Edit::SetEntry {
+                position: Position::new(1, 1),
+                source: "10".into(),
+            }],
+        )
+        .unwrap();
+        let expected = b.expected();
+        let content = b.history_content_id();
+        let before = b.cell_at(Position::new(1, 1)).unwrap();
+        let metrics = format!("{:?}", b.history_metrics().unwrap());
+        let (mut image, lease) = b.project_document(expected, &Default::default()).unwrap();
+        // A captured codec image is rejected by the real WB5 graph encoder.
+        // This fault is never installed in the live workbook.
+        image.graph.scalar_skeleton.nodes[0].slot = usize::MAX;
+        assert!(
+            Document::encode_projection(image, expected, std::time::Instant::now(), None).is_err()
+        );
+        drop(lease);
+        let (image, lease) = b.project_document(expected, &Default::default()).unwrap();
+        let cancel = CancellationToken::default();
+        cancel.cancel();
+        assert!(
+            Document::encode_projection(image, expected, std::time::Instant::now(), Some(&cancel))
+                .is_err()
+        );
+        drop(lease);
+        assert_eq!(b.expected(), expected);
+        assert_eq!(b.history_content_id(), content);
+        assert_eq!(b.cell_at(Position::new(1, 1)).unwrap(), before);
+        assert_eq!(format!("{:?}", b.history_metrics().unwrap()), metrics);
+        drop(b);
+        rt.flush();
+        let memory = rt.memory();
+        assert!(rt.finish().is_ok());
+        assert_eq!(memory.stats().charged, 0);
+    }
+}

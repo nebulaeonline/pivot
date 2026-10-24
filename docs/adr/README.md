@@ -61,4 +61,4 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0022: Four-direction rectangular Fill](0022-four-direction-rectangular-fill.md) — Design and three-platform-validated implementation accepted; workstream closed (2026-10-23).
 
-- [ADR-0023: Tiered recoverable document transaction history](0023-document-transaction-history.md) — feasibility accepted/closed; G0 architecture approved with clarifications; G1 historical native Save implemented internally and three-platform validated, review/promotion pending; G2–G7/production history gated (2026-10-24).
+- [ADR-0023: Tiered recoverable document transaction history](0023-document-transaction-history.md) — feasibility accepted/closed; G0 architecture approved with clarifications; internal G1 historical native Save accepted; ordinary Save promoted with Windows/Linux gates passed; closure pending fresh Mac gates and parent review; G2–G7/production history gated (2026-10-24).

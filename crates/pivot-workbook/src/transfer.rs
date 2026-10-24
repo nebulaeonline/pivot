@@ -4,7 +4,6 @@ use pivot_core::model::{
     integration::{CancellationToken, IntegrationRuntime},
     transfer,
 };
-#[cfg(feature = "history-experiment")]
 use std::collections::BTreeMap;
 #[derive(Clone)]
 pub struct CellRecord {
@@ -26,9 +25,8 @@ impl Workbook {
     pub fn export_portable(&self, expected: Expected) -> Result<PortableWorkbook> {
         self.export_content(expected, None)
     }
-    /// Internal historical native-document seam. The lease covers the owned projection
+    /// Internal native-document seam for current and historical content. The lease covers the owned projection
     /// through encoding; this does not grant authority to mutate or lower any ledger.
-    #[cfg(feature = "history-experiment")]
     #[doc(hidden)]
     pub fn project_document(
         &self,
@@ -42,10 +40,7 @@ impl Workbook {
         if cancel.is_cancelled() {
             return Err(Error::Graph("cancelled document projection".into()));
         }
-        let selection_bytes = self
-            .history_metrics()?
-            .lifetime_selections
-            .saturating_mul(256);
+        let selection_bytes = self.core.selection_metrics().identities.saturating_mul(256);
         let lease = self
             .core
             .allocation_domain()
@@ -90,17 +85,9 @@ impl Workbook {
         pairs.sort_by_key(|(_, b)| b.portable);
         let nodes = pairs.iter().map(|(_, b)| b.runtime).collect::<Vec<_>>();
         let graph = if let Some(cancel) = cancel {
-            #[cfg(feature = "history-experiment")]
-            {
-                self.core
-                    .project_document_definitions(&nodes, cancel)
-                    .map_err(graph_error)?
-            }
-            #[cfg(not(feature = "history-experiment"))]
-            {
-                let _ = cancel;
-                return Err(Error::InvalidTarget);
-            }
+            self.core
+                .project_document_definitions(&nodes, cancel)
+                .map_err(graph_error)?
         } else {
             self.core
                 .export_selections(&nodes, &[])
@@ -132,7 +119,6 @@ impl Workbook {
             graph,
         })
     }
-    #[cfg(feature = "history-experiment")]
     fn verify_document_projection(
         &self,
         image: &PortableWorkbook,
@@ -473,7 +459,6 @@ impl Workbook {
     }
 }
 
-#[cfg(feature = "history-experiment")]
 fn same_selection_tokens(a: &[transfer::SelectionToken], b: &[transfer::SelectionToken]) -> bool {
     use transfer::SelectionToken as T;
     a.len() == b.len()

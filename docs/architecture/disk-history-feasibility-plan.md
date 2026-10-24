@@ -10,7 +10,9 @@ The [internal G1 correction](../handoffs/2026-10-24-historical-native-save-g1.md
 implements a separate experimental native WB5 projection; it does not reopen these
 four research stages or promote ordinary application Save.
 [G1 three-platform validation](../handoffs/2026-10-24-macos-historical-save-g1-validation.md)
-is complete for the internal correction; parent implementation review is pending.
+is complete and accepted for the internal correction.
+[Ordinary Save promotion](../handoffs/2026-10-24-historical-save-g1-internal-review.md)
+is now authorized as the remaining G1 work, with final three-platform gates before closure.
 Mutation-local production, durable indexing, witness/filesystem, resource/reclamation,
 session and desktop stages remain deferred pending separate reviews. This completed
 research plan does not authorize G2–G7 or production coordination.
@@ -286,3 +288,7 @@ measured retrieval/cache/checkpoint parameters, disk-space/failure behavior,
 association/recovery contract and unresolved risks. Container/placement selection
 must be separately justified; defer it if the evidence is inconclusive. Stop for
 parent feasibility review before production Undo/Redo, session/save/protocol/UI work.
+
+The [ordinary Save promotion](../handoffs/2026-10-24-historical-save-g1-promotion.md)
+is now implemented with Windows/Linux full gates passed; final source-matched Mac
+gates and parent G1 closure remain pending. This does not reopen feasibility or authorize G2.

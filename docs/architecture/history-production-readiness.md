@@ -1,8 +1,9 @@
 # ADR-0023 production-readiness architecture packet
 
-Date: 2026-10-24. **G0 approved with clarifications; only G1 historical native Save
-implemented internally and three-platform validated; parent review and ordinary Save promotion pending.
-G2–G7 remain deferred; production Undo/Redo is not authorized.**
+Date: 2026-10-24. **G0 approved; internal G1 correction and three-platform evidence
+accepted. Ordinary Save promotion implemented; Windows/native Linux full gates pass;
+G1 closure pending fresh Mac gates and parent review. G2–G7 remain deferred; production Undo/Redo is not authorized.**
+[Internal G1 acceptance and ordinary Save promotion scope](../handoffs/2026-10-24-historical-save-g1-internal-review.md).
 [Parent approval, clarifications and G1 promotion gate](../handoffs/2026-10-24-history-readiness-g1-authorization.md).
 [Assignment and feasibility acceptance](../handoffs/2026-10-23-disk-history-final-feasibility-review.md),
 [ADR-0023](../adr/0023-document-transaction-history.md),
@@ -10,12 +11,17 @@ G2–G7 remain deferred; production Undo/Redo is not authorized.**
 [native APFS evidence](../handoffs/2026-10-23-macos-history-association-validation.md).
 
 [G1 implementation, exact experimental boundary and validation](../handoffs/2026-10-24-historical-native-save-g1.md).
-Ordinary `Document::export_document` remains on full-ledger transfer. The explicit
-feature-only `export_historical_document` is used only by the research association.
-The G1 tests do not constitute ordinary Save promotion.
+[Ordinary Save promotion](../handoffs/2026-10-24-historical-save-g1-promotion.md)
+now routes `Document::export_document` directly through validated current-content
+projection in default builds, with no fallback from strict transfer. The separate
+experimental historical exporter was removed; the real Rust session and research
+association call the same ordinary exporter. Generic full-ledger transfer remains
+strict. Windows/Linux full gates pass; fresh source-matched Mac managed/desktop/AOT
+validation is pending before parent G1 closure. No production history integration.
 [Mac evidence reconciliation and three-platform review readiness](../handoffs/2026-10-24-macos-historical-save-g1-validation.md)
 record 207 native cases, 2,652 original-file hashes and matching 168-input source.
-Parent G1 acceptance remains pending.
+Internal G1 acceptance is recorded under the linked review; ordinary Save promotion
+is implemented with final three-platform managed/session/desktop/AOT gates still required.
 
 ## Approved direction and decisions still requiring approval
 
@@ -416,7 +422,7 @@ authorization inferred from this packet.
 | Gate | Bounded deliverable after approval | Acceptance and stop |
 | --- | --- | --- |
 | G0 — approved | Review P1–P9 and adversarial plan | Resolve Save/ledger semantics and policy choices; no runtime edits yet |
-| G1 — internal implementation, three-platform validated; review pending | Native historical projection only, existing WB5 | Positive new historical Save and strict generic-transfer negatives; exact IDs/Redo/L on Windows/Linux/APFS; stop before backend/coordinator |
+| G1 — internal accepted; ordinary Save promoted, final Mac gates pending | One explicit validated native export path for ordinary and historical roots; existing WB5 | Preserve strict generic transfer/IDs/Redo/L; full three-platform Rust/managed/session/desktop/AOT gates; return for G1 closure before G2 |
 | G2 | Experimental typed mutation-local producer | Full-image differential oracle, coupled changes and work/admission counters; stop on incomplete coverage/broad redesign |
 | G3 | Approved indexed-store candidate evaluation | Large-history lookup/startup/tail/cache and real sync/fault evidence; return backend/configuration choice for separate approval |
 | G4 | Durable index/decision publication and independent witness | Child restart at payload/index/root/witness windows; lost ACK/suffix, branch/cursor/ledger and wrong-instance checks; no production integration |
@@ -442,7 +448,8 @@ changed native interaction requires it.
 
 ## Authorization after parent review
 
-G0 is approved and G1's narrow implementation is authorized under the linked review.
+G0 is approved; G1's internal correction is accepted. Its bounded ordinary Save
+promotion is authorized under the linked implementation review.
 Return G1 implementation evidence before seeking any G2 authorization. The concrete
 first correction is a validated WB5 document projection, not a floor workaround.
 Indexed lookup and mutation-local production must precede UI history integration.

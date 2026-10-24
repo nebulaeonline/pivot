@@ -1,8 +1,11 @@
 # ADR-0023: Tiered recoverable document transaction history
 
-Status: **Four-stage research feasibility accepted and closed; production-readiness
-architecture approved with clarifications; G1 native Save correction implemented internally,
-three-platform validation complete; parent review and ordinary Save promotion pending; production history integration gated (2026-10-24)**.
+Status: **Four-stage feasibility accepted/closed; G0 approved; internal G1 correction
+and three-platform evidence accepted. Ordinary Save promotion implemented; Windows/native Linux full gates pass;
+G1 closure pending fresh Mac gates and parent review. G2–G7 and production history integration
+remain gated (2026-10-24)**.
+[Ordinary Save promotion implementation and remaining gates](../handoffs/2026-10-24-historical-save-g1-promotion.md).
+[Internal G1 acceptance and bounded promotion assignment](../handoffs/2026-10-24-historical-save-g1-internal-review.md).
 [Mac validation and G1 review readiness](../handoffs/2026-10-24-macos-historical-save-g1-validation.md).
 [G1 internal implementation and remaining gates](../handoffs/2026-10-24-historical-native-save-g1.md).
 [G0 approval and bounded G1 authorization](../handoffs/2026-10-24-history-readiness-g1-authorization.md).

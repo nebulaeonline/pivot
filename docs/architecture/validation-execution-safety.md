@@ -131,3 +131,24 @@ is reconciled separately from its unchanged local tested snapshot. The parent ac
 evidence and closes the safety gate. These results do not approve unattended guest
 activation. The next authorized deliverable is primarily read-only guest qualification;
 no inspection or activation is claimed here.
+
+Current qualification progress: [capture workflow and blockers](../handoffs/2026-10-24-guest-qualification.md).
+The initial host collector encountered Windows Hyper-V authorization failures;
+later owner-run host and guest receipts are reviewed in the linked workflow.
+No activation approval exists yet. Track Installed, Headless-qualified and
+GUI-isolation-approved independently. Preflight collectors issue no GUI permits.
+
+[Collector preparation is accepted; qualification remains open](../handoffs/2026-10-24-guest-collector-preparation-acceptance.md).
+Existing fields distinguish successful metadata capture from native capability
+candidates and independent approval; reading unsafe settings does not verify safety.
+Owner-confirmed SMB/CIFS exchange shares are Windows guest `J:\coding\pivot` and
+Linux guest `/mnt/j/coding/pivot`, both mapping the host J: root. This is an explicit
+host-folder integration exception, not native storage or clipboard separation.
+Build/run/acquire evidence on guest-local NTFS/Linux disk, hash there, then transfer.
+No automatic share disconnection or extra host redirection is authorized here.
+
+[First x64 guest evidence](../handoffs/2026-10-24-x64-guest-evidence-review.md)
+verifies native Rust/.NET execution on NTFS/ext4 in both guests and 73 returned file
+hashes. Windows metadata follow-up is complete; headless qualification is accepted for both x64 Hyper-V guests. No GUI
+authority or full guest CI acceptance is inferred. The capture's .NET first-run
+certificate side effect is disclosed, with future certificate generation disabled.

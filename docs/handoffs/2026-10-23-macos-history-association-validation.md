@@ -1,7 +1,8 @@
 # Stage 4 native macOS/APFS validation — evidence review
 
 Date: 2026-10-23. **Native ARM64/APFS validation passed on the frozen Stage 4 Rust
-implementation. Complete feasibility acceptance remains with the parent review;
+implementation. [Complete feasibility acceptance](2026-10-23-disk-history-final-feasibility-review.md)
+is now recorded for the tested research scope;
 production history integration and physical power-loss guarantees remain deferred.**
 [Stage 4 review packet](2026-10-23-history-association-stage4.md),
 [original Mac report](../../artifacts/history-stage4/macos-validation-20261023T222012Z/summary.md),

@@ -1,7 +1,13 @@
 # Bounded disk-history feasibility plan
 
-Date: 2026-10-23. **Inventory and Stage 1 cold reconstruction accepted;
-Stage 2 representation feasibility accepted; Stage 3 Windows/Linux process-crash consistency accepted; Stage 4 Windows/Linux/native APFS research validated, complete feasibility review pending. Production integration deferred.**
+Date: 2026-10-23. **Four-stage feasibility accepted and closed. This document retains
+the completed research plan; it is not production implementation authorization.**
+[Final acceptance and production-readiness design gate](../handoffs/2026-10-23-disk-history-final-feasibility-review.md).
+[Production-readiness packet](history-production-readiness.md) is now prepared for
+parent review, starting with historical native Save, then
+durable indexing/verified startup, mutation-local encoding, measured resources,
+filesystem/reclamation/retention contracts and independent three-platform gates.
+Do not implement the historical-Save correction or production coordination yet.
 [Stage 1 acceptance and Stage 2 resource qualifications](../handoffs/2026-10-23-cold-history-stage1-review.md).
 [Stage 1 implementation and executed evidence](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
 [Stage 2 implementation, measurements and qualifications](../handoffs/2026-10-23-history-representation-stage2.md).
@@ -14,8 +20,8 @@ is accepted within its process-crash, filesystem and scaling qualifications.
 [Stage 4 association and retention evidence](../handoffs/2026-10-23-history-association-stage4.md)
 now covers 69 cases each on Windows, Linux and native APFS (207 total).
 [Native Mac evidence review](../handoffs/2026-10-23-macos-history-association-validation.md)
-records verified inputs and APFS-origin hashes. Complete feasibility acceptance
-remains pending; these are tested-case results, not general power-loss guarantees. Production integration is not authorized. The historical native-export
+records verified inputs and APFS-origin hashes. Complete feasibility is now accepted
+within those tested scopes; these are not general power-loss guarantees. Production integration is not authorized. The historical native-export
 limitation and Stage 3 performance/filesystem qualifications remain explicit.
 [Inventory acceptance and cold-restoration gate](../handoffs/2026-10-23-cold-history-inventory-review.md).
 [Inventory, identity-boundary probes and allocation measurements](cold-history-state-inventory.md).

@@ -1,12 +1,15 @@
 # ADR-0023 Stage 4 — workbook/history association feasibility
 
-Date: 2026-10-23. **Windows/Linux/native macOS APFS research validated; complete feasibility review
-pending. No production integration, general filesystem guarantee or verified physical
+Date: 2026-10-23. **Stage 4 and complete four-stage feasibility accepted for the tested
+Windows/Linux/native macOS APFS scope. No production integration, general filesystem guarantee or verified physical
 power-loss durability.**
 [Stage 3 acceptance and Stage 4 safeguards](2026-10-23-history-durability-stage3-review.md),
 [ADR-0023](../adr/0023-document-transaction-history.md),
 [experiment plan](../architecture/disk-history-feasibility-plan.md),
 [native macOS validation and independent evidence review](2026-10-23-macos-history-association-validation.md).
+
+[Final parent acceptance and production-readiness design gate](2026-10-23-disk-history-final-feasibility-review.md).
+The evidence below remains the submitted research record; original manifests are preserved.
 
 ## Result and stop gate
 
@@ -23,7 +26,8 @@ Mac default/all-feature Rust suites pass **347 / 383**. Formatting and strict
 all-target/all-feature Clippy pass on all three. Original native journals, metadata
 and oracles produce **884 hashes per platform, 2,652 total**.
 
-Stop for parent review of the complete feasibility findings. This does not choose
+The parent accepts and closes the complete feasibility investigation. Continue only
+to the separately authorized production-readiness architecture design. This does not choose
 a production database, journal/container, sidecar layout or retention implementation.
 Production history, session RPC, desktop Undo/Redo and Save integration remain deferred.
 

@@ -18,7 +18,18 @@ destination after paste. The unchanged rerun passed; the cause remains unresolve
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **Stage 3 process-crash consistency accepted; Stage 4 Windows/Linux/native APFS association research validated, complete feasibility review pending; production integration deferred**.
+Current workstream: **ADR-0023 four-stage feasibility accepted and closed; production-readiness architecture packet prepared, parent design approval pending; production implementation gated**.
+[Production-readiness design packet and proposed gates](handoffs/2026-10-23-history-production-readiness-design.md).
+Recommend validated current-root WB5 projection with full live/history ledger and
+Redo preserved, atomic durable indexing, mutation-local records and explicit
+witness/resource/reclamation contracts. SQLite is an evaluation candidate only.
+No correction or runtime integration was implemented.
+[Final feasibility acceptance and next design gate](handoffs/2026-10-23-disk-history-final-feasibility-review.md).
+Historical-state native Save is a production integration blocker: the prepared deliverable
+is one architecture packet covering that correction, durable indexing/startup,
+mutation-local encoding, resource/filesystem/reclamation contracts and staged gates.
+Save must preserve Redo. No correction, production coordinator, UI/protocol or container
+implementation is authorized during this design phase.
 [Stage 4 association, save/retention evidence and remaining limits](handoffs/2026-10-23-history-association-stage4.md).
 Windows/Linux/Mac: 69 cases each (207 total), 2,652 original hashes; Rust suites
 346/382, 347/383 and 347/383, with strict lint passing on all three.

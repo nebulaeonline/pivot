@@ -1,7 +1,16 @@
 # ADR-0023: Tiered recoverable document transaction history
 
-Status: **Revised architecture approved with three safeguards; bounded disk-history
-experiment authorized; production integration deferred (2026-10-23)**.
+Status: **Four-stage research feasibility accepted and closed; production-readiness
+architecture packet prepared for review; production implementation remains gated (2026-10-23)**.
+[Production-readiness proposal: decisions P1–P9 and gates G0–G7](../architecture/history-production-readiness.md).
+The proposal recommends a separate validated WB5 projection, not a lower allocation
+floor; generic transfer and Redo remain intact. It is not approved implementation.
+[Final feasibility acceptance and next deliverable](../handoffs/2026-10-23-disk-history-final-feasibility-review.md).
+Historical native Save is a mandatory design gate: preserve lifetime floors and
+Redo, compare content/ledger separation with a validated export projection, and
+return a concrete recommendation/test plan before correction. One readiness packet
+must also cover durable indexing/startup, mutation-local records, resources,
+filesystem/retention/reclamation contracts and staged three-platform acceptance.
 [Architecture approval and experiment boundary](../handoffs/2026-10-23-tiered-history-design-review.md).
 [Stage-one inventory and identity-boundary findings](../architecture/cold-history-state-inventory.md).
 [Parent inventory acceptance and required next proofs](../handoffs/2026-10-23-cold-history-inventory-review.md).
@@ -28,7 +37,8 @@ is accepted as Windows/Linux process-crash consistency evidence.
 [Stage 3 acceptance and Stage 4 authorization](../handoffs/2026-10-23-history-durability-stage3-review.md)
 require non-destructive recovery and independently verified workbook/history association.
 [Stage 4 Windows/Linux/native APFS association research](../handoffs/2026-10-23-history-association-stage4.md)
-is validated on the three tested native filesystems, awaiting complete feasibility review. This feature-only journal is not production packaging.
+is accepted within the three tested native filesystem scopes; the complete
+feasibility investigation is closed. This feature-only journal is not production packaging.
 Full export/reconstruction and linear disk-ID lookup remain explicit costs. Physical
 power-loss, general filesystem/cross-platform guarantees and production checkpoint
 policy remain unproven. [Mac evidence review](../handoffs/2026-10-23-macos-history-association-validation.md)

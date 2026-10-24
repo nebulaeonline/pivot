@@ -22,30 +22,32 @@ causes remain unresolved and distinct from the older null-destination issue.
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-Current workstream: **ADR-0023 four-stage feasibility accepted and closed; G0 architecture approved with clarifications; G1 internal historical native Save accepted; ordinary Save promotion implemented with Windows/native Linux gates passed; G1 closure pending fresh Mac gates and parent review; G2–G7 and production Undo/Redo gated**.
+Current workstream: **ADR-0023 four-stage feasibility accepted and closed; G0 architecture approved with clarifications; G1 internal historical native Save accepted; ordinary Save promotion implemented and three-platform validated; ready for parent G1 closure review; G2–G7 and production Undo/Redo gated**.
 [Ordinary Save promotion and final validation packet](handoffs/2026-10-24-historical-save-g1-promotion.md).
-[Fresh macOS/APFS full-gate instructions](handoffs/2026-10-24-macos-g1-promotion-instructions.md).
+[Final Mac reconciliation and G1 closure recommendation](handoffs/2026-10-24-macos-g1-promotion-validation.md).
 [Internal acceptance and ordinary Save promotion authorization](handoffs/2026-10-24-historical-save-g1-internal-review.md).
-[G1 internal implementation and remaining promotion gate](handoffs/2026-10-24-historical-native-save-g1.md).
+[Accepted internal G1 implementation](handoffs/2026-10-24-historical-native-save-g1.md).
 [macOS/APFS validation and independent evidence review](handoffs/2026-10-24-macos-historical-save-g1-validation.md).
 [G0 acceptance, G1 authorization and promotion requirements](handoffs/2026-10-24-history-readiness-g1-authorization.md).
-Windows default/all-feature Rust tests: **346/389**; native Linux and Mac: **347/390**
+Accepted internal-correction evidence: Windows default/all-feature Rust tests **346/389**; native Linux and Mac: **347/390**
 each. Strict lint/format pass on all three. Release matrices: **207 cases and 2,652
 original hashes** in total. Mac verification checks 1,097 returned evidence hashes,
 168 inputs and 471 copied source files (470 frozen plus the ignored GPT baseline).
 The parent accepts the internal correction and its three-platform evidence.
 Ordinary Save now uses the validated projection directly in default builds.
-Promotion Windows/Linux full CI, managed/session/IPC, actual managed desktop and
-Native AOT execution pass. Promotion Rust totals: Windows **347/390**, Linux
-**348/391** (default/all-feature); strict all-feature lint and 69 historical native
-cases/884 original hashes per platform pass. Fresh Mac full gates for the **236
-Rust/managed/test/script inputs** are pending; the internal 168-input Mac evidence
-above is not promotion evidence. G1 is not closed; G2–G7 remain deferred.
-Promote one explicit validated export path, without fallback, format/protocol changes
-or capability expansion. Keep generic full-ledger transfer strict. Preserve live Expected,
+Promotion full CI, managed/session/IPC, actual managed desktop and Native AOT
+execution pass on all three platforms. Rust totals: Windows **347/390**, Linux/Mac
+**348/391** each (default/all-feature). Strict lint and **207 historical native
+cases / 2,652 original hashes** pass. Fresh Mac evidence verifies **236 build inputs**,
+474 frozen source files plus the ignored baseline, 1,522 transferred evidence hashes
+and 884 retained native-file hashes. All twelve desktop fields and 24 managed/AOT
+main/peer zero-charge reports pass across the three platforms. Recommend parent
+G1 closure; acceptance remains pending. G2–G7 remain deferred.
+The ordinary path uses one validated export contract without fallback, format/protocol
+changes or capability expansion. Generic full-ledger transfer remains strict. Preserve live Expected,
 ContentStateId, lifetime ledger, runtime IDs, Redo/cursor and calculation captures.
-Ordinary Save promotion is authorized and requires full applicable managed/session/desktop Save/Open
-and actual AOT gates on Windows, native Linux and Mac ARM64/APFS; then parent review.
+Ordinary Save promotion has passed the required managed/session/desktop Save/Open
+and actual AOT gates on Windows, native Linux and Mac ARM64/APFS; parent closure review is next.
 [Production-readiness design packet and proposed gates](handoffs/2026-10-23-history-production-readiness-design.md).
 Recommend validated current-root WB5 projection with full live/history ledger and
 Redo preserved, atomic durable indexing, mutation-local records and explicit

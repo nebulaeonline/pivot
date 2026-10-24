@@ -1,8 +1,9 @@
 # G1 ordinary native Save promotion
 
 Date: 2026-10-24. **Ordinary WB5 export now uses the accepted validated projection.
-Windows/native Linux full gates pass; fresh native Mac ARM64/APFS full
-gates and parent review are required for G1 closure. G2–G7 remain deferred.**
+Windows/native Linux/native Mac full gates pass; parent review is required
+for G1 closure. G2–G7 remain deferred.**
+[Final Mac reconciliation and G1 closure recommendation](2026-10-24-macos-g1-promotion-validation.md).
 [Parent authorization](2026-10-24-historical-save-g1-internal-review.md),
 [accepted internal correction](2026-10-24-historical-native-save-g1.md),
 [ADR-0023](../adr/0023-document-transaction-history.md).
@@ -119,15 +120,28 @@ process termination versus power loss, network-share exclusions and logical
 retirement versus physical reclamation remain qualified as in accepted G1.
 Passing local gates does not establish arbitrary filesystem or device durability.
 
-## Remaining review gate
+## Final three-platform review
 
-[Mac full validation instructions](2026-10-24-macos-g1-promotion-instructions.md)
-require a fresh APFS-native copy, matching all 236 inputs, full CI with desktop,
-all-feature Rust/lint, the native historical matrix, and actual Native AOT
-publish **and execution** of main/peer processes with zero-charge cleanup.
-No new manual UI checklist is required. Original APFS evidence must be hashed
-before copying to a new shared `artifacts/macos-validation-<timestamp>/` report.
+[Mac reconciliation](2026-10-24-macos-g1-promotion-validation.md) verifies the fresh
+native ARM64/APFS full CI, all-feature Rust/lint, historical matrix and actual Native
+AOT main/peer execution against all 236 inputs. Mac totals: **348/391** Rust tests,
+69 native cases/884 hashes, all twelve managed/AOT acceptance fields and eight
+zero-charge main/peer reports. Windows independently checked 1,522 report hashes,
+474 frozen source files plus the ignored GPT baseline, retained native hashes and
+the two actual main WB5 fixtures. Mac had no setup/gate failures or reruns.
 
-After source-matched Mac reconciliation, return final ordinary-path evidence to
-the parent for G1 closure. Do not advance to G2, a storage backend, mutation-local
-producer, protocol revision, history coordinator or desktop Undo/Redo.
+The promoted source has **207 cases and 2,652 original-file hashes** across all
+three platforms, full managed/session/desktop/AOT passes and matched inputs.
+Recommend parent acceptance of promotion and G1 closure, retaining all failure and
+filesystem qualifications above. No closure is inferred from passing tests.
+
+Report: `artifacts/macos-validation-20261024T133957Z/`; independent reconciliation:
+`artifacts/history-save-g1-promotion-macos-review/verification.json`. Original
+promotion and Mac evidence/receipts remain unchanged; the earlier frozen pending-Mac
+receipt records its original preparation point. The 168-input internal-only Mac run
+is not reused as validation of this source. No manual checklist or implementation
+change was required during reconciliation.
+
+Return final ordinary-path evidence for parent G1 closure. Do not advance to G2,
+a storage backend, mutation-local producer, protocol revision, history coordinator
+or desktop Undo/Redo.

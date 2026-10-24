@@ -1,8 +1,9 @@
 # ADR-0023 production-readiness architecture packet
 
 Date: 2026-10-24. **G0 approved; internal G1 correction and three-platform evidence
-accepted. Ordinary Save promotion implemented; Windows/native Linux full gates pass;
-G1 closure pending fresh Mac gates and parent review. G2–G7 remain deferred; production Undo/Redo is not authorized.**
+accepted. Ordinary Save promotion implemented and three-platform full gates pass;
+ready for parent G1 closure review. G2–G7 remain deferred; production Undo/Redo is not authorized.**
+[Final ordinary Save validation and closure recommendation](../handoffs/2026-10-24-macos-g1-promotion-validation.md).
 [Internal G1 acceptance and ordinary Save promotion scope](../handoffs/2026-10-24-historical-save-g1-internal-review.md).
 [Parent approval, clarifications and G1 promotion gate](../handoffs/2026-10-24-history-readiness-g1-authorization.md).
 [Assignment and feasibility acceptance](../handoffs/2026-10-23-disk-history-final-feasibility-review.md),
@@ -16,12 +17,14 @@ now routes `Document::export_document` directly through validated current-conten
 projection in default builds, with no fallback from strict transfer. The separate
 experimental historical exporter was removed; the real Rust session and research
 association call the same ordinary exporter. Generic full-ledger transfer remains
-strict. Windows/Linux full gates pass; fresh source-matched Mac managed/desktop/AOT
-validation is pending before parent G1 closure. No production history integration.
+strict. Windows/Linux/Mac full gates pass with source-matched managed/desktop/AOT
+validation; parent G1 closure review is pending. No production history integration.
 [Mac evidence reconciliation and three-platform review readiness](../handoffs/2026-10-24-macos-historical-save-g1-validation.md)
 record 207 native cases, 2,652 original-file hashes and matching 168-input source.
 Internal G1 acceptance is recorded under the linked review; ordinary Save promotion
-is implemented with final three-platform managed/session/desktop/AOT gates still required.
+is implemented with final three-platform managed/session/desktop/AOT gates passed.
+The final promotion source has 236 matched inputs, 207 native cases and 2,652 hashes;
+the earlier 168-input internal correction remains separately accepted evidence.
 
 ## Approved direction and decisions still requiring approval
 
@@ -422,7 +425,7 @@ authorization inferred from this packet.
 | Gate | Bounded deliverable after approval | Acceptance and stop |
 | --- | --- | --- |
 | G0 — approved | Review P1–P9 and adversarial plan | Resolve Save/ledger semantics and policy choices; no runtime edits yet |
-| G1 — internal accepted; ordinary Save promoted, final Mac gates pending | One explicit validated native export path for ordinary and historical roots; existing WB5 | Preserve strict generic transfer/IDs/Redo/L; full three-platform Rust/managed/session/desktop/AOT gates; return for G1 closure before G2 |
+| G1 — internal accepted; ordinary Save promoted, three-platform validated; closure review pending | One explicit validated native export path for ordinary and historical roots; existing WB5 | Preserve strict generic transfer/IDs/Redo/L; full three-platform Rust/managed/session/desktop/AOT gates; return for G1 closure before G2 |
 | G2 | Experimental typed mutation-local producer | Full-image differential oracle, coupled changes and work/admission counters; stop on incomplete coverage/broad redesign |
 | G3 | Approved indexed-store candidate evaluation | Large-history lookup/startup/tail/cache and real sync/fault evidence; return backend/configuration choice for separate approval |
 | G4 | Durable index/decision publication and independent witness | Child restart at payload/index/root/witness windows; lost ACK/suffix, branch/cursor/ledger and wrong-instance checks; no production integration |

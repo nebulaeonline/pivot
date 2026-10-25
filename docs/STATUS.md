@@ -9,7 +9,9 @@ Both Hyper-V x64 guests are HeadlessQualified following parent acceptance of the
 guests: 13 steps each, Rust 347/348 and nine safety tests each. Review verified
 692 returned hashes, 508 source files/253 inputs and twenty zero-charge fields.
 Full Hyper-V x64 guest headless CI is accepted/closed for both targets. Individual
-GUI-isolation qualification is the next authorized deliverable, not yet started;
+GUI-isolation qualification has partial session evidence for both guests and
+owner-confirmed VMConnect Basic Session. Resource-redirection evidence, Ubuntu
+session correlation and owner-scheduled clipboard checks remain pending;
 GUI isolation remains unapproved**.
 Contributor headless CI remains VM-independent. Local desktop/AOT acceptance needs
 interactive consent; direct self-checks need a live consent permit before Avalonia
@@ -27,6 +29,9 @@ qualification remains pending.
 [Frozen guest-local headless CI instructions](handoffs/2026-10-24-hyperv-headless-ci-instructions.md).
 [Actual Hyper-V guest CI evidence](handoffs/2026-10-24-hyperv-headless-ci-validation.md).
 [Guest CI acceptance and separate GUI-isolation boundary](handoffs/2026-10-24-hyperv-headless-ci-acceptance.md).
+[Per-guest GUI-isolation inspection instructions](handoffs/2026-10-24-hyperv-gui-isolation-qualification.md).
+[First returned GUI-session metadata review](handoffs/2026-10-24-hyperv-gui-session-review.md).
+[Parent acceptance of preliminary session evidence](handoffs/2026-10-24-hyperv-gui-session-acceptance.md).
 [First x64 guest evidence review and follow-up](handoffs/2026-10-24-x64-guest-evidence-review.md)
 retains the Windows Blocked candidate and .NET first-run certificate side effect;
 full guest headless CI now passes as linked above; no GUI acceptance is claimed.

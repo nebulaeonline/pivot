@@ -47,6 +47,17 @@ is accepted/closed with non-GUI tests; positive execution stays hard-disabled.
 [Acceptance and next packet/actual-guest preflight gate](handoffs/2026-10-25-windows-preflight-acceptance.md).
 Frozen packet preparation and non-GUI preflight inside the actual Windows VM are
 authorized; current guest evidence and packet review precede any positive-path enabling.
+[Frozen Windows non-GUI preflight packet and owner command](handoffs/2026-10-25-windows-guest-preflight-packet.md).
+Actual Windows guest preflight passed; its native report was recovered and
+hash-verified without a rerun after a bootstrap parser defect left the first
+export Blocked. Original outcome/packet are preserved. Current boot/session differ
+from the historical clipboard capture; owner CONFIRM and that limitation are
+disclosed for review. Positive GUI remains disabled.
+[Guest preflight results and reconciliation](handoffs/2026-10-25-windows-guest-preflight-results.md).
+[Actual guest preflight accepted/closed; managed packet preparation authorized](handoffs/2026-10-25-windows-guest-preflight-acceptance.md).
+Next: corrected-exporter managed-only packet/enabling diff and negative tests,
+with positive execution still disabled. A fresh explicitly authorized Windows
+clipboard check is required after the observed boot/session change before approval.
 [First x64 guest evidence review and follow-up](handoffs/2026-10-24-x64-guest-evidence-review.md)
 retains the Windows Blocked candidate and .NET first-run certificate side effect;
 full guest headless CI now passes as linked above; no GUI acceptance is claimed.

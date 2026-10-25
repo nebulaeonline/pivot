@@ -1,5 +1,14 @@
 # Validation execution safety — first implementation gate
 
+Current follow-through (2026-10-25): both Hyper-V x64 headless gates are closed;
+owner-attested observed isolation is accepted for bounded activation design.
+[Decision](../handoffs/2026-10-25-hyperv-isolation-acceptance.md),
+[activation proposal](guest-gui-activation.md). Unattended operational authority
+remains disabled. Qualification-pending statements below retain earlier gate context.
+The [subsequent parent review](../handoffs/2026-10-25-attended-guest-preflight-direction.md)
+narrows current work to Windows attended preflight using the existing broker.
+A second guest authorization protocol and supervision remain deferred.
+
 2026-10-24. **First execution-safety milestone accepted and closed.**
 [Acceptance and qualification boundary](../handoffs/2026-10-24-execution-safety-acceptance.md).
 This milestone implements local safety only; guest approval,

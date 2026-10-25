@@ -38,6 +38,10 @@ qualification remains pending.
 [Parent acceptance of preliminary session evidence](handoffs/2026-10-24-hyperv-gui-session-acceptance.md).
 [Owner clipboard results and per-guest qualification review packet](handoffs/2026-10-24-hyperv-gui-isolation-results.md).
 [Observed isolation acceptance and gated activation-design scope](handoffs/2026-10-25-hyperv-isolation-acceptance.md).
+[Parent scope reduction: Windows attended preflight](handoffs/2026-10-25-attended-guest-preflight-direction.md)
+authorizes bounded implementation and non-GUI tests using existing interactive
+consent, then parent review before positive GUI execution. The second capability
+protocol/revocation design is deferred; no unattended authority is enabled.
 [First x64 guest evidence review and follow-up](handoffs/2026-10-24-x64-guest-evidence-review.md)
 retains the Windows Blocked candidate and .NET first-run certificate side effect;
 full guest headless CI now passes as linked above; no GUI acceptance is claimed.

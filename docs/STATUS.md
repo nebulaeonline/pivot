@@ -25,6 +25,18 @@ diagnostic change and added test. No positive confirmation execution authorized.
 Correction gate is closed. One managed confirmation is now authorized after final
 candidate verification under unchanged guest conditions; not yet executed. First
 run remains Blocked/2 and Native AOT remains separately gated.
+[Final packet verification and one-run confirmation command](handoffs/2026-10-25-windows-managed-confirmation-instructions.md)
+are ready. Exact candidate hashes/delta rechecked without replaying tests; actual
+guest binding is still checked at invocation. Confirmation not yet executed.
+The first confirmation attempt is now Blocked/2 before GUI startup: the exact
+boot timestamp string differs by 1.179 ms while session 1 and WinSta0/Default are
+unchanged. This does not establish a reboot. No retry; the overly precise boot
+binding needs review. Owner-reported blank screens remain undiagnosed.
+[Confirmation timestamp refusal and evidence](handoffs/2026-10-25-windows-confirmation-timestamp-block.md).
+[Parent accepts refusal; bounded read-only boot-identity investigation authorized](handoffs/2026-10-25-boot-identity-investigation-direction.md).
+Investigate documented stable boot measurements and supported comparison semantics;
+no deliberate reboot/settings change or new GUI attempt. Blank-screen reliability
+is separate and unresolved. Return contract/correction evidence for review.
 
 Infrastructure workstream: **optional isolated-validation architecture approved;
 first execution-safety gate accepted/closed; bounded guest qualification in progress.

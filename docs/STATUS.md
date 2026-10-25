@@ -2,6 +2,21 @@
 
 Date: 2026-10-25
 
+[Parent accepts Ubuntu enabled candidate](handoffs/2026-10-25-ubuntu-enabled-candidate-acceptance.md).
+Preparation gate is closed. One owner-attended managed-GUI attempt is authorized
+after final read-only packet/current-context checks, fresh owner CONFIRM and separate
+original live GUI consent. Command preparation is authorized; no positive attempt
+has run. Stop after first outcome, with copy-only transfer recovery and no replay.
+Earlier pending-candidate-review notes below are superseded. Actual GUI acceptance
+remains open; Ubuntu AOT/unattended not approved; G3 held/unstarted.
+
+[Ubuntu enabled candidate ready for parent review](handoffs/2026-10-25-ubuntu-enabled-candidate.md).
+Exact one-line positive-flag delta independently verifies against accepted disabled
+snapshot: same 544 sources/271 inputs/ten payloads. Twenty-six frozen non-GUI checks
+pass on Windows and Linux/WSL. Working-tree gate stays false; no positive command,
+GUI/build or new guest run. Fixed one-run command design is proposed, not issued.
+Separate parent execution approval remains required; G3 held/unstarted.
+
 [Parent accepts Ubuntu disabled operational implementation](handoffs/2026-10-25-ubuntu-disabled-implementation-acceptance.md).
 Implementation/observer correction and actual guest non-GUI validation are closed;
 no repeat needed. Next authorized scope is one immutable enabled candidate with

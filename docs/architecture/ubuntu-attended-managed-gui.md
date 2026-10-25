@@ -1,5 +1,15 @@
 # Ubuntu x64 owner-attended managed GUI preparation
 
+Current direction: [enabled candidate accepted; one attended attempt authorized](../handoffs/2026-10-25-ubuntu-enabled-candidate-acceptance.md)
+after final read-only packet/current-context checks and independent owner/GUI
+consent. Actual GUI qualification remains open. No positive attempt has run;
+working tree stays disabled. Earlier pending-candidate-review text is historical.
+
+Latest preparation: [immutable enabled candidate submitted for review](../handoffs/2026-10-25-ubuntu-enabled-candidate.md),
+with only the reviewed flag line changed from the accepted disabled snapshot and
+26 passing frozen non-GUI checks. This working tree remains disabled. No positive
+owner command has been issued; actual GUI execution requires separate approval.
+
 Current disposition: [corrected disabled implementation and native non-GUI evidence accepted](../handoffs/2026-10-25-ubuntu-disabled-implementation-acceptance.md).
 Next: exact enabled-candidate preparation and refusal checks only. Keep working-tree
 gate false; preserve accepted disabled snapshot. No executable positive owner

@@ -2,13 +2,32 @@
 
 Date: 2026-10-25
 
-Latest infrastructure result: **first attended Windows guest managed run executed.
-Existing UI runner exited 0; main and three peers passed assertions with zero
-charges and session 1. Overall wrapper remains Blocked/2 because peer graphical
-backend fields are missing.** Main backend is Avalonia.Win32.WindowImpl. Source
-and boot/session are unchanged; scoped survivors are empty. Verified 27 outer
-origin hashes and 21 overlapping nested entries. No rerun; return the diagnostic
-gap and proposed live-window capture correction for parent review.
+Latest infrastructure result: **boot-corrected Windows managed confirmation
+executed. Existing UI runner exited 0; main/three peers passed assertions with
+zero charges, session 1 and independently captured Avalonia.Win32.WindowImpl.
+Overall wrapper remains Blocked/2 because one scoped Avalonia build-services
+collector process was present.** Boot/context continuity and source integrity
+verify. Verified 31 outer hashes/25 overlapping nested entries. No retry or kill;
+return cleanup evidence and a proposed wrapper-local telemetry opt-out for review.
+Parent accepts functional/backend/continuity evidence; overall Blocked/2 is retained.
+[Collector investigation and conditional wrapper-only correction authorized](handoffs/2026-10-25-managed-cleanup-investigation-direction.md).
+Next is a non-GUI guest build with scoped PID/start/lifetime observations and
+opt-out evaluation; no new managed confirmation is authorized.
+[Scoped non-GUI collector build experiment](handoffs/2026-10-25-avalonia-collector-build-experiment.md)
+is prepared with five passing plumbing checks and immutable input verification.
+Actual guest build/process evidence is pending; wrapper/environment policy remains
+unchanged outside the experiment. No GUI run or clipboard check is requested.
+[Actual guest build and private wrapper opt-out correction](handoffs/2026-10-25-scoped-avalonia-optout-correction.md)
+are ready for parent review. Guest build is warning-free; 62 process records show
+no collector through a 15.814-second post-build interval, with native/transfer
+hashes verified. Scoped correction and caller-environment restoration tests pass;
+533-source/262-input candidate passes 22 applicable frozen checks. Strict cleanup
+and prior Blocked outcomes remain unchanged; no new GUI run is authorized.
+[Parent closes scoped correction gate and authorizes one new attended confirmation](handoffs/2026-10-25-scoped-optout-acceptance.md).
+Final candidate reconciliation precedes that run; not yet executed. Overall managed
+acceptance remains open for unchanged strict cleanup evidence; Native AOT still gated.
+[Latest confirmation and survivor evidence](handoffs/2026-10-25-boot-corrected-managed-confirmation-results.md).
+The earlier diagnostic-blocked run is retained separately:
 [First managed result and evidence](handoffs/2026-10-25-windows-managed-first-run.md).
 One-run authorization is consumed. Native AOT stays gated, unattended authority
 disabled and G3 held. The following links retain the qualification/approval history.
@@ -61,6 +80,15 @@ complete this implementation packet for parent review: all six samples/24
 comparisons verify, independently recomputed; five helper hashes and native/
 transfer digests match. Session 1/WinSta0/Default and reviewed event anchor hold.
 Max query/cross discrepancies are about 21.6/16.9 ms, within policy. No GUI retry.
+[Parent closes boot-continuity gate and authorizes one new attended managed confirmation](handoffs/2026-10-25-boot-continuity-guard-acceptance.md).
+Final read-only candidate/delta verification precedes the run; not yet executed.
+Native AOT remains gated and prior Blocked outcomes remain original.
+[Final integrity verification and boot-corrected one-run instructions](handoffs/2026-10-25-boot-guard-managed-confirmation-instructions.md)
+are ready. Eleven packet files/533 sources/262 inputs and exact reviewed delta
+verify without rerunning tests. The new attended confirmation has not yet executed;
+current guest continuity and separate owner responses remain runtime requirements.
+That authorization has now been used; the result is the collector-blocked
+confirmation recorded at the top of this status. No additional run is authorized.
 
 Infrastructure workstream: **optional isolated-validation architecture approved;
 first execution-safety gate accepted/closed; bounded guest qualification in progress.

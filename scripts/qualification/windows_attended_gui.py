@@ -143,7 +143,8 @@ def clean_environment(work):
         env[key] = str(target)
     # .NET bin/obj stay in the freshly extracted native source tree.
     env.update(DOTNET_GENERATE_ASPNET_CERTIFICATE='false', DOTNET_CLI_TELEMETRY_OPTOUT='1',
-               DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE='true', RUSTUP_AUTO_INSTALL='0')
+               DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE='true', RUSTUP_AUTO_INSTALL='0',
+               AVALONIA_TELEMETRY_OPTOUT='1')
     return env
 
 

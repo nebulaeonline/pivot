@@ -1,5 +1,8 @@
 # Boot continuity production adapters — guest validation complete
 
+Subsequent [parent acceptance closes this non-GUI gate and authorizes one new attended confirmation after verification](2026-10-25-boot-continuity-guard-acceptance.md).
+The pending-review language below retains the original submission context.
+
 2026-10-25. **All six guest probe samples verify.** Implementation/candidate evidence
 is ready for parent review. No new positive GUI run is authorized or executed.
 [Implementation and candidate](2026-10-25-boot-continuity-guard-implementation.md).

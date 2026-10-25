@@ -182,6 +182,34 @@ class AttendedTests(unittest.TestCase):
             self.assertEqual(env['PIVOT_FILE_TEST_ROOT'], str(Path(tmp)/'fixtures'))
             self.assertEqual(env['DOTNET_GENERATE_ASPNET_CERTIFICATE'], 'false')
 
+    def test_build_optout_is_private_and_reaches_runner_without_granting_consent(self):
+        for parent_value in [None, '0']:
+            with self.subTest(parent_value=parent_value), tempfile.TemporaryDirectory() as tmp, \
+                    patch.dict(os.environ, {}, clear=False), \
+                    patch.object(worker, 'POSITIVE_RUN_APPROVED', True), \
+                    patch.object(worker.runpy, 'run_path') as runner:
+                if parent_value is None: os.environ.pop('AVALONIA_TELEMETRY_OPTOUT', None)
+                else: os.environ['AVALONIA_TELEMETRY_OPTOUT'] = parent_value
+                os.environ['PIVOT_DESKTOP_PERMIT'] = 'inherited-stale-authority'
+                os.environ['PIVOT_UI_SMOKE_REPORT'] = 'stale-activation'
+                parent_environment = dict(os.environ)
+                streams = (sys.stdin, sys.stdout)
+                env = worker.clean_environment(Path(tmp))
+                self.assertEqual(dict(os.environ), parent_environment)
+                self.assertEqual(env['AVALONIA_TELEMETRY_OPTOUT'], '1')
+                self.assertNotIn('PIVOT_DESKTOP_PERMIT', env)
+                self.assertNotIn('PIVOT_UI_SMOKE_REPORT', env)
+                def fixed_runner(*args, **kwargs):
+                    self.assertEqual(os.environ['AVALONIA_TELEMETRY_OPTOUT'], '1')
+                    self.assertNotIn('PIVOT_DESKTOP_PERMIT', os.environ)
+                    self.assertNotIn('PIVOT_UI_SMOKE_REPORT', os.environ)
+                    self.assertEqual((sys.stdin, sys.stdout), streams)
+                    raise SystemExit(2)  # Simulated refusal; never obtain consent or launch GUI.
+                runner.side_effect = fixed_runner
+                self.assertEqual(worker.invoke_managed(Path(tmp), Path(tmp)/'report', env), 2)
+                self.assertEqual(dict(os.environ), parent_environment)
+                self.assertEqual(os.environ.get('AVALONIA_TELEMETRY_OPTOUT'), parent_value)
+
     def test_full_synthetic_preflight_and_refusals_no_children(self):
         for scenario in ['pass', 'decline', 'changed-session', 'bad-receipt', 'bad-input', 'bad-payload', 'changed-helper']:
             with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as tmp:

@@ -71,6 +71,14 @@ not complete hostile-process or system-wide isolation proof.
 
 ## Evidence, failures and gates
 
+Current decision: [prerequisites and enabled packet accepted](../handoffs/2026-10-25-windows-aot-candidate-acceptance.md).
+The parent authorizes one owner-attended Windows x64 positive attempt after final
+verification of the exact accepted packet and current guest conditions. Existing
+CONFIRM and separate interactive GUI consent remain mandatory. Stop after any
+first outcome; no second attempt or packet repair under this authorization.
+Native publish/execution acceptance remains open. The original preparation-stage
+submission language below is historical and superseded by this decision.
+
 `launch_windows_aot.py` verifies a pinned packet, captures Python-level output and
 the exact native report, hashes originals and verifies deliberate report export.
 The original AOT runner also retains native build/publish/desktop logs. No latest-

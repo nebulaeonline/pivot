@@ -2,6 +2,28 @@
 
 Date: 2026-10-25
 
+[Parent accepts Windows AOT prerequisites and enabled packet](handoffs/2026-10-25-windows-aot-candidate-acceptance.md).
+Both preparation gates are closed. One owner-attended Pivot-Win11-x64 Native AOT
+publish-and-execute attempt is authorized after final read-only packet/current
+guest verification, owner CONFIRM and separate original GUI consent. No positive
+attempt has run. Stop after the first outcome and return evidence for final review;
+no automatic retry. Earlier pending-review statements below are superseded.
+Windows managed/headless gates remain closed; G3 held.
+
+[Windows AOT guest prerequisites and enabled candidate](handoffs/2026-10-25-windows-aot-guest-prerequisites-and-candidate.md)
+are ready for parent review. Actual Windows guest prerequisites, source/context
+and returned hashes verify. Candidate preserves 537 sources/265 inputs/15 files
+with only the reviewed AOT false-to-true source change; eleven non-GUI checks pass.
+No publish or GUI execution occurred. Positive AOT command remains withheld pending
+separate parent review. Earlier collector-pending notes below are superseded.
+G3 remains held.
+
+[Windows guest AOT prerequisite collector](handoffs/2026-10-25-windows-aot-prerequisite-collection.md)
+is frozen and ready for one owner-run read-only collection. Three mocked non-GUI
+tests pass; actual guest qualification is pending. No publish or GUI ran. After
+guest evidence, prepare the enabled candidate for separate parent review; no
+positive AOT command is authorized. G3 remains held.
+
 Latest infrastructure result: **scoped-opt-out Windows managed confirmation Passed/0.
 Existing UI runner exited 0; main/three peers passed unchanged assertions with
 zero charges, session 1 and independently captured Avalonia.Win32.WindowImpl.

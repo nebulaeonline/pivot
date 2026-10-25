@@ -134,14 +134,90 @@ def process_ancestry(row,proc):
   parent=ancestor['ppid']
  return ancestry
 
+def process_arguments(folder):
+ return [s.decode('utf-8',errors='strict') for s in (folder/'cmdline').read_bytes().split(b'\0') if s]
+
+def cwd_identity(folder):
+ path=(folder/'cwd').resolve(strict=True);info=(folder/'cwd').stat()
+ return {'path':str(path),'device':info.st_dev,'inode':info.st_ino}
+
+def canonical_managed(argv,cwd,source):
+ """Resolve only the fixed two-argument managed invocation against target cwd."""
+ if len(argv)!=2 or Path(argv[0]).name!='dotnet' or not argv[1].endswith('.dll'):return None
+ cwd=local_tree(cwd)
+ if not cwd.is_dir():raise ValueError('Target cwd unavailable')
+ argument=Path(argv[1]);candidate=argument if argument.is_absolute() else cwd/argument
+ # Reject symlinked ancestors before canonicalization, including source boundaries.
+ local_tree(candidate.parent)
+ resolved=candidate.resolve(strict=True)
+ expected=source/'clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'
+ if resolved!=expected.resolve(strict=True):raise ValueError('Managed DLL outside fixed frozen target')
+ if candidate.is_symlink():raise ValueError('Managed DLL symlink')
+ return str(resolved)
+
+def stable_identity(before,after):
+ keys=['pid','uid','start_ticks','ppid','executable','command','cgroup']
+ if any(before.get(k)!=after.get(k) for k in keys):raise ValueError('Process identity changed during observation (reuse/exec/context)')
+
+def exited_original(folder,before,pidfd):
+ """Only a pinned pidfd exit plus fresh /proc evidence can classify an exit."""
+ import select
+ poll=select.poll();poll.register(pidfd,select.POLLIN)
+ events=poll.poll(0) # observation only; no cleanup wait
+ if not any(flags & select.POLLIN for _,flags in events):return False
+ try:
+  text=(folder/'stat').read_text();fields=text[text.rfind(')')+2:].split()
+  if fields[19]!=before['start_ticks']:raise ValueError('PID reused after pinned process exit')
+  return fields[0] in ['Z','X']
+ except FileNotFoundError:
+  # pidfd establishes original process exit; a second fresh lookup must still be absent.
+  if folder.exists():raise ValueError('PID directory reappeared; exit identity ambiguous')
+  return True
+
+def capture_scoped(folder,work,managed):
+ before=proc_identity(folder.name,folder.parent)
+ if not hasattr(os,'pidfd_open'):raise ValueError('Linux pidfd_open unavailable; cannot pin scoped identity')
+ fd=os.pidfd_open(before['pid'],0)
+ try:
+  stable_identity(before,proc_identity(folder.name,folder.parent))
+  try:
+   row=dict(before);row['argv']=process_arguments(folder)
+   row['cwd_identity']=cwd_identity(folder);row['cwd']=row['cwd_identity']['path']
+   row['ancestry']=process_ancestry(row,folder.parent);row['observer_pid']=os.getpid()
+   if row['uid']!=1000 or not row['cgroup']:raise ValueError('Ambiguous scoped process ownership')
+   if managed:
+    row['managed_dll']=canonical_managed(row['argv'],Path(row['cwd']),work/'source')
+    if not row['managed_dll']:raise ValueError('Managed command changed')
+    environment=dict(part.split(b'=',1) for part in (folder/'environ').read_bytes().split(b'\0') if b'=' in part)
+    row['display']={k:environment.get(k.encode(),b'').decode(errors='replace') for k in DISPLAY_KEYS}
+    row['display_evidence']='direct managed-process environment'
+   else:
+    # Build/runtime children do not execute the graphical backend. Context is
+    # independently bound by UID/cgroup/ancestry and the live wrapper context.
+    if not any(a['pid']==os.getpid() and a['uid']==1000 for a in row['ancestry']):
+     raise ValueError('Scoped actor ancestry does not reach wrapper')
+    row['display_context']={k:os.environ.get(k) for k in DISPLAY_KEYS}
+    row['display_evidence']='non-GUI actor: wrapper context plus direct UID/cgroup/ancestry; environment not read'
+   after=proc_identity(folder.name,folder.parent);stable_identity(before,after)
+   if row['argv']!=process_arguments(folder) or row['cwd_identity']!=cwd_identity(folder):
+    raise ValueError('Target argv/cwd changed during observation')
+   return row,None
+  except OSError as error:
+   if exited_original(folder,before,fd):
+    return None,{'pid':before['pid'],'start_ticks':before['start_ticks'],'status':'Pinned original exited during metadata read',
+                 'error':str(error),'pidfd_exit':True,'substitute_for_runtime_identity':False}
+   raise
+ finally:os.close(fd)
+
 def scoped_snapshot(work,proc=Path('/proc')):
- rows=[];errors=[];outside=[];prefix=str(work)+'/'
+ rows=[];errors=[];outside=[];exits=[];prefix=str(work)+'/'
  try:observer_start=proc_identity(os.getpid(),proc)['start_ticks']
  except (OSError,ValueError,IndexError) as error:
   return {'status':'Blocked','matches':[],'errors':[{'observer_identity':str(error)}],
           'outside_invocation_permission_denials':[],'observed_unix':time.time()}
  for folder in proc.iterdir():
   if not folder.name.isdigit():continue
+  selected=False
   try:
    if folder.stat().st_uid!=os.getuid():continue
    name=(folder/'comm').read_text().strip()
@@ -155,24 +231,31 @@ def scoped_snapshot(work,proc=Path('/proc')):
      'reason':'Preexisting nonactor, readable command has no invocation-root reference; executable permission denial retained',
      'error':str(error)})
     continue
-   if not (executable.startswith(prefix) or (name in ACTORS and str(work) in cmd)):continue
-   row=proc_identity(folder.name,proc)
-   if row['uid']!=1000 or not row['cgroup']:raise ValueError('Ambiguous scoped process ownership')
-   # Include only selected display fields from scoped processes, never arbitrary environments.
-   environment=dict(part.split(b'=',1) for part in (folder/'environ').read_bytes().split(b'\0') if b'=' in part)
-   row['display']={k:environment.get(k.encode(),b'').decode(errors='replace') for k in DISPLAY_KEYS}
-   row['ancestry']=process_ancestry(row,proc);row['observer_pid']=os.getpid()
-   rows.append(row)
-  except FileNotFoundError:continue # exited during snapshot; later required PID correlation still blocks
+   selected=executable.startswith(prefix) or (name in ACTORS and str(work) in cmd)
+   managed=False
+   if Path(executable).name=='dotnet':
+    argv=process_arguments(folder)
+    if len(argv)==2 and argv[1].endswith('Pivot.Desktop.dll'):
+     cwd=Path((folder/'cwd').resolve(strict=True))
+     # Relative fixed runner or absolute peer path must resolve from actual cwd.
+     managed=bool(canonical_managed(argv,cwd,work/'source'));selected=selected or managed
+   if not selected:continue
+   row,exit_record=capture_scoped(folder,work,managed)
+   if row:rows.append(row)
+   if exit_record:exits.append(exit_record)
+  except FileNotFoundError as error:
+   if selected:errors.append({'pid':folder.name,'error':'Selected identity lost before pinned completion: '+str(error)})
+   # No selected identity may be silently converted into a successful observation.
   except (OSError,ValueError,IndexError) as error:errors.append({'pid':folder.name,'error':str(error)})
  return {'status':'Blocked' if errors else 'Verified','matches':rows,'errors':errors,
-  'outside_invocation_permission_denials':outside,'observed_unix':time.time()}
+  'outside_invocation_permission_denials':outside,'exited_during_observation':exits,'observed_unix':time.time()}
 
 class Observer:
- def __init__(self,work):self.work=work;self.stop_event=threading.Event();self.records={};self.errors=[]
+ def __init__(self,work):self.work=work;self.stop_event=threading.Event();self.records={};self.errors=[];self.exits=[]
  def sample(self):
   snapshot=scoped_snapshot(self.work)
   self.errors.extend(snapshot['errors'])
+  self.exits.extend(snapshot.get('exited_during_observation',[]))
   for row in snapshot['matches']:
    key=(row['pid'],row['start_ticks'])
    self.records[key]=row
@@ -193,7 +276,7 @@ def correlate(records,reports,source,display):
   if not row.get('start_ticks') or row['uid']!=1000 or 'user-1000.slice' not in row.get('cgroup','') or not row.get('ppid'):raise ValueError('Ambiguous runtime identity')
   if not any(a['pid']==row.get('observer_pid') and a.get('start_ticks') and a.get('uid')==1000 for a in row.get('ancestry',[])):
    raise ValueError('Application ancestry does not reach wrapper')
-  if 'dotnet' not in Path(row['executable']).name or str(source/'clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll') not in row['command']:raise ValueError('Wrong actual managed executable/command')
+  if Path(row['executable']).name!='dotnet' or row.get('managed_dll')!=str(source/'clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'):raise ValueError('Wrong actual managed executable/canonical DLL')
   if report.get('executable')!=row['executable']:raise ValueError('Report/executable mismatch')
   for key in ['DISPLAY','WAYLAND_DISPLAY','XDG_RUNTIME_DIR']:
    if row['display'].get(key)!=display.get(key):raise ValueError('Runtime display mismatch')
@@ -220,7 +303,7 @@ def execute(source,report,env,baseline,rows):
   try:observer.stop()
   except Exception as error:errors.append('Observer final snapshot failed: '+str(error))
  errors.extend(observer.errors)
- result={'runner_exit_code':code,'source_after':same_source(source,rows),'process_observations':list(observer.records.values()),'evidence_errors':errors}
+ result={'runner_exit_code':code,'source_after':same_source(source,rows),'process_observations':list(observer.records.values()),'exited_during_observation':observer.exits,'evidence_errors':errors}
  try:
   result['continuity_after']=compare_context(baseline,live_context())
   result['survivors']=scoped_snapshot(source.parent)

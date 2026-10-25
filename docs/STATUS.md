@@ -2,6 +2,23 @@
 
 Date: 2026-10-25
 
+[Parent accepts observer correction](handoffs/2026-10-25-ubuntu-observer-correction-acceptance.md).
+Non-GUI correction gate is closed. One newly authorized attended Ubuntu managed-GUI
+confirmation may be prepared after final read-only packet reconciliation, with a
+distinct one-attempt receipt and fresh current-context/owner/GUI consent checks.
+No confirmation has run. First Blocked result and its consumed authority remain
+separate. Overall GUI qualification open; Ubuntu AOT/unattended unapproved;
+G3 held/unstarted. Earlier correction-review-pending notes below are superseded.
+
+[Ubuntu observer correction ready for parent review](handoffs/2026-10-25-ubuntu-observer-cwd-correction.md).
+Actual target-cwd/canonical DLL resolution and bracketed pinned process observation
+address both observer failure modes; build actors retain direct identity/ancestry/
+cgroup and wrapper context without unnecessary display-environment reads. New
+immutable candidate: 545 sources/272 inputs/ten payloads; 37 frozen Linux checks
+pass, Windows 35 pass/two Linux-only skips. Exact observer/test/doc delta verifies.
+No GUI/build/new positive command or guest retry. Original Blocked/2 preserved;
+qualification open, further execution requires parent approval. G3 held/unstarted.
+
 [Parent accepts Ubuntu actual application evidence, retains Blocked/2](handoffs/2026-10-25-ubuntu-first-managed-review.md).
 Functional/backend/zero-charge/WB5/context/final-snapshot evidence is accepted within
 scope; full qualification remains open. Next authorized work is narrowly scoped

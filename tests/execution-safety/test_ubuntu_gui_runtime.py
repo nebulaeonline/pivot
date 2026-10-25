@@ -74,6 +74,7 @@ class RuntimeTests(unittest.TestCase):
   rows=[{'pid':p,'uid':1000,'start_ticks':str(p+100),'ppid':50,'observer_pid':50,
    'ancestry':[{'pid':50,'start_ticks':'1','uid':1000}],'cgroup':'/user-1000.slice/app.scope',
    'executable':'/usr/bin/dotnet','command':str(source/'clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'),
+   'managed_dll':str(source/'clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'),
    'display':display.copy()} for p in range(100,104)]
   rows.extend({'pid':p+1000,'uid':1000,'start_ticks':str(p+200),'ppid':p,
    'executable':str(source.parent/'target/release/pivot-session')} for p in range(100,104))
@@ -119,7 +120,7 @@ class RuntimeTests(unittest.TestCase):
         patch.object(runtime,'same_source',return_value=[]),patch.object(runtime,'Observer') as observer, \
         patch.object(runtime.contract,'invoke_fixed',side_effect=SystemExit(code)), \
         patch.object(runtime,'scoped_snapshot',return_value={'status':'Verified','matches':[{'pid':123}]}):
-    observer.return_value.errors=[];observer.return_value.records={}
+    observer.return_value.errors=[];observer.return_value.records={};observer.return_value.exits=[]
     result=runtime.execute(Path(temp),Path(temp),{},context(),[])
     self.assertEqual(result,1 if code else 2)
     self.assertEqual(runtime.read_json(Path(temp)/'run.json')['status'],'Failed' if code else 'Blocked')

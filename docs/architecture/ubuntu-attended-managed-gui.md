@@ -1,5 +1,35 @@
 # Ubuntu x64 owner-attended managed GUI preparation
 
+Latest decision: [observer correction accepted; one new attended confirmation authorized](../handoffs/2026-10-25-ubuntu-observer-correction-acceptance.md).
+Final exact-packet verification and fresh context/owner/GUI consent remain required.
+Overall GUI qualification is open; no corrected confirmation has run. Keep original
+first Blocked result separate and working-tree gate false. Earlier pending correction
+review statements below retain historical context.
+
+Observer correction proposal after first GUI attempt: fixed two-argument dotnet
+invocations resolve their DLL against actual target `/proc/<pid>/cwd`, with canonical
+fixed-source target and native/symlink checks. Runtime records retain raw argv,
+cwd path/device/inode and canonical managed DLL. Target identity and cwd/argv are
+bracketed across capture; reuse/exec/context/path ambiguity Blocks. Both relative
+main and absolute peer invocation forms are validated without modifying UI runner.
+
+Only actual managed GUI processes require direct selected display-environment
+reads. Non-GUI actors retain direct UID/start/executable/command/cgroup/cwd and
+ancestry to the wrapper plus its independently verified live display context;
+their environments are not read. This is not a process-scope or survivor exemption.
+Rust children still require actual matching parent/PID/start/executable identity.
+The old compiler denial stays unexplained; no claim that it was an exit race.
+
+Scoped captures pin Linux pidfds and bracket process identity. Only pinned original
+exit readiness plus fresh matching zombie/dead or absent /proc evidence can produce
+a retained exit-during-observation event. Reused PID, live unreadability, unknown
+identity or structural validation failure Blocks. These events never substitute
+for full required main/peer records. No cleanup wait or lossless tracing is added.
+Linux documentation describes pidfd polling for exit notification:
+[Linux man-pages, pidfd_open](https://man7.org/linux/man-pages/man2/pidfd_open.2.html).
+Actual pidfd/process adapters are checked non-GUI on Linux; actual GUI correction
+remains unproven pending a separately authorized execution.
+
 Current review: [actual functional/backend evidence accepted; overall Blocked retained](../handoffs/2026-10-25-ubuntu-first-managed-review.md).
 Bounded non-GUI observer correction is authorized for target-cwd-based relative DLL
 resolution and compiler environ-read identity/race classification. Preserve all

@@ -2,13 +2,20 @@
 
 Date: 2026-10-25
 
-Latest infrastructure result: **boot-corrected Windows managed confirmation
-executed. Existing UI runner exited 0; main/three peers passed assertions with
+Latest infrastructure result: **scoped-opt-out Windows managed confirmation Passed/0.
+Existing UI runner exited 0; main/three peers passed unchanged assertions with
 zero charges, session 1 and independently captured Avalonia.Win32.WindowImpl.
-Overall wrapper remains Blocked/2 because one scoped Avalonia build-services
-collector process was present.** Boot/context continuity and source integrity
-verify. Verified 31 outer hashes/25 overlapping nested entries. No retry or kill;
-return cleanup evidence and a proposed wrapper-local telemetry opt-out for review.
+Strict scoped survivor snapshot is empty.** Boot/context continuity and source
+integrity verify, as do 31 outer hashes/25 overlapping nested entries and transfer
+digests. No exclusion, extra cleanup wait, kill or automatic retry. **Parent accepts
+and closes Windows Hyper-V x64 owner-attended managed-GUI qualification.**
+[Final acceptance and bounded Native AOT preparation scope](handoffs/2026-10-25-windows-managed-final-acceptance.md).
+Next authorized work is Windows Native AOT design/non-GUI preparation and a frozen
+disabled packet for review; no positive AOT run or further managed rerun is approved.
+Unattended authority remains disabled; G3 held. Historical pending/open statements
+below retain their original stage context and are superseded by this closure.
+[Successful confirmation and final review packet](handoffs/2026-10-25-windows-managed-confirmation-pass.md).
+The prior collector-blocked run is preserved separately:
 Parent accepts functional/backend/continuity evidence; overall Blocked/2 is retained.
 [Collector investigation and conditional wrapper-only correction authorized](handoffs/2026-10-25-managed-cleanup-investigation-direction.md).
 Next is a non-GUI guest build with scoped PID/start/lifetime observations and
@@ -26,6 +33,12 @@ and prior Blocked outcomes remain unchanged; no new GUI run is authorized.
 [Parent closes scoped correction gate and authorizes one new attended confirmation](handoffs/2026-10-25-scoped-optout-acceptance.md).
 Final candidate reconciliation precedes that run; not yet executed. Overall managed
 acceptance remains open for unchanged strict cleanup evidence; Native AOT still gated.
+[Final scoped-opt-out verification and one-run instructions](handoffs/2026-10-25-scoped-optout-confirmation-instructions.md)
+are ready. Twelve files/533 sources/262 inputs and the exact reviewed delta verify
+without test replay. Current guest conditions and both separate owner responses
+remain runtime requirements; the newly authorized run has not executed yet.
+That new authorization is now consumed by the Passed confirmation recorded at the
+top of this status. No further execution is authorized pending parent acceptance.
 [Latest confirmation and survivor evidence](handoffs/2026-10-25-boot-corrected-managed-confirmation-results.md).
 The earlier diagnostic-blocked run is retained separately:
 [First managed result and evidence](handoffs/2026-10-25-windows-managed-first-run.md).

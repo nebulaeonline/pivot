@@ -1,5 +1,13 @@
 # Validation execution safety — first implementation gate
 
+Latest acceptance (2026-10-25): [Windows Hyper-V x64 owner-attended managed GUI is
+accepted/closed](../handoffs/2026-10-25-windows-managed-final-acceptance.md), alongside
+both x64 full headless gates. Strict cleanup passed without exclusions/waits/kills.
+Next authorization is Windows Native AOT design and non-GUI preparation with a
+disabled packet for review, not positive execution. Ubuntu GUI remains separate;
+unattended initiation stays unapproved and G3 held. Earlier milestone language
+below records the implementation/qualification history rather than current blockers.
+
 Current follow-through (2026-10-25): both Hyper-V x64 headless gates are closed;
 owner-attested observed isolation is accepted for bounded activation design.
 [Decision](../handoffs/2026-10-25-hyperv-isolation-acceptance.md),

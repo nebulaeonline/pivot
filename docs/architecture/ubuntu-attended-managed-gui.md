@@ -1,5 +1,29 @@
 # Ubuntu x64 owner-attended managed GUI preparation
 
+Current decision: [lifecycle correction accepted; one new attended confirmation authorized](../handoffs/2026-10-25-ubuntu-lifecycle-correction-acceptance.md)
+after final exact-packet and fresh context/owner/GUI checks. Third distinct attempt
+receipt is required; no third run has occurred. Overall GUI qualification remains
+open; prior Blocked outcomes and working-tree disabled gate remain unchanged.
+
+Lifecycle correction proposal after second overall Blocked: snapshot now delegates
+each enumerated candidate to one early-pinned observation lifecycle. Only minimal
+UID/start/proc-directory device/inode metadata precedes pin acquisition; it remains
+untrusted until rechecked against the opened pidfd's observation bracket. Selection,
+raw argv, canonical DLL/cwd, initial full identity and post-pin rechecks all execute
+within the outer corroboration handler. Existing scoped capture retains its own
+inner pin/checks. Numeric PID alone is never binding evidence; changed bracket
+tokens remain unresolved. Failure before successful binding is Blocked, not a clean
+exit inferred from ENOENT or ESRCH.
+
+Records distinguish full observation, outside scope, positively corroborated pinned
+exit and unresolved failure. Diagnostic fields retain exact stage/operation, PID,
+known start, scope reason, pin-acquisition/binding and corroboration states, error
+type/errno and corroboration failures. Initial/recheck identity operations identify
+stat/UID/executable/command/cgroup reads. No full environment is retained. Existing
+nonactor permission policy, actor set, 10ms polling, canonical source, cleanup,
+preflight/consent and export semantics are unchanged. No historical PID's exact
+failure site or clean exit is reconstructed from this algorithm change.
+
 Current direction: [second-run runtime correlation accepted; lifecycle investigation authorized](../handoffs/2026-10-25-ubuntu-confirmation-lifecycle-review.md).
 Overall remains Blocked/2. Audit selection/pinning/read-order windows and add precise
 diagnostics with non-GUI regressions; any correction needs a new immutable packet

@@ -106,15 +106,16 @@ def tools(source,env):
   result[name]={'path':str(path),'sha256':sha(path)}
  return result
 
-def proc_identity(pid,proc=Path('/proc')):
- folder=proc/str(pid);text=(folder/'stat').read_text();end=text.rfind(')')
+def proc_identity(pid,proc=Path('/proc'),step=None):
+ def at(name,fn):return step('identity.'+name,fn) if step else fn()
+ folder=proc/str(pid);text=at('stat',lambda:(folder/'stat').read_text());end=text.rfind(')')
  fields=text[end+2:].split()
  if end<0 or len(fields)<20 or not fields[19].isdigit() or int(fields[19])<=0:raise ValueError('Missing process start ticks')
- uid=folder.stat().st_uid
- return {'pid':int(pid),'uid':uid,'start_ticks':fields[19],'ppid':int(fields[1]),
-  'executable':str((folder/'exe').resolve(strict=True)),
-  'command':(folder/'cmdline').read_bytes().replace(b'\0',b' ').decode(errors='replace'),
-  'cgroup':(folder/'cgroup').read_text().strip()}
+ info=at('uid_directory_identity',lambda:folder.stat())
+ return {'pid':int(pid),'uid':info.st_uid,'proc_device':info.st_dev,'proc_inode':info.st_ino,'start_ticks':fields[19],'ppid':int(fields[1]),
+  'executable':at('executable',lambda:str((folder/'exe').resolve(strict=True))),
+  'command':at('command',lambda:(folder/'cmdline').read_bytes().replace(b'\0',b' ').decode(errors='replace')),
+  'cgroup':at('cgroup',lambda:(folder/'cgroup').read_text().strip())}
 
 def preexisting_nonactor(name,command,start_ticks,observer_start,work):
  """Bounded cooperative scope, never an exemption for a runtime/build actor."""
@@ -156,7 +157,7 @@ def canonical_managed(argv,cwd,source):
  return str(resolved)
 
 def stable_identity(before,after):
- keys=['pid','uid','start_ticks','ppid','executable','command','cgroup']
+ keys=['pid','uid','proc_device','proc_inode','start_ticks','ppid','executable','command','cgroup']
  if any(before.get(k)!=after.get(k) for k in keys):raise ValueError('Process identity changed during observation (reuse/exec/context)')
 
 def exited_original(folder,before,pidfd):
@@ -168,27 +169,36 @@ def exited_original(folder,before,pidfd):
  try:
   text=(folder/'stat').read_text();fields=text[text.rfind(')')+2:].split()
   if fields[19]!=before['start_ticks']:raise ValueError('PID reused after pinned process exit')
+  if before.get('proc_inode') is not None:
+   info=folder.stat()
+   if (info.st_dev,info.st_ino)!=(before['proc_device'],before['proc_inode']):raise ValueError('Proc directory identity changed after pinned exit')
   return fields[0] in ['Z','X']
  except FileNotFoundError:
   # pidfd establishes original process exit; a second fresh lookup must still be absent.
   if folder.exists():raise ValueError('PID directory reappeared; exit identity ambiguous')
   return True
 
-def capture_scoped(folder,work,managed):
- before=proc_identity(folder.name,folder.parent)
- if not hasattr(os,'pidfd_open'):raise ValueError('Linux pidfd_open unavailable; cannot pin scoped identity')
- fd=os.pidfd_open(before['pid'],0)
+def capture_scoped(folder,work,managed,step=None):
+ def at(name,fn):return step(name,fn) if step else fn()
+ def identity(label):
+  nested=(lambda name,fn:step(label+'.'+name,fn)) if step else None
+  return proc_identity(folder.name,folder.parent,step=nested)
+ before=at('capture.initial_identity',lambda:identity('capture.initial'))
+ if not callable(getattr(os,'pidfd_open',None)):raise ValueError('Linux pidfd_open unavailable; cannot pin scoped identity')
+ fd=at('capture.pidfd_open',lambda:os.pidfd_open(before['pid'],0))
  try:
-  stable_identity(before,proc_identity(folder.name,folder.parent))
+  initial_after=at('capture.initial_recheck',lambda:identity('capture.initial_recheck'))
+  at('capture.validate_initial_identity',lambda:stable_identity(before,initial_after))
   try:
-   row=dict(before);row['argv']=process_arguments(folder)
-   row['cwd_identity']=cwd_identity(folder);row['cwd']=row['cwd_identity']['path']
-   row['ancestry']=process_ancestry(row,folder.parent);row['observer_pid']=os.getpid()
+   row=dict(before);row['argv']=at('capture.argv',lambda:process_arguments(folder))
+   row['cwd_identity']=at('capture.cwd',lambda:cwd_identity(folder));row['cwd']=row['cwd_identity']['path']
+   row['ancestry']=at('capture.ancestry',lambda:process_ancestry(row,folder.parent));row['observer_pid']=os.getpid()
    if row['uid']!=1000 or not row['cgroup']:raise ValueError('Ambiguous scoped process ownership')
    if managed:
-    row['managed_dll']=canonical_managed(row['argv'],Path(row['cwd']),work/'source')
+    row['managed_dll']=at('capture.canonical_dll',lambda:canonical_managed(row['argv'],Path(row['cwd']),work/'source'))
     if not row['managed_dll']:raise ValueError('Managed command changed')
-    environment=dict(part.split(b'=',1) for part in (folder/'environ').read_bytes().split(b'\0') if b'=' in part)
+    raw=at('capture.display_environment',lambda:(folder/'environ').read_bytes())
+    environment=dict(part.split(b'=',1) for part in raw.split(b'\0') if b'=' in part)
     row['display']={k:environment.get(k.encode(),b'').decode(errors='replace') for k in DISPLAY_KEYS}
     row['display_evidence']='direct managed-process environment'
    else:
@@ -198,16 +208,90 @@ def capture_scoped(folder,work,managed):
      raise ValueError('Scoped actor ancestry does not reach wrapper')
     row['display_context']={k:os.environ.get(k) for k in DISPLAY_KEYS}
     row['display_evidence']='non-GUI actor: wrapper context plus direct UID/cgroup/ancestry; environment not read'
-   after=proc_identity(folder.name,folder.parent);stable_identity(before,after)
-   if row['argv']!=process_arguments(folder) or row['cwd_identity']!=cwd_identity(folder):
+   after=at('capture.post_identity',lambda:identity('capture.post'))
+   at('capture.validate_post_identity',lambda:stable_identity(before,after))
+   if row['argv']!=at('capture.post_argv',lambda:process_arguments(folder)) or row['cwd_identity']!=at('capture.post_cwd',lambda:cwd_identity(folder)):
     raise ValueError('Target argv/cwd changed during observation')
    return row,None
   except OSError as error:
    if exited_original(folder,before,fd):
     return None,{'pid':before['pid'],'start_ticks':before['start_ticks'],'status':'Pinned original exited during metadata read',
+                 'proc_device':before.get('proc_device'),'proc_inode':before.get('proc_inode'),
                  'error':str(error),'pidfd_exit':True,'substitute_for_runtime_identity':False}
    raise
  finally:os.close(fd)
+
+def process_token(folder):
+ """Minimal untrusted identity, bracketed across early pin acquisition."""
+ text=(folder/'stat').read_text();end=text.rfind(')');fields=text[end+2:].split()
+ if end<0 or len(fields)<20 or not fields[19].isdigit() or int(fields[19])<=0:
+  raise ValueError('Missing original start ticks')
+ info=folder.stat()
+ return {'pid':int(folder.name),'uid':info.st_uid,'start_ticks':fields[19],
+         'proc_device':info.st_dev,'proc_inode':info.st_ino}
+
+def observe_candidate(folder,work,observer_start):
+ """Pin before selection. No vulnerable selected read lies outside this lifecycle."""
+ state={'pid':int(folder.name),'start_ticks':None,'scope_reason':'not yet determined',
+        'pidfd_acquired':False,'original_identity_bound':False,'exit_corroborated':False}
+ fd=None;original=None
+ def at(operation,fn):
+  state['operation']=operation
+  state['stage']=operation.split('.',1)[0]
+  return fn()
+ try:
+  original=at('pin.preliminary_stat_uid',lambda:process_token(folder));state['start_ticks']=original['start_ticks']
+  if original['uid']!=os.getuid():return {'kind':'outside','reason':'different UID','pid':original['pid']}
+  if not callable(getattr(os,'pidfd_open',None)):raise ValueError('pidfd_open unavailable')
+  fd=at('pin.pidfd_open',lambda:os.pidfd_open(original['pid'],0));state['pidfd_acquired']=True
+  confirmed=at('pin.original_token_recheck',lambda:process_token(folder))
+  if confirmed!=original:raise ValueError('PID/start/UID changed across pin acquisition')
+  state['original_identity_bound']=True
+  name=at('selection.comm',lambda:(folder/'comm').read_text().strip())
+  cmd=at('selection.command',lambda:(folder/'cmdline').read_bytes().replace(b'\0',b' ').decode(errors='replace'))
+  try:executable=at('selection.executable',lambda:str((folder/'exe').resolve(strict=True)))
+  except PermissionError as error:
+   if not preexisting_nonactor(name,cmd,original['start_ticks'],observer_start,work):raise
+   if at('selection.outside_token_recheck',lambda:process_token(folder))!=original:raise ValueError('Outside-scope identity changed')
+   return {'kind':'outside','pid':original['pid'],'name':name,'start_ticks':original['start_ticks'],
+    'observer_start_ticks':observer_start,'reason':'Preexisting nonactor; no invocation-root command reference',
+    'error':str(error),'error_type':type(error).__name__,'errno':error.errno,'original_identity_bound':True}
+  selected=executable.startswith(str(work)+'/') or (name in ACTORS and str(work) in cmd)
+  state['scope_reason']='private executable or root-referenced actor' if selected else 'selection pending'
+  managed=False
+  if Path(executable).name=='dotnet':
+   argv=at('selection.argv',lambda:process_arguments(folder))
+   if len(argv)==2 and argv[1].endswith('Pivot.Desktop.dll'):
+    cwd=at('selection.cwd',lambda:cwd_identity(folder))
+    managed=bool(at('selection.canonical_dll',lambda:canonical_managed(argv,Path(cwd['path']),work/'source')))
+    selected=selected or managed
+    if managed:state['scope_reason']='fixed canonical managed DLL from actual target cwd'
+  if not selected:
+   if at('selection.outside_token_recheck',lambda:process_token(folder))!=original:raise ValueError('Unselected identity changed')
+   return {'kind':'outside','pid':original['pid'],'start_ticks':original['start_ticks'],'reason':'not in invocation scope','original_identity_bound':True}
+  row,event=capture_scoped(folder,work,managed,step=at)
+  if row:
+   if row['start_ticks']!=original['start_ticks'] or row['uid']!=original['uid']:raise ValueError('Capture differs from early pinned original')
+   if at('capture.final_token_recheck',lambda:process_token(folder))!=original:raise ValueError('Original identity changed after capture')
+   if row['executable']!=executable or row['command']!=cmd:raise ValueError('Selection executable/command changed before full capture')
+   row['observation_lifecycle']=dict(state,stage='complete',operation='verified selection and capture')
+   return {'kind':'observation','record':row}
+  if any(event.get(k)!=original.get(k) for k in ['start_ticks','proc_device','proc_inode']):raise ValueError('Exit event differs from early pinned original')
+  return {'kind':'exit','record':dict(state,**event,exit_corroborated=True)}
+ except (OSError,ValueError,IndexError) as error:
+  diagnostic=dict(state,error=str(error),error_type=type(error).__name__,errno=getattr(error,'errno',None))
+  if fd is not None and state['original_identity_bound'] and isinstance(error,OSError):
+   try:
+    if exited_original(folder,original,fd):
+     diagnostic.update(status='Pinned original exited during observation',pidfd_exit=True,
+                       exit_corroborated=True,substitute_for_runtime_identity=False)
+     return {'kind':'exit','record':diagnostic}
+   except (OSError,ValueError,IndexError) as corroboration:
+    diagnostic['corroboration_error']={'error':str(corroboration),'error_type':type(corroboration).__name__,
+                                      'errno':getattr(corroboration,'errno',None)}
+  return {'kind':'unresolved','record':diagnostic}
+ finally:
+  if fd is not None:os.close(fd)
 
 def scoped_snapshot(work,proc=Path('/proc')):
  rows=[];errors=[];outside=[];exits=[];prefix=str(work)+'/'
@@ -217,36 +301,11 @@ def scoped_snapshot(work,proc=Path('/proc')):
           'outside_invocation_permission_denials':[],'observed_unix':time.time()}
  for folder in proc.iterdir():
   if not folder.name.isdigit():continue
-  selected=False
-  try:
-   if folder.stat().st_uid!=os.getuid():continue
-   name=(folder/'comm').read_text().strip()
-   # Unreadable same-user actors cannot silently escape the scope decision.
-   cmd=(folder/'cmdline').read_bytes().replace(b'\0',b' ').decode(errors='replace')
-   try:executable=str((folder/'exe').resolve(strict=True))
-   except PermissionError as error:
-    text=(folder/'stat').read_text();start=text[text.rfind(')')+2:].split()[19]
-    if not preexisting_nonactor(name,cmd,start,observer_start,work):raise
-    outside.append({'pid':int(folder.name),'name':name,'start_ticks':start,'observer_start_ticks':observer_start,
-     'reason':'Preexisting nonactor, readable command has no invocation-root reference; executable permission denial retained',
-     'error':str(error)})
-    continue
-   selected=executable.startswith(prefix) or (name in ACTORS and str(work) in cmd)
-   managed=False
-   if Path(executable).name=='dotnet':
-    argv=process_arguments(folder)
-    if len(argv)==2 and argv[1].endswith('Pivot.Desktop.dll'):
-     cwd=Path((folder/'cwd').resolve(strict=True))
-     # Relative fixed runner or absolute peer path must resolve from actual cwd.
-     managed=bool(canonical_managed(argv,cwd,work/'source'));selected=selected or managed
-   if not selected:continue
-   row,exit_record=capture_scoped(folder,work,managed)
-   if row:rows.append(row)
-   if exit_record:exits.append(exit_record)
-  except FileNotFoundError as error:
-   if selected:errors.append({'pid':folder.name,'error':'Selected identity lost before pinned completion: '+str(error)})
-   # No selected identity may be silently converted into a successful observation.
-  except (OSError,ValueError,IndexError) as error:errors.append({'pid':folder.name,'error':str(error)})
+  result=observe_candidate(folder,work,observer_start)
+  if result['kind']=='observation':rows.append(result['record'])
+  elif result['kind']=='exit':exits.append(result['record'])
+  elif result['kind']=='unresolved':errors.append(result['record'])
+  elif result.get('error'):outside.append(result)
  return {'status':'Blocked' if errors else 'Verified','matches':rows,'errors':errors,
   'outside_invocation_permission_denials':outside,'exited_during_observation':exits,'observed_unix':time.time()}
 

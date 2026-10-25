@@ -2,6 +2,23 @@
 
 Date: 2026-10-25
 
+[Parent accepts lifecycle correction](handoffs/2026-10-25-ubuntu-lifecycle-correction-acceptance.md).
+Non-GUI gate closed; one new owner-attended Ubuntu managed-GUI confirmation is
+authorized after final exact-packet/live-context verification. Prepare a third,
+distinct attempt receipt and short shared script; fresh CONFIRM/separate GUI consent
+required. No third run has occurred. Preserve both prior Blocked outcomes; no replay.
+Overall GUI open; Ubuntu AOT/unattended unapproved; G3 held/unstarted. Earlier
+pending-correction-review notes below are superseded.
+
+[Ubuntu lifecycle correction ready for review](handoffs/2026-10-25-ubuntu-lifecycle-correction.md).
+Early-pinned outer lifecycle covers selection/cwd/initial/full recheck windows;
+precise stage/operation/identity/errno diagnostics preserve unresolved failures.
+New immutable packet: 546 sources/273 inputs/ten payloads, observer/doc changes
+and one added test file only. All 48 frozen Linux checks pass; Windows 45 passes/
+three Linux-only skips. Real non-GUI Python-child pidfd fixture exercised on WSL.
+Both old Blocked runs preserved; no GUI/build/new positive command. Parent review
+next; no guest action requested. G3 held/unstarted.
+
 [Parent accepts second-run direct identities/application evidence; overall Blocked retained](handoffs/2026-10-25-ubuntu-confirmation-lifecycle-review.md).
 Next authorized scope: bounded non-GUI observer lifecycle/read-order investigation,
 precise failure-stage diagnostics and potential correction with focused tests/new

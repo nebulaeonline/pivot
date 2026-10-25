@@ -5,6 +5,21 @@ VMConnect Basic Session. [Evidence review and remaining gaps](2026-10-24-hyperv-
 Neither guest is GUI-isolation-approved. Full headless CI remains accepted/closed;
 do not rerun it. G3 remains held. [Authorization and boundaries](2026-10-24-hyperv-headless-ci-acceptance.md).
 
+Initial observations have since received [partial parent acceptance](2026-10-24-hyperv-gui-session-acceptance.md).
+Do not repeat the capture below. To attempt only the missing Ubuntu correlation,
+run this from a terminal in the intended Ubuntu desktop:
+
+```sh
+bash /mnt/j/coding/pivot/scripts/qualification/correlate_linux_gui_session.sh
+```
+
+This queries the caller's logind session and current-user gnome-shell cgroup
+metadata only, with targeted session queries where a desktop scope is found.
+It preserves unresolved fields as Unknown, writes a native-local original and
+hash manifest, then copies and verifies the report on the share. It neither
+enumerates unrelated users nor reads process environments or clipboard data.
+Resource-exposure confirmation remains an owner record, separate from this query.
+
 This packet covers `Pivot-Win11-x64` and `Pivot-Ubuntu-x64` separately. It introduces
 no collector, remote execution, configuration change or GUI-test permit. The first
 step is inspection only. **Do not perform the clipboard procedure yet.**
@@ -112,6 +127,9 @@ A complete metadata packet is ready for inspection, not approval. Missing fields
 remain blockers; successful headless compilation cannot fill them in.
 
 ## 4. Separate scheduled clipboard step — pending consent
+
+[Concrete owner-run checklist](2026-10-24-hyperv-clipboard-check.md) is prepared;
+it remains pending explicit scheduling/consent and does not authorize execution.
 
 After metadata review, explicitly agree a quiet window with the owner before
 overwriting either clipboard. The [existing bidirectional procedure](2026-10-24-guest-qualification.md#proposed-clipboard-separation-procedure--not-executed)

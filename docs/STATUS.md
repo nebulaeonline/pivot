@@ -10,9 +10,13 @@ guests: 13 steps each, Rust 347/348 and nine safety tests each. Review verified
 692 returned hashes, 508 source files/253 inputs and twenty zero-charge fields.
 Full Hyper-V x64 guest headless CI is accepted/closed for both targets. Individual
 GUI-isolation qualification has partial session evidence for both guests and
-owner-confirmed VMConnect Basic Session. Resource-redirection evidence, Ubuntu
-session correlation and owner-scheduled clipboard checks remain pending;
-GUI isolation remains unapproved**.
+owner-confirmed VMConnect Basic Session and no other owner-reported connections.
+Ubuntu correlation was attempted with verified transfer hashes; logind session/seat
+remain Unknown. Owner reports no additional resource exposure and successful
+bidirectional clipboard separation for both guests in the consented manual window.
+Parent accepted observed isolation for both guests as sufficient for bounded
+activation design, with identity/timing limitations retained. Operational unattended
+GUI authority remains unapproved and disabled**.
 Contributor headless CI remains VM-independent. Local desktop/AOT acceptance needs
 interactive consent; direct self-checks need a live consent permit before Avalonia
 startup. Unattended isolation remains NotConfigured pending host/guest/sentinel
@@ -32,6 +36,8 @@ qualification remains pending.
 [Per-guest GUI-isolation inspection instructions](handoffs/2026-10-24-hyperv-gui-isolation-qualification.md).
 [First returned GUI-session metadata review](handoffs/2026-10-24-hyperv-gui-session-review.md).
 [Parent acceptance of preliminary session evidence](handoffs/2026-10-24-hyperv-gui-session-acceptance.md).
+[Owner clipboard results and per-guest qualification review packet](handoffs/2026-10-24-hyperv-gui-isolation-results.md).
+[Observed isolation acceptance and gated activation-design scope](handoffs/2026-10-25-hyperv-isolation-acceptance.md).
 [First x64 guest evidence review and follow-up](handoffs/2026-10-24-x64-guest-evidence-review.md)
 retains the Windows Blocked candidate and .NET first-run certificate side effect;
 full guest headless CI now passes as linked above; no GUI acceptance is claimed.

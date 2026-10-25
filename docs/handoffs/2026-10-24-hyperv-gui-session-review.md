@@ -41,15 +41,55 @@ returned reports; no recapture of these metadata fields is requested.
 
 ## Remaining qualification work
 
+### Ubuntu correlation follow-up — reviewed
+
+Owner-returned [correlation report](../../artifacts/guest-gui-isolation/Pivot-Ubuntu-x64/gui-correlation-20261025T015904541494478/correlation.txt),
+captured 2026-10-24 21:59:04 -04:00, matches the initial hostname, user and boot
+UUID. Its returned bytes match the native-generated SHA256SUMS entry
+`7581c4ca33ec43f819b8dc37699ce1b57370b93817b3d6a305e2da352c2a57eb`.
+[Verification receipt](../../artifacts/guest-gui-isolation/correlation-review.json).
+This strengthens the follow-up's transfer evidence without altering the initial
+reports or claiming retroactive origin manifests for them.
+
+The terminal lives under user 1000's systemd user service in a ptyxis-spawn scope.
+`loginctl show-session self` reports that the caller belongs to no known session.
+Current-user gnome-shell PID 3718 is under
+`user@1000.service/session.slice/org.gnome.Shell@ubuntu.service`, without a
+`session-*.scope` from which to derive a logind session. This explains why this
+narrow correlation attempt did not resolve session/seat. Both remain **Unknown**;
+no failed desktop/product test or absent graphical session is inferred.
+
+The parent explicitly permits Unknown when correlation cannot be established
+confidently. This bounded attempt is complete; no additional capture or broader
+session enumeration is requested. Return the limitation for review alongside the
+remaining resource-exposure record. Clipboard testing remains NotExecuted.
+
+Owner follow-up (2026-10-24): “No. No other connections other than through the
+session manager.” In the context of the earlier VMConnect Basic Session
+confirmation, this establishes owner-reported absence of other active graphical
+connections for both guests. It is not an independently inspected settings claim.
+The reply does not explicitly establish clipboard-history synchronization,
+additional filesystem exposure or redirected-device settings; those remain
+Unknown rather than being inferred disabled.
+
+Subsequent owner response resolves that owner-record question: asked about
+clipboard/history synchronization, shares beyond J: or /mnt/j and redirected
+printers/USB/smart cards for both VMs, the owner answered “none.” Record these as
+none owner-reported, not independently audited settings. The owner also explicitly
+consented to replacing host/guest clipboards now for the manual sentinel procedure.
+This consent is scoped to that quiet manual test window, not unattended GUI
+execution or future clipboard access. The owner subsequently reported successful
+separation for both guests. [Results and review packet](2026-10-24-hyperv-gui-isolation-results.md)
+supersede the pending-test statements below while preserving the capture history.
+
 Basic Session is now owner-confirmed for both guests. Actual resource exposure
 still needs an owner record: clipboard/history synchronization, any other active
 remote clients, redirected drives/devices and host filesystem access beyond the
 explicit J: or /mnt/j exchange. Unknown settings remain Unknown; enabled Hyper-V
 integration services alone cannot answer these questions.
 
-Ubuntu still needs its intended graphical session correlated to a logind
-session/seat if available, without inspecting unrelated users or dumping a full
-environment. No requirement to transcribe output manually is imposed.
+Ubuntu's attempted logind correlation is recorded above with session/seat Unknown.
+No requirement to transcribe output manually is imposed.
 
 After metadata review, the harmless bidirectional sentinel check requires a
 separately agreed quiet window and explicit consent to overwrite clipboards.

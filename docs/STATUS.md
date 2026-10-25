@@ -2,6 +2,29 @@
 
 Date: 2026-10-25
 
+[Parent accepts second-run direct identities/application evidence; overall Blocked retained](handoffs/2026-10-25-ubuntu-confirmation-lifecycle-review.md).
+Next authorized scope: bounded non-GUI observer lifecycle/read-order investigation,
+precise failure-stage diagnostics and potential correction with focused tests/new
+immutable packet. Both Ubuntu GUI authorizations consumed; no new positive command
+or execution. Preserve four original disappearance errors and both Blocked outcomes.
+Earlier confirmation-review-pending notes superseded. G3 held/unstarted.
+
+[Ubuntu corrected confirmation: overall Blocked/2](handoffs/2026-10-25-ubuntu-observer-confirmation-result.md).
+Original runner exit0 and full runtime identity correlation now verify, including
+direct main/three peers/canonical DLL/cwd and matching Rust children. Four X11/
+zero-charge reports, WB5/source/context integrity and empty final scope pass.
+Four unresolved observation disappearances remain; 90 records/three corroborated
+exit events do not erase them. Thirty capture/28 overlapping nested hashes verify.
+New authority consumed; no retry or code repair. Parent direction next; earlier
+confirmation-pending notes superseded. Qualification open; G3 held/unstarted.
+
+[New Ubuntu observer-corrected confirmation prepared](handoffs/2026-10-25-ubuntu-observer-attended-confirmation.md).
+Final read-only candidate integrity/delta checks pass. New short shared script uses
+fresh native ext4 import and a distinct exclusive attempt receipt; first attempt
+and evidence remain untouched. Fresh current-context, owner CONFIRM and separate
+GUI consent remain required. Confirmation pending; no GUI/build ran in preparation.
+Stop after first outcome; no replay. G3 held/unstarted.
+
 [Parent accepts observer correction](handoffs/2026-10-25-ubuntu-observer-correction-acceptance.md).
 Non-GUI correction gate is closed. One newly authorized attended Ubuntu managed-GUI
 confirmation may be prepared after final read-only packet reconciliation, with a

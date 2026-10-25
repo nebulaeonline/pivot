@@ -1,5 +1,17 @@
 # Ubuntu x64 owner-attended managed GUI preparation
 
+Current direction: [second-run runtime correlation accepted; lifecycle investigation authorized](../handoffs/2026-10-25-ubuntu-confirmation-lifecycle-review.md).
+Overall remains Blocked/2. Audit selection/pinning/read-order windows and add precise
+diagnostics with non-GUI regressions; any correction needs a new immutable packet
+and review. No further positive GUI command or execution is authorized. Preserve
+original safeguards, polling/cleanup timing and both consumed attempts.
+
+Latest result: [corrected confirmation overall Blocked/2](../handoffs/2026-10-25-ubuntu-observer-confirmation-result.md).
+Direct main/peer/child identity correlation now verifies alongside application
+success and empty final scope. Four process-read disappearances remain unresolved;
+no reclassification, code repair or replay. Both attempt receipts are consumed.
+Further investigation/correction or execution awaits parent direction.
+
 Latest decision: [observer correction accepted; one new attended confirmation authorized](../handoffs/2026-10-25-ubuntu-observer-correction-acceptance.md).
 Final exact-packet verification and fresh context/owner/GUI consent remain required.
 Overall GUI qualification is open; no corrected confirmation has run. Keep original

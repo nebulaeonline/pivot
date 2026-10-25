@@ -42,6 +42,11 @@ qualification remains pending.
 authorizes bounded implementation and non-GUI tests using existing interactive
 consent, then parent review before positive GUI execution. The second capability
 protocol/revocation design is deferred; no unattended authority is enabled.
+[Windows attended preflight implementation](handoffs/2026-10-25-windows-attended-preflight-implementation.md)
+is accepted/closed with non-GUI tests; positive execution stays hard-disabled.
+[Acceptance and next packet/actual-guest preflight gate](handoffs/2026-10-25-windows-preflight-acceptance.md).
+Frozen packet preparation and non-GUI preflight inside the actual Windows VM are
+authorized; current guest evidence and packet review precede any positive-path enabling.
 [First x64 guest evidence review and follow-up](handoffs/2026-10-24-x64-guest-evidence-review.md)
 retains the Windows Blocked candidate and .NET first-run certificate side effect;
 full guest headless CI now passes as linked above; no GUI acceptance is claimed.

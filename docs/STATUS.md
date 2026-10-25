@@ -2,6 +2,31 @@
 
 Date: 2026-10-25
 
+[Parent accepts and closes Windows x64 Native AOT](handoffs/2026-10-25-windows-native-aot-acceptance.md).
+Windows x64 headless, attended managed GUI and attended Native AOT gates are all
+accepted/closed. Preserve unresolved nonblocking publish diagnostics; no rerun.
+Next authorized scope is Ubuntu x64 non-GUI session/seat inspection, fixed managed
+runner design, refusal tests and an immutable disabled packet for review. No Ubuntu
+GUI/AOT activation is authorized. Long Ubuntu commands must be shared-storage
+scripts with short launch instructions. Earlier pending acceptance notes below
+are superseded. G3 remains held.
+
+[Windows x64 Native AOT attempt completed Passed/0](handoffs/2026-10-25-windows-native-aot-result.md),
+independently reconciled and ready for final parent acceptance. Real warning-free
+publish, native main/three peers, four backend/session/zero-charge identities,
+WB5/source integrity, boot continuity and empty strict survivor snapshot verify.
+Fifty outer/44 overlapping nested hashes and transfer digests match. Publish log
+retains unexplained command-line-length/syntax diagnostics despite exit 0 and
+successful native generation/execution; handoff flags these explicitly.
+One-attempt authorization consumed; no retry. Earlier execution-pending notes below
+are superseded. Windows managed/headless closed; G3 held.
+
+[One attended Windows Native AOT attempt](handoffs/2026-10-25-windows-aot-attended-attempt.md)
+is prepared. Final read-only reconciliation passes against the exact accepted
+packet; the fixed owner command retains current-condition CONFIRM, original
+separate GUI consent and a local accidental-replay guard. Execution is pending;
+no native publish or GUI ran during preparation. Stop after the first outcome.
+
 [Parent accepts Windows AOT prerequisites and enabled packet](handoffs/2026-10-25-windows-aot-candidate-acceptance.md).
 Both preparation gates are closed. One owner-attended Pivot-Win11-x64 Native AOT
 publish-and-execute attempt is authorized after final read-only packet/current

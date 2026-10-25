@@ -71,6 +71,19 @@ not complete hostile-process or system-wide isolation proof.
 
 ## Evidence, failures and gates
 
+Current disposition: [Windows x64 Native AOT accepted and closed](../handoffs/2026-10-25-windows-native-aot-acceptance.md).
+Retain the unresolved publish diagnostics as nonblocking; no replay or cleaner-log
+run. Windows headless and managed gates also remain closed. Ubuntu preparation
+only is authorized separately; positive Ubuntu GUI/AOT remains gated. The earlier
+pending-review and execution directions below retain their historical context.
+
+Latest result: [one authorized attempt Passed/0](../handoffs/2026-10-25-windows-native-aot-result.md),
+with real native publish/main/peer execution and independent evidence reconciliation.
+Final parent acceptance remains pending. Publish log contains unexplained
+command-line-length/syntax diagnostics despite warning-free exit 0 and successful
+native execution; preserve this caveat. One-attempt authority is consumed.
+No further run is authorized by the historical preparation direction below.
+
 Current decision: [prerequisites and enabled packet accepted](../handoffs/2026-10-25-windows-aot-candidate-acceptance.md).
 The parent authorizes one owner-attended Windows x64 positive attempt after final
 verification of the exact accepted packet and current guest conditions. Existing

@@ -4,6 +4,11 @@
 Full Pivot guest CI has not been executed or accepted. GUI isolation is not
 approved. Active workstream remains infrastructure; **G3 stays held and unstarted**.
 
+Execution follow-through: [actual source-matched guest CI evidence](2026-10-24-hyperv-headless-ci-validation.md)
+now records both x64 guests passing all 13 headless steps. Its parent acceptance
+remains pending. The unexecuted status above describes this original qualification
+decision, not the later execution result; no historical receipts were regenerated.
+
 Source: owner-supplied parent review attachment
 `119a73fb-43da-4570-8aac-97b82b8a1817/Pasted text.txt`.
 [Guest evidence review](2026-10-24-x64-guest-evidence-review.md),

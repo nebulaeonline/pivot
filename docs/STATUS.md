@@ -5,7 +5,11 @@ Date: 2026-10-24
 Infrastructure workstream: **optional isolated-validation architecture approved;
 first execution-safety gate accepted/closed; bounded guest qualification in progress.
 Both Hyper-V x64 guests are HeadlessQualified following parent acceptance of the
-73-hash/native-probe packet. Full Pivot guest CI is authorized but not started;
+73-hash/native-probe packet. Full Pivot headless CI passed in both qualified x64
+guests: 13 steps each, Rust 347/348 and nine safety tests each. Review verified
+692 returned hashes, 508 source files/253 inputs and twenty zero-charge fields.
+Full Hyper-V x64 guest headless CI is accepted/closed for both targets. Individual
+GUI-isolation qualification is the next authorized deliverable, not yet started;
 GUI isolation remains unapproved**.
 Contributor headless CI remains VM-independent. Local desktop/AOT acceptance needs
 interactive consent; direct self-checks need a live consent permit before Avalonia
@@ -20,9 +24,12 @@ Installed, headless-qualified and GUI-isolation-approved are independent; no gue
 is GUI-approved. Both Hyper-V x64 guests are now headless-qualified; UTM ARM64
 qualification remains pending.
 [Headless qualification acceptance and next CI boundary](handoffs/2026-10-24-x64-headless-qualification-acceptance.md).
+[Frozen guest-local headless CI instructions](handoffs/2026-10-24-hyperv-headless-ci-instructions.md).
+[Actual Hyper-V guest CI evidence](handoffs/2026-10-24-hyperv-headless-ci-validation.md).
+[Guest CI acceptance and separate GUI-isolation boundary](handoffs/2026-10-24-hyperv-headless-ci-acceptance.md).
 [First x64 guest evidence review and follow-up](handoffs/2026-10-24-x64-guest-evidence-review.md)
 retains the Windows Blocked candidate and .NET first-run certificate side effect;
-no full guest Pivot CI or GUI acceptance is claimed.
+full guest headless CI now passes as linked above; no GUI acceptance is claimed.
 [Contributor testing](testing.md), [policy and transitive audit](architecture/validation-execution-safety.md).
 [Safety acceptance and next qualification boundary](handoffs/2026-10-24-execution-safety-acceptance.md).
 [Implementation and safety evidence](handoffs/2026-10-24-execution-safety.md).

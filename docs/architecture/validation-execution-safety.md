@@ -152,3 +152,10 @@ verifies native Rust/.NET execution on NTFS/ext4 in both guests and 73 returned 
 hashes. Windows metadata follow-up is complete; headless qualification is accepted for both x64 Hyper-V guests. No GUI
 authority or full guest CI acceptance is inferred. The capture's .NET first-run
 certificate side effect is disclosed, with future certificate generation disabled.
+
+The [full Hyper-V guest headless CI packet](../handoffs/2026-10-24-hyperv-headless-ci-validation.md)
+now records genuine source-matched execution in both qualified x64 guests, with
+13 steps and nine safety tests each, 692 independently verified report hashes and
+twenty zero-charge fields. Parent acceptance closes both full x64 headless CI gates. Actual
+GUI connection/redirection and clipboard-separation evidence is still absent;
+headless success grants no unattended GUI authority.

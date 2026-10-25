@@ -53,8 +53,8 @@ isolation review; it does not authorize other host drive/folder/device redirecti
 
 | VM | Installed | Headless qualification | GUI isolation |
 | --- | --- | --- | --- |
-| Hyper-V `Pivot-Win11-x64` | Verified by corrected owner host receipt | HeadlessQualified; native probes, Python x64 and Hostx64/x64 accepted; Pivot CI not yet run | Not approved |
-| Hyper-V `Pivot-Ubuntu-x64` | Verified by corrected owner host receipt | HeadlessQualified; native probe/capability evidence accepted; Pivot CI not yet run | Not approved |
+| Hyper-V `Pivot-Win11-x64` | Verified by corrected owner host receipt | HeadlessQualified; full headless CI Passed and accepted/closed | Not approved |
+| Hyper-V `Pivot-Ubuntu-x64` | Verified by corrected owner host receipt | HeadlessQualified; full headless CI Passed and accepted/closed | Not approved |
 | UTM `Pivot-Ubuntu-arm64` | Owner-reported | Separate guest/host evidence pending | Not approved |
 | UTM `Pivot-Win11-arm64` | Owner-reported, optional | Deferred | Not approved |
 
@@ -237,7 +237,9 @@ Linux-only skip; WSL five passing checks. These synthesize PE/ELF files and tool
 filesystem outcomes; they do not inspect guests or rerun completed product gates.
 PowerShell syntax is checked. Real x64 host/guest receipts are now reviewed, but
 the Windows follow-up and x64 headless qualification are accepted; GUI isolation
-remains unapproved. Full Pivot guest CI is the next authorized gate. Later correction tests are recorded separately
+remains unapproved. Full Pivot headless CI has since passed and been accepted in both x64 guests;
+individual GUI-isolation qualification is the next priority.
+[Acceptance](2026-10-24-hyperv-headless-ci-acceptance.md). Later correction tests are recorded separately
 from the original synthetic checks and do not rerun accepted product gates.
 
 Return the actual evidence and missing prerequisites for parent review. Stop before

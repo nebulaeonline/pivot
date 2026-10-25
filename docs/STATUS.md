@@ -58,6 +58,14 @@ disclosed for review. Positive GUI remains disabled.
 Next: corrected-exporter managed-only packet/enabling diff and negative tests,
 with positive execution still disabled. A fresh explicitly authorized Windows
 clipboard check is required after the observed boot/session change before approval.
+[Managed packet preparation and proposed enabling diff](handoffs/2026-10-25-windows-managed-packet-preparation.md)
+now record the fresh Windows owner-reported clipboard pass and unchanged settings,
+disabled fixed managed path, corrected exporter and non-GUI validation. Return for
+parent review; no positive GUI launch or unattended authority.
+[Parent acceptance closes preparation and conditionally authorizes one attended managed run](handoffs/2026-10-25-windows-managed-preparation-acceptance.md).
+Next: new enabled source snapshot/packet, exact hash/delta and negative checks,
+then one owner-initiated run if current guest conditions match. Disabled packet
+remains unchanged; no GUI run has occurred and Native AOT remains separately gated.
 [First x64 guest evidence review and follow-up](handoffs/2026-10-24-x64-guest-evidence-review.md)
 retains the Windows Blocked candidate and .NET first-run certificate side effect;
 full guest headless CI now passes as linked above; no GUI acceptance is claimed.

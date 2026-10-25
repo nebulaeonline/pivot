@@ -181,7 +181,7 @@ public partial class MainWindow
         AutomationImage(Path.ChangeExtension(report,"png"));
         Closed+=(_,_)=>{
             bool pass=session?.FinalCharge==0 && OwnedWindows.Count==0;
-            File.WriteAllText(report,JsonSerializer.Serialize(new PeerReport {status=pass?"passed":"failed",mode=mode,process_id=Environment.ProcessId,rust_process_id=session?.ProcessId,remaining_charge=session?.FinalCharge,path=path,cancel_checked=cancelled,native_received=nativeReceived,dialog_input="programmatic Button.Click routed event",os_keyboard_input=false},ReportJsonContext.Default.PeerReport));
+            File.WriteAllText(report,JsonSerializer.Serialize(new PeerReport {graphical_backend=PlatformImpl?.GetType().FullName,status=pass?"passed":"failed",mode=mode,process_id=Environment.ProcessId,rust_process_id=session?.ProcessId,remaining_charge=session?.FinalCharge,path=path,cancel_checked=cancelled,native_received=nativeReceived,dialog_input="programmatic Button.Click routed event",os_keyboard_input=false},ReportJsonContext.Default.PeerReport));
         };
         Close();
         if(mode!="clean") await ClickCloseChoiceAsync(mode=="clipboard-save"?"Save":"Discard");

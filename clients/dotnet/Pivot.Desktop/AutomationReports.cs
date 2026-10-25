@@ -12,6 +12,8 @@ internal sealed class DesktopReport
     public string status { get; init; } = "";
     public string? error { get; init; }
     public string? backend { get; init; }
+    public string? graphical_backend { get; init; }
+    public int? process_session_id { get; init; } = OperatingSystem.IsWindows() ? System.Diagnostics.Process.GetCurrentProcess().SessionId : null;
     public string execution_mode { get; init; } = RuntimeFeature.IsDynamicCodeSupported ? "managed" : "native-aot";
     public string? executable { get; init; } = Environment.ProcessPath;
     public int process_id { get; init; } = Environment.ProcessId;
@@ -44,6 +46,8 @@ internal sealed class RenderTiming
 }
 internal sealed class PeerReport
 {
+    public string? graphical_backend { get; init; }
+    public int? process_session_id { get; init; } = OperatingSystem.IsWindows() ? System.Diagnostics.Process.GetCurrentProcess().SessionId : null;
     public string status { get; init; } = "";
     public string mode { get; init; } = "";
     public string execution_mode { get; init; } = RuntimeFeature.IsDynamicCodeSupported ? "managed" : "native-aot";

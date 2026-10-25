@@ -1,0 +1,61 @@
+{
+  "targets": {
+    "win-x64": {
+      "transport": "ssh",
+      "host": null,
+      "shell": "powershell",
+      "python": [
+        "python"
+      ],
+      "source_root": "J:/coding/pivot",
+      "label": "Hyper-V Pivot-Win11-x64"
+    },
+    "linux-x64": {
+      "transport": "ssh",
+      "host": null,
+      "python": [
+        "python3"
+      ],
+      "source_root": "/mnt/j/coding/pivot",
+      "label": "Hyper-V Pivot-Ubuntu-x64"
+    },
+    "win-arm64": {
+      "transport": "ssh",
+      "host": null,
+      "shell": "powershell",
+      "python": [
+        "python"
+      ],
+      "source_root": "J:/coding/pivot",
+      "label": "UTM Pivot-Win11-arm64"
+    },
+    "linux-arm64": {
+      "transport": "ssh",
+      "host": null,
+      "python": [
+        "python3"
+      ],
+      "source_root": "/mnt/j/coding/pivot",
+      "label": "UTM Pivot-Ubuntu-arm64"
+    },
+    "osx-arm64": {
+      "transport": "ssh",
+      "host": null,
+      "python": [
+        "python3"
+      ],
+      "source_root": "/Volumes/RobMac/coding/pivot",
+      "label": "Native macOS ARM64"
+    },
+    "osx-x64": {
+      "transport": "ssh",
+      "host": null,
+      "python": [
+        "python3"
+      ],
+      "source_root": "/Volumes/RobMac/coding/pivot",
+      "emulation": "Rosetta x64 Rust/.NET execution with architecture-independent Python",
+      "label": "macOS x64 under Rosetta"
+    }
+  }
+}

@@ -1,5 +1,17 @@
 # Ubuntu x64 owner-attended managed GUI preparation
 
+**Superseded for routine development by the [validation reset](../handoffs/2026-10-25-validation-infrastructure-reset.md).**
+This forensic observer is historical and is not the development acceptance gate.
+Use [unified validation](../validation.md), unchanged functional assertions and
+owned-process cleanup. No fourth forensic confirmation or observer expansion.
+
+Latest execution: [third attempt overall Blocked/2](../handoffs/2026-10-25-ubuntu-third-managed-result.md).
+Application/direct identity and final snapshot succeed, but 121 unresolved
+observations remain, including 108 unbound candidates and a managed environ denial.
+Diagnostics improve visibility without proving clean exits or overall observation
+success. All three authorizations consumed; no replay, code repair or fourth command.
+Further contract/lifecycle investigation awaits parent direction.
+
 Current decision: [lifecycle correction accepted; one new attended confirmation authorized](../handoffs/2026-10-25-ubuntu-lifecycle-correction-acceptance.md)
 after final exact-packet and fresh context/owner/GUI checks. Third distinct attempt
 receipt is required; no third run has occurred. Overall GUI qualification remains

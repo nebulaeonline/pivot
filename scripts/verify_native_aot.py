@@ -19,12 +19,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def host_rid():
-    machine = platform.machine().lower()
-    rid = {('win32', 'amd64'): 'win-x64', ('win32', 'x86_64'): 'win-x64',
-           ('linux', 'x86_64'): 'linux-x64', ('darwin', 'arm64'): 'osx-arm64'}.get((sys.platform, machine))
-    if rid is None:
-        raise RuntimeError(f'Unsupported baseline host: {sys.platform}/{machine}')
-    return rid
+    # Python's architecture is independent of the actual selected .NET host.
+    info = subprocess.check_output(['dotnet', '--info'], text=True)
+    match = re.search(r'^\s*Architecture:\s*(\S+)', info, re.MULTILINE)
+    architecture = match.group(1).lower() if match else None
+    prefix = {'win32': 'win', 'linux': 'linux', 'darwin': 'osx'}.get(sys.platform)
+    if prefix is None or architecture not in ['x64', 'arm64']:
+        raise RuntimeError(f'Unsupported .NET execution host: {sys.platform}/{architecture}')
+    return prefix + '-' + architecture
 
 
 def main():

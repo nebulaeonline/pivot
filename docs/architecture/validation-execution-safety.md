@@ -176,3 +176,12 @@ now records genuine source-matched execution in both qualified x64 guests, with
 twenty zero-charge fields. Parent acceptance closes both full x64 headless CI gates. Actual
 GUI connection/redirection and clipboard-separation evidence is still absent;
 headless success grants no unattended GUI authority.
+# Current development policy
+
+The [2026-10-25 infrastructure reset](../handoffs/2026-10-25-validation-infrastructure-reset.md)
+supersedes the per-run immutable-packet, forensic-observer and one-attempt approval
+requirements documented below. Use the [six-RID development runner](../validation.md),
+ordinary revisions/logs, explicit existing GUI consent and owned-process cleanup.
+Keep historical evidence unchanged. Unrelated /proc churn is not a development gate;
+actual functional/resource/owned-child failures remain failures.
+

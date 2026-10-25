@@ -20,13 +20,14 @@ import uuid
 
 from guest_preflight import filesystem, windows_architectures
 from run_headless_ci import owned_processes, read_json, same_source, sha, unpack_verified, verify_files, write_json
+from windows_boot_continuity import REVIEWED_SAMPLE, capture as capture_boot, compare as compare_boot
 
 VM_ID = 'f89ff908-16dc-44c4-af54-008967e48443'
 ENTRY = 'tests/application-session/ui_smoke.py'
 # Changing this requires parent implementation/profile review and positive-run approval.
 POSITIVE_RUN_APPROVED = False
-MANAGED_REVIEW_BOOT = '2026-10-25T00:37:42.0920420-04:00'
 MANAGED_REVIEW_SESSION = 1
+REVIEWED_FIRMWARE_UUID = 'b439cdc2-ea73-42db-a4c3-825ce132c0c0'
 
 
 def local_tree(path):
@@ -93,11 +94,41 @@ def guest_identity():
     result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', query],
                             capture_output=True, text=True, timeout=30, check=True)
     info = json.loads(result.stdout)
-    if (info.get('manufacturer') != 'Microsoft Corporation' or info.get('model') != 'Virtual Machine'
+    if (not isinstance(info, dict) or info.get('manufacturer') != 'Microsoft Corporation' or info.get('model') != 'Virtual Machine'
             or not info.get('boot') or not info.get('uuid')):
         raise ValueError('Hyper-V guest metadata unavailable or unexpected')
     # Firmware UUID is evidence, not assumed equal to Hyper-V management VM ID.
-    return dict(info, hostname=platform.node(), desktop=desktop_identity())
+    return dict(info, hostname=platform.node(), desktop=desktop_identity(), boot_observation=capture_boot())
+
+
+def execution_context(identity):
+    # Boot strings and changing measurement values are observations, not exact
+    # execution-context fields. All original non-boot identity fields stay exact.
+    return {k: v for k, v in identity.items() if k not in ('boot', 'boot_observation')}
+
+
+def identity_continuity(before, after):
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return {'status': 'Blocked', 'classification': 'continuity-uncertain', 'reason': 'Missing execution identity'}
+    if execution_context(before) != execution_context(after):
+        return {'status': 'Blocked', 'classification': 'execution-identity-mismatch',
+                'reason': 'Guest/user/process/session/desktop changed'}
+    return compare_boot(before.get('boot_observation'), after.get('boot_observation'))
+
+
+def reviewed_identity(identity):
+    if not isinstance(identity, dict) or not isinstance(identity.get('desktop'), dict):
+        return {'status': 'Blocked', 'classification': 'continuity-uncertain', 'reason': 'Malformed execution identity'}
+    desktop = identity.get('desktop', {})
+    if (not isinstance(identity.get('uuid'), str) or identity['uuid'].lower() != REVIEWED_FIRMWARE_UUID
+            or not isinstance(identity.get('hostname'), str) or identity['hostname'].lower() != 'windev2407eval'
+            or not isinstance(desktop.get('user'), str) or desktop['user'].lower() != 'user'
+            or type(desktop.get('session_id')) is not int or desktop['session_id'] != MANAGED_REVIEW_SESSION
+            or desktop.get('window_station') != 'WinSta0'
+            or desktop.get('thread_desktop') != 'Default' or desktop.get('input_desktop') != 'Default'):
+        return {'status': 'Blocked', 'classification': 'reviewed-context-mismatch',
+                'reason': 'Reviewed guest/user/session/desktop binding differs'}
+    return compare_boot(REVIEWED_SAMPLE, identity.get('boot_observation'))
 
 
 def clean_environment(work):
@@ -163,11 +194,11 @@ def execute_managed(source, report, env, rows, identity):
     if not POSITIVE_RUN_APPROVED:
         raise ValueError('Positive managed GUI execution awaits separate parent approval')
     before = guest_identity()
-    if before != identity:
-        raise ValueError('Identity changed before fixed managed invocation')
-    if (before.get('boot') != MANAGED_REVIEW_BOOT
-            or before.get('desktop', {}).get('session_id') != MANAGED_REVIEW_SESSION):
-        raise ValueError('Managed packet boot/session differs from reviewed current Windows evidence')
+    continuity = identity_continuity(identity, before)
+    reviewed = reviewed_identity(before)
+    write_json(report/'managed-identity-before.json', {'guest': before, 'continuity': continuity, 'reviewed': reviewed})
+    if continuity['status'] != 'Verified' or reviewed['status'] != 'Verified':
+        raise ValueError('Managed identity Blocked: '+json.dumps({'continuity': continuity, 'reviewed': reviewed}))
     start = time.time()
     code = invoke_managed(source, report, env)
     result = {'status': 'Passed' if code == 0 else 'Blocked' if code == 2 else 'Failed',
@@ -185,7 +216,10 @@ def execute_managed(source, report, env, rows, identity):
         try: result['application_evidence'] = managed_evidence(report)
         except (OSError, ValueError, KeyError) as error:
             result['evidence_errors'].append(str(error))
-        if (result.get('source_after') or result.get('identity_after') != identity
+        result['identity_continuity_after'] = identity_continuity(identity, result.get('identity_after', {}))
+        result['reviewed_identity_after'] = reviewed_identity(result.get('identity_after', {}))
+        if (result.get('source_after') or result['identity_continuity_after']['status'] != 'Verified'
+                or result['reviewed_identity_after']['status'] != 'Verified'
                 or result.get('survivors', {}).get('status') != 'Verified'
                 or result.get('survivors', {}).get('matches') or result['evidence_errors']):
             result['status'] = 'Blocked'
@@ -216,7 +250,7 @@ def main():
         receipt = read_json(bundle/'bundle-receipt.json')
         verify_files(bundle, receipt['files'])
         # The wrapper and both imported helpers must be covered by the packet.
-        for filename in ['windows_attended_gui.py', 'guest_preflight.py', 'run_headless_ci.py']:
+        for filename in ['windows_attended_gui.py', 'guest_preflight.py', 'run_headless_ci.py', 'windows_boot_continuity.py']:
             if not any(row['path'] == filename for row in receipt['files']):
                 raise ValueError('Helper absent from packet receipt: '+filename)
             if sha(Path(__file__).parent/filename) != sha(bundle/filename):
@@ -227,6 +261,12 @@ def main():
             raise ValueError('Fixed UI entry point absent from build-input manifest')
         work = parent/('attended-'+uuid.uuid4().hex); work.mkdir()
         report = work/'report'; report.mkdir(); source = work/'source'; source.mkdir()
+        print('Native preflight report: '+str(report))
+        write_json(report/'identity-before.json', identity)
+        reviewed = reviewed_identity(identity)
+        write_json(report/'reviewed-continuity-before.json', reviewed)
+        if reviewed['status'] != 'Verified':
+            raise ValueError('Reviewed continuity Blocked: '+json.dumps(reviewed))
         unpack_verified(bundle/'source.zip', source, rows)
         verify_files(source, inputs)
         # No archive-generated links; reject any unexpected reparse point now.
@@ -240,8 +280,12 @@ def main():
         if input('Type CONFIRM to record these current conditions: ').strip() != 'CONFIRM':
             raise ValueError('Owner conditions not confirmed')
         current = guest_identity()
-        if current != identity:
-            raise ValueError('Boot/user/session/desktop changed during preflight')
+        current_continuity = identity_continuity(identity, current)
+        current_reviewed = reviewed_identity(current)
+        write_json(report/'identity-after-confirm.json', {'guest': current,
+                   'continuity': current_continuity, 'reviewed': current_reviewed})
+        if current_continuity['status'] != 'Verified' or current_reviewed['status'] != 'Verified':
+            raise ValueError('Preflight continuity Blocked: '+json.dumps({'continuity': current_continuity, 'reviewed': current_reviewed}))
         result = {'status': 'PreflightPassed', 'GUI_executed': False, 'guest': identity,
                   'owner_host_vm_binding': {'host': 'ROBPC', 'vm_id': VM_ID, 'attested': True},
                   'packet_receipt_sha256': args.receipt_sha256.lower(),
@@ -251,7 +295,6 @@ def main():
                   'positive_execution': 'disabled pending separate review', 'G3': 'held'}
         write_json(report/'preflight.json', result)
         write_json(report/'origin-hashes.json', [{'path': 'preflight.json', 'sha256': sha(report/'preflight.json')}])
-        print('Native preflight report: '+str(report))
         code = execute_managed(source, report, env, rows, identity) if args.run_managed else 0
         # Hash all original evidence after the fixed run or metadata-only preflight.
         write_json(report/'origin-hashes.json', [

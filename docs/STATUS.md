@@ -51,6 +51,16 @@ The 100 ms CIM and two-second elapsed-difference budgets are approved as initial
 Pivot policy, with distinct query-local and cross-observation checks. Next is
 real-adapter non-GUI implementation/validation and a new candidate for review;
 no further positive execution is authorized.
+[Boot guard implementation, immutable candidate and read-only adapter check](handoffs/2026-10-25-boot-continuity-guard-implementation.md)
+are prepared. Eight new comparator tests, thirteen preflight tests, lifecycle
+regression and warning-free build pass; 21 applicable frozen tests verify. Host
+adapters behave as expected; actual guest production-adapter results are pending.
+No new GUI command or positive execution permission.
+[Actual production-adapter guest results](handoffs/2026-10-25-boot-guard-guest-adapter-results.md)
+complete this implementation packet for parent review: all six samples/24
+comparisons verify, independently recomputed; five helper hashes and native/
+transfer digests match. Session 1/WinSta0/Default and reviewed event anchor hold.
+Max query/cross discrepancies are about 21.6/16.9 ms, within policy. No GUI retry.
 
 Infrastructure workstream: **optional isolated-validation architecture approved;
 first execution-safety gate accepted/closed; bounded guest qualification in progress.

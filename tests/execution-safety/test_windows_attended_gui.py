@@ -1,5 +1,6 @@
 """Non-GUI preflight tests. No Pivot window, clipboard access or positive suite."""
 import contextlib
+from copy import deepcopy
 import io
 import json
 import os
@@ -15,6 +16,15 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT/'scripts/qualification'))
 import windows_attended_gui as worker
 import launch_windows_managed as exporter
+
+
+def reviewed_fixture():
+    return {'manufacturer': 'Microsoft Corporation', 'model': 'Virtual Machine',
+            'uuid': worker.REVIEWED_FIRMWARE_UUID, 'hostname': 'WinDev2407Eval',
+            'boot': '2026-10-25T00:37:42.0932210-04:00',
+            'desktop': {'pid': 123, 'user': 'User', 'session_id': 1,
+                        'window_station': 'WinSta0', 'thread_desktop': 'Default', 'input_desktop': 'Default'},
+            'boot_observation': deepcopy(worker.REVIEWED_SAMPLE)}
 
 
 class AttendedTests(unittest.TestCase):
@@ -82,20 +92,20 @@ class AttendedTests(unittest.TestCase):
             root = Path(tmp)
             for code, expected in [(0, 'Passed'), (1, 'Failed'), (2, 'Blocked')]:
                 with self.subTest(code=code), patch.object(worker, 'POSITIVE_RUN_APPROVED', True), \
-                        patch.object(worker, 'guest_identity', return_value={'boot': worker.MANAGED_REVIEW_BOOT, 'desktop': {'session_id': worker.MANAGED_REVIEW_SESSION}}), \
+                        patch.object(worker, 'guest_identity', return_value=reviewed_fixture()), \
                         patch.object(worker, 'invoke_managed', return_value=code), \
                         patch.object(worker, 'same_source', return_value=[]), \
                         patch.object(worker, 'owned_processes', return_value={'status': 'Verified', 'matches': []}), \
                         patch.object(worker, 'managed_evidence', return_value={'application_reports': 4}):
-                    self.assertEqual(worker.execute_managed(root, root, {}, [], {'boot': worker.MANAGED_REVIEW_BOOT, 'desktop': {'session_id': worker.MANAGED_REVIEW_SESSION}}), code)
+                    self.assertEqual(worker.execute_managed(root, root, {}, [], reviewed_fixture()), code)
                     self.assertEqual(worker.read_json(root/'managed-run.json')['status'], expected)
             with patch.object(worker, 'POSITIVE_RUN_APPROVED', True), \
-                    patch.object(worker, 'guest_identity', return_value={'boot': worker.MANAGED_REVIEW_BOOT, 'desktop': {'session_id': worker.MANAGED_REVIEW_SESSION}}), \
+                    patch.object(worker, 'guest_identity', return_value=reviewed_fixture()), \
                     patch.object(worker, 'invoke_managed', return_value=0), \
                     patch.object(worker, 'same_source', return_value=['changed']), \
                     patch.object(worker, 'owned_processes', return_value={'status': 'Verified', 'matches': []}), \
                     patch.object(worker, 'managed_evidence', return_value={}):
-                self.assertEqual(worker.execute_managed(root, root, {}, [], {'boot': worker.MANAGED_REVIEW_BOOT, 'desktop': {'session_id': worker.MANAGED_REVIEW_SESSION}}), 2)
+                self.assertEqual(worker.execute_managed(root, root, {}, [], reviewed_fixture()), 2)
 
     def test_managed_evidence_requires_actual_session_backend_and_zero_charge(self):
         good = {'status': 'passed', 'remaining_charge': 0, 'process_session_id': 1,
@@ -109,12 +119,14 @@ class AttendedTests(unittest.TestCase):
                 worker.managed_evidence(Path('.'))
 
     def test_new_boot_or_session_cannot_reuse_prepared_managed_profile(self):
-        for identity in [{'boot': 'changed', 'desktop': {'session_id': 1}},
-                         {'boot': worker.MANAGED_REVIEW_BOOT, 'desktop': {'session_id': 99}}]:
-            with self.subTest(identity=identity), patch.object(worker, 'POSITIVE_RUN_APPROVED', True), \
+        changed_boot, changed_session = reviewed_fixture(), reviewed_fixture()
+        changed_boot['boot_observation']['measurement']['start_event']['record_id'] += 1
+        changed_session['desktop']['session_id'] = 99
+        for identity in [changed_boot, changed_session]:
+            with tempfile.TemporaryDirectory() as tmp, self.subTest(identity=identity), patch.object(worker, 'POSITIVE_RUN_APPROVED', True), \
                     patch.object(worker, 'guest_identity', return_value=identity), \
                     patch.object(worker, 'invoke_managed') as invoke, self.assertRaises(ValueError):
-                worker.execute_managed(Path('.'), Path('.'), {}, [], identity)
+                worker.execute_managed(Path(tmp), Path(tmp), {}, [], identity)
             invoke.assert_not_called()
 
     def test_wrong_platform_hostname_and_non_hyperv_metadata_refuse(self):
@@ -180,7 +192,7 @@ class AttendedTests(unittest.TestCase):
                     archive.writestr(worker.ENTRY, b'tampered' if scenario == 'bad-payload' else payload)
                 worker.write_json(bundle/'source-manifest.json', rows)
                 worker.write_json(bundle/'build-input-manifest.json', rows if scenario != 'bad-input' else [])
-                for filename in ['windows_attended_gui.py', 'guest_preflight.py', 'run_headless_ci.py']:
+                for filename in ['windows_attended_gui.py', 'guest_preflight.py', 'run_headless_ci.py', 'windows_boot_continuity.py']:
                     shutil.copyfile(ROOT/'scripts/qualification'/filename, bundle/filename)
                 if scenario == 'changed-helper':
                     (bundle/'windows_attended_gui.py').write_text('# differs from executing helper')
@@ -188,7 +200,8 @@ class AttendedTests(unittest.TestCase):
                 worker.write_json(bundle/'bundle-receipt.json', {'files': files})
                 digest = worker.sha(bundle/'bundle-receipt.json') if scenario != 'bad-receipt' else '0'*64
                 argv = ['worker', '--bundle-dir', str(bundle), '--receipt-sha256', digest, '--work-root', str(work)]
-                identities = [{'boot': 'one'}, {'boot': 'two' if scenario == 'changed-session' else 'one'}]
+                identities = [reviewed_fixture(), reviewed_fixture()]
+                if scenario == 'changed-session': identities[1]['desktop']['session_id'] = 2
                 with patch.object(sys, 'argv', argv), \
                         patch.object(sys.stdin, 'isatty', return_value=True), \
                         patch.object(sys.stdout, 'isatty', return_value=True), \

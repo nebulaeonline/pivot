@@ -14,6 +14,15 @@ Next authorized work is Windows Native AOT design/non-GUI preparation and a froz
 disabled packet for review; no positive AOT run or further managed rerun is approved.
 Unattended authority remains disabled; G3 held. Historical pending/open statements
 below retain their original stage context and are superseded by this closure.
+[Windows Native AOT design and disabled preparation packet](handoffs/2026-10-25-windows-native-aot-preparation.md)
+are ready for review. Nine frozen non-GUI checks and a real disabled-positive
+refusal pass; host tool metadata verifies without qualifying the guest. Candidate
+has 537 sources/265 inputs/15 files, all prior source unchanged and AOT flag false.
+No native publish, AOT GUI, managed rerun or full CI repeat occurred.
+[Parent accepts/closes disabled AOT preparation](handoffs/2026-10-25-windows-aot-preparation-acceptance.md).
+Next authorized work is one actual guest prerequisite collector and, after its
+results, an enabled immutable candidate with exact delta/negative checks. Positive
+publish/execution still requires separate review; no positive command authorized.
 [Successful confirmation and final review packet](handoffs/2026-10-25-windows-managed-confirmation-pass.md).
 The prior collector-blocked run is preserved separately:
 Parent accepts functional/backend/continuity evidence; overall Blocked/2 is retained.

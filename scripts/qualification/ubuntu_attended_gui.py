@@ -38,17 +38,27 @@ def session_contract(data):
          'terminal_self_session':properties(logind['queries']['self']).get('Id') if logind['queries']['self'].get('exit_code')==0 else None,
          'activation_approved':False}
 
-def invoke_fixed(source):
+def invoke_fixed(source,output=None,env=None):
  if not POSITIVE_RUN_APPROVED:raise ValueError('Ubuntu positive managed GUI disabled pending review')
  # Future reviewed activation must supply all live preconditions before this call.
- previous=(sys.argv[:],sys.path[:])
+ import os
+ previous=(sys.argv[:],sys.path[:],Path.cwd(),dict(os.environ))
  try:
-  sys.argv=[ENTRY];sys.path.insert(0,str(source/'scripts'))
+  os.chdir(source)
+  if env is not None:os.environ.clear();os.environ.update(env)
+  sys.argv=[ENTRY]+(['--output-dir',str(output)] if output is not None else [])
+  sys.path.insert(0,str(source/'scripts'))
   return runpy.run_path(str(source/ENTRY),run_name='__main__')
- finally:sys.argv[:]=previous[0];sys.path[:]=previous[1]
+ finally:
+  sys.argv[:]=previous[0];sys.path[:]=previous[1];os.chdir(previous[2])
+  os.environ.clear();os.environ.update(previous[3])
 
 def main():
- print('Blocked: Ubuntu GUI activation is disabled; this packet is a contract prototype only.',file=sys.stderr)
- return 2
+ if '--run-managed' in sys.argv and not POSITIVE_RUN_APPROVED:
+  print('Blocked: Ubuntu positive managed GUI disabled pending review.',file=sys.stderr);return 2
+ if len(sys.argv)==1:
+  print('Blocked: fixed packet preflight arguments required.',file=sys.stderr);return 2
+ from ubuntu_gui_runtime import main as runtime_main
+ return runtime_main()
 
 if __name__=='__main__':raise SystemExit(main())

@@ -2,6 +2,39 @@
 
 Date: 2026-10-25
 
+[Parent accepts Ubuntu disabled operational implementation](handoffs/2026-10-25-ubuntu-disabled-implementation-acceptance.md).
+Implementation/observer correction and actual guest non-GUI validation are closed;
+no repeat needed. Next authorized scope is one immutable enabled candidate with
+only reviewed flag/necessary launch-packaging delta and non-GUI refusal checks.
+Working-tree positive path stays disabled. No positive Ubuntu command or GUI/AOT
+execution before separate review. Earlier pending implementation-review notes below
+are superseded. Windows/Ubuntu headless closed; G3 held and unstarted.
+
+[Ubuntu disabled implementation/native results ready for parent review](handoffs/2026-10-25-ubuntu-implementation-review-submission.md).
+Corrected actual guest non-GUI adapters verify; 24 frozen tests pass, seven origin
+hashes and transfer digests match, source unchanged, context verified before/after.
+Snapshot includes checker, not post-GUI survivors; three preexisting nonactor
+permission denials remain explicit. Original Blocked result is preserved. Final
+disabled correction packet: 544 sources/271 inputs/ten payloads. No Ubuntu GUI,
+AOT/build or positive command. Earlier guest-results-pending notes are superseded.
+No further guest run requested; parent implementation review next. G3 held.
+
+[Ubuntu observer scope correction](handoffs/2026-10-25-ubuntu-observer-scope-correction.md):
+first actual adapter run remains Blocked on unrelated preexisting service executable
+permissions and checker ancestry beyond its own root. Guest tests/context/tools
+passed; original hashes verify. A new immutable disabled correction packet and
+24 frozen tests/21 WSL runtime tests pass; corrected Hyper-V adapter evidence is
+pending. No GUI/build/elevation or isolation change. Earlier pending first-run
+notes below retain historical context. Positive gate false; G3 held.
+
+[Ubuntu disabled operational implementation](handoffs/2026-10-25-ubuntu-disabled-implementation.md)
+is frozen: live Linux preflight, scoped process identity/cleanup, fixed original
+runner, terminal recording and native export. Positive flag stays false. Final
+packet has 544 sources/271 inputs/ten payloads; 22 frozen non-GUI host tests and
+19 runtime tests in WSL pass. Actual Hyper-V non-GUI adapter results are pending;
+short shared-script command is provided. No positive GUI/AOT command or execution.
+Earlier prototype-only implementation notes below are superseded; G3 held.
+
 [Parent accepts Ubuntu session evidence and disabled contract](handoffs/2026-10-25-ubuntu-disabled-contract-acceptance.md).
 That preparation gate is closed. Next authorized scope: fixed Linux managed-GUI
 wrapper, live preflight, process observation, native export and non-GUI validation,

@@ -1,5 +1,67 @@
 # Ubuntu x64 owner-attended managed GUI preparation
 
+Current disposition: [corrected disabled implementation and native non-GUI evidence accepted](../handoffs/2026-10-25-ubuntu-disabled-implementation-acceptance.md).
+Next: exact enabled-candidate preparation and refusal checks only. Keep working-tree
+gate false; preserve accepted disabled snapshot. No executable positive owner
+command or Ubuntu GUI/AOT run before separate approval. Historical preparation
+statements below are superseded by this acceptance within its stated scope.
+
+Non-GUI guest correction: the first operational adapter check Blocked on unreadable
+executable links for preexisting user services and on the checker's ancestry walking
+beyond itself. Preserve that result. The revised observer stops ancestry at its
+wrapper root even when the checker itself is selected. It retains permission
+denials separately only when readable command metadata has no fresh work-root
+reference, the name is not a build/runtime actor and valid start ticks strictly
+predate the wrapper. Unreadable actor/root-referenced/new/unknown-start identities
+still Block. No process-name-specific service exception or scoped survivor is
+removed. This is a cooperative invocation boundary, not protection against a
+preexisting same-user adversary changing executable state. Review this precise
+scope correction; it is not a claim that the first Blocked packet passed.
+
+Implementation update: `ubuntu_gui_runtime.py` now supplies fixed packet preflight,
+live Linux context adapters, private ext4 environment, scoped process observation,
+fixed original runner supervision and native hash-verified export. Positive gate
+remains false in `ubuntu_attended_gui.py`. No positive command is issued. New
+implementation packet and actual guest non-GUI checks require parent review before
+enabling; the original prototype snapshot remains unchanged.
+
+`launch_ubuntu_gui.py` is a disabled fixed terminal recorder/bootstrap. It uses
+installed util-linux `script` to retain stdout/stderr from native build children
+while preserving a genuine interactive PTY for original consent. It never supplies
+input or records an input stream. No positive launch command is provided. It
+validates the exact printed native report path, copies verified native reports,
+retains the terminal log and exports a second hash-verified capture. Recorder
+availability is a prerequisite; no installation or fallback is attempted.
+
+The live adapter requires exactly one active own graphical session, user Display
+and active-seat agreement, unchanged reviewed boot UUID and socket owner/device/
+inode. It retains `show-session self` failure without requiring terminal membership.
+Private native roots include bundle extraction. Stable selected SDK10, native x64
+tool images, Rust GNU host and selected X11/font libraries are inspected without
+loading a display. Available libraries do not establish the future backend.
+
+A 10ms cooperative /proc observer records scoped UID/PID/start ticks, executable,
+command, cgroup, ancestry to the wrapper and selected display variables. Missing
+main/peer or Rust-child observation Blocks runtime acceptance. PID reuse with two
+start identities Blocks. This is polling, not lossless kernel tracing; no claim
+that every transient process is observed. The final strict scoped snapshot adds
+no cleanup delay. Observer unreadability/errors cannot pass. Main and peers must
+report managed mode, actual backend, executable and zero charges, and correlate
+with their actual Rust children. Linux report process_session_id may remain null;
+it is not interpreted as a logind ID. No application/report changes were made.
+
+Preflight reads a pinned native packet, verifies full source/input manifests and
+flat helper identities, and asks the owner separately for CONFIRM. Original runner
+receives real streams and performs its own unchanged consent. Positive calls are
+guarded at CLI, supervisor and fixed entry. Failed runner exits remain Failed even
+when subsequent evidence blocks; setup/consent/incomplete success remain Blocked.
+Export retains native originals, copied packet manifests and matching transfer
+digest. Report symlinks are rejected. Copy-only recovery requires no replay.
+
+The earlier prototype proposal below is retained as design history; statements
+about unimplemented runtime safeguards are superseded by this update, subject to
+non-GUI evidence and parent review. Runtime GUI proof remains absent.
+
 Current decision: [session evidence and disabled contract accepted](../handoffs/2026-10-25-ubuntu-disabled-contract-acceptance.md).
 Bounded live-wrapper implementation and non-GUI validation are authorized next;
 positive Ubuntu GUI/AOT remains unapproved. Preserve the accepted prototype snapshot

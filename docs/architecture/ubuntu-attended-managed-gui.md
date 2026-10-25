@@ -1,5 +1,17 @@
 # Ubuntu x64 owner-attended managed GUI preparation
 
+Current review: [actual functional/backend evidence accepted; overall Blocked retained](../handoffs/2026-10-25-ubuntu-first-managed-review.md).
+Bounded non-GUI observer correction is authorized for target-cwd-based relative DLL
+resolution and compiler environ-read identity/race classification. Preserve all
+other accepted safeguards and original snapshots. New candidate review must precede
+any further positive execution; no new command or GUI retry is authorized.
+
+Latest execution: [first attended attempt overall Blocked/2](../handoffs/2026-10-25-ubuntu-first-managed-result.md).
+Real main/three peers pass original UI assertions with X11 backend/zero charges;
+observer environ denial and missing main direct record prevent acceptance. Final
+snapshot is empty, source/context verify. Preserve original evidence; authority
+consumed and no retry authorized. No implementation correction has been made.
+
 Current direction: [enabled candidate accepted; one attended attempt authorized](../handoffs/2026-10-25-ubuntu-enabled-candidate-acceptance.md)
 after final read-only packet/current-context checks and independent owner/GUI
 consent. Actual GUI qualification remains open. No positive attempt has run;

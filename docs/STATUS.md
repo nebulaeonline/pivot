@@ -2,6 +2,30 @@
 
 Date: 2026-10-25
 
+[Parent accepts Ubuntu actual application evidence, retains Blocked/2](handoffs/2026-10-25-ubuntu-first-managed-review.md).
+Functional/backend/zero-charge/WB5/context/final-snapshot evidence is accepted within
+scope; full qualification remains open. Next authorized work is narrowly scoped
+non-GUI observer investigation/correction for relative main DLL/cwd identification
+and compiler environ-read failure, with focused tests and a new immutable candidate
+for review. No GUI replay/new positive command; original authority consumed.
+Earlier pending first-run-review notes are superseded. G3 held/unstarted.
+
+[First Ubuntu attended GUI attempt: overall Blocked/2](handoffs/2026-10-25-ubuntu-first-managed-result.md).
+Original UI runner exited 0; four actual managed X11 backend reports/zero charges,
+WB5/source integrity, continuity and final empty scoped snapshot verify. Observer
+retains one Rust environ permission failure and missing main direct identity;
+these prevent qualification. Thirty capture/28 overlapping nested hashes and
+separate identical report export verify. Authorization consumed; no retry or code
+change. Parent direction next; earlier execution-pending notes superseded.
+Ubuntu GUI remains open; AOT/unattended unapproved; G3 held/unstarted.
+
+[One Ubuntu attended managed-GUI attempt prepared](handoffs/2026-10-25-ubuntu-attended-managed-attempt.md).
+Final read-only accepted packet/delta verification passes. Short shared-script
+command performs pinned native ext4 import and exclusive one-attempt reservation,
+then the fixed launcher with fresh CONFIRM and separate original GUI consent.
+Execution pending; no GUI/build occurred during command preparation. Stop after
+first outcome and return evidence; no retry. G3 held/unstarted.
+
 [Parent accepts Ubuntu enabled candidate](handoffs/2026-10-25-ubuntu-enabled-candidate-acceptance.md).
 Preparation gate is closed. One owner-attended managed-GUI attempt is authorized
 after final read-only packet/current-context checks, fresh owner CONFIRM and separate

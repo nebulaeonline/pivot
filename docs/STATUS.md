@@ -37,6 +37,20 @@ binding needs review. Owner-reported blank screens remain undiagnosed.
 Investigate documented stable boot measurements and supported comparison semantics;
 no deliberate reboot/settings change or new GUI attempt. Blank-screen reliability
 is separate and unresolved. Return contract/correction evidence for review.
+[Boot-identity research and read-only guest collection](handoffs/2026-10-25-windows-boot-identity-research.md)
+record documented event/uptime candidates and six host samples. Guest measurements
+are pending; no comparison tolerance or guard correction is selected/implemented.
+No new GUI command, reboot, integration change or clipboard recheck.
+[Guest boot evidence and offline continuity proposal](handoffs/2026-10-25-windows-boot-continuity-proposal.md)
+now verify six guest samples with a stable provider-bound startup-event anchor and
+increasing uptime. Seven offline measured/synthetic tests pass for a corroborated
+comparison proposal; budgets require review. Production guard is unchanged and
+no new packet or positive execution is authorized.
+[Parent accepts research and authorizes bounded guard integration](handoffs/2026-10-25-boot-continuity-implementation-direction.md).
+The 100 ms CIM and two-second elapsed-difference budgets are approved as initial
+Pivot policy, with distinct query-local and cross-observation checks. Next is
+real-adapter non-GUI implementation/validation and a new candidate for review;
+no further positive execution is authorized.
 
 Infrastructure workstream: **optional isolated-validation architecture approved;
 first execution-safety gate accepted/closed; bounded guest qualification in progress.

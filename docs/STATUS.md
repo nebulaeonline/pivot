@@ -2,6 +2,30 @@
 
 Date: 2026-10-25
 
+[Parent accepts Ubuntu session evidence and disabled contract](handoffs/2026-10-25-ubuntu-disabled-contract-acceptance.md).
+That preparation gate is closed. Next authorized scope: fixed Linux managed-GUI
+wrapper, live preflight, process observation, native export and non-GUI validation,
+then a new immutable disabled implementation packet for review. Positive Ubuntu
+GUI/AOT remains unauthorized; no positive command. Preserve terminal/logind and
+owner-attested VM-binding distinctions. Earlier pending review notes below are
+superseded. Windows gates/Ubuntu headless closed; G3 held.
+
+[Ubuntu session evidence and disabled proposal](handoffs/2026-10-25-ubuntu-session-and-disabled-proposal.md)
+are ready for parent review. Actual user display session 2/seat0 correlate; terminal
+itself remains outside a known logind session. Native ext4 reports and transfer
+hashes verify. DMI UUID/serial permission denial and unproven Avalonia backend remain
+explicit. Disabled contract/proposal packet has 540 sources/267 inputs/six files;
+three frozen contract tests and two real refusal invocations pass on the host.
+Live Linux runner supervision/export remain proposed, not execution-ready.
+No Ubuntu GUI/AOT/build ran; no positive command. Earlier collection-pending notes
+below are superseded. Windows/Ubuntu headless accepted gates unchanged; G3 held.
+
+[Ubuntu x64 read-only session preparation](handoffs/2026-10-25-ubuntu-gui-session-preparation.md)
+has a frozen collector and short shared-script launch command. Three pure non-GUI
+checks pass. Actual guest session/seat results are pending; fixed disabled GUI
+runner and review packet will follow their review. No Ubuntu GUI/AOT/build ran.
+Accepted Windows and Ubuntu headless gates remain closed; G3 held.
+
 [Parent accepts and closes Windows x64 Native AOT](handoffs/2026-10-25-windows-native-aot-acceptance.md).
 Windows x64 headless, attended managed GUI and attended Native AOT gates are all
 accepted/closed. Preserve unresolved nonblocking publish diagnostics; no rerun.

@@ -1,6 +1,30 @@
 # Pivot implementation status
 
-Date: 2026-10-24
+Date: 2026-10-25
+
+Latest infrastructure result: **first attended Windows guest managed run executed.
+Existing UI runner exited 0; main and three peers passed assertions with zero
+charges and session 1. Overall wrapper remains Blocked/2 because peer graphical
+backend fields are missing.** Main backend is Avalonia.Win32.WindowImpl. Source
+and boot/session are unchanged; scoped survivors are empty. Verified 27 outer
+origin hashes and 21 overlapping nested entries. No rerun; return the diagnostic
+gap and proposed live-window capture correction for parent review.
+[First managed result and evidence](handoffs/2026-10-25-windows-managed-first-run.md).
+One-run authorization is consumed. Native AOT stays gated, unattended authority
+disabled and G3 held. The following links retain the qualification/approval history.
+[Parent accepted functional execution; narrow diagnostic correction authorized](handoffs/2026-10-25-windows-managed-functional-acceptance.md).
+Overall managed acceptance remains Blocked/2. Next authorized work is live peer
+backend capture, non-GUI regression/build validation and a new immutable packet;
+another positive GUI run requires separate review and approval.
+[Peer backend correction and immutable confirmation candidate](handoffs/2026-10-25-peer-backend-correction.md)
+are ready for review: one live capture plus existing-handler serialization, actual
+non-GUI C# lifecycle regression, thirteen preflight tests and warning-free build.
+Candidate hashes verify 530 source files/259 inputs with only the production
+diagnostic change and added test. No positive confirmation execution authorized.
+[Parent correction acceptance and one new attended confirmation authorization](handoffs/2026-10-25-peer-backend-correction-acceptance.md).
+Correction gate is closed. One managed confirmation is now authorized after final
+candidate verification under unchanged guest conditions; not yet executed. First
+run remains Blocked/2 and Native AOT remains separately gated.
 
 Infrastructure workstream: **optional isolated-validation architecture approved;
 first execution-safety gate accepted/closed; bounded guest qualification in progress.
@@ -43,7 +67,7 @@ authorizes bounded implementation and non-GUI tests using existing interactive
 consent, then parent review before positive GUI execution. The second capability
 protocol/revocation design is deferred; no unattended authority is enabled.
 [Windows attended preflight implementation](handoffs/2026-10-25-windows-attended-preflight-implementation.md)
-is accepted/closed with non-GUI tests; positive execution stays hard-disabled.
+is accepted/closed with non-GUI tests; the original preflight packet stays disabled.
 [Acceptance and next packet/actual-guest preflight gate](handoffs/2026-10-25-windows-preflight-acceptance.md).
 Frozen packet preparation and non-GUI preflight inside the actual Windows VM are
 authorized; current guest evidence and packet review precede any positive-path enabling.
@@ -52,20 +76,24 @@ Actual Windows guest preflight passed; its native report was recovered and
 hash-verified without a rerun after a bootstrap parser defect left the first
 export Blocked. Original outcome/packet are preserved. Current boot/session differ
 from the historical clipboard capture; owner CONFIRM and that limitation are
-disclosed for review. Positive GUI remains disabled.
+disclosed for review. This original preflight gate performed no GUI execution.
 [Guest preflight results and reconciliation](handoffs/2026-10-25-windows-guest-preflight-results.md).
 [Actual guest preflight accepted/closed; managed packet preparation authorized](handoffs/2026-10-25-windows-guest-preflight-acceptance.md).
-Next: corrected-exporter managed-only packet/enabling diff and negative tests,
-with positive execution still disabled. A fresh explicitly authorized Windows
-clipboard check is required after the observed boot/session change before approval.
+The subsequent corrected-exporter packet and negative tests are complete; the fresh
+owner-authorized Windows clipboard observation was accepted before the first run.
 [Managed packet preparation and proposed enabling diff](handoffs/2026-10-25-windows-managed-packet-preparation.md)
 now record the fresh Windows owner-reported clipboard pass and unchanged settings,
-disabled fixed managed path, corrected exporter and non-GUI validation. Return for
-parent review; no positive GUI launch or unattended authority.
+disabled review path, corrected exporter and non-GUI validation. Preparation was
+accepted; that review packet remains unchanged and grants no unattended authority.
 [Parent acceptance closes preparation and conditionally authorizes one attended managed run](handoffs/2026-10-25-windows-managed-preparation-acceptance.md).
-Next: new enabled source snapshot/packet, exact hash/delta and negative checks,
-then one owner-initiated run if current guest conditions match. Disabled packet
-remains unchanged; no GUI run has occurred and Native AOT remains separately gated.
+The separate enabled source snapshot passed exact hash/delta and negative checks,
+then the owner executed the single managed run. Disabled packet remains unchanged;
+Native AOT remains separately gated.
+[Verified enabled packet and one-run owner instructions](handoffs/2026-10-25-windows-managed-execution-packet.md).
+The new snapshot differs from the accepted disabled packet only by the reviewed
+approval toggle. Its 529 source/258 input hashes, twelve applicable non-GUI tests
+and two real noninteractive refusals verify. The authorized first run is now
+recorded above with successful UI assertions and an overall diagnostic Blocked result.
 [First x64 guest evidence review and follow-up](handoffs/2026-10-24-x64-guest-evidence-review.md)
 retains the Windows Blocked candidate and .NET first-run certificate side effect;
 full guest headless CI now passes as linked above; no GUI acceptance is claimed.

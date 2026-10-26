@@ -943,14 +943,18 @@ mod cancellation_tests {
     fn cancellation_after_partial_traversal_reclaims_scratch_and_preserves_s_t() {
         let runtime = IntegrationRuntime::new(64 * 1024 * 1024, 8).unwrap();
         let mut model = WorkingModel::new_in("cancelled closure", &runtime).unwrap();
+        // Construct the fixture without depending on asynchronous reclamation
+        // keeping pace with thousands of separate scalar publications.
+        let mut batch = model.begin_batch(2047, 32768).unwrap();
         let nodes: Vec<_> = (0..1024)
-            .map(|i| model.add_input(format!("n{i}"), 1.into()).unwrap())
+            .map(|i| batch.add_input(format!("n{i}"), 1.into()).unwrap())
             .collect();
         for (index, &id) in nodes.iter().enumerate().skip(1) {
-            model
+            batch
                 .set_expression(id, format!("n{}+1", index - 1))
                 .unwrap();
         }
+        model.apply_batch(batch, &Default::default()).unwrap();
 
         let capture = model.capture_local().unwrap();
         let revision = model.revision();

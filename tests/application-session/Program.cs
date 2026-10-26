@@ -19,6 +19,16 @@ static async Task Cancelled(Task action)
     try { await action; throw new Exception("Expected cancellation."); }
     catch (OperationCanceledException) { }
 }
+static async Task CancelledAfterDispatch(WorkbookSession session, Func<CancellationToken,Task> action)
+{
+    using var cancel = new CancellationTokenSource();
+    session.RequestDispatchedForTesting = () => {
+        session.RequestDispatchedForTesting = null;
+        cancel.Cancel();
+    };
+    try { await Cancelled(action(cancel.Token)); }
+    finally { session.RequestDispatchedForTesting = null; }
+}
 await FillChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await AggregateChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await StructuredBindingChecks.Run(args[0]);
@@ -77,16 +87,13 @@ using(var cancelled=new CancellationTokenSource()) {
     await Cancelled(session.ApplyAsync(session.Revision,[N(1,5,88m)],cancelled.Token));
 }
 Check((await session.ReadAsync(P(1,5),P(1,5))).Cells.Count==0,"Queued cancellation prevents mutation");
-using(var cancel=new CancellationTokenSource()) {
+{
     ulong before=session.LastCompletedRequestId;
-    var pending=session.ApplyAsync(session.Revision,[N(4,1,81m)],cancel.Token);
-    cancel.Cancel();await Cancelled(pending);
+    await CancelledAfterDispatch(session,token=>session.ApplyAsync(session.Revision,[N(4,1,81m)],token));
     Check(session.LastCompletedRequestId==before+1,"Dispatched cancelled edit has a known response");
 }
 Check(WorkbookSession.Decode((await session.ReadAsync(P(4,1),P(4,1))).Cells[0].Value)==81m,"Cancellation does not roll back an accepted edit");
-using(var cancel=new CancellationTokenSource()) {
-    var pending=session.CaptureAsync(cancel.Token);cancel.Cancel();await Cancelled(pending);
-}
+await CancelledAfterDispatch(session,token=>session.CaptureAsync(token));
 captures.Clear();
 for(int i=0;i<3;i++) captures.Add((await session.CaptureAsync()).Capture);
 foreach(var id in captures) await session.ReleaseAsync(id);
@@ -94,10 +101,9 @@ foreach(var id in captures) await session.ReleaseAsync(id);
 // A real dispatched request is drained despite caller cancellation; the next frame stays aligned.
 await session.ApplyAsync(session.Revision,Enumerable.Range(1,256).Select(i=>F((uint)i,6,i==1?"=A1+1":$"=F{i-1}+1")));
 var heavy = await session.CaptureAsync();
-using(var cancel=new CancellationTokenSource()) {
+{
     ulong before=session.LastCompletedRequestId;
-    var pending=session.CalculateAsync(heavy.Capture,Enumerable.Range(1,256).Select(i=>P((uint)i,6)),cancel.Token);
-    cancel.Cancel(); await Cancelled(pending);
+    await CancelledAfterDispatch(session,token=>session.CalculateAsync(heavy.Capture,Enumerable.Range(1,256).Select(i=>P((uint)i,6)),token));
     Check(session.LastCompletedRequestId==before+1,"Cancelled dispatched response was drained");
 }
 frame=await session.ReadAsync(P(256,6),P(256,6));

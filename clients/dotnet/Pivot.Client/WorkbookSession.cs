@@ -44,6 +44,10 @@ public sealed class WorkbookSession : IAsyncDisposable
     public ulong LastCompletedRequestId { get; private set; }
     public int ProcessId { get; }
     public ulong? FinalCharge { get; private set; }
+    // Test-only synchronization after a real request is flushed, before its
+    // response is drained. Keeps
+    // cancellation assertions independent of host/pipe scheduling speed.
+    internal Action? RequestDispatchedForTesting { get; set; }
     private WorkbookSession(Process child) { process = child; ProcessId = child.Id; }
 
     public static async Task<WorkbookSession> StartAsync(string executable, CancellationToken cancellation = default)
@@ -187,6 +191,7 @@ public sealed class WorkbookSession : IAsyncDisposable
                 await process.StandardInput.BaseStream.WriteAsync(header, deadline.Token).ConfigureAwait(false);
                 await process.StandardInput.BaseStream.WriteAsync(bytes, deadline.Token).ConfigureAwait(false);
                 await process.StandardInput.BaseStream.FlushAsync(deadline.Token).ConfigureAwait(false);
+                RequestDispatchedForTesting?.Invoke();
                 await process.StandardOutput.BaseStream.ReadExactlyAsync(header, deadline.Token).ConfigureAwait(false);
                 int size = BinaryPrimitives.ReadInt32LittleEndian(header);
                 if (size is <= 0 or > MaximumFrame) throw new IOException("Invalid Pivot response frame.");

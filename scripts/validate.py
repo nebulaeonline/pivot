@@ -20,6 +20,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 
@@ -88,7 +89,7 @@ def copy_source(source,destination):
  def ignore(folder,names):
   return [n for n in names if n in {'.git','artifacts','target','bin','obj','.vs','.vscode','.codex','.agents','.aws','.venv','__pycache__','node_modules'} or (n.startswith('gpt') and n.endswith('.md'))]
  shutil.copytree(source,destination,ignore=ignore,symlinks=False)
-def environment(work,target_rid=None):
+def environment(work,target_rid=None,dotnet_root=None):
  env={k:v for k,v in os.environ.items() if not k.startswith('PIVOT_')}
  installed_rust=Path.home()/'.cargo/bin'
  if installed_rust.is_dir():env['PATH']=str(installed_rust)+os.pathsep+env.get('PATH','')
@@ -102,6 +103,12 @@ def environment(work,target_rid=None):
    if clang.is_file():
     env.update(CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=str(clang),CC=str(clang),CXX=str(clang.parent/'clang++'))
     env['PATH']=str(clang.parent)+os.pathsep+env['PATH']
+ if dotnet_root:
+  dotnet=Path(dotnet_root)
+  if not (dotnet/('dotnet.exe' if os.name=='nt' else 'dotnet')).is_file():raise ValueError('Configured dotnet_root has no dotnet executable: '+str(dotnet))
+  env['PATH']=str(dotnet)+os.pathsep+env.get('PATH','')
+  env['DOTNET_ROOT']=str(dotnet)
+  env['DOTNET_ROOT_'+target_rid.rsplit('-',1)[1].upper()]=str(dotnet)
  for key,name in {'CARGO_HOME':'cargo-home','CARGO_TARGET_DIR':'target','NUGET_PACKAGES':'nuget',
   'DOTNET_CLI_HOME':'dotnet-home','DOTNET_BUNDLE_EXTRACT_BASE_DIR':'bundle',
   'TMPDIR':'tmp','TEMP':'tmp','TMP':'tmp','PIVOT_FILE_TEST_ROOT':'fixtures'}.items():
@@ -161,7 +168,7 @@ def worker(args):
   validate_controller(args.worker,actual,identity,args.allow_emulation)
   result['filesystem']=native_root(work.parent)
   if work.exists():raise ValueError('Work directory already exists; use a new run ID')
-  work.mkdir();output.mkdir();env=environment(work,args.worker)
+  work.mkdir();output.mkdir();env=environment(work,args.worker,args.dotnet_root)
   probes={n:query([n]+v,cwd=source,env=env) for n,v in [('dotnet',['--info']),('rustc',['-vV']),('cargo',['-V'])]}
   probes['sdk']=query(['dotnet','--version'],cwd=source,env=env)
   result['tools']=probes
@@ -251,6 +258,7 @@ def run_target(rid,target,args,run_id,output):
  else:
   command=target.get('python',['python3'])+[str(root).rstrip('/')+'/scripts/validate.py']
  command+=['--worker',rid,'--suite',args.suite,'--run-id',run_id]
+ if target.get('dotnet_root'):command+=['--dotnet-root',target['dotnet_root']]
  if args.gui:command+=['--gui']
  if target.get('emulation'):command+=['--allow-emulation']
  if transport=='ssh':command=[ssh_tool('ssh'),'-o','BatchMode=yes']+target.get('ssh_options',[])+(['-tt'] if args.gui else [])+[target['host'],remote_command(target,command)]
@@ -280,31 +288,46 @@ def run_target(rid,target,args,run_id,output):
   else:result.update(status='SetupFailed',error='No returned report; dispatch exit '+str(code)+'; see dispatch log')
  except OSError as e:result.update(status='SetupFailed',error=str(e))
  return result
+def schedule_targets(rids,config,execute,jobs,limits=None):
+ limits=limits or {}
+ if any(type(n) is not int or n<1 for n in limits.values()):raise ValueError('Concurrency group limits must be positive integers')
+ for rid in rids:
+  group=config[rid].get('concurrency_group')
+  if group and group not in limits:raise ValueError('Missing concurrency limit for '+group)
+ gates={group:threading.BoundedSemaphore(n) for group,n in limits.items()}
+ def scheduled(rid):
+  group=config[rid].get('concurrency_group')
+  with gates[group] if group else nullcontext():return execute(rid)
+ with ThreadPoolExecutor(max_workers=jobs) as pool:return list(pool.map(scheduled,rids))
+
 def main():
  parser=argparse.ArgumentParser(description=__doc__)
  parser.add_argument('--config',type=Path,default=default_config())
  parser.add_argument('--targets',nargs='+',choices=RIDS,default=RIDS)
  parser.add_argument('--suite',choices=SUITES,default='discover');parser.add_argument('--gui',action='store_true')
- parser.add_argument('--jobs',type=int,default=2,help='Concurrent headless/discovery targets; GUI stays serial')
+ parser.add_argument('--jobs',type=int,default=len(RIDS),help='Global worker ceiling; profile host-group limits also apply; GUI stays serial')
  parser.add_argument('--worker',choices=RIDS,help=argparse.SUPPRESS);parser.add_argument('--run-id',help=argparse.SUPPRESS)
  parser.add_argument('--allow-emulation',action='store_true',help=argparse.SUPPRESS)
+ parser.add_argument('--dotnet-root',help=argparse.SUPPRESS)
  args=parser.parse_args()
  if args.worker:
   if not args.run_id or any(c not in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_' for c in args.run_id):parser.error('Safe run ID required')
   return worker(args)
  run_id=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'-'+uuid.uuid4().hex[:8]
  output=ROOT/'artifacts/validation-matrix'/run_id;output.mkdir(parents=True)
- config=json.loads(args.config.read_text())['targets'];results=[]
+ profile=json.loads(args.config.read_text());config=profile['targets'];results=[]
+ limits=profile.get('concurrency_limits',{})
  if args.jobs<1:parser.error('--jobs must be positive')
  def selected_target(rid):
   if rid not in args.targets:return {'rid':rid,'status':'NotSelected','suite':args.suite}
   print('['+rid+'] '+args.suite,flush=True)
   return run_target(rid,config[rid],args,run_id,output)
- with ThreadPoolExecutor(max_workers=1 if args.gui else args.jobs) as pool:results=list(pool.map(selected_target,RIDS))
+ results=schedule_targets(RIDS,config,selected_target,1 if args.gui else args.jobs,limits)
  selected=[r for r in results if r['status']!='NotSelected']
  bad=any(r['status'] in ['Failed','SetupFailed','ExportFailed'] for r in selected)
  partial=any(r['status'] not in ['Passed','Available'] for r in selected)
  summary={'run_id':run_id,'suite':args.suite,'revision':revision(ROOT),'targets':results,
+  'concurrency':{'global_jobs':1 if args.gui else args.jobs,'group_limits':limits},
   'status':'Failed' if bad else 'Partial' if partial else 'DiscoveryComplete' if args.suite=='discover' else 'Passed'}
  write(output/'matrix.json',summary)
  lines=['| Target | Result | Environment / reason |','| --- | --- | --- |']

@@ -11,6 +11,50 @@ spec=importlib.util.spec_from_file_location('matrix_runner',ROOT/'scripts/valida
 runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
 
 class MatrixTests(unittest.TestCase):
+ def test_mac_host_cap_does_not_block_hyperv_targets(self):
+  import threading
+  from concurrent.futures import ThreadPoolExecutor
+  rids=['win-arm64','linux-arm64','osx-arm64','osx-x64','win-x64','linux-x64']
+  config={rid:({'concurrency_group':'mac'} if rid in rids[:4] else {}) for rid in rids}
+  release=threading.Event();mac_started=threading.Event();hyperv_started=threading.Event()
+  lock=threading.Lock();counts={'active':0,'peak':0,'hyperv':0}
+  def execute(rid):
+   if rid in rids[:4]:
+    with lock:
+     counts['active']+=1;counts['peak']=max(counts['peak'],counts['active'])
+     if counts['active']==2:mac_started.set()
+    try:
+     if not release.wait(10):raise TimeoutError('Test release not signalled')
+    finally:
+     with lock:counts['active']-=1
+   else:
+    with lock:
+     counts['hyperv']+=1
+     if counts['hyperv']==2:hyperv_started.set()
+   return rid
+  with ThreadPoolExecutor(1) as pool:
+   future=pool.submit(runner.schedule_targets,rids,config,execute,6,{'mac':2})
+   try:
+    self.assertTrue(mac_started.wait(5));self.assertTrue(hyperv_started.wait(5))
+   finally:release.set()
+   self.assertEqual(future.result(timeout=10),rids)
+  self.assertEqual(counts['peak'],2)
+ def test_invalid_host_cap_refuses_dispatch(self):
+  with self.assertRaises(ValueError):runner.schedule_targets(['a'],{'a':{'concurrency_group':'mac'}},lambda _:self.fail('Dispatched'),6,{'mac':0})
+  with self.assertRaises(ValueError):runner.schedule_targets(['a'],{'a':{'concurrency_group':'mac'}},lambda _:self.fail('Dispatched'),6,{})
+ def test_explicit_dotnet_root_is_private_and_requires_executable(self):
+  import os
+  before=dict(os.environ)
+  with tempfile.TemporaryDirectory() as temp:
+   work=Path(temp)/'work';work.mkdir()
+   sdk=Path(temp)/'sdk';sdk.mkdir()
+   with self.assertRaises(ValueError):runner.environment(work,'linux-x64',sdk)
+   (sdk/('dotnet.exe' if os.name=='nt' else 'dotnet')).touch()
+   env=runner.environment(work,'linux-x64',sdk)
+   self.assertEqual(env['DOTNET_ROOT'],str(sdk))
+   self.assertEqual(env['DOTNET_ROOT_X64'],str(sdk))
+   self.assertEqual(env['PATH'].split(os.pathsep)[0],str(sdk))
+  self.assertEqual(dict(os.environ),before)
  def test_private_environment_shared_temp_aliases_and_optout(self):
   with tempfile.TemporaryDirectory() as temp:
    env=runner.environment(Path(temp))

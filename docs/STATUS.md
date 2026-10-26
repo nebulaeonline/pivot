@@ -2,6 +2,39 @@
 
 Date: 2026-10-25
 
+**Six-RID headless validation accepted and closed by parent review: 78/78 gates.**
+Unified result: `artifacts/validation-matrix/20261026T002242Z-f76230c2/`.
+All Windows/Ubuntu targets ran in their VMs, with native Mac ARM64 and Rosetta x64;
+ROBPC remained controller-only. [Implementation and review handoff](handoffs/2026-10-25-runtime-shutdown-and-six-rid-validation.md).
+
+Fixed task-ticket release ordering before lane completion; finish and original
+assertions remain unchanged. Rust cancellation setup now uses a batch, and client
+cancellation tests synchronize after dispatch instead of racing fast responses.
+Original failures are preserved. The historical finish branch was not recorded.
+
+An independent system-SDK CoreCLR abort on Linux x64 remains unexplained. Owner
+approved private SDK10.0.403/runtime10.0.14 selection; it passed the final matrix.
+The earlier failed matrix remains Failed. No system SDK replacement.
+
+Mac headless capacity is two across both macOS targets and both UTM guests;
+Hyper-V jobs are independent. Fourteen focused runner tests and six-target
+discovery validate this policy (`20261026T004147Z-5b250c62`). The completed CI
+matrix used its original global-two invocation; scheduler verification is separate.
+
+Parent accepted the shutdown ordering correction, both cancellation test fixes,
+private Linux x64 SDK selection and scheduling policy. No further headless
+acceptance run is required. See [closure and GUI/AOT scope](handoffs/2026-10-25-six-rid-headless-closure.md).
+
+Next authorized work is practical managed-GUI integration, then Native AOT actual
+publish-and-execute through the existing profiles. Preserve original functional
+assertions, real backends, four zero charges, owned-process cleanup and live GUI
+consent. Native Mac ARM64/Rosetta GUI requires machine-wide mutual exclusion
+across independent invocations. No new six-RID GUI/AOT claim yet.
+G1/G2 closed; G3 held; G4–G7 and production Undo/Redo deferred.
+
+Earlier acceptance/setup records follow. Their pending states are historical;
+the current results above supersede them without changing original evidence.
+
 Parent review accepted and closed both Windows VM SSH integration and native
 headless validation. Five designated RIDs are accepted at 13/13 gates each; no
 additional Windows connectivity qualification is required. See the

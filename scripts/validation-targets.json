@@ -27,7 +27,8 @@
         "python"
       ],
       "source_root": "J:/coding/pivot",
-      "label": "UTM Pivot-Win11-arm64"
+      "label": "UTM Pivot-Win11-arm64",
+      "concurrency_group": "mac-host"
     },
     "linux-arm64": {
       "transport": "ssh",
@@ -36,7 +37,8 @@
         "python3"
       ],
       "source_root": "/mnt/j/coding/pivot",
-      "label": "UTM Pivot-Ubuntu-arm64"
+      "label": "UTM Pivot-Ubuntu-arm64",
+      "concurrency_group": "mac-host"
     },
     "osx-arm64": {
       "transport": "ssh",
@@ -45,7 +47,8 @@
         "python3"
       ],
       "source_root": "/Volumes/RobMac/coding/pivot",
-      "label": "Native macOS ARM64"
+      "label": "Native macOS ARM64",
+      "concurrency_group": "mac-host"
     },
     "osx-x64": {
       "transport": "ssh",
@@ -55,7 +58,11 @@
       ],
       "source_root": "/Volumes/RobMac/coding/pivot",
       "emulation": "Rosetta x64 Rust/.NET execution with architecture-independent Python",
-      "label": "macOS x64 under Rosetta"
+      "label": "macOS x64 under Rosetta",
+      "concurrency_group": "mac-host"
     }
+  },
+  "concurrency_limits": {
+    "mac-host": 2
   }
 }

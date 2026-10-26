@@ -353,6 +353,10 @@ impl Drop for Task {
         if let Some(work) = self.work.take() {
             self.ticket.take().unwrap().retire(work);
         }
+        // Completion must cover the task's own admitted owner, not just work.
+        // Otherwise a drain can finish while the ticket's field destructor is
+        // still pending, making runtime shutdown observe a transient live owner.
+        drop(self.ticket.take());
         let mut pending = lock(&self.pending.0);
         *pending -= 1;
         self.pending.1.notify_all();
@@ -620,6 +624,47 @@ impl IntegrationRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn lane_flush_waits_for_task_ticket_release() {
+        let runtime = IntegrationRuntime::new(16 * 1024 * 1024, 0).unwrap();
+        let cleanup = &runtime.state().cleanup;
+        let state = runtime.state().clone();
+        let pending = state.mutations.pending.clone();
+        *lock(&pending.0) = 1;
+        let task = Task {
+            queued: false,
+            queue: state.mutations.queue.clone(),
+            work: None,
+            ticket: Some(cleanup.reserve().unwrap()),
+            pending: pending.clone(),
+        };
+        // Hold reclamation at a real synchronization boundary. A task cannot
+        // release its ticket while this guard is held, so a completed lane
+        // drain during this interval would be premature.
+        let pool = lock(&cleanup.slots.pool);
+        let (started, ready) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            started.send(()).unwrap();
+            drop(task);
+        });
+        ready.recv().unwrap();
+        let (finished, completed) = mpsc::channel();
+        let waiter = thread::spawn(move || {
+            state.mutations.flush();
+            finished.send(()).unwrap();
+        });
+        let premature = completed
+            .recv_timeout(std::time::Duration::from_secs(1))
+            .is_ok();
+        drop(pool);
+        worker.join().unwrap();
+        waiter.join().unwrap();
+        assert!(
+            !premature,
+            "lane drain completed before its task released the cleanup ticket"
+        );
+        assert!(runtime.finish().is_ok());
+    }
     struct Probe(mpsc::Sender<thread::ThreadId>);
     impl Drop for Probe {
         fn drop(&mut self) {

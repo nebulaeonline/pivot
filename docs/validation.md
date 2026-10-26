@@ -9,10 +9,26 @@ python scripts/validate.py --targets linux-x64 --suite managed --gui
 python scripts/validate.py --targets win-x64 --suite aot --gui
 ```
 
+A target profile may specify `dotnet_root`, the absolute path to a private SDK
+installation on that target. The worker requires a dotnet executable there,
+prepends it to its private PATH and sets matching DOTNET_ROOT variables before
+tool verification and tests. No system installation or global environment is
+changed. ROBPC's Linux x64 profile selects the owner-approved Microsoft SDK
+10.0.403 installation after a crash in Ubuntu's packaged runtime; its failed
+matrix evidence remains preserved.
+
 Default is discovery, not a build/test pass. Targets: win-x64, linux-x64, win-arm64,
-linux-arm64, osx-arm64, osx-x64. Headless/discovery targets run concurrently (default
-two; change with `--jobs`). GUI targets run serially and require explicit `--gui`
-plus the existing live interactive consent. Never preanswer the prompt. The same
+linux-arm64, osx-arm64, osx-x64. Headless/discovery targets run concurrently with a
+global ceiling of six by default (`--jobs` can lower it). Profiles set
+`concurrency_limits: {"mac-host": 2}` and assign `concurrency_group: "mac-host"`
+to both UTM guests and both macOS targets. Per invocation, those four share two
+slots; the Hyper-V targets run independently of that group. GUI targets run
+serially and require explicit `--gui`
+plus the existing live interactive consent. Native macOS ARM64 and Rosetta x64
+GUI runs must never overlap: they share the host desktop and interfere with each
+other. The Mac's two-worker capacity applies to headless/discovery work, not to
+concurrent GUI execution. Future GUI integration must preserve this desktop exclusion across separately
+launched runs as well. Never preanswer the prompt. The same
 existing consent broker is used by nested original runners; no new permit system.
 
 Configure transports and source paths in [validation-targets.json](../scripts/validation-targets.json),

@@ -1,5 +1,9 @@
 # G3 storage-efficiency reset
 
+The authorized comparison is now implemented and ready for review; see
+[byte accounting and compact results](2026-10-27-g3-storage-efficiency-results.md).
+The assignment and original not-started receipt below retain historical context.
+
 Parent direction, 2026-10-27: the approximately 196 MB database for **10,000
 transactions**, not 10,000 spreadsheet rows, is rejected as a production direction.
 The authenticated-index experiment remains accepted as a correctness demonstration.

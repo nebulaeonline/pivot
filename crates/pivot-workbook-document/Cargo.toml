@@ -17,3 +17,7 @@ history-experiment = ["pivot-workbook/history-experiment", "pivot-storage/histor
 [[example]]
 name = "history_association"
 required-features = ["history-experiment"]
+
+[[example]]
+name = "history_workbook_baseline"
+required-features = ["history-experiment"]

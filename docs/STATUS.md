@@ -20,45 +20,46 @@ No further confirmation runs are required. The validator must continue failing
 actual failed assertions. Retain metadata-only diagnostics and explicit missing-
 cell failures without suppression or added retries.
 
-**G3 is active and incomplete. Parent accepted bounded verified open and the
-corrected failure-admission behavior.**
-The accepted first SQLite baseline is preserved. A new authenticated index inside
-SQLite now verifies receipt presence/absence against atomic publication authority,
-without a normal historical decision scan. Full audit remains separate.
+**Parent accepted G3 compact-storage research and the under-25-MB objective.
+G3 remains active and incomplete.**
+The accepted correctness experiments are preserved. Byte accounting identifies
+JSON/hex payloads, superseded trie paths and page slack as the main old costs;
+only four distinct complete ledgers were stored, so ledger duplication was not
+the explanation.
 
-Actual 1K/10K mixed G2 workloads completed on Windows NTFS, Ubuntu ext4 and native
-Mac APFS. Final source passed 26 adversarial tests per platform (78/78), fresh
-1K/10K open/receipt probes and matched checkpoint-open profiles. The final matched
-activation medians were about 3.5/4.6 ms, 2.0/2.4 ms and 1.5/1.8 ms respectively
-(1K/10K). These are warm-cache observations, not a platform ranking.
+The same native 1K/10K G2 fixtures now occupy about 17.3–17.4 MB in a compact SQL
+baseline or 18.3–18.4 MB with authenticated hash buckets at 10K, versus about 196 MB
+before. No history was pruned. The under-25-MB target is met. Authentication data
+is about 8% of compressed payload, but broader receipt/index metadata still exceeds
+20%; both binary and compressed denominators are reported without cherry-picking.
+Plain SQL cannot claim bounded authenticated absence: it returns Unknown or requires
+full audit. Its timed ingestion uses an explicitly known-fresh fixture stream.
 
-Review caught and corrected a post-Unknown admission gap: preserved old-source
-counterexample advanced head 3 to 4 after a failed historical proof; final source
-blocks that edit and keeps head 3. Earlier workload timings are labeled with
-that earlier source; final failure tests and open profiles use the correction.
-Known integrity faults quarantine the handle until a full audit succeeds.
+Final workloads and tests passed on Windows NTFS, Ubuntu ext4 and native Mac APFS:
+117 test passes and three explicit unsupported-guarantee skips. An independent
+ordinary WB5 export/reopen is 7,365 bytes at 1K and 7,367 bytes at 10K for the same
+42-cell fixture, demonstrating separation from retained history. The new Rust
+baseline example finishes with zero charge on every platform; production code is
+unchanged.
 
-Proof-index space/write amplification, exact engine qualification, native cache/
-page-access and production memory bounds remain open. No 100K run, production
-backend/index-layout choice, G4–G7 or Undo/Redo integration is claimed.
-[Design and failure boundary](architecture/history-verified-open-experiment.md) ·
-[Results, source reconciliation and raw evidence](handoffs/2026-10-27-g3-verified-open-results.md) ·
-[Accepted baseline and next-slice authorization](handoffs/2026-10-27-g3-first-result-acceptance.md).
-**Next scope is revised: storage-efficiency reset, not reclamation first.**
-The roughly 196 MB / 10K-transaction representation is rejected as a production
-direction. Account for every byte, then compare compact binary deltas/compressed
-checkpoints and SQLite receipts against the current representation. Initial
-research targets: under 25 MB of 10K retained history excluding a separate workbook
-baseline, and authentication/index overhead under 20% of logical retained history.
-These are feasibility targets, not product quotas. Normal workbook size must not
-track retained edit history. No 100K work until the 10K size issue is addressed.
-Preserve negative-lookup integrity; a compact SQL baseline cannot claim missing-
-receipt authentication it does not provide. No new experiment has started.
-[Revised scope and accounting requirements](handoffs/2026-10-27-g3-storage-efficiency-reset.md).
+[Byte accounting, comparison and evidence](handoffs/2026-10-27-g3-storage-efficiency-results.md) ·
+[Compact representation and integrity boundary](architecture/history-compact-storage-experiment.md) ·
+[Storage-efficiency assignment](handoffs/2026-10-27-g3-storage-efficiency-reset.md).
+The owner identified `J:\coding\dotZstd` as an existing .NET zstd wrapper; Rust
+zstd is another future option. This slice uses zlib 6 only as a research baseline;
+no production codec or dependency is selected.
+
+Next authorized slice: compare SQLite page layouts/required receipt indexes,
+establish extensible authenticated bucket growth, and account for all metadata
+against compressed retained payload. Keep zlib 6; no codec selection yet. A narrow
+index-only split stress probe beyond 10K is permitted, but no full 100K G2 workload.
+Implementation has not started. [Acceptance and exact next scope](handoffs/2026-10-27-g3-compact-storage-acceptance.md). No 100K run, production backend/index choice,
+retention/GC, witness, coordinator, format migration or Undo/Redo integration.
+G1/G2 and six-RID execution validation remain accepted/closed; clipboard ISSUE-0001
+stays separate and G4–G7 remain gated.
 The owner shelved Dev Drive changes; VM storage, build paths and Defender remain
-unchanged. G1/G2 and six-RID execution validation stay
-closed; clipboard ISSUE-0001 remains separate. Earlier infrastructure entries
-below are historical where they describe open gates or a G3 scheduling hold.
+unchanged. Earlier infrastructure entries below are historical where they describe
+open gates or a G3 scheduling hold.
 
 **Six-RID headless validation accepted and closed by parent review: 78/78 gates.**
 Unified result: `artifacts/validation-matrix/20261026T002242Z-f76230c2/`.
@@ -617,7 +618,7 @@ source full gates passed; the cause is unresolved. [G2 evidence/qualification](h
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; storage-efficiency accounting and compact-representation research are authorized, without complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
+History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is authorized, without complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
 [G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
 [Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
 G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.

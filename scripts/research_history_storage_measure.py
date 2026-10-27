@@ -14,12 +14,12 @@ from research_history_index import Unknown,encoded,distribution,checkpoint_bytes
 from research_history_verified_measure import own_memory,storage
 
 
-def measure(fixture,output,mode,*,fullfsync=False):
+def measure(fixture,output,mode,*,fullfsync=False,store_class=CompactStore):
     output.mkdir(parents=True,exist_ok=False)
     if shutil.disk_usage(output).free<max(fixture.stat().st_size*4,512*1024*1024):raise RuntimeError('insufficient native research reserve')
     with fixture.open(encoding='utf-8') as stream:seed=json.loads(next(stream))
     instance=sha(encoded(seed['records']));path=output/'history.sqlite'
-    store=CompactStore(path,instance,mode,fullfsync=fullfsync);store.create(seed);records=dict(seed['records'])
+    store=store_class(path,instance,mode,fullfsync=fullfsync);store.create(seed);records=dict(seed['records'])
     report={'mode':mode,'sqlite':sqlite3.sqlite_version,'sqlite_source_id':store.db.execute('SELECT sqlite_source_id()').fetchone()[0],
             'compile_options':[r[0] for r in store.db.execute('PRAGMA compile_options')],
             'zlib_runtime':zlib.ZLIB_RUNTIME_VERSION,'zlib_level':6,'compression_policy':'research baseline; no production codec selected',
@@ -35,6 +35,8 @@ def measure(fixture,output,mode,*,fullfsync=False):
             event={'seq':item['seq'],'case':item['case'],'oracle_ns':prepared['oracle_ns'],
                    'prepare_ns':prepared['prepare_ns'],'backend_ns':backend,'proof_ns':proof,
                    'sql_noncommit_ns':sql,'commit_ns':receipt['commit_ns'],'other_backend_ns':backend-proof-sql-receipt['commit_ns']}
+            event['splits']=store.metrics.get('split_count',0)-before.get('split_count',0)
+            event['directory_bytes']=len(store.meta[8])
             for key in samples:samples[key].append(event[key])
             raw.write(json.dumps(event)+'\n');records=prepared['records'];n+=1
             cells+=sum(bytes.fromhex(key)[0]==16 for key,_,_ in item['ops'])
@@ -76,10 +78,10 @@ def measure(fixture,output,mode,*,fullfsync=False):
     store.close()
     opens=[]
     for _ in range(5):
-        started=time.perf_counter_ns();store=CompactStore(path,instance,mode,fullfsync=fullfsync);ctor=time.perf_counter_ns()-started
+        started=time.perf_counter_ns();store=store_class(path,instance,mode,fullfsync=fullfsync);ctor=time.perf_counter_ns()-started
         result=store.open_verified();result['constructor_ns']=ctor;opens.append(result);store.close()
     report['open_samples']=opens
-    tracemalloc.start();store=CompactStore(path,instance,mode,fullfsync=fullfsync);store.open_verified()
+    tracemalloc.start();store=store_class(path,instance,mode,fullfsync=fullfsync);store.open_verified()
     report['activation_python_current_bytes'],report['activation_python_peak_bytes']=tracemalloc.get_traced_memory();tracemalloc.stop()
     positive=[];negative=[];unknowns=0
     for index in range(30):

@@ -49,11 +49,26 @@ The owner identified `J:\coding\dotZstd` as an existing .NET zstd wrapper; Rust
 zstd is another future option. This slice uses zlib 6 only as a research baseline;
 no production codec or dependency is selected.
 
-Next authorized slice: compare SQLite page layouts/required receipt indexes,
-establish extensible authenticated bucket growth, and account for all metadata
-against compressed retained payload. Keep zlib 6; no codec selection yet. A narrow
-index-only split stress probe beyond 10K is permitted, but no full 100K G2 workload.
-Implementation has not started. [Acceptance and exact next scope](handoffs/2026-10-27-g3-compact-storage-acceptance.md). No 100K run, production backend/index choice,
+**Parent accepted the page-layout and authenticated-growth research.**
+Ordinary rowid payload storage is the next experimental baseline and reduces the same
+10K history to about 13.6 MB, preserving all logical rows and restored cold images.
+Integer-local keys and a partial receipt index offer no material space benefit in
+this workload. Atomic prefix splits retain every receipt, preserve old-reader
+snapshots and refuse stale publication. A separate 16,384-control index-only probe
+reaches 376–377 current buckets; it is not a full 100K G2 qualification.
+
+Windows NTFS, Ubuntu ext4 and native Mac APFS completed the final research gates:
+147 test passes and three explicit skips. Broader metadata still exceeds the 20%
+target, and the bounded flat directory still has linear decode/rewrite cost.
+The next authorized investigation is a page-bounded hierarchical authenticated
+directory and lossless receipt-body/reference normalization. Implementation has not
+started. Measure incremental writes, retained allocation and verification strength;
+avoid retaining immutable tree paths per transaction. Zlib 6 remains unchanged.
+[Acceptance, next assignment and stop conditions](handoffs/2026-10-27-g3-layout-growth-acceptance.md) ·
+[Results, limits and native evidence](handoffs/2026-10-27-g3-layout-growth-results.md) ·
+[Layout and split contract](architecture/history-layout-growth-experiment.md) ·
+[Accepted assignment](handoffs/2026-10-27-g3-compact-storage-acceptance.md).
+No full 100K run, production backend/index choice,
 retention/GC, witness, coordinator, format migration or Undo/Redo integration.
 G1/G2 and six-RID execution validation remain accepted/closed; clipboard ISSUE-0001
 stays separate and G4–G7 remain gated.
@@ -618,7 +633,7 @@ source full gates passed; the cause is unresolved. [G2 evidence/qualification](h
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is authorized, without complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
+History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication and receipt normalization are authorized, with the metadata target and permanent directory scalability unresolved; no complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
 [G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
 [Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
 G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.

@@ -125,6 +125,7 @@ CREATE TABLE authority(singleton INTEGER PRIMARY KEY CHECK(singleton=1),body BLO
 
 
 class CompactStore:
+    schema_sql=SCHEMA
     def __init__(self,path,instance,mode,*,fullfsync=False):
         if mode not in ('plain','buckets'):raise ValueError('research mode')
         self.path=path;self.instance=instance;self.mode=mode;self.verified=None;self.corrupt_handle=False
@@ -133,7 +134,7 @@ class CompactStore:
         self.db=sqlite3.connect(path,isolation_level=None,timeout=.2)
         model=sqlite3.connect(':memory:')
         try:
-            model.executescript(SCHEMA)
+            model.executescript(self.schema_sql)
             self.schema=set(model.execute('SELECT type,name,tbl_name,sql FROM sqlite_schema'))
         finally:model.close()
         self.execute('PRAGMA foreign_keys=ON')
@@ -295,7 +296,7 @@ class CompactStore:
         return {'outcome':kind,'receipt':receipt.hex(),'seq':seq,'commit_ns':commit_ns,'ack_ns':time.perf_counter_ns()-start}
 
     def create(self,seed):
-        self.db.executescript(SCHEMA);self.execute('BEGIN IMMEDIATE')
+        self.db.executescript(self.schema_sql);self.execute('BEGIN IMMEDIATE')
         try:
             records=dict(seed['records'])
             if sha(checkpoint_bytes(records)).hex()!=seed['oracle']:self.bad('seed oracle')

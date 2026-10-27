@@ -43,43 +43,67 @@ public partial class MainWindow
     private async Task ClipboardChecklistAsync(string report)
     {
         var clipboard=Clipboard ?? throw new InvalidOperationException("Clipboard unavailable.");
+        // Diagnostic metadata only: never write clipboard payloads, formulas or cell values.
+        string checkpoint="initial clipboard read";
+        void Trace(string phase)
+        {
+            File.AppendAllText(Path.ChangeExtension(report,"clipboard.log"),
+                $"{checkpoint}: {phase}; session={session is not null}; editing={editing}; draft={draftCell is not null}; editor={clipboardEditor is not null}; frame={frameReady}; fileAction={fileAction}; shuttingDown={shuttingDown}\n");
+        }
+        async Task ClipboardStepAsync(bool paste,string name)
+        {
+            checkpoint=name;Trace("begin");
+            await ClipboardAsync(paste,diagnose:Trace);
+            Trace("completed");
+        }
+        Cell RequiredCell(uint row,uint column)
+        {
+            var cell=Sheet.CellAt(AutomationPosition(row,column));
+            if(cell is null) {
+                Trace($"missing required cell r{row}c{column}");
+                throw new InvalidOperationException($"Clipboard checklist missing required cell r{row}c{column} after {checkpoint}; see clipboard checkpoint log.");
+            }
+            return cell;
+        }
+        Trace("begin");
         string? previous=await clipboard.TryGetTextAsync();
+        Trace("completed");
         try {
             await SelectAsync(AutomationPosition(2,2));
-            await clipboard.SetTextAsync("2\t=B2+1\n3\t=SUM($B$2:B3)");await ClipboardAsync(true);
+            await clipboard.SetTextAsync("2\t=B2+1\n3\t=SUM($B$2:B3)");await ClipboardStepAsync(true,"01-paste");
             await SelectAsync(AutomationPosition(2,2));await SelectAsync(AutomationPosition(3,3),true);
-            await ClipboardAsync(false);await SelectAsync(AutomationPosition(5,5));await ClipboardAsync(true);
-            AutomationCheck(Sheet.CellAt(AutomationPosition(5,6))!.Formula=="=E5+1" && WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(6,6))!.Value)==18m,"Checklist native scalar/SUM translation");
+            await ClipboardStepAsync(false,"02-copy");await SelectAsync(AutomationPosition(5,5));await ClipboardStepAsync(true,"03-paste");
+            AutomationCheck(RequiredCell(5,6).Formula=="=E5+1" && WorkbookSession.Decode(RequiredCell(6,6).Value)==18m,"Checklist native scalar/SUM translation");
             // Preserve reversed anchor orientation when the destination has exact dimensions.
             await SelectAsync(AutomationPosition(9,6));await SelectAsync(AutomationPosition(8,5),true);
-            await ClipboardAsync(true);
+            await ClipboardStepAsync(true,"04-paste");
             AutomationCheck(Sheet.Anchor.Equals(AutomationPosition(9,6)) && Sheet.Selected.Equals(AutomationPosition(8,5)),"Exact destination preserves anchor orientation");
             await SelectAsync(AutomationPosition(8,5));await SelectAsync(AutomationPosition(8,6),true);
-            string before=session!.Revision;await ClipboardAsync(true);
+            string before=session!.Revision;await ClipboardStepAsync(true,"05-paste");
             AutomationCheck(session.Revision==before,"Mismatched rectangle is atomic");
-            await SelectAsync(AutomationPosition(12,1));await clipboard.SetTextAsync("1\n2");await ClipboardAsync(true);
-            await SelectAsync(AutomationPosition(12,1));await SelectAsync(AutomationPosition(13,1),true);await ClipboardAsync(false);
-            await SelectAsync(AutomationPosition(13,1));await ClipboardAsync(true);
-            AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(13,1))!.Value)==1m && WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(14,1))!.Value)==2m,"UI overlap reads source snapshot");
-            await SelectAsync(AutomationPosition(12,3));await clipboard.SetTextAsync("7\t\n8\t9");await ClipboardAsync(true);
-            await SelectAsync(AutomationPosition(12,3));await SelectAsync(AutomationPosition(13,4),true);await ClipboardAsync(false);
-            await SelectAsync(AutomationPosition(12,1));await ClipboardAsync(true);
-            AutomationCheck(Sheet.CellAt(AutomationPosition(12,2)) is null || Sheet.CellAt(AutomationPosition(12,2))!.ContentCase==Cell.ContentOneofCase.Blank,"Blank slot clears destination");
+            await SelectAsync(AutomationPosition(12,1));await clipboard.SetTextAsync("1\n2");await ClipboardStepAsync(true,"06-paste");
+            await SelectAsync(AutomationPosition(12,1));await SelectAsync(AutomationPosition(13,1),true);await ClipboardStepAsync(false,"07-copy");
+            await SelectAsync(AutomationPosition(13,1));await ClipboardStepAsync(true,"08-paste");
+            AutomationCheck(WorkbookSession.Decode(RequiredCell(13,1).Value)==1m && WorkbookSession.Decode(RequiredCell(14,1).Value)==2m,"UI overlap reads source snapshot");
+            await SelectAsync(AutomationPosition(12,3));await clipboard.SetTextAsync("7\t\n8\t9");await ClipboardStepAsync(true,"09-paste");
+            await SelectAsync(AutomationPosition(12,3));await SelectAsync(AutomationPosition(13,4),true);await ClipboardStepAsync(false,"10-copy");
+            await SelectAsync(AutomationPosition(12,1));await ClipboardStepAsync(true,"11-paste");
+            AutomationCheck(Sheet.CellAt(AutomationPosition(12,2)) is null || RequiredCell(12,2).ContentCase==Cell.ContentOneofCase.Blank,"Blank slot clears destination");
             // Occupied destination is required to prove clearing, rather than sparse no-op.
             await session.ApplyAsync(session.Revision,[new Edit{At=AutomationPosition(12,2),Number=WorkbookSession.Encode(99m)}]);await RefreshAsync();
-            await SelectAsync(AutomationPosition(12,1));await ClipboardAsync(true);
-            AutomationCheck(Sheet.CellAt(AutomationPosition(12,2))!.ContentCase==Cell.ContentOneofCase.Blank,"Blank overwrites occupied destination");
+            await SelectAsync(AutomationPosition(12,1));await ClipboardStepAsync(true,"12-paste");
+            AutomationCheck(RequiredCell(12,2).ContentCase==Cell.ContentOneofCase.Blank,"Blank overwrites occupied destination");
             AutomationImage(Path.ChangeExtension(report,"checklist.png"));
             await session.NewAsync(session.Revision,discard:true);await RefreshAsync();
             await session.ApplyAsync(session.Revision,[new Edit{At=AutomationPosition(1,1),Number=WorkbookSession.Encode(10m)},new Edit{At=AutomationPosition(1,2),Formula="=A1+1"}]);await RefreshAsync();
             await SelectAsync(AutomationPosition(1,1));MoveTarget.Text="A5";MoveClick(null,new RoutedEventArgs());
             await AutomationWaitAsync(()=>!editing && Sheet.CellAt(AutomationPosition(5,1)) is not null);
-            await SelectAsync(AutomationPosition(1,2));await ClipboardAsync(false);await SelectAsync(AutomationPosition(2,2));await ClipboardAsync(true);
-            AutomationCheck(Sheet.CellAt(AutomationPosition(2,2))!.Formula=="=A6+1" && Sheet.CellAt(AutomationPosition(1,2))!.Formula=="=A1+1","UI move then copy uses effective binding");
+            await SelectAsync(AutomationPosition(1,2));await ClipboardStepAsync(false,"13-copy");await SelectAsync(AutomationPosition(2,2));await ClipboardStepAsync(true,"14-paste");
+            AutomationCheck(RequiredCell(2,2).Formula=="=A6+1" && RequiredCell(1,2).Formula=="=A1+1","UI move then copy uses effective binding");
             await session.NewAsync(session.Revision,discard:true);await RefreshAsync();
             await session.ApplyAsync(session.Revision,[new Edit{At=AutomationPosition(2,2),Formula="= A2 + $A2 + A$2 + $A$2"}]);await RefreshAsync();
-            await SelectAsync(AutomationPosition(2,2));await ClipboardAsync(false);await SelectAsync(AutomationPosition(5,4));await ClipboardAsync(true);
-            AutomationCheck(Sheet.CellAt(AutomationPosition(5,4))!.Formula=="= C5 + $A5 + C$2 + $A$2","UI all four copy-axis modes");
+            await SelectAsync(AutomationPosition(2,2));await ClipboardStepAsync(false,"15-copy");await SelectAsync(AutomationPosition(5,4));await ClipboardStepAsync(true,"16-paste");
+            AutomationCheck(RequiredCell(5,4).Formula=="= C5 + $A5 + C$2 + $A$2","UI all four copy-axis modes");
 
             // Publish bytes from a source engine that is then closed. A distinct GUI process
             // must retrieve them through the OS clipboard and bind into its own Rust child.
@@ -92,6 +116,7 @@ public partial class MainWindow
                 var transfer=new DataTransfer();transfer.Add(item);await clipboard.SetDataAsync(transfer);
                 await source.DisposeAsync();AutomationCheck(source.FinalCharge==0,"Clipboard retains no source engine");
             }
+            checkpoint="cross-process peers";Trace("begin");
             foreach(string mode in new[]{"clipboard-save","discard","clean"}) {
                 string peerReport=Path.ChangeExtension(report,mode+".json");
                 string executable=Environment.ProcessPath ?? throw new IOException("Current executable path unavailable.");
@@ -119,6 +144,7 @@ public partial class MainWindow
             }
             await session.NewAsync(session.Revision,discard:true);Sheet.Select(AutomationPosition(1,1));Sheet.Scroll(-5000,-5000);CancelDraft();clipboardEditor=null;shortcutModifiers=KeyModifiers.None;await RefreshAsync();
         } finally {
+            checkpoint="restore clipboard";Trace("begin");
             if(previous is not null) await clipboard.SetTextAsync(previous);else await clipboard.ClearAsync();
         }
     }

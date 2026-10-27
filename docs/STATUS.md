@@ -2,29 +2,29 @@
 
 Date: 2026-10-27
 
-Parent review **accepted and closed six-RID managed GUI** and accepted the five
-passing Native AOT targets. Headless remains accepted/closed. **Native AOT stays
-open at 5/6.** Windows ARM64 AOT published and launched but failed with a
-NullReferenceException in ClipboardChecklistAsync. Its exact sub-step/cause is
-unresolved; the failed JSON report correctly prevented an exit-code-only pass.
-No retry, assertion change or owner-suggested feature was introduced.
+Parent review **accepted and closed six-RID headless CI, managed GUI and
+Native AOT execution validation**. Every designated RID has passed each mode.
+Windows ARM64's instrumented pass is accepted as execution evidence. Its original
+and diagnostic failures remain Failed; clipboard reliability is not established.
 
-Managed evidence: `artifacts/validation-matrix/20261027T025246Z-deb1324f/`.
-AOT evidence: `artifacts/validation-matrix/20261027T025246Z-b82c5b95/`.
-All passing cases retain four actual backend/architecture reports, zero charges
-and owned-process cleanup. All native-Mac cases recorded the shared host GUI lock.
-[Collected results and failure handoff](handoffs/2026-10-26-gui-aot-results.md) ·
-[Integration details](handoffs/2026-10-26-managed-gui-aot-integration.md) ·
-[Activation instructions](validation-gui-aot.md).
+Evidence under `artifacts/validation-matrix/`:
 
-Next authorized work is focused Windows ARM64 AOT clipboard diagnosis: identify
-the precise null state using source analysis and minimal non-sensitive sub-step
-checkpoints, compare the historical Windows null-destination issue without
-assuming a common cause, then make one justified correction. Preserve every
-original functional/zero-charge assertion. Any live reproduction needs existing
-owner consent. No unrelated successful-suite reruns or retry-to-green.
-[Managed closure and investigation scope](handoffs/2026-10-27-managed-gui-closure-and-arm64-aot-scope.md).
-Owner suggestions remain separate. G3 remains held.
+- Headless: `20261026T002242Z-f76230c2/`.
+- Managed GUI: `20261027T025246Z-deb1324f/`.
+- Five AOT passes plus original ARM64 failure: `20261027T025246Z-b82c5b95/`.
+- Accepted Windows ARM64 AOT pass: `20261027T144914Z-cab4acb5/`.
+
+[Final acceptance](handoffs/2026-10-27-six-rid-validation-acceptance.md) ·
+[Open Windows clipboard reliability issue](issues/0001-windows-clipboard-paste-reliability.md).
+No further confirmation runs are required. The validator must continue failing
+actual failed assertions. Retain metadata-only diagnostics and explicit missing-
+cell failures without suppression or added retries.
+
+**G3's infrastructure scheduling hold is released.** Next is the previously
+accepted bounded ADR-0023 indexed-store feasibility scope. G1/G2 remain closed;
+G4–G7 and production Undo/Redo remain separately gated. No G3 implementation
+started in this reconciliation. Earlier infrastructure entries below are
+historical and superseded where they describe open gates or a G3 hold.
 
 **Six-RID headless validation accepted and closed by parent review: 78/78 gates.**
 Unified result: `artifacts/validation-matrix/20261026T002242Z-f76230c2/`.
@@ -583,7 +583,7 @@ source full gates passed; the cause is unresolved. [G2 evidence/qualification](h
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is authorized in principle but held, not started, while the infrastructure detour remains active. G4â€“G7 and production Undo/Redo remain gated**.
+History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is authorized with its scheduling hold released on 2026-10-27; implementation has not started. G4â€“G7 and production Undo/Redo remain gated**.
 [G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
 [Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
 G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.

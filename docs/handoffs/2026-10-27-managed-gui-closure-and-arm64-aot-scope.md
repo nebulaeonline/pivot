@@ -1,5 +1,10 @@
 # Managed GUI closure and Windows ARM64 AOT investigation
 
+Current disposition (2026-10-27): six-RID headless, managed GUI and Native AOT
+execution validation are accepted and closed. Clipboard reliability remains an
+open issue; G3's scheduling hold is released. Pending/open/held statements below
+retain their historical context. See [final acceptance](2026-10-27-six-rid-validation-acceptance.md).
+
 Parent disposition, 2026-10-27: accept and close six-RID managed-GUI validation;
 accept five Native AOT results, leaving the AOT milestone open at 5/6.
 
@@ -50,3 +55,48 @@ packets, per-run parent approval rituals, unrelated features, workbook/graph
 redesign, persistence/protocol changes or product-limit changes. Historical
 blocked/failed reports remain unchanged. Owner suggestions remain a separate
 discussion. G1/G2 closed; G3 held until current validation integration completes.
+
+## Investigation in progress
+
+Source review found multiple destination-cell dereferences in the checklist.
+`ClipboardAsync` can decline a stale or unavailable read and catches errors for
+display in the UI; completing its task therefore does not prove a paste occurred.
+The older Windows failure explicitly identified the first translated destination
+check (then line 52). The ARM64 AOT offset-only trace cannot establish the same
+location or cause.
+
+Diagnostic-only changes add numbered copy/paste begin/completion checkpoints in
+`results.clipboard.log`, recording state availability booleans without clipboard
+contents, formulas or values. Required destination cells now fail explicitly with
+their fixture coordinates and the last operation, preserving the existing value,
+formula and lifecycle assertions. No production clipboard behavior was changed.
+
+A fresh Windows ARM64 AOT plan is prepared at
+`artifacts/validation-matrix/20261027T143855Z-9d71c7ac/`.
+Its SSH preflight correctly reports NeedsGraphicalSession in session 0; no GUI
+has been launched. The original failed run remains unchanged. This is a diagnostic
+reproduction, not a correction or acceptance result. Use the existing attended
+launcher in the Windows ARM64 desktop: `J:\coding\pivot\scripts\attend.cmd aot win-arm64`.
+
+The deployed diagnostic source compiled on the Windows ARM64 guest with SDK
+10.0.403: zero warnings and zero errors. `git diff --check` passed. A controller
+build attempt returned failure without compiler diagnostics and is not target
+evidence; no controller GUI was launched. The native AOT reproduction remains
+pending owner activation.
+
+### First diagnostic reproduction
+
+Collected at `artifacts/validation-matrix/20261027T144402Z-a3ccd622/`:
+native ARM64 publication and launch succeeded, but the checklist failed explicitly
+because F5 was missing after `03-paste`. The numbered copy/paste steps all returned
+with session/frame available and no editing, draft, file action or shutdown.
+This matches the older failure's first translated destination check, without
+establishing a common underlying cause. The original and diagnostic failures are
+both retained; neither is an acceptance result.
+
+Additional optional handler diagnostics distinguish unavailable clipboard
+snapshots/bytes/text, copy/read invalidation, stale paste state, engine completion
+or rejection and exception type. They emit metadata only through the checklist's
+callback and preserve application behavior. The next targeted plan is
+`artifacts/validation-matrix/20261027T144521Z-a9f2697a/`; owner activation uses the
+same short command above. No fix has been claimed.

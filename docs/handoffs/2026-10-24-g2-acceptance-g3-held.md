@@ -1,5 +1,10 @@
 # ADR-0023 — G2 accepted/closed; G3 held for infrastructure
 
+Current disposition (2026-10-27): six-RID headless, managed GUI and Native AOT
+execution validation are accepted and closed. Clipboard reliability remains an
+open issue; G3's scheduling hold is released. Pending/open/held statements below
+retain their historical context. See [final acceptance](2026-10-27-six-rid-validation-acceptance.md).
+
 2026-10-24. The parent accepts and closes the feature-only Rust G2 implementation
 and its three-platform evidence. **The owner directs that the infrastructure
 detour remain active. G3 has not started and must not start during this detour.**

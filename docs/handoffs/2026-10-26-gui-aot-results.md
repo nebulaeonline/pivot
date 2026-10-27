@@ -1,5 +1,16 @@
 # Six-RID GUI and Native AOT results
 
+Current disposition (2026-10-27): six-RID headless, managed GUI and Native AOT
+execution validation are accepted and closed. Clipboard reliability remains an
+open issue; G3's scheduling hold is released. Pending/open/held statements below
+retain their historical context. See [final acceptance](2026-10-27-six-rid-validation-acceptance.md).
+
+Subsequent diagnostic evidence: Windows ARM64 passed the full AOT workflow in
+`20261027T144914Z-cab4acb5/`. The original matrix and failures below remain
+unchanged. No behavioral fix was made; the intermittent clipboard issue remains
+unresolved and AOT closure awaits parent disposition. See
+[diagnostic results](2026-10-27-arm64-aot-diagnostic-results.md).
+
 Parent review on 2026-10-27 accepted and closed managed GUI on all six targets
 and accepted the five passing AOT targets. Windows ARM64 AOT remains Failed and
 the AOT milestone stays open. See [closure and focused next scope](2026-10-27-managed-gui-closure-and-arm64-aot-scope.md).

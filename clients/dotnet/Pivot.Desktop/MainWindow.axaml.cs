@@ -116,9 +116,9 @@ public partial class MainWindow : Window
     private async void PasteClick(object? sender,RoutedEventArgs e) => await ClipboardAsync(true);
     private static readonly DataFormat<byte[]> OldCellBlockFormat = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v1" : "application/x-pivot-cell-block-v1");
     private static readonly DataFormat<byte[]> CellBlockFormat = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v2" : "application/x-pivot-cell-block-v2");
-    private async Task ClipboardAsync(bool paste, Func<Task<string?>>? readText = null)
+    private async Task ClipboardAsync(bool paste, Func<Task<string?>>? readText = null, Action<string>? diagnose = null)
     {
-        if (session is null || editing || fileAction || shuttingDown || Clipboard is null) return;
+        if (session is null || editing || fileAction || shuttingDown || Clipboard is null) {diagnose?.Invoke("blocked at entry");return;}
         if(Sheet.ProjectedSelection is not null){StatusLabel.Text="Projected clipboard operations are not supported in this proof.";return;}
         try {
             var input=clipboardEditor ?? (draftCell is null ? null : inlineEditing ? CellEditor : FormulaEntry);
@@ -130,9 +130,9 @@ public partial class MainWindow : Window
                 } else {
                     long copyInteraction=interactionVersion;
                     var copied=await session.CopyBlockAsync(displayedRevision,Sheet.SelectionFirst,Sheet.SelectionLast);
-                    if(copyInteraction!=interactionVersion || editing || fileAction || shuttingDown) return;
+                    if(copyInteraction!=interactionVersion || editing || fileAction || shuttingDown) {diagnose?.Invoke("copy invalidated");return;}
                     var item=new DataTransferItem();item.Set(CellBlockFormat,copied.Clipboard.ToByteArray());item.SetText(copied.ClipboardText);
-                    var transfer=new DataTransfer();transfer.Add(item);await Clipboard.SetDataAsync(transfer);
+                    var transfer=new DataTransfer();transfer.Add(item);await Clipboard.SetDataAsync(transfer);diagnose?.Invoke("native copy published");
                 }
                 return;
             }
@@ -148,16 +148,18 @@ public partial class MainWindow : Window
             else {
                 bool typed=false;
                 using(var data=await Clipboard.TryGetDataAsync()) {
+                    diagnose?.Invoke($"clipboard snapshot available={data is not null}");
                     if(input is null && data is not null && data.Contains(OldCellBlockFormat) && !data.Contains(CellBlockFormat)) throw new InvalidDataException("Unsupported Pivot clipboard version; copy again using this version.");
                     typed=input is null && data is not null && data.Contains(CellBlockFormat);
                     if(typed) {native=await data!.TryGetValueAsync(CellBlockFormat);value="";}
                     else value=data is null ? null : await data.TryGetTextAsync();
+                    diagnose?.Invoke($"read native={typed}; bytesAvailable={native is not null}; textAvailable={value is not null}");
                 }
                 // A provider can advertise its private format before its bytes are readable.
                 // Retry reads only, with each snapshot disposed; never downgrade to text or replay an edit.
                 for(int retry=0;typed && native is null && retry<2;retry++) {
                     await Task.Delay(20);
-                    if(request!=clipboardRequest || interaction!=interactionVersion) return;
+                    if(request!=clipboardRequest || interaction!=interactionVersion) {diagnose?.Invoke("native read invalidated");return;}
                     using var retryData=await Clipboard.TryGetDataAsync();
                     if(retryData is null || !retryData.Contains(CellBlockFormat)) throw new InvalidDataException("Native clipboard changed or is unavailable; copy again.");
                     native=await retryData.TryGetValueAsync(CellBlockFormat);
@@ -166,19 +168,24 @@ public partial class MainWindow : Window
             }
             if (request!=clipboardRequest || interaction!=interactionVersion || value is null || editing || fileAction || shuttingDown || session.Revision!=revision
                 || Sheet.Selected.Row!=target.Row || Sheet.Selected.Column!=target.Column
-                || (input is not null && (input.Text!=before || Math.Min(input.SelectionStart,input.SelectionEnd)!=start || Math.Max(input.SelectionStart,input.SelectionEnd)!=end))) return;
+                || (input is not null && (input.Text!=before || Math.Min(input.SelectionStart,input.SelectionEnd)!=start || Math.Max(input.SelectionStart,input.SelectionEnd)!=end))) {
+                diagnose?.Invoke($"paste invalidated: request={request!=clipboardRequest}; interaction={interaction!=interactionVersion}; noValue={value is null}; revision={session.Revision!=revision}; target={Sheet.Selected.Row!=target.Row || Sheet.Selected.Column!=target.Column}");return;
+            }
             if (input is null) {
-                if (!frameReady || session.DocumentId.Length==0) return;
+                if (!frameReady || session.DocumentId.Length==0) {diagnose?.Invoke("paste has no ready document frame");return;}
                 if(native is null && System.Text.Encoding.UTF8.GetByteCount(value)>262144) throw new InvalidDataException("Clipboard payload exceeds 256 KiB.");
                 byte[] payload=native ?? System.Text.Encoding.UTF8.GetBytes(value);
                 if(payload.Length>262144) throw new InvalidDataException("Clipboard payload exceeds 256 KiB.");
                 bool expand=!Sheet.HasRegion;
                 editing=true;SetEditing(false);refresh?.Cancel();++displayRequest;
                 try {
+                    diagnose?.Invoke("engine paste begin");
                     var pasted=await session.PasteBlockAsync(expected,Sheet.SelectionFirst,Sheet.SelectionLast,payload,native is not null);
+                    diagnose?.Invoke("engine paste completed");
                     if(expand && interaction==interactionVersion) {Sheet.Select(pasted.PastedFirst);Sheet.Select(pasted.PastedLast,true);Sheet.Reveal(Sheet.Selected);}
-                    await RefreshAsync();UpdateDocument();
+                    await RefreshAsync();UpdateDocument();diagnose?.Invoke("paste frame refreshed");
                 } catch(WorkbookSessionException e) {
+                    diagnose?.Invoke("engine paste rejected: "+e.GetType().Name);
                     if(native is null && !Sheet.HasRegion && value.IndexOfAny(['\r','\n','\t'])<0 && value.Length<=4096 && !(session.IsBindingProof && value.TrimStart().StartsWith("=",StringComparison.Ordinal) && value.Contains("@{",StringComparison.Ordinal))) {
                         CaptureDraft();draftRevision=expected;draftReplace=true;
                         synchronizing=true;FormulaEntry.Text=CellEditor.Text=value;synchronizing=false;
@@ -196,8 +203,8 @@ public partial class MainWindow : Window
             }
             input.Text=before[..start]+value+before[end..]; input.CaretIndex=start+value.Length;
             input.SelectionStart=input.SelectionEnd=input.CaretIndex; input.Focus();
-        } catch (OperationCanceledException) { /* A cancelled read never installs or retries an edit. */ }
-        catch (Exception e) { StatusLabel.Text="Clipboard operation failed: "+e.Message; }
+        } catch (OperationCanceledException) { diagnose?.Invoke("clipboard operation cancelled"); /* A cancelled read never installs or retries an edit. */ }
+        catch (Exception e) { diagnose?.Invoke("clipboard exception: "+e.GetType().Name); StatusLabel.Text="Clipboard operation failed: "+e.Message; }
     }
     private double startupReadyMs;
     private static string RustExecutablePath() => Environment.GetEnvironmentVariable("PIVOT_SESSION_PATH") ?? Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "pivot-session.exe" : "pivot-session");

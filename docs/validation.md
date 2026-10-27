@@ -102,4 +102,7 @@ and failure handling remain unchanged.
 The previous forensic packets/reports retain their original classifications as
 historical evidence. They are not routine development entry points. See the
 [infrastructure reset](handoffs/2026-10-25-validation-infrastructure-reset.md).
-G3 remains held; this work does not change Pivot product semantics.
+Six-RID execution validation is accepted and closed; G3 scheduling is released.
+See [final acceptance](handoffs/2026-10-27-six-rid-validation-acceptance.md).
+[Windows clipboard reliability](issues/0001-windows-clipboard-paste-reliability.md)
+remains open; actual assertion failures must still fail validation.

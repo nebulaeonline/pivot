@@ -5,9 +5,13 @@ Save and feature-only G2 mutation-local authoritative records accepted/closed.
 G3 indexed-store feasibility active: first baseline accepted; bounded verified-open
 1K/10K result accepted; compact storage and metadata/growth research accepted;
 hierarchical authentication/receipt normalization and the owner-authorized dictionary
-comparison accepted. Physical-storage accounting and scalable admission proposal are
-next, not started. The unmet 20% figure is an unproven aspiration, not a mandatory gate.
+comparison accepted. Physical-storage accounting, scalable admission proposal and
+readiness comparison accepted. Engine/VFS and small-bound resource-admission
+qualification authorized, not started. No larger profile or expanded workload enabled.
+20% is an optimization aspiration, not an acceptance gate; storage optimization is parked.
 G4–G7 and production history integration remain gated (2026-10-27)**.
+[Accounting acceptance and exact engine/admission qualification assignment](../handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
+[Physical accounting, admission proposal and G3 readiness assessment](../handoffs/2026-10-27-g3-storage-admission-assessment.md).
 [Research acceptance and scalability/storage-efficiency assignment](../handoffs/2026-10-27-g3-hierarchy-dictionary-acceptance.md).
 [Hierarchical authentication and normalization results](../handoffs/2026-10-27-g3-hierarchy-normalization-results.md).
 [Separate trained-dictionary investigation](../handoffs/2026-10-27-g3-dictionary-results.md).

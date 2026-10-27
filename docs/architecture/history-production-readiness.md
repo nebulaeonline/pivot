@@ -3,13 +3,27 @@
 Date: 2026-10-24. **G0 approved; G1 and feature-only G2 accepted/closed.
 G3 first baseline accepted; bounded verified-open 1K/10K research accepted; compact storage accepted; metadata/growth research
 is accepted; hierarchical authentication/receipt normalization and owner-authorized
-dictionary research are accepted. Physical accounting and scalable admission proposal
-are next, not started. G4–G7 and production Undo/Redo remain gated.**
+dictionary research are accepted. Physical accounting, scalable admission proposal
+and readiness comparison are accepted. Engine/VFS and small-bound resource-admission
+qualification are authorized, not started. G4–G7 and production
+Undo/Redo remain gated.**
+[Accounting acceptance and engine/admission qualification scope](../handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
+Use a fixed reviewable research engine/VFS, qualify its WAL-reset correction and
+instrument the actual connection. Implement pre-write admission while keeping the
+1,024-leaf profile; stop after small-bound native failure/recovery evidence. Storage
+optimization is parked and 20% is not an acceptance gate. No 32K/65K execution is
+authorized; those scaling points require a separate parent decision.
+[Physical accounting, admission proposal and readiness comparison](../handoffs/2026-10-27-g3-storage-admission-assessment.md):
+the unchanged representation has a serialized-record floor about 41.21% beyond
+compressed payload even before page overhead. A proposed 4,096-leaf profile has
+bounded logical work and 30 native model-test passes; it is not enabled in the store.
+Native engine/VFS, sync/WAL and memory-admission evidence remain blockers. No expanded
+index/full-G2 run, backend selection or engine upgrade was made for this assessment.
 [Acceptance, revised storage objective and next gate](../handoffs/2026-10-27-g3-hierarchy-dictionary-acceptance.md).
 Retain the separate-table normalized hierarchy, rowid payloads and zlib 6 as the
-experimental baseline. The 20% aspiration is not a mandatory gate pending defensible
-minimum-storage accounting. Return with physical accounting, an explicit admission
-proposal and the original-G3 readiness comparison; no full 100K G2 authorization.
+experimental baseline. The 20% aspiration is not a mandatory gate; the unchanged
+representation's serialized records already exceed it. That assessment and the explicit admission proposal are
+accepted; the next bounded qualification is linked above. No full 100K G2 authorization.
 [Hierarchical authentication and normalization results](../handoffs/2026-10-27-g3-hierarchy-normalization-results.md):
 12.52–12.55 MB at 10K, bounded affected-path updates without retained superseded nodes,
 exact canonical receipt restoration, 249 passes/three skips across native targets.
@@ -472,7 +486,7 @@ authorization inferred from this packet.
 | G0 — approved | Review P1–P9 and adversarial plan | Resolve Save/ledger semantics and policy choices; no runtime edits yet |
 | G1 — accepted/closed | One explicit validated native export path for ordinary and historical roots; existing WB5 | Preserve strict generic transfer/IDs/Redo/L; full three-platform Rust/managed/session/desktop/AOT gates accepted; preserve original evidence |
 | G2 — accepted/closed, feature-only | Mutation-local PreparedRecordChanges from staged core/workbook candidates; no persisted journal integration | Independently reconstructed prior-state/full-checkpoint oracle; complete coupled changes, deterministic original-state coalescing, failed/no-op isolation and ownership/work measures; three-platform evidence accepted |
-| G3 — active; hierarchy/normalization and dictionary research accepted; accounting/admission proposal next | Bounded SQLite-first indexed-store feasibility, no production backend adoption | Establish minimum physical costs and explicit scalable admission, compare original readiness requirements, and return for review; 20% is an unproven aspiration; full G2 scaling needs separate authorization |
+| G3 — active; accounting/admission assessment accepted; small-bound engine/VFS/admission qualification next | Fixed research engine and actual-connection telemetry; pre-write planning within unchanged 1,024-leaf profile | Return after native small-bound resource/fault/recovery qualification; 32K/65K controls and full G2 require separate authorization; no production selection |
 | G4 | Durable index/decision publication and independent witness | Child restart at payload/index/root/witness windows; lost ACK/suffix, branch/cursor/ledger and wrong-instance checks; no production integration |
 | G5 | Resource, lifecycle and reclamation contracts | Real native Save/decline/Clear/close with tickets/readers, exhaustion and interrupted compaction/relocation; approve numeric budgets/filesystem profiles |
 | G6 | Separately approved Rust session ownership slice | Keep guards, saved content, tickets and uncertainty distinct; review any private protocol cut separately; hosted v1 unchanged |

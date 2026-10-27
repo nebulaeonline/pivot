@@ -3,13 +3,36 @@
 Date: 2026-10-27
 
 **Parent accepted the hierarchy/normalization and separate dictionary research.
-G3 remains open; physical-storage accounting and scalable admission are next.**
+G3 remains open; parent accepted the physical accounting, scalable admission proposal
+and readiness assessment. Engine/VFS and small-bound admission qualification are next.**
+[Acceptance and exact qualification assignment](handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
+Stop storage optimization; 20% is an optimization aspiration, not an acceptance gate.
+Qualify a fixed actual SQLite build/VFS and WAL-reset correction, instrument the actual
+connection, and implement pre-write planning/admission within the unchanged 1,024-leaf
+profile. Test resource failures, pinned WAL/readers and crash/reopen at small bounds.
+New qualification implementation has not started. **32K/65K controls require separate
+authorization**; no expanded workload is enabled by this assignment.
+[Assessment, readiness comparison and stopping boundary](handoffs/2026-10-27-g3-storage-admission-assessment.md) ·
+[Exact storage accounting](architecture/history-storage-accounting.md) ·
+[Proposed admission bounds](architecture/history-scalable-admission-proposal.md).
+Read-only native collection matches every dbstat object on Mac/Ubuntu and preserves
+source DB/WAL hashes and canonical receipts on all three targets. The unchanged
+schema's serialized records alone cost about **41.21% beyond compressed payload**,
+so page packing cannot reach 20%. This is not a universal information-theoretic bound.
+The proposed 4,096-leaf profile has validated logical costs (at most 33 node writes /
+5,537 index bytes); **30 native model-test passes**, no larger runtime profile enabled.
+Current store bounds remain 1,024 leaves. Larger index and full-G2 workloads have not
+run. Native resource admission, actual SQLite/VFS/sync qualification and WAL/cache
+instrumentation remain before stronger scalability/backend claims. The assessment's
+review is complete; the new bounded qualification assignment is
+recorded above. No production engine selection or codec round is authorized.
 [Acceptance, revised objective and exact next scope](handoffs/2026-10-27-g3-hierarchy-dictionary-acceptance.md).
 The 20% metadata figure is now an unproven research aspiration, not a mandatory
 engineering gate. Assess indispensable bytes versus duplicate/index/page costs and
 predictable growth. Document larger admission bounds and worst-case costs before
 expanded execution; return with the assessment/proposal and readiness comparison.
-New feasibility work has not started. No further codec optimization round is planned.
+The immediate assessment/proposal work is now complete; conditional expanded execution
+has not started. No further codec optimization round is planned.
 
 The accepted hierarchical authentication and lossless receipt normalization reduce
 genuine 10K retained
@@ -667,7 +690,7 @@ source full gates passed; the cause is unresolved. [G2 evidence/qualification](h
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication/receipt normalization and owner-authorized dictionary research are accepted; physical accounting and scalable admission proposal are next, with the 20% aspiration unproven and admitted resource ceilings unresolved; no complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
+History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication/receipt normalization and owner-authorized dictionary research are accepted; physical accounting/admission proposal and readiness comparison are accepted; engine/VFS and small-bound admission qualification are authorized, not started; 20% is only an optimization aspiration and expanded control workloads require separate authorization; no complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
 [G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
 [Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
 G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.

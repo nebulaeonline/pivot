@@ -2,7 +2,11 @@
 
 Status: **Four-stage feasibility accepted/closed; G0 approved; G1 ordinary native
 Save and feature-only G2 mutation-local authoritative records accepted/closed.
-G3 indexed-store feasibility active with the first bounded research baseline accepted. G4–G7 and production history integration remain gated (2026-10-27)**.
+G3 indexed-store feasibility active: first baseline accepted; bounded verified-open
+1K/10K result accepted; storage-efficiency reset authorized. G4–G7 and production history integration remain gated (2026-10-27)**.
+[Revised storage-efficiency targets and compact-comparison scope](../handoffs/2026-10-27-g3-storage-efficiency-reset.md).
+[Verified-open acceptance and index-cost research scope](../handoffs/2026-10-27-g3-verified-open-acceptance.md).
+[Verified-open design and measured result](../handoffs/2026-10-27-g3-verified-open-results.md).
 [First G3 acceptance and bounded verified-open assignment](../handoffs/2026-10-27-g3-first-result-acceptance.md).
 [First G3 result and remaining feasibility gates](../handoffs/2026-10-27-g3-indexed-store-first-results.md).
 [G2 acceptance and owner scheduling hold](../handoffs/2026-10-24-g2-acceptance-g3-held.md).

@@ -1,7 +1,10 @@
 # G3 indexed-store experiment: first bounded slice
 
 Parent accepted this first research baseline on 2026-10-27. G3 remains incomplete;
-bounded verified-open/completeness research is authorized next.
+the subsequent bounded verified-open experiment is now ready for review.
+[Verified-open design](history-verified-open-experiment.md) and
+[results](../handoffs/2026-10-27-g3-verified-open-results.md).
+The full-audit baseline described below is retained unchanged.
 [Acceptance and next assignment](../handoffs/2026-10-27-g3-first-result-acceptance.md).
 
 2026-10-27. Research only, behind the existing history-experiment fixture feature.

@@ -4,8 +4,13 @@ Status: **Four-stage feasibility accepted/closed; G0 approved; G1 ordinary nativ
 Save and feature-only G2 mutation-local authoritative records accepted/closed.
 G3 indexed-store feasibility active: first baseline accepted; bounded verified-open
 1K/10K result accepted; compact storage and metadata/growth research accepted;
-hierarchical authentication and receipt normalization authorized, not started.
+hierarchical authentication/receipt normalization and the owner-authorized dictionary
+comparison accepted. Physical-storage accounting and scalable admission proposal are
+next, not started. The unmet 20% figure is an unproven aspiration, not a mandatory gate.
 G4–G7 and production history integration remain gated (2026-10-27)**.
+[Research acceptance and scalability/storage-efficiency assignment](../handoffs/2026-10-27-g3-hierarchy-dictionary-acceptance.md).
+[Hierarchical authentication and normalization results](../handoffs/2026-10-27-g3-hierarchy-normalization-results.md).
+[Separate trained-dictionary investigation](../handoffs/2026-10-27-g3-dictionary-results.md).
 [Layout/growth acceptance and next research boundaries](../handoffs/2026-10-27-g3-layout-growth-acceptance.md).
 [Page-layout and authenticated-growth results and remaining limits](../handoffs/2026-10-27-g3-layout-growth-results.md).
 [Compact-storage acceptance and metadata/growth scope](../handoffs/2026-10-27-g3-compact-storage-acceptance.md).

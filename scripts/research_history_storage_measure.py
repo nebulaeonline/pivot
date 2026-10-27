@@ -37,6 +37,8 @@ def measure(fixture,output,mode,*,fullfsync=False,store_class=CompactStore):
                    'sql_noncommit_ns':sql,'commit_ns':receipt['commit_ns'],'other_backend_ns':backend-proof-sql-receipt['commit_ns']}
             event['splits']=store.metrics.get('split_count',0)-before.get('split_count',0)
             event['directory_bytes']=len(store.meta[8])
+            for metric in ['index_pages_read','index_pages_written','proof_read_bytes','proof_written_bytes']:
+                event[metric]=store.metrics.get(metric,0)-before.get(metric,0)
             for key in samples:samples[key].append(event[key])
             raw.write(json.dumps(event)+'\n');records=prepared['records'];n+=1
             cells+=sum(bytes.fromhex(key)[0]==16 for key,_,_ in item['ops'])
@@ -59,6 +61,7 @@ def measure(fixture,output,mode,*,fullfsync=False,store_class=CompactStore):
     logical=sum(v['compressed_bytes'] for v in categories.values())
     binary=sum(v['binary_bytes'] for v in categories.values())
     directory=len(store.meta[8]);bucket_raw=store.db.execute('SELECT coalesce(sum(length(bytes)),0) FROM bucket').fetchone()[0]
+    if hasattr(store,'authentication_extra_bytes'):bucket_raw+=store.authentication_extra_bytes()
     report['authentication_bytes']=bucket_raw+directory
     report['receipt_body_bytes']=store.db.execute('SELECT sum(length(id)+length(intent)+length(body)+length(hash)) FROM receipt').fetchone()[0]
     report['retained_compressed_payload_bytes']=logical;report['retained_binary_payload_bytes']=binary

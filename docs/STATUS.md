@@ -2,6 +2,41 @@
 
 Date: 2026-10-27
 
+**Parent accepted the hierarchy/normalization and separate dictionary research.
+G3 remains open; physical-storage accounting and scalable admission are next.**
+[Acceptance, revised objective and exact next scope](handoffs/2026-10-27-g3-hierarchy-dictionary-acceptance.md).
+The 20% metadata figure is now an unproven research aspiration, not a mandatory
+engineering gate. Assess indispensable bytes versus duplicate/index/page costs and
+predictable growth. Document larger admission bounds and worst-case costs before
+expanded execution; return with the assessment/proposal and readiness comparison.
+New feasibility work has not started. No further codec optimization round is planned.
+
+The accepted hierarchical authentication and lossless receipt normalization reduce
+genuine 10K retained
+history to **12.52–12.55 MB**. Publication updates existing path nodes; the application
+retains no superseded paths. Logical index writes fall from about 71.5 MB to 32.8 MB.
+All receipts, canonical hashes, lifetime authority and reconstruction oracles survive.
+Separate branch/leaf tables avoid the mixed-table page-density regression. Growth
+probes retain 16,385 receipts through 421–427 leaves; the 1,024-leaf research bound
+remains and full 100K G2 work is not authorized.
+
+Native Windows NTFS, Ubuntu ext4 and Mac APFS qualification: **249 passes, three
+explicit skips**. Broader overhead remains **57.8–58.2%** of compressed payload;
+the 20% aspiration remains unmet and complete production feasibility remains open.
+[Hierarchy/normalization results](handoffs/2026-10-27-g3-hierarchy-normalization-results.md) ·
+[Experimental contract](architecture/history-hierarchy-normalization-experiment.md).
+
+The owner subsequently authorized a separate trained-dictionary zstd investigation.
+One frozen 1K training corpus and identical dictionaries were tested on all native
+10K histories: **18 additional codec test passes**, and 21 candidate databases passed
+complete audit/reconstruction. Dictionaries reduce payload bytes but yield only about
+1% total-size savings in the best dictionary case; plain zstd-9 is slightly smaller.
+Normalized receipts do not benefit, and the 20% metadata goal remains unmet. The
+unchanged zlib baseline retains its own evidence; no production codec is selected.
+[Dictionary results and limits](handoffs/2026-10-27-g3-dictionary-results.md) ·
+[Dictionary/corpus contract](architecture/history-dictionary-experiment.md).
+G1/G2 and six-RID execution acceptance remain closed; G4–G7 remain gated.
+
 Parent review **accepted and closed six-RID headless CI, managed GUI and
 Native AOT execution validation**. Every designated RID has passed each mode.
 Windows ARM64's instrumented pass is accepted as execution evidence. Its original
@@ -60,10 +95,9 @@ reaches 376–377 current buckets; it is not a full 100K G2 qualification.
 Windows NTFS, Ubuntu ext4 and native Mac APFS completed the final research gates:
 147 test passes and three explicit skips. Broader metadata still exceeds the 20%
 target, and the bounded flat directory still has linear decode/rewrite cost.
-The next authorized investigation is a page-bounded hierarchical authenticated
-directory and lossless receipt-body/reference normalization. Implementation has not
-started. Measure incremental writes, retained allocation and verification strength;
-avoid retaining immutable tree paths per transaction. Zlib 6 remains unchanged.
+The authorized hierarchical directory and receipt-normalization investigation is now
+accepted, as reported at the top of this document. Its zlib-6
+baseline is unchanged by the separate owner-authorized dictionary comparison.
 [Acceptance, next assignment and stop conditions](handoffs/2026-10-27-g3-layout-growth-acceptance.md) ·
 [Results, limits and native evidence](handoffs/2026-10-27-g3-layout-growth-results.md) ·
 [Layout and split contract](architecture/history-layout-growth-experiment.md) ·
@@ -633,7 +667,7 @@ source full gates passed; the cause is unresolved. [G2 evidence/qualification](h
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication and receipt normalization are authorized, with the metadata target and permanent directory scalability unresolved; no complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
+History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication/receipt normalization and owner-authorized dictionary research are accepted; physical accounting and scalable admission proposal are next, with the 20% aspiration unproven and admitted resource ceilings unresolved; no complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
 [G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
 [Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
 G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.

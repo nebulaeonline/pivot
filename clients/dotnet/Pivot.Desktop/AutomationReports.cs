@@ -15,6 +15,7 @@ internal sealed class DesktopReport
     public string? graphical_backend { get; init; }
     public int? process_session_id { get; init; } = OperatingSystem.IsWindows() ? System.Diagnostics.Process.GetCurrentProcess().SessionId : null;
     public string execution_mode { get; init; } = RuntimeFeature.IsDynamicCodeSupported ? "managed" : "native-aot";
+    public string process_architecture { get; init; } = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
     public string? executable { get; init; } = Environment.ProcessPath;
     public int process_id { get; init; } = Environment.ProcessId;
     public double? startup_to_ready_ms { get; init; }
@@ -51,6 +52,7 @@ internal sealed class PeerReport
     public string status { get; init; } = "";
     public string mode { get; init; } = "";
     public string execution_mode { get; init; } = RuntimeFeature.IsDynamicCodeSupported ? "managed" : "native-aot";
+    public string process_architecture { get; init; } = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
     public string? executable { get; init; } = Environment.ProcessPath;
     public int process_id { get; init; } = Environment.ProcessId;
     public int? rust_process_id { get; init; }

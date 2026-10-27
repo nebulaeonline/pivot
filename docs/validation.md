@@ -1,6 +1,7 @@
 # Multi-platform development validation
 
-Use the existing CI and desktop runners through one entry point:
+Use the existing CI and desktop runners through one entry point.
+See [attended GUI/AOT activation and collection](validation-gui-aot.md) for graphical-session workflows:
 
 ```text
 python scripts/validate.py

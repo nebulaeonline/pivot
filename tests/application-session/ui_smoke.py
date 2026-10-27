@@ -8,7 +8,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT/'scripts'))
-from desktop_test_lock import clipboard_lock
+from desktop_test_lock import gui_suite_lock
 from execution_policy import Blocked, blocked_exit, declare_execution, desktop_environment, desktop_session
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -25,7 +25,7 @@ try:
         env = desktop_environment()
         env['PIVOT_SESSION_PATH'] = str(Path(metadata['target_directory'])/'release'/('pivot-session.exe' if os.name=='nt' else 'pivot-session'))
         env['PIVOT_UI_SMOKE_REPORT'] = str(output/'results.json')
-        with clipboard_lock() as lock:
+        with gui_suite_lock() as lock:
             (output/'clipboard-lock.json').write_text(json.dumps(lock, indent=2)+'\n', encoding='utf-8')
             subprocess.run(['dotnet','clients/dotnet/Pivot.Desktop/bin/Release/net10.0/Pivot.Desktop.dll'],cwd=ROOT,env=env,check=True,timeout=180)
         report = json.loads((output/'results.json').read_text(encoding='utf-8'))

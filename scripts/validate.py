@@ -138,7 +138,7 @@ def owned_alive(pid):
    kernel.CloseHandle.argtypes=[ctypes.c_void_p];kernel.CloseHandle(handle)
  try:os.kill(int(pid),0);return True
  except ProcessLookupError:return False
-def check_gui(output,suite,group):
+def gui_reports(output,suite,expected_arch=None):
  if suite=='aot':
   summaries=list((output/'aot').glob('*/summary.json'))
   if len(summaries)!=1:raise ValueError('Native AOT summary missing')
@@ -150,6 +150,11 @@ def check_gui(output,suite,group):
  for r in reports:
   if r['status']!='passed' or r['execution_mode']!=('managed' if suite=='managed' else 'native-aot') or r['remaining_charge']!=0 or not r.get('graphical_backend'):
    raise ValueError('Application mode/backend/assertion/resource check failed')
+  if expected_arch and r.get('process_architecture')!=expected_arch:raise ValueError('Actual GUI process architecture does not match target')
+ return reports
+
+def check_gui(output,suite,group,expected_arch=None):
+ reports=gui_reports(output,suite,expected_arch)
  pids={r['process_id'] for r in reports}|{r['rust_process_id'] for r in reports if r.get('rust_process_id')}
  survivors=[p for p in sorted(pids) if owned_alive(p)]
  if group is not None:
@@ -158,11 +163,45 @@ def check_gui(output,suite,group):
  if survivors:raise ValueError('Owned processes survived: '+str(survivors))
  return {'processes':[r['process_id'] for r in reports],'backends':[r['graphical_backend'] for r in reports],
   'zero_charges':4,'owned_survivors':[],'cleanup':'reported owned PIDs plus launched process group where available; no unrelated /proc enumeration'}
+
+def aot_prerequisites(rid,env):
+ if rid.startswith('win-'):
+  tool=Path(env.get('ProgramFiles(x86)','C:/Program Files (x86)'))/'Microsoft Visual Studio/Installer/vswhere.exe'
+  component='Microsoft.VisualStudio.Component.VC.Tools.ARM64' if rid=='win-arm64' else 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64'
+  probe=query([str(tool),'-latest','-products','*','-requires',component,'-format','json'],env=env)
+  try:ready=not probe['exit_code'] and bool(json.loads(probe['stdout'].lstrip('\ufeff')))
+  except (ValueError,KeyError):ready=False
+  sdk_root=Path(env.get('ProgramFiles(x86)','C:/Program Files (x86)'))/'Windows Kits/10/Lib'
+  libraries=list(sdk_root.glob('*/um/'+rid.rsplit('-',1)[1]+'/kernel32.lib'))
+  return {'ready':ready and bool(libraries),'required_component':component,'compiler':probe,'windows_sdk_libraries':[str(p) for p in libraries]}
+ compiler=query(['clang','--version'],env=env)
+ ready=compiler['exit_code']==0
+ result={'ready':ready,'compiler':compiler}
+ if rid.startswith('linux-'):
+  result['zlib_header']=Path('/usr/include/zlib.h').is_file();result['ready']=ready and result['zlib_header']
+ else:
+  result['sdk']=query(['xcode-select','-p'],env=env);result['ready']=ready and result['sdk']['exit_code']==0
+ return result
+
+def activation_plan(args,source):
+ run=args.run_id+'-attended'
+ command=[sys.executable,str(source/'scripts/validate.py'),'--worker',args.worker,'--suite',args.suite,'--run-id',run,'--gui']
+ if args.allow_emulation:command+=['--allow-emulation']
+ if args.dotnet_root:command+=['--dotnet-root',args.dotnet_root]
+ return {'run_id':run,'argv':command,'instruction':'Run the activation script in an unlocked graphical-session terminal on this target. It will request the existing live consent.'}
+
+def write_activation(output,rid,target,plan):
+ windows=rid.startswith('win-')
+ path=output/('activate-'+rid+('.cmd' if windows else '.sh'))
+ command=remote_command({'shell':'powershell'} if windows else {},plan['argv'])
+ with path.open('w',encoding='utf-8',newline='') as stream:
+  stream.write(('@echo off\r\n'+command+'\r\nexit /b %errorlevel%\r\n') if windows else ('#!/bin/sh\nexec '+command+'\n'))
+ return str(path)
 def worker(args):
  source=ROOT;report_source=source/'artifacts/validation-runs'/args.run_id/args.worker
  work=Path.home()/'PivotValidation'/args.run_id/args.worker
  output=work/'reports';result={'rid':args.worker,'suite':args.suite,'status':'SetupFailed',
-  'revision':revision(source),'environment':platform.platform(),'original_reports':str(output),'command':None}
+  'revision':revision(source),'environment':platform.platform(),'original_reports':str(output),'command':None,'run_id':args.run_id}
  try:
   actual,identity=actual_rid();result.update(controller_rid=actual,identity=identity)
   validate_controller(args.worker,actual,identity,args.allow_emulation)
@@ -178,8 +217,22 @@ def worker(args):
   result['tool_execution']='emulated' if identity['native_architecture']!=args.worker.rsplit('-',1)[1] else 'native'
   if args.suite=='discover':result['status']='Available';result['note']='Metadata only; no build/test execution pass'
   else:
-   if args.suite in ['managed','aot'] and not args.gui:
-    result['status']='NeedsConsent';result['error']='Add --gui from the target desktop terminal';return finish_worker(result,output,report_source)
+   if args.suite in ['managed','aot']:
+    from gui_session import inspect_session
+    result['graphical_session']=inspect_session()
+    result['activation']=activation_plan(args,source)
+    if args.suite=='aot':
+     result['native_aot_prerequisites']=aot_prerequisites(args.worker,env)
+     if not result['native_aot_prerequisites']['ready']:
+      result.update(status='SetupFailed',error='Native AOT compiler/SDK prerequisites missing; see native_aot_prerequisites')
+      return finish_worker(result,output,report_source)
+    if not result['graphical_session']['ready_for_consent']:
+     result.update(status='NeedsGraphicalSession',error=result['graphical_session'].get('reason'))
+     return finish_worker(result,output,report_source)
+    if not args.gui:
+     result.update(status='NeedsConsent',error='Run activation from the target desktop terminal; no GUI launched')
+     return finish_worker(result,output,report_source)
+    result.pop('activation',None)
    snapshot=work/'source';copy_source(source,snapshot)
    sys.path.insert(0,str(source/'scripts'))
    from execution_policy import desktop_session,desktop_environment,Blocked
@@ -205,10 +258,11 @@ def worker(args):
       if result['rust_binary']['exit_code'] or expected not in result['rust_binary']['stdout']:
        result.update(status='Failed',error='Built Rust executable architecture does not match target')
     if code==0 and args.suite in ['managed','aot']:
-     result['application']=check_gui(output,args.suite,process.pid if os.name!='nt' else None)
+     result['application']=check_gui(output,args.suite,process.pid if os.name!='nt' else None,args.worker.rsplit('-',1)[1])
    if result['status'] in ['Failed','Blocked'] and not result.get('error'):result['error']='Runner returned '+str(result['exit_code'])+'; see console.log'
  except Exception as error:
   result['error']=str(error)
+  if type(error).__name__=='Blocked':result['status']='Blocked'
   if result.get('exit_code')==0:result['status']='Failed'
  return finish_worker(result,output,report_source)
 def finish_worker(result,output,destination):
@@ -217,7 +271,7 @@ def finish_worker(result,output,destination):
   destination.parent.mkdir(parents=True,exist_ok=True);shutil.copytree(output,destination)
  except OSError as e:result['export_error']=str(e);result['status']='ExportFailed';write(output/'result.json',result)
  print(json.dumps(result),flush=True)
- return 0 if result['status'] in ['Passed','Available'] else 2 if result['status'] in ['NeedsConsent','Blocked','SetupFailed'] else 1
+ return 0 if result['status'] in ['Passed','Available'] else 2 if result['status'] in ['NeedsConsent','NeedsGraphicalSession','Blocked','SetupFailed'] else 1
 def remote_command(target,argv):
  if target.get('shell')=='powershell':
   script='& '+' '.join("'"+str(a).replace("'","''")+"'" for a in argv)
@@ -254,6 +308,7 @@ def run_target(rid,target,args,run_id,output):
   try:root=deploy_source(target,run_id,rid)
   except (OSError,subprocess.CalledProcessError) as error:
    result.update(status='SetupFailed',error=str(error),details=getattr(error,'stderr',None));return result
+ result['remote_source_root']=root
  if transport=='local':command=[sys.executable,str(ROOT/'scripts/validate.py')]
  else:
   command=target.get('python',['python3'])+[str(root).rstrip('/')+'/scripts/validate.py']
@@ -285,6 +340,7 @@ def run_target(rid,target,args,run_id,output):
     return result
   if returned.is_file():
    data=json.loads(returned.read_text());result.update(data);result['label']=target.get('label');result['dispatch_exit_code']=code
+   if data.get('activation'):result['activation_script']=write_activation(output,rid,target,data['activation'])
   else:result.update(status='SetupFailed',error='No returned report; dispatch exit '+str(code)+'; see dispatch log')
  except OSError as e:result.update(status='SetupFailed',error=str(e))
  return result
@@ -300,6 +356,49 @@ def schedule_targets(rids,config,execute,jobs,limits=None):
   with gates[group] if group else nullcontext():return execute(rid)
  with ThreadPoolExecutor(max_workers=jobs) as pool:return list(pool.map(scheduled,rids))
 
+def summarize(output,run_id,suite,results,**details):
+ selected=[r for r in results if r['status']!='NotSelected']
+ bad=any(r['status'] in ['Failed','SetupFailed','ExportFailed'] for r in selected)
+ partial=any(r['status'] not in ['Passed','Available'] for r in selected)
+ summary={'run_id':run_id,'suite':suite,'revision':revision(ROOT),'targets':results,**details,
+  'status':'Failed' if bad else 'Partial' if partial else 'DiscoveryComplete' if suite=='discover' else 'Passed'}
+ write(output/'matrix.json',summary)
+ lines=['| Target | Result | Environment / reason |','| --- | --- | --- |']
+ for r in results:lines.append('| '+r['rid']+' | '+r['status']+' | '+str(r.get('error') or r.get('label') or '').replace('|','/')+' |')
+ (output/'matrix.md').write_text('\n'.join(lines)+'\n');print('\n'.join(lines));print('Reports: '+str(output))
+ return 1 if bad else 2 if partial else 0
+
+def collect_attended(original,config,output):
+ results=[]
+ for previous in original['targets']:
+  result=dict(previous);rid=result['rid'];plan=result.get('activation')
+  if not plan:
+   results.append(result);continue
+  target=config[rid];root=result['remote_source_root']
+  remote=str(root).rstrip('/')+'/artifacts/validation-runs/'+plan['run_id']+'/'+rid
+  returned=output/rid/'result.json'
+  if target['transport']=='ssh':
+   transfer=subprocess.run([ssh_tool('scp')]+target.get('ssh_options',[])+['-r',target['host']+':'+remote,str(output/rid)],stdin=subprocess.DEVNULL,capture_output=True,text=True)
+   if transfer.returncode:
+    result['collection_note']='No attended report collected yet: '+transfer.stderr.strip()
+    results.append(result);continue
+  else:
+   try:shutil.copytree(Path(remote),output/rid)
+   except OSError as error:
+    result['collection_note']=str(error);results.append(result);continue
+  try:
+   actual=json.loads(returned.read_text())
+   if actual['rid']!=rid or actual['suite']!=original['suite'] or actual.get('run_id')!=plan['run_id']:raise ValueError('Attended report does not match requested RID/suite/run')
+   if actual['status']=='Passed' and (actual.get('actual_rid')!=rid or actual.get('application',{}).get('zero_charges')!=4):raise ValueError('Missing actual GUI execution/cleanup evidence')
+   if actual['status']=='Passed':gui_reports(output/rid,original['suite'],rid.rsplit('-',1)[1])
+   result.pop('error',None);result.pop('collection_note',None)
+   result.update(actual);result['label']=target.get('label');result['remote_source_root']=root
+   if actual.get('activation'):result['activation_script']=write_activation(output,rid,target,actual['activation'])
+   else:result.pop('activation',None);result.pop('activation_script',None)
+  except (OSError,ValueError,KeyError) as error:result.update(status='ExportFailed',error=str(error))
+  results.append(result)
+ return results
+
 def main():
  parser=argparse.ArgumentParser(description=__doc__)
  parser.add_argument('--config',type=Path,default=default_config())
@@ -309,6 +408,7 @@ def main():
  parser.add_argument('--worker',choices=RIDS,help=argparse.SUPPRESS);parser.add_argument('--run-id',help=argparse.SUPPRESS)
  parser.add_argument('--allow-emulation',action='store_true',help=argparse.SUPPRESS)
  parser.add_argument('--dotnet-root',help=argparse.SUPPRESS)
+ parser.add_argument('--collect',help='Collect attended results from a previous matrix run ID; launches no tests')
  args=parser.parse_args()
  if args.worker:
   if not args.run_id or any(c not in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_' for c in args.run_id):parser.error('Safe run ID required')
@@ -317,22 +417,18 @@ def main():
  output=ROOT/'artifacts/validation-matrix'/run_id;output.mkdir(parents=True)
  profile=json.loads(args.config.read_text());config=profile['targets'];results=[]
  limits=profile.get('concurrency_limits',{})
+ if args.collect:
+  if not args.collect or any(c not in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_' for c in args.collect):parser.error('Safe collection run ID required')
+  original=json.loads((ROOT/'artifacts/validation-matrix'/args.collect/'matrix.json').read_text())
+  if original['suite'] not in ['managed','aot']:parser.error('Only attended managed/AOT matrices can be collected')
+  results=collect_attended(original,config,output)
+  return summarize(output,run_id,original['suite'],results,collection_of=args.collect)
  if args.jobs<1:parser.error('--jobs must be positive')
  def selected_target(rid):
   if rid not in args.targets:return {'rid':rid,'status':'NotSelected','suite':args.suite}
   print('['+rid+'] '+args.suite,flush=True)
   return run_target(rid,config[rid],args,run_id,output)
  results=schedule_targets(RIDS,config,selected_target,1 if args.gui else args.jobs,limits)
- selected=[r for r in results if r['status']!='NotSelected']
- bad=any(r['status'] in ['Failed','SetupFailed','ExportFailed'] for r in selected)
- partial=any(r['status'] not in ['Passed','Available'] for r in selected)
- summary={'run_id':run_id,'suite':args.suite,'revision':revision(ROOT),'targets':results,
-  'concurrency':{'global_jobs':1 if args.gui else args.jobs,'group_limits':limits},
-  'status':'Failed' if bad else 'Partial' if partial else 'DiscoveryComplete' if args.suite=='discover' else 'Passed'}
- write(output/'matrix.json',summary)
- lines=['| Target | Result | Environment / reason |','| --- | --- | --- |']
- for r in results:lines.append('| '+r['rid']+' | '+r['status']+' | '+str(r.get('error') or r.get('label') or '').replace('|','/')+' |')
- (output/'matrix.md').write_text('\n'.join(lines)+'\n');print('\n'.join(lines));print('Reports: '+str(output))
- return 1 if bad else 2 if partial else 0
+ return summarize(output,run_id,args.suite,results,concurrency={'global_jobs':1 if args.gui else args.jobs,'group_limits':limits})
 
 if __name__=='__main__':raise SystemExit(main())

@@ -37,6 +37,7 @@ ENTRY_POINTS = {
     'scripts/ci.py': (ExecutionClass.HEADLESS, ExecutionClass.FIXTURE_FAULT),
     'scripts/verify_native_aot.py': (ExecutionClass.HEADLESS, ExecutionClass.GUI),
     'scripts/run_desktop.py': (ExecutionClass.GUI,),
+    'scripts/attend_validation.py': (ExecutionClass.GUI,),
     'scripts/desktop_test_lock.py': (ExecutionClass.HEADLESS,),
     'scripts/bulk_workbook.py': (ExecutionClass.HEADLESS,),
     'scripts/research_history_matrix.py': (ExecutionClass.HEADLESS,),

@@ -5,7 +5,7 @@ do not provide a common cross-OS contract. Never guess that an existing owner is
 dead: timeout with its metadata instead of stealing a potentially live lock.
 """
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import json
 import os
 from pathlib import Path
@@ -38,6 +38,40 @@ def default_lock_path():
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             raise RuntimeError('Cannot resolve the shared Windows/WSLg clipboard lock. Enable Windows interop or set PIVOT_CLIPBOARD_LOCK to the same Windows file on both sides.') from error
     return Path(os.environ.get('XDG_RUNTIME_DIR', f'/tmp/pivot-{os.getuid()}')) / 'desktop-clipboard.lock'
+
+
+@contextmanager
+def machine_desktop_lock(path=None, timeout=300):
+    """One fixed Mac host lock, independent of RID, checkout and user override."""
+    import fcntl
+    from execution_policy import Blocked
+    path = Path(path) if path is not None else Path('/private/var/tmp/pivot-native-desktop.lock')
+    try:
+        descriptor = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o666)
+    except OSError as error:
+        raise Blocked('Cannot acquire the machine-wide Mac desktop lock: '+str(error)) from error
+    started = time.monotonic()
+    try:
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() - started >= timeout:
+                    raise Blocked('The Mac desktop is owned by another GUI suite; ARM64/Rosetta GUI cannot overlap')
+                time.sleep(.05)
+        yield {'path': str(path), 'scope': 'machine-wide native Mac desktop', 'pid': os.getpid()}
+    finally:
+        # Keep the inode: unlinking a flock file can create two independent locks.
+        os.close(descriptor)
+
+
+@contextmanager
+def gui_suite_lock(timeout=300):
+    with machine_desktop_lock(timeout=timeout) if sys.platform == 'darwin' else nullcontext() as machine:
+        with clipboard_lock(timeout=timeout) as owner:
+            if machine: owner['machine_desktop_lock'] = machine
+            yield owner
 
 
 @contextmanager

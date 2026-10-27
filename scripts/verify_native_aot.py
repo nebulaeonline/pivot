@@ -12,7 +12,7 @@ import subprocess
 import sys
 import time
 
-from desktop_test_lock import clipboard_lock
+from desktop_test_lock import gui_suite_lock
 from execution_policy import Blocked, blocked_exit, declare_execution, desktop_environment, desktop_session
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,7 +67,10 @@ def execute(args):
             vswhere = Path(os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'))/'Microsoft Visual Studio/Installer/vswhere.exe'
             if not vswhere.is_file():
                 raise RuntimeError('Windows Native AOT requires Visual Studio C++ build tools; vswhere was not found.')
-            run('native-toolchain', [str(vswhere), '-latest', '-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-format', 'json'])
+            component = 'Microsoft.VisualStudio.Component.VC.Tools.ARM64' if rid == 'win-arm64' else 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64'
+            run('native-toolchain', [str(vswhere), '-latest', '-products', '*', '-requires', component, '-format', 'json'])
+            if not json.loads((output/'native-toolchain.log').read_text(encoding='utf-8-sig')):
+                raise RuntimeError('Native AOT compiler component missing: '+component)
         else:
             run('native-toolchain', ['clang', '--version'])
             if sys.platform == 'linux':
@@ -102,7 +105,7 @@ def execute(args):
         env.pop('PIVOT_UI_PEER_REPORT', None)
         env.pop('PIVOT_UI_PEER_MODE', None)
         env['PIVOT_UI_SMOKE_REPORT'] = str(ui/'results.json')
-        with clipboard_lock() as lock:
+        with gui_suite_lock() as lock:
             (output/'clipboard-lock.json').write_text(json.dumps(lock, indent=2)+'\n', encoding='utf-8')
             run('desktop-ui', [str(executable)], env=env, timeout=180)
         report = json.loads((ui/'results.json').read_text(encoding='utf-8'))
@@ -111,6 +114,8 @@ def execute(args):
                 raise RuntimeError(f'Desktop acceptance field failed: {field}: {report}')
         if report['status'] != 'passed' or report['remaining_charge'] != 0 or report['execution_mode'] != 'native-aot':
             raise RuntimeError(f'Published desktop did not prove Native AOT execution and cleanup: {report}')
+        if report.get('process_architecture') != rid.rsplit('-', 1)[1]:
+            raise RuntimeError('Native AOT process architecture does not match selected RID')
         if Path(report['executable']).resolve() != executable.resolve():
             raise RuntimeError('The reported desktop executable is not the published image.')
         summary['startup_to_ready_ms'] = report['startup_to_ready_ms']
@@ -118,6 +123,8 @@ def execute(args):
             peer = json.loads((ui/f'results.{mode}.json').read_text(encoding='utf-8'))
             if peer['status'] != 'passed' or peer['remaining_charge'] != 0 or peer['execution_mode'] != 'native-aot' or Path(peer['executable']).resolve() != executable.resolve():
                 raise RuntimeError(f'Peer did not run the actual native image with zero-charge close: {peer}')
+            if peer.get('process_architecture') != rid.rsplit('-', 1)[1]:
+                raise RuntimeError('Native AOT peer process architecture does not match selected RID')
             if mode == 'clipboard-save' and not (peer['native_received'] and peer['cancel_checked']):
                 raise RuntimeError('Native cross-process clipboard/Cancel-Save evidence missing')
         fixture = (ui/'results.pivot').read_bytes()
@@ -125,6 +132,9 @@ def execute(args):
             raise RuntimeError('Saved WB5 fixture is invalid')
         summary.update(status='passed', native_desktop_and_all_peers=True, adjacent_rust_child=True,
                        remaining_charge=report['remaining_charge'], publish_warnings=[])
+    except Blocked as error:
+        summary.update(status='blocked', error=str(error))
+        raise
     except (Exception, KeyboardInterrupt) as error:
         summary['error'] = str(error)
         print(f'Native AOT failed: {error}', flush=True)

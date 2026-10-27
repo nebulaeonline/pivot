@@ -1,6 +1,30 @@
 # Pivot implementation status
 
-Date: 2026-10-25
+Date: 2026-10-27
+
+Parent review **accepted and closed six-RID managed GUI** and accepted the five
+passing Native AOT targets. Headless remains accepted/closed. **Native AOT stays
+open at 5/6.** Windows ARM64 AOT published and launched but failed with a
+NullReferenceException in ClipboardChecklistAsync. Its exact sub-step/cause is
+unresolved; the failed JSON report correctly prevented an exit-code-only pass.
+No retry, assertion change or owner-suggested feature was introduced.
+
+Managed evidence: `artifacts/validation-matrix/20261027T025246Z-deb1324f/`.
+AOT evidence: `artifacts/validation-matrix/20261027T025246Z-b82c5b95/`.
+All passing cases retain four actual backend/architecture reports, zero charges
+and owned-process cleanup. All native-Mac cases recorded the shared host GUI lock.
+[Collected results and failure handoff](handoffs/2026-10-26-gui-aot-results.md) ·
+[Integration details](handoffs/2026-10-26-managed-gui-aot-integration.md) ·
+[Activation instructions](validation-gui-aot.md).
+
+Next authorized work is focused Windows ARM64 AOT clipboard diagnosis: identify
+the precise null state using source analysis and minimal non-sensitive sub-step
+checkpoints, compare the historical Windows null-destination issue without
+assuming a common cause, then make one justified correction. Preserve every
+original functional/zero-charge assertion. Any live reproduction needs existing
+owner consent. No unrelated successful-suite reruns or retry-to-green.
+[Managed closure and investigation scope](handoffs/2026-10-27-managed-gui-closure-and-arm64-aot-scope.md).
+Owner suggestions remain separate. G3 remains held.
 
 **Six-RID headless validation accepted and closed by parent review: 78/78 gates.**
 Unified result: `artifacts/validation-matrix/20261026T002242Z-f76230c2/`.

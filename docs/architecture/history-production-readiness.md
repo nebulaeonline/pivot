@@ -1,8 +1,12 @@
 # ADR-0023 production-readiness architecture packet
 
 Date: 2026-10-24. **G0 approved; G1 and feature-only G2 accepted/closed.
-G3 indexed-store feasibility is authorized in principle but held, not started,
-during the infrastructure detour. G4–G7 and production Undo/Redo remain gated.**
+G3 indexed-store feasibility has resumed; the first bounded research baseline is
+accepted. G4–G7 and production Undo/Redo remain gated.**
+[First G3 acceptance and bounded verified-open assignment](../handoffs/2026-10-27-g3-first-result-acceptance.md).
+[First G3 result](../handoffs/2026-10-27-g3-indexed-store-first-results.md) and
+[research design](history-indexed-store-experiment.md). Historical held-G3 notes
+below are superseded by the 2026-10-27 infrastructure closure and resumption.
 [G2 acceptance and owner scheduling hold](../handoffs/2026-10-24-g2-acceptance-g3-held.md).
 [G2 implementation, independent oracle and measurement evidence](../handoffs/2026-10-24-mutation-local-records-g2.md).
 [G1 closure, reliability qualifications and exact G2 scope](../handoffs/2026-10-24-g1-closure-g2-authorization.md).
@@ -439,7 +443,7 @@ authorization inferred from this packet.
 | G0 — approved | Review P1–P9 and adversarial plan | Resolve Save/ledger semantics and policy choices; no runtime edits yet |
 | G1 — accepted/closed | One explicit validated native export path for ordinary and historical roots; existing WB5 | Preserve strict generic transfer/IDs/Redo/L; full three-platform Rust/managed/session/desktop/AOT gates accepted; preserve original evidence |
 | G2 — accepted/closed, feature-only | Mutation-local PreparedRecordChanges from staged core/workbook candidates; no persisted journal integration | Independently reconstructed prior-state/full-checkpoint oracle; complete coupled changes, deterministic original-state coalescing, failed/no-op isolation and ownership/work measures; three-platform evidence accepted |
-| G3 — authorized but held for infrastructure; not started | Bounded SQLite-first indexed-store feasibility, no production backend adoption | Large-history lookup/startup/tail/cache and real sync/fault evidence; return backend/configuration choice for separate approval |
+| G3 — active; first bounded baseline accepted; verified-open research authorized | Bounded SQLite-first indexed-store feasibility, no production backend adoption | Large-history lookup/startup/tail/cache and real sync/fault evidence; return backend/configuration choice for separate approval |
 | G4 | Durable index/decision publication and independent witness | Child restart at payload/index/root/witness windows; lost ACK/suffix, branch/cursor/ledger and wrong-instance checks; no production integration |
 | G5 | Resource, lifecycle and reclamation contracts | Real native Save/decline/Clear/close with tickets/readers, exhaustion and interrupted compaction/relocation; approve numeric budgets/filesystem profiles |
 | G6 | Separately approved Rust session ownership slice | Keep guards, saved content, tickets and uncertainty distinct; review any private protocol cut separately; hosted v1 unchanged |

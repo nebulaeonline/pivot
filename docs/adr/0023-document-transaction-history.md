@@ -2,8 +2,9 @@
 
 Status: **Four-stage feasibility accepted/closed; G0 approved; G1 ordinary native
 Save and feature-only G2 mutation-local authoritative records accepted/closed.
-G3 indexed-store feasibility authorized in principle but held, not started, during
-the infrastructure detour. G4–G7 and production history integration remain gated (2026-10-24)**.
+G3 indexed-store feasibility active with the first bounded research baseline accepted. G4–G7 and production history integration remain gated (2026-10-27)**.
+[First G3 acceptance and bounded verified-open assignment](../handoffs/2026-10-27-g3-first-result-acceptance.md).
+[First G3 result and remaining feasibility gates](../handoffs/2026-10-27-g3-indexed-store-first-results.md).
 [G2 acceptance and owner scheduling hold](../handoffs/2026-10-24-g2-acceptance-g3-held.md).
 [Accepted G2 implementation](../handoffs/2026-10-24-mutation-local-records-g2.md).
 [G1 closure and exact G2 authorization](../handoffs/2026-10-24-g1-closure-g2-authorization.md).
@@ -16,7 +17,7 @@ the infrastructure detour. G4–G7 and production history integration remain gat
 [Production-readiness proposal: decisions P1–P9 and gates G0–G7](../architecture/history-production-readiness.md).
 The proposal recommends a separate validated WB5 projection, not a lower allocation
 floor; generic transfer and Redo remain intact. G1/G2 are closed. Bounded feature-only
-G3 feasibility is authorized but held for infrastructure; no production backend/UI
+G3 feasibility has resumed; no production backend/UI
 choice or G4–G7 implementation is authorized.
 [Final feasibility acceptance and next deliverable](../handoffs/2026-10-23-disk-history-final-feasibility-review.md).
 Historical native Save is a mandatory design gate: preserve lifetime floors and

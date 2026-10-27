@@ -20,11 +20,24 @@ No further confirmation runs are required. The validator must continue failing
 actual failed assertions. Retain metadata-only diagnostics and explicit missing-
 cell failures without suppression or added retries.
 
-**G3's infrastructure scheduling hold is released.** Next is the previously
-accepted bounded ADR-0023 indexed-store feasibility scope. G1/G2 remain closed;
-G4–G7 and production Undo/Redo remain separately gated. No G3 implementation
-started in this reconciliation. Earlier infrastructure entries below are
-historical and superseded where they describe open gates or a G3 hold.
+**G3 is active and incomplete; parent accepted the first indexed-store baseline.**
+A research-only SQLite prototype consumed 1,000 real mixed G2 transactions on
+Windows NTFS, Ubuntu ext4 and native Mac APFS. All three passed 9 G2 regressions,
+15 store integrity/recovery tests, strict example lint, format and independent
+checkpoint-oracle checks. Production core/session/UI behavior is unchanged.
+
+The prototype's verified reopen uses a full-history audit (about 5.0/2.8/1.9 s
+on Windows/Linux/Mac at 1K), so bounded startup is **not established**. No 10K/100K,
+complete memory/VFS/sync qualification or production backend selection is claimed.
+[First G3 result, raw evidence and remaining gates](handoffs/2026-10-27-g3-indexed-store-first-results.md) ·
+[Research design](architecture/history-indexed-store-experiment.md).
+Next authorized slice: bounded verified open and receipt-index completeness,
+separate from full historical audit; implementation has not started. Establish
+the contract before 1K/10K measurements; no 100K claims before the 10K gate.
+[Parent acceptance and exact next scope](handoffs/2026-10-27-g3-first-result-acceptance.md).
+G1/G2 remain closed; G4–G7 and
+production Undo/Redo remain gated. Earlier infrastructure entries below are
+historical and superseded where they describe open gates or a G3 scheduling hold.
 
 **Six-RID headless validation accepted and closed by parent review: 78/78 gates.**
 Unified result: `artifacts/validation-matrix/20261026T002242Z-f76230c2/`.
@@ -583,7 +596,7 @@ source full gates passed; the cause is unresolved. [G2 evidence/qualification](h
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is authorized with its scheduling hold released on 2026-10-27; implementation has not started. G4â€“G7 and production Undo/Redo remain gated**.
+History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first 1K three-platform baseline is accepted and bounded verified-open research is authorized, without complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
 [G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
 [Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
 G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.

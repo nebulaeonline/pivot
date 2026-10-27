@@ -41,3 +41,7 @@ required-features = ["history-experiment"]
 [[example]]
 name = "history_record_producer"
 required-features = ["history-experiment"]
+
+[[example]]
+name = "history_index_fixture"
+required-features = ["history-experiment"]

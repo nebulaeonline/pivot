@@ -5,6 +5,10 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
+    AggregateCall {
+        kind: AggregateKind,
+        arguments: Vec<AggregateArgument>,
+    },
     #[doc(hidden)]
     CapturedOutput {
         producer: String,
@@ -38,6 +42,19 @@ pub enum Expr {
         right: Box<Expr>,
     },
 }
+/// Distinguish bare rectangles from nested single-rectangle function results.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AggregateArgument {
+    Range(Expr),
+    Scalar(Expr),
+}
+impl AggregateArgument {
+    pub fn expression(&self) -> &Expr {
+        match self {
+            Self::Range(e) | Self::Scalar(e) => e,
+        }
+    }
+}
 /// Closed range reducers; SUM retains its established strict policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AggregateKind {
@@ -46,6 +63,38 @@ pub enum AggregateKind {
     Max,
     Average,
     Count,
+}
+/// Postfix call boundaries. Range consumes the preceding selection operand;
+/// Value consumes a scalar expression. No names or worksheet coordinates here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AggregateControl {
+    Start(AggregateKind),
+    Range,
+    Value,
+    End,
+}
+impl AggregateControl {
+    pub fn code(self) -> u8 {
+        match self {
+            Self::Start(k) => k as u8,
+            Self::Range => 5,
+            Self::Value => 6,
+            Self::End => 7,
+        }
+    }
+    pub fn from_code(code: u8) -> Option<Self> {
+        Some(match code {
+            0 => Self::Start(AggregateKind::Sum),
+            1 => Self::Start(AggregateKind::Min),
+            2 => Self::Start(AggregateKind::Max),
+            3 => Self::Start(AggregateKind::Average),
+            4 => Self::Start(AggregateKind::Count),
+            5 => Self::Range,
+            6 => Self::Value,
+            7 => Self::End,
+            _ => return None,
+        })
+    }
 }
 impl AggregateKind {
     pub fn from_name(name: &str) -> Option<Self> {
@@ -357,25 +406,51 @@ impl Parser<'_> {
                         return Err(self.error("expected SUM rectangle"));
                     }
                     self.pos += 1;
-                    let first = self.range_cell()?;
-                    self.space();
-                    if self.peek() != Some(b':') {
-                        return Err(self.error("expected range colon"));
+                    let mut arguments = Vec::new();
+                    loop {
+                        self.space();
+                        let at = self.pos;
+                        let first = self.range_cell().ok();
+                        self.space();
+                        let argument =
+                            if let Some(first) = first.filter(|_| self.peek() == Some(b':')) {
+                                self.pos += 1;
+                                let last = self.range_cell()?;
+                                AggregateArgument::Range(Expr::SumRange {
+                                    kind,
+                                    first: (first.row, first.column),
+                                    last: (last.row, last.column),
+                                    span: at..self.pos,
+                                    first_reference: first,
+                                    last_reference: last,
+                                })
+                            } else {
+                                self.pos = at;
+                                AggregateArgument::Scalar(self.expr(0, depth + 1)?)
+                            };
+                        arguments.push(argument);
+                        self.space();
+                        match self.peek() {
+                            Some(b',') => {
+                                self.pos += 1;
+                            }
+                            Some(b')') => {
+                                self.pos += 1;
+                                break;
+                            }
+                            _ => return Err(self.error("expected comma or closing parenthesis")),
+                        }
                     }
-                    self.pos += 1;
-                    let last = self.range_cell()?;
-                    self.space();
-                    if self.peek() != Some(b')') {
-                        return Err(self.error("expected closing parenthesis"));
-                    }
-                    self.pos += 1;
-                    Expr::SumRange {
-                        kind,
-                        first: (first.row, first.column),
-                        last: (last.row, last.column),
-                        span: start..self.pos,
-                        first_reference: first,
-                        last_reference: last,
+                    if arguments.len() == 1 && matches!(arguments[0], AggregateArgument::Range(_)) {
+                        let AggregateArgument::Range(mut range) = arguments.pop().unwrap() else {
+                            unreachable!()
+                        };
+                        if let Expr::SumRange { span, .. } = &mut range {
+                            *span = start..self.pos;
+                        }
+                        range
+                    } else {
+                        Expr::AggregateCall { kind, arguments }
                     }
                 } else if self.spreadsheet {
                     self.pos = start;
@@ -515,6 +590,36 @@ mod tests {
 #[cfg(test)]
 mod copy_syntax_tests {
     use super::*;
+    #[test]
+    fn aggregate_lists_are_bounded_and_reject_missing_or_nonrectangular_arguments() {
+        for source in [
+            "=SUM(1,2)",
+            "=AVERAGE(A1:A3,2*3,MAX(1,2))",
+            "=COUNT(A1)",
+            "=MIN(A1:A2,B1:B3)",
+        ] {
+            assert!(
+                matches!(parse_spreadsheet(source), Ok(Expr::AggregateCall { .. })),
+                "{source}"
+            );
+            assert!(parse(source).is_err());
+        }
+        for source in [
+            "=SUM()",
+            "=COUNT(,1)",
+            "=SUM(1,)",
+            "=MIN(A1:A2,,3)",
+            "=SUM(A1:A2+3)",
+            "=SUM(A1:B2:C3)",
+            "=SUM(1;2)",
+            "=AVERAGE(1,2",
+        ] {
+            assert!(parse_spreadsheet(source).is_err(), "{source}");
+        }
+        let nested = format!("{}1{}", "SUM(".repeat(65), ")".repeat(65));
+        assert!(parse_spreadsheet(&nested).is_err());
+        assert!(parse_spreadsheet(&format!("SUM({})", "1,".repeat(3000))).is_err());
+    }
     #[test]
     fn scalar_axes_and_exact_spans() {
         for (text, row_lock, column_lock) in [

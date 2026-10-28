@@ -122,6 +122,7 @@ impl DecimalInput {
 /// Typed source is provenance; SetFormulaText uses the shared spreadsheet parser.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
+    Control(pivot_core::expression::AggregateControl),
     #[doc(hidden)]
     Output(structured::OutputBinding),
     SumAt {
@@ -462,9 +463,37 @@ impl Workbook {
         // Validate all coordinate syntax/bounds before materializing any targets.
         let mut diagnostic = parsed.as_ref().err().cloned();
         if let Ok(expr) = &parsed {
-            let mut stack = vec![(expr, false)];
+            let mut stack = vec![(expr, 0u8)];
             while let Some((expr, visited)) = stack.pop() {
+                if visited >= 2 {
+                    use pivot_core::expression::AggregateControl as C;
+                    tokens.push(Token::Control(match visited {
+                        2 => C::Range,
+                        3 => C::Value,
+                        _ => C::End,
+                    }));
+                    continue;
+                }
                 match expr {
+                    Expr::AggregateCall { kind, arguments } => {
+                        use pivot_core::expression::AggregateControl as C;
+                        tokens.push(Token::Control(C::Start(*kind)));
+                        stack.push((expr, 4));
+                        for arg in arguments.iter().rev() {
+                            stack.push((
+                                arg.expression(),
+                                if matches!(
+                                    arg,
+                                    pivot_core::expression::AggregateArgument::Range(_)
+                                ) {
+                                    2
+                                } else {
+                                    3
+                                },
+                            ));
+                            stack.push((arg.expression(), 0));
+                        }
+                    }
                     Expr::SumRange {
                         kind,
                         first,
@@ -509,20 +538,20 @@ impl Workbook {
                         references.push((span.clone(), pos));
                     }
                     Expr::Unary { op, operand } => {
-                        if visited {
+                        if visited == 1 {
                             tokens.push(Token::Unary(*op));
                         } else {
-                            stack.push((expr, true));
-                            stack.push((operand, false));
+                            stack.push((expr, 1));
+                            stack.push((operand, 0));
                         }
                     }
                     Expr::Binary { op, left, right } => {
-                        if visited {
+                        if visited == 1 {
                             tokens.push(Token::Binary(*op));
                         } else {
-                            stack.push((expr, true));
-                            stack.push((right, false));
-                            stack.push((left, false));
+                            stack.push((expr, 1));
+                            stack.push((right, 0));
+                            stack.push((left, 0));
                         }
                     }
                     Expr::CapturedOutput { span, .. } => {

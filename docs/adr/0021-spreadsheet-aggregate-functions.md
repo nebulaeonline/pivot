@@ -1,6 +1,9 @@
 # ADR-0021: Bounded spreadsheet aggregate functions
 
 Status: **Accepted — design and corrected implementation; workstream closed (2026-10-23)**.
+The later multi-argument extension is described in the
+[current aggregate semantics](../architecture/spreadsheet-aggregates.md); the original
+single-rectangle milestone below remains a record of its accepted scope.
 [Final implementation acceptance](../handoffs/2026-10-23-spreadsheet-aggregate-final-review.md).
 [Design acceptance and implementation boundary](../handoffs/2026-10-22-spreadsheet-aggregate-design-review.md).
 Date: 2026-10-22.

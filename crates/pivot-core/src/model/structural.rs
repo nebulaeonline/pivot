@@ -1198,6 +1198,7 @@ impl Graph {
                                 BoundToken::Node(n)
                             }
                             transfer::ResolvedToken::Unary(op) => BoundToken::Unary(op),
+                            transfer::ResolvedToken::Control(c) => BoundToken::Control(c),
                             transfer::ResolvedToken::Binary(op) => BoundToken::Binary(op),
                         });
                     }
@@ -1796,10 +1797,9 @@ impl Capture {
                         let _stack = self.0.memory.reserve(tokens.len().saturating_mul(64))?;
                         // Operation-bearing keys, cached results and their tree metadata
                         // are separately reserved; pure SUM retains its existing admission.
-                        let _aggregate_cache = if tokens
-                            .iter()
-                            .any(|t| matches!(t, BoundToken::Aggregate(_, _)))
-                        {
+                        let _aggregate_cache = if tokens.iter().any(|t| {
+                            matches!(t, BoundToken::Aggregate(_, _) | BoundToken::Control(_))
+                        }) {
                             Some(self.0.memory.reserve(tokens.len().saturating_mul(192))?)
                         } else {
                             None
@@ -1812,7 +1812,16 @@ impl Capture {
                                 .reserve(state.metrics().points.saturating_mul(64) + 4096)?;
                             let operations: BTreeSet<_> = tokens
                                 .iter()
-                                .filter_map(|t| match t {
+                                .enumerate()
+                                .filter(|(i, _)| {
+                                    !matches!(
+                                        tokens.get(i + 1),
+                                        Some(BoundToken::Control(
+                                            crate::expression::AggregateControl::Range
+                                        ))
+                                    )
+                                })
+                                .filter_map(|(_, t)| match t {
                                     BoundToken::Sum(id) => {
                                         Some((crate::expression::AggregateKind::Sum, *id))
                                     }
@@ -1916,7 +1925,24 @@ impl Capture {
                                 sums.insert((kind, selection), result);
                             }
                         }
-                        crate::evaluation::evaluate_expression_with_selections(
+                        work.add(
+                            tokens
+                                .iter()
+                                .filter(|t| {
+                                    matches!(
+                                        t,
+                                        BoundToken::Control(
+                                            crate::expression::AggregateControl::Start(
+                                                crate::expression::AggregateKind::Average
+                                            )
+                                        )
+                                    )
+                                })
+                                .count()
+                                .saturating_mul(8192),
+                        )?;
+                        let mut callback_error = None;
+                        let answer = crate::evaluation::evaluate_expression_with_arguments(
                             id,
                             tokens,
                             &values,
@@ -1925,7 +1951,75 @@ impl Capture {
                                     .cloned()
                                     .unwrap_or(Err(EvaluationError::InvalidExpression { node: id }))
                             },
-                        )
+                            |kind, selection, reduction| {
+                                let invalid = || EvaluationError::InvalidExpression { node: id };
+                                let Some(state) = self.0.selections.as_ref() else {
+                                    return Err(invalid());
+                                };
+                                let _members = match self
+                                    .0
+                                    .memory
+                                    .reserve(state.metrics().points.saturating_mul(64) + 4096)
+                                {
+                                    Ok(ticket) => ticket,
+                                    Err(error) => {
+                                        callback_error = Some(error.into());
+                                        return Err(invalid());
+                                    }
+                                };
+                                let members =
+                                    match state.members(selection, &mut visits, &cancelled) {
+                                        Ok(v) => v,
+                                        Err(_) => {
+                                            callback_error = Some(if cancelled() {
+                                                ComputeError::Cancelled
+                                            } else {
+                                                ComputeError::WorkBudget
+                                            });
+                                            return Err(invalid());
+                                        }
+                                    };
+                                for member in members {
+                                    if cancelled() {
+                                        callback_error = Some(ComputeError::Cancelled);
+                                        return Err(invalid());
+                                    }
+                                    if let Err(e) = work.add(64) {
+                                        callback_error = Some(e.into());
+                                        return Err(invalid());
+                                    }
+                                    if kind != crate::expression::AggregateKind::Sum
+                                        && self.0.live_record(member).is_ok_and(|r| {
+                                            matches!(
+                                                *r.definition,
+                                                Compiled::Blank | Compiled::NonNumeric
+                                            )
+                                        })
+                                    {
+                                        continue;
+                                    }
+                                    let value = values
+                                        .get(&member)
+                                        .ok_or_else(invalid)?
+                                        .as_ref()
+                                        .copied()
+                                        .map_err(|e| e.dependency(id, member))?;
+                                    reduction.push(value).map_err(|error| {
+                                        EvaluationError::Arithmetic { node: id, error }
+                                    })?;
+                                }
+                                Ok(())
+                            },
+                            |member| {
+                                self.0.live_record(member).is_ok_and(|r| {
+                                    matches!(*r.definition, Compiled::Blank | Compiled::NonNumeric)
+                                })
+                            },
+                        );
+                        if let Some(error) = callback_error {
+                            return Err(error);
+                        }
+                        answer
                     }
                     _ => unreachable!("capture rejects invalid drafts"),
                 };

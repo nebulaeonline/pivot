@@ -64,6 +64,10 @@ fn read_error(r: &mut Reader<'_>, model: u64, floor: u64) -> Result<SnapshotErro
 }
 pub(super) fn token(w: &mut Writer, t: &BoundToken) {
     match t {
+        BoundToken::Control(c) => {
+            w.n(6);
+            w.n(c.code().into());
+        }
         BoundToken::Decimal(d) => {
             w.n(0);
             w.decimal(*d);
@@ -107,6 +111,12 @@ pub(super) fn token(w: &mut Writer, t: &BoundToken) {
 }
 fn read_token(r: &mut Reader<'_>, model: u64, floor: u64) -> Result<BoundToken, ModelError> {
     Ok(match r.n()? {
+        6 => BoundToken::Control(
+            crate::expression::AggregateControl::from_code(
+                u8::try_from(r.n()?).map_err(|_| malformed())?,
+            )
+            .ok_or_else(malformed)?,
+        ),
         0 => BoundToken::Decimal(r.decimal()?),
         1 => BoundToken::Node(node(r, model, floor)?),
         2 => BoundToken::Unary(match r.n()? {

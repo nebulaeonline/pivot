@@ -12,4 +12,5 @@ WB2 rejection after the WB3 cut; there is no compatibility reader or migration.
 
 WB4 migration is no longer supported. The previous genuine fixture and its
 provenance remain in historical aggregate-validation artifacts. Current rejection
-tests use the minimal `PIVOTWB4` header, and current invariants use WB5 documents.
+tests use the minimal `PIVOTWB4` header, and current invariants use WB6 documents. WB5 is explicitly rejected after the
+aggregate argument-control representation cut; there is no migration reader.

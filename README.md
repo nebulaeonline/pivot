@@ -1,38 +1,79 @@
 # Pivot
 
-Pivot combines a spreadsheet desktop application with a reusable calculation engine
-and daemon. Build models interactively, work with local workbook files, or run
-calculations headlessly from another application.
+Pivot is a graph-based calculation platform with a spreadsheet desktop and a
+headless daemon. Its aim is to make calculations useful as both interactive
+documents and callable models: financial models, analytical tools, scenario
+calculations and application logic can share the same computation core.
 
-The Rust engine represents calculations as expressions with explicit dependencies.
-The desktop client uses C#/.NET 10 and Avalonia on Windows, Linux and macOS.
+## The calculation engine
 
-## Desktop
+The engine is written in **Rust**. A model consists of named inputs, computed
+nodes and explicit dependencies. Expressions are parsed and bound to stable node
+identities; display names and worksheet addresses provide ways to refer to those
+identities at the client boundary.
 
-The spreadsheet interface provides direct cell editing, formulas, text labels and
-rectangular selection. Copy, paste and four-direction fill translate formula
-references, including absolute references. Workbooks open and save as local `.pivot`
-files.
+Models remain editable. Each calculation captures an **immutable snapshot**, so
+its inputs and dependencies stay consistent while later edits continue. Persistent
+paged data structures share unchanged state between versions, supporting captures
+and atomic edits without copying the entire model for every change.
 
-Supported aggregate functions include `SUM`, `MIN`, `MAX`, `AVERAGE` and `COUNT`.
-Decimal arithmetic has explicit rounding behavior and reports calculation errors.
+Decimal calculations use a **96-bit significand and scale from 0 to 28**. Operations
+check overflow and division by zero, and explicit rounding exposes multiple modes.
+The default rounds to nearest with midpoints away from zero: `2.5` becomes `3`,
+and `-2.5` becomes `-3`. Decimal values, normalization, errors and rounding are
+tested across Rust and .NET. Arithmetic precision limits remain distinct from
+explicit rounding and display formatting.
 
-## Daemon and application integration
+Published model interfaces declare their inputs and outputs. An invocation can
+supply scenario-specific inputs without changing the shared model. The core can
+also be used directly through Rust crate APIs, independently of a workbook or GUI.
 
-`pivotd` exposes named computation models through a Protobuf protocol over local
-IPC. Clients can discover models, inspect their inputs and outputs, and invoke
-calculations. The command-line client and REPL provide another way to use the engine.
+## The spreadsheet desktop
 
-Models remain editable while each calculation runs against an immutable snapshot.
-Invocation-specific inputs support independent scenarios without changing the shared
-model. Stable identities keep references independent of display names.
+The desktop is built with **C#/.NET 10 and Avalonia** for Windows, Linux and macOS.
+It provides direct grid editing, a formula bar, rectangular selection, copy/paste
+and four-direction fill. Formula copies translate relative references and preserve
+`$`-locked axes. Cells support decimal values, formulas and literal text.
+
+Functions include `SUM`, `MIN`, `MAX`, `AVERAGE` and `COUNT`, with rectangular range
+expressions such as `SUM(A1:B20, C1:C20, 5)` and nested scalar arguments. Workbooks open and save as local `.pivot` files,
+preserving typed content and stable bindings.
+
+The desktop owns a **Rust session process (`pivot-session`)**, communicating through
+framed Protobuf messages over standard input/output. Rust owns workbook state,
+validation and calculation; Avalonia handles presentation and interaction. The .NET
+client also supports **Native AOT** publishing.
+
+## The daemon and command-line client
+
+**`pivotd`** hosts named calculation models without the desktop. Its Protobuf
+protocol supports model discovery, interface inspection and invocation. Public
+model references identify a specific revision, keeping the model being calculated
+explicit.
+
+Local transport uses **Windows named pipes** or **Unix-domain sockets**, with
+operating-system peer-identity checks. The transport and hosting layers are separate
+from the calculation core. The CLI and persistent REPL use the same daemon boundary
+rather than maintaining their own evaluator.
+
+```text
+Avalonia desktop → pivot-session → workbook layer → Rust calculation core
+CLI / REPL       → pivotd                        → Rust calculation core
+Rust application → direct crate APIs             → Rust calculation core
+```
+
+For example, a model can expose `Revenue` and `Costs` as inputs and calculate
+`Net = Revenue - Costs`. The worksheet is one way to work with that calculation;
+an application can invoke the model with another set of inputs through the daemon.
 
 ## Goals
 
-- Make calculation models useful through both spreadsheets and application APIs.
-- Keep calculation behavior consistent across desktop and headless use.
-- Support clear inputs, outputs, dependencies and errors.
-- Keep the engine reusable independently of the user interface or hosting model.
+- Combine familiar spreadsheet interaction with reusable, explicitly defined models.
+- Keep calculation semantics consistent across desktop, daemon and embedded use.
+- Make dependencies, inputs, outputs and errors inspectable.
+- Support independent scenarios and calculations over consistent snapshots.
+- Extend the value model toward additional numeric types and structured outputs.
+- Keep clients, hosting and storage concerns separate from the computation core.
 
 ## Try Pivot
 
@@ -52,18 +93,22 @@ Use a second terminal to discover and invoke it:
 
 ```sh
 cargo run -p pivot-cli -- models
+cargo run -p pivot-cli -- describe RestaurantProfit
 cargo run -p pivot-cli -- invoke RestaurantProfit Revenue=250000 Costs=85000
 ```
 
 See [daemon and CLI usage](docs/architecture/local-ipc.md) and
-[REPL usage](docs/architecture/command-repl.md) for more options.
+[REPL usage](docs/architecture/command-repl.md) for endpoints, authoring and commands.
 
-## Development
+## Development and technical documentation
 
-Run the contributor checks with `python scripts/ci.py`. See
-[testing](docs/testing.md) for prerequisites, desktop validation and artifacts.
-Design decisions are recorded in [ADRs](docs/adr/README.md); development review
-records live in [docs/handoffs/](docs/handoffs/).
+Run `python scripts/ci.py` for the contributor checks, including Rust and .NET,
+cross-language decimal/protocol checks and real process communication. See
+[testing](docs/testing.md) for prerequisites, desktop validation and Native AOT.
+
+- [Decimal and expression semantics](docs/architecture/expressions-and-decimals.md)
+- [Architecture decisions](docs/adr/README.md)
+- [Development review records](docs/handoffs/)
 
 ## License
 

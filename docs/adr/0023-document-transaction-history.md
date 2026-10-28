@@ -2,16 +2,25 @@
 
 Status: **Four-stage feasibility accepted/closed; G0 approved; G1 ordinary native
 Save and feature-only G2 mutation-local authoritative records accepted/closed.
-G3 indexed-store feasibility active: first baseline accepted; bounded verified-open
+G3 indexed-store feasibility parked by owner/parent direction (2026-10-28): first baseline accepted; bounded verified-open
 1K/10K result accepted; compact storage and metadata/growth research accepted;
 hierarchical authentication/receipt normalization and the owner-authorized dictionary
 comparison accepted. Physical-storage accounting, scalable admission proposal and
 readiness comparison accepted. Engine/VFS and small-bound resource-admission
-qualification accepted within stated research limits. One 32K control pilot per native
-target authorized, not started, with the existing 1,024-leaf profile. No 65K/larger
+qualification accepted within stated research limits. The one-shot 32K control pilot
+has returned failed/stopped: Windows/Ubuntu published 32K then failed accounting;
+Mac stopped at 18,595 controls. No replay; final native reopen/lookup gates remain
+unreached. Existing 1,024-leaf profile unchanged. No further history research or correction cycle assigned. No 65K/larger
 profile or full 100K G2 authorization; complete physical reservation remains open.
 20% is an optimization aspiration, not an acceptance gate; storage optimization is parked.
 G4–G7 and production history integration remain gated (2026-10-27)**.
+History work is suspended at G3; G4–G7 must not start. Retain all accepted
+research and the failed/stopped pilot evidence. Leave observer issues documented;
+no rerun, instrumentation or optimization assignment follows. Resume only for a
+concrete product need under a new scoped assignment. Spreadsheet features take
+priority; production Undo/Redo remains unimplemented.
+
+[32K pilot results and observer limitations](../handoffs/2026-10-27-g3-32k-control-pilot-results.md).
 [Engine acceptance and bounded 32K control authorization](../handoffs/2026-10-27-g3-engine-acceptance-32k-authorization.md).
 [Fixed engine/VFS, pre-write admission and native results](../handoffs/2026-10-27-g3-engine-admission-results.md).
 [Accounting acceptance and exact engine/admission qualification assignment](../handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).

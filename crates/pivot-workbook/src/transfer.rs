@@ -248,6 +248,7 @@ impl Workbook {
                             S::Node(*slots.get(&c.cell).ok_or_else(bad)?)
                         }
                         Token::Unary(op) => S::Unary(*op),
+                        Token::Control(c) => S::Control(*c),
                         Token::Binary(op) => S::Binary(*op),
                         Token::Sum {
                             kind,
@@ -279,7 +280,7 @@ impl Workbook {
                 .collect::<Result<_>>()?;
             if translated
                 .iter()
-                .any(|t| matches!(t, S::Sum(_) | S::Aggregate(_, _)))
+                .any(|t| matches!(t, S::Control(_) | S::Sum(_) | S::Aggregate(_, _)))
             {
                 expected_overlays.insert(slot);
                 let overlay = overlays.get(&slot).ok_or_else(bad)?;
@@ -467,6 +468,7 @@ fn same_selection_tokens(a: &[transfer::SelectionToken], b: &[transfer::Selectio
         && a.iter().zip(b).all(|(a, b)| match (a, b) {
             (T::Decimal(a), T::Decimal(b)) => a.parts() == b.parts(),
             (T::Node(a), T::Node(b)) => a == b,
+            (T::Control(a), T::Control(b)) => a == b,
             (T::Unary(a), T::Unary(b)) => a == b,
             (T::Binary(a), T::Binary(b)) => a == b,
             (T::Sum(a), T::Sum(b)) => a == b,

@@ -66,6 +66,7 @@ fn invalid() -> ModelError {
 /// Internal already-resolved expression input. Not a parser, wire or storage ABI.
 #[derive(Clone, Debug)]
 pub enum ResolvedToken {
+    Control(crate::expression::AggregateControl),
     Aggregate(crate::expression::AggregateKind, selection::SelectionId),
     Sum(super::selection::SelectionId),
     Decimal(PivotDecimal),
@@ -78,28 +79,66 @@ pub(super) fn checked_dependencies(tokens: &[BoundToken]) -> Result<Vec<NodeId>,
         return Err(invalid());
     }
     let mut depth = 0usize;
+    let mut calls: Vec<(usize, usize, crate::expression::AggregateKind)> = Vec::new();
     let mut dependencies = BTreeSet::new();
-    for token in tokens {
+    for (index, token) in tokens.iter().enumerate() {
+        let floor = calls.last().map_or(0, |c| c.0);
         match token {
+            BoundToken::Control(control) => {
+                use crate::expression::{AggregateControl as C, AggregateKind as K};
+                match control {
+                    C::Start(kind) => {
+                        if calls.len() >= 64 {
+                            return Err(invalid());
+                        }
+                        calls.push((depth, 0, *kind));
+                    }
+                    C::Value | C::Range => {
+                        let call = calls.last_mut().ok_or_else(invalid)?;
+                        if depth != call.0 + 1 {
+                            return Err(invalid());
+                        }
+                        if *control == C::Range {
+                            let valid = match tokens.get(index.wrapping_sub(1)) {
+                                Some(BoundToken::Sum(_)) => call.2 == K::Sum,
+                                Some(BoundToken::Aggregate(kind, _)) => call.2 == *kind,
+                                _ => false,
+                            };
+                            if !valid {
+                                return Err(invalid());
+                            }
+                        }
+                        depth -= 1;
+                        call.1 += 1;
+                    }
+                    C::End => {
+                        let call = calls.pop().ok_or_else(invalid)?;
+                        if depth != call.0 || call.1 == 0 {
+                            return Err(invalid());
+                        }
+                        depth += 1;
+                    }
+                }
+            }
             BoundToken::Decimal(_) | BoundToken::Sum(_) | BoundToken::Aggregate(_, _) => depth += 1,
             BoundToken::Node(id) => {
                 depth += 1;
                 dependencies.insert(*id);
             }
             BoundToken::Unary(_) => {
-                if depth < 1 {
+                if depth <= floor {
                     return Err(invalid());
                 }
             }
             BoundToken::Binary(_) => {
-                if depth < 2 {
+                if depth < floor + 2 {
                     return Err(invalid());
                 }
                 depth -= 1;
             }
         }
     }
-    if depth != 1 {
+    if depth != 1 || !calls.is_empty() {
         return Err(invalid());
     }
     Ok(dependencies.into_iter().collect())
@@ -235,7 +274,9 @@ fn encode_mapped_image(
                             .iter()
                             .map(|t| {
                                 Ok(match t {
-                                    BoundToken::Sum(_) | BoundToken::Aggregate(_, _) => {
+                                    BoundToken::Control(_)
+                                    | BoundToken::Sum(_)
+                                    | BoundToken::Aggregate(_, _) => {
                                         return Err(ModelError::Backend(
                                             "unsupported selection capability in scalar transfer",
                                         ));
@@ -570,6 +611,7 @@ pub struct SelectionFormula {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SelectionToken {
+    Control(crate::expression::AggregateControl),
     Aggregate(crate::expression::AggregateKind, selection::SelectionId),
     Decimal(PivotDecimal),
     Node(usize),
@@ -610,6 +652,39 @@ impl WorkingModel {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn aggregate_control_programs_validate_before_mutation() {
+        use crate::expression::{AggregateControl as C, AggregateKind as K};
+        let mut m = WorkingModel::new("validation").unwrap();
+        let a = m.add_input("A", PivotDecimal::ONE).unwrap();
+        let version = m.revision();
+        for tokens in [
+            vec![ResolvedToken::Control(C::End)],
+            vec![
+                ResolvedToken::Control(C::Start(K::Sum)),
+                ResolvedToken::Control(C::End),
+            ],
+            vec![
+                ResolvedToken::Control(C::Start(K::Sum)),
+                ResolvedToken::Decimal(1.into()),
+                ResolvedToken::Control(C::Range),
+                ResolvedToken::Control(C::End),
+            ],
+            vec![
+                ResolvedToken::Decimal(1.into()),
+                ResolvedToken::Control(C::Start(K::Sum)),
+                ResolvedToken::Unary(UnaryOp::Minus),
+            ],
+            vec![
+                ResolvedToken::Control(C::Start(K::Sum)),
+                ResolvedToken::Decimal(1.into()),
+                ResolvedToken::Control(C::Value),
+            ],
+        ] {
+            assert!(set_resolved_expression(&mut m, a, "opaque", &tokens).is_err());
+            assert_eq!(m.revision(), version);
+        }
+    }
     #[test]
     fn rejected_drafts_validate_before_mutation_and_retired_references_remain_bound() {
         let mut m = WorkingModel::new("Seam").unwrap();

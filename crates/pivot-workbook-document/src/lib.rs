@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 4 * 1024 * 1024;
-const MAGIC: &[u8; 8] = b"PIVOTWB5";
+const MAGIC: &[u8; 8] = b"PIVOTWB6";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -81,6 +81,10 @@ impl Writer {
         self.n(tokens.len() as u64);
         for token in tokens {
             match token {
+                SelectionToken::Control(c) => {
+                    self.n(6);
+                    self.n(c.code().into());
+                }
                 SelectionToken::Decimal(d) => {
                     self.n(0);
                     self.dec(DecimalInput::from_decimal(*d));
@@ -118,6 +122,10 @@ impl Writer {
         self.n(tokens.len() as u64);
         for t in tokens {
             match t {
+                Token::Control(c) => {
+                    self.n(6);
+                    self.n(c.code().into());
+                }
                 Token::Sum {
                     kind,
                     id,
@@ -252,6 +260,12 @@ impl<'a> Reader<'a> {
             out.push(match self.n()? {
                 0 => SelectionToken::Decimal(self.dec()?.value()),
                 1 => SelectionToken::Node(self.count(8191)?),
+                6 => SelectionToken::Control(
+                    expression::AggregateControl::from_code(
+                        u8::try_from(self.n()?).map_err(|_| malformed())?,
+                    )
+                    .ok_or_else(malformed)?,
+                ),
                 5 => SelectionToken::Aggregate(
                     self.aggregate_kind()?,
                     SelectionId(*self.id()?.as_bytes()),
@@ -301,6 +315,12 @@ impl<'a> Reader<'a> {
                         span: start..end,
                     }
                 }
+                6 => Token::Control(
+                    expression::AggregateControl::from_code(
+                        u8::try_from(self.n()?).map_err(|_| malformed())?,
+                    )
+                    .ok_or_else(malformed)?,
+                ),
                 0 => Token::Decimal(self.dec()?),
                 1 => Token::Cell(CellRef {
                     worksheet: WorksheetId::from_uuid(self.id()?),
@@ -344,7 +364,7 @@ impl Document {
     pub fn export_document(book: &Workbook, expected: Expected) -> Result<Export> {
         Self::export_document_cancellable(book, expected, &Default::default())
     }
-    /// Validated current-content projection for native WB5, including historical roots.
+    /// Validated current-content projection for native WB6, including historical roots.
     /// Generic full-ledger graph transfer retains its separate strict contract.
     #[doc(hidden)]
     pub fn export_document_cancellable(
@@ -518,10 +538,10 @@ impl Document {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Limit);
         }
-        for version in ["WB1", "WB2", "WB3", "WB4"] {
+        for version in ["WB1", "WB2", "WB3", "WB4", "WB5"] {
             if bytes.starts_with(format!("PIVOT{version}").as_bytes()) {
                 return Err(Error::Graph(format!(
-                    "unsupported native workbook version {version}; WB5 required"
+                    "unsupported native workbook version {version}; WB6 required"
                 )));
             }
         }
@@ -909,15 +929,21 @@ impl Document {
                             )
                         }
                         Token::Unary(op) => SelectionToken::Unary(*op),
+                        Token::Control(c) => SelectionToken::Control(*c),
                         Token::Binary(op) => SelectionToken::Binary(*op),
                         Token::Output(_) | Token::At(_) | Token::SumAt { .. } => {
                             return Err(malformed());
                         }
                     });
                 }
-                let has_sum = selection_tokens
-                    .iter()
-                    .any(|t| matches!(t, SelectionToken::Sum(_) | SelectionToken::Aggregate(_, _)));
+                let has_sum = selection_tokens.iter().any(|t| {
+                    matches!(
+                        t,
+                        SelectionToken::Control(_)
+                            | SelectionToken::Sum(_)
+                            | SelectionToken::Aggregate(_, _)
+                    )
+                });
                 if let Some(index) = overlay.get(&node_slot) {
                     if !has_sum
                         || formulas[*index].source != *source
@@ -954,7 +980,8 @@ impl Document {
                                 BinaryOp::Multiply => 2,
                                 BinaryOp::Divide => 3,
                             }),
-                            Token::Output(_)
+                            Token::Control(_)
+                            | Token::Output(_)
                             | Token::At(_)
                             | Token::SumAt { .. }
                             | Token::Sum { .. } => {
@@ -984,7 +1011,10 @@ impl Document {
                 Content::Formula { tokens, .. } => tokens,
                 _ => return Err(malformed()),
             };
-            if !tokens.iter().any(|t| matches!(t, Token::Sum { .. })) {
+            if !tokens
+                .iter()
+                .any(|t| matches!(t, Token::Control(_) | Token::Sum { .. }))
+            {
                 return Err(malformed());
             }
         }
@@ -1183,7 +1213,7 @@ mod historical_codec_failures {
         let before = b.cell_at(Position::new(1, 1)).unwrap();
         let metrics = format!("{:?}", b.history_metrics().unwrap());
         let (mut image, lease) = b.project_document(expected, &Default::default()).unwrap();
-        // A captured codec image is rejected by the real WB5 graph encoder.
+        // A captured codec image is rejected by the real WB6 graph encoder.
         // This fault is never installed in the live workbook.
         image.graph.scalar_skeleton.nodes[0].slot = usize::MAX;
         assert!(

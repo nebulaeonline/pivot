@@ -5,13 +5,46 @@ validation and parent implementation acceptance are recorded separately in the
 [implementation handoff](../handoffs/2026-10-22-spreadsheet-aggregate-implementation.md).
 [Semantics and scope](../adr/0021-spreadsheet-aggregate-functions.md).
 
-MIN, MAX, AVERAGE and COUNT accept one same-sheet rectangle, case-insensitively,
-and compose with ordinary arithmetic. The existing range AST/workbook tokens now
-carry a closed AggregateKind. The canonical bound graph retains its existing SUM
-operand and adds an operation-bearing aggregate selection operand. Dependency,
-cycle, invalidation, capture and row-major membership infrastructure are shared.
-Reduction caches key by operation and selection identity. No C# evaluator or general
-function registry is introduced.
+## Multi-argument calls (2026-10-28)
+
+**Accepted and closed by parent review; no further qualification round required.**
+[Feature evidence and review disposition](../handoffs/2026-10-28-multi-argument-aggregates.md).
+
+SUM, MIN, MAX, AVERAGE and COUNT accept one or more comma-separated arguments:
+same-sheet rectangles, scalar decimal expressions, cell references and nested
+aggregate calls. Examples: `=SUM(A1:A10,C1:C10,5)`, `=MIN(A1,2*3,MAX(B1:B4,7))`
+and `=AVERAGE(A1:A2,10)`. Existing single-rectangle calls retain their semantics.
+Empty lists, missing arguments, whole axes, cross-sheet references, strings and
+bare ranges in arithmetic remain unsupported. Existing 4,096-byte/64-level parser
+and workbook/core resource limits are unchanged.
+
+Arguments reduce left to right, each rectangle in row-major order. Repeated cells
+or overlapping rectangles contribute once per occurrence. A direct scalar cell
+argument follows its stable CellId when moved. Range membership follows current
+occupants. Copy/fill translates every scalar/range reference with its own dollar
+flags; Save/reopen preserves the already-bound identities, without rebinding source.
+
+MIN/MAX/AVERAGE/COUNT ignore directly referenced Blank/NonNumeric leaves, as they
+do inside a range. Explicit zero counts. A computed expression is numeric if it
+succeeds: `COUNT(A1)` excludes a blank A1, while `COUNT(A1+0)` counts numeric zero.
+A computed error propagates, including text-dependent arithmetic. SUM stays strict
+about literal text and visits additions in argument/member order, with checked
+Decimal96 arithmetic. COUNT does not suppress errors. The first error in traversal
+order wins. MIN/MAX/AVERAGE over no numeric arguments return the existing workbook
+NoNumericValues diagnostic; SUM and COUNT return zero.
+
+AVERAGE uses one exact fixed-width accumulation across all arguments and rounds
+once at final division. It does not average per-range averages or introduce
+Decimal96 intermediate sums. Extrema still normalize their numeric results.
+
+The shared Rust parser lowers calls into explicit postfix Start/Range/Value/End
+controls around the existing bound scalar/selection operands. The trusted seam
+validates nested stack frames and argument boundaries before mutation. No synthetic
+nodes, frontend evaluator, function registry or worksheet callback enters the core.
+Existing dependency/cycle/invalidation/capture infrastructure is reused. Members
+are reduced inline to preserve ordering, with cancellation checks and runtime-domain
+scratch reservations; argument frames and final mean work are charged separately.
+
 
 Direct Blank and NonNumeric leaves are excluded by the four new reducers. Numeric
 inputs and successfully evaluated formulas count, including zero. Computed errors
@@ -41,10 +74,12 @@ existing invocation budgets, and member traversal polls cancellation. The fixed
 finalization loop is bounded independently of input values.
 
 Native workbook read/write supports PIVOTWB5 only. WB1–WB4 explicitly reject;
-no obsolete decoder or migration path remains. WB5 stores explicit blank slots
+no obsolete decoder or migration path remains. WB6 retains explicit blank slots
 and aggregate metadata; redundant workbook/graph representations must match before
 installation. Graph/workbook aggregate tag 5 carries MIN=1, MAX=2, AVERAGE=3,
-COUNT=4; original SUM tags remain distinct. Failed Open preserves live roots, path,
+COUNT=4; original SUM tags remain distinct. WB6 adds token tag 6 with validated
+call-control codes (Start SUM/MIN/MAX/AVERAGE/COUNT=0–4, Range=5, Value=6, End=7).
+The representation change requires the format cut; no migration reader is added. Failed Open preserves live roots, path,
 revision, checkpoint and dirty state. Model-database and frozen hosted formats are
 unchanged; structured proof documents remain non-savable.
 
@@ -54,8 +89,8 @@ commitment justify compatibility. A feature alone does not require a version cut
 
 PIVOTCB2 still carries source/effective reference coordinates; new names reuse its
 endpoint annotations. Translation preserves dollar flags, reversed ranges, scalar
-CellId behavior and atomic paste. A preserved old reader rejects new-function native
-payloads and WB5 files without installing partial content. Private application v4
+CellId behavior and atomic paste. Older native clipboard readers can reject the new formula syntax; the clipboard
+representation is unchanged. Unsupported native data must not fall back silently. Private application v4
 continues carrying source/results/error messages without a schema change.
 
 No resource ceilings increased. Clipboard/request bounds of 256 are distinct from

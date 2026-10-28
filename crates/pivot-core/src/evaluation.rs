@@ -11,6 +11,10 @@ use std::{
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum EvaluationError {
+    NoNumericArguments {
+        node: NodeId,
+        operation: crate::expression::AggregateKind,
+    },
     NoNumericValues {
         node: NodeId,
         operation: crate::expression::AggregateKind,
@@ -61,7 +65,8 @@ impl EvaluationError {
 
     pub fn origin(&self) -> NodeId {
         match *self {
-            Self::NoNumericValues { node, .. }
+            Self::NoNumericArguments { node, .. }
+            | Self::NoNumericValues { node, .. }
             | Self::CapturedSourceFailed { node, .. }
             | Self::NonNumericInput { node }
             | Self::UnknownNode(node)
@@ -75,6 +80,11 @@ impl EvaluationError {
 impl fmt::Debug for EvaluationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::NoNumericArguments { node, operation } => f
+                .debug_struct("NoNumericArguments")
+                .field("node", node)
+                .field("operation", operation)
+                .finish(),
             Self::NoNumericValues {
                 node,
                 operation,
@@ -340,34 +350,100 @@ pub(crate) fn evaluate_expression_with_selections(
         crate::model::selection::SelectionId,
     ) -> NodeResult,
 ) -> NodeResult {
+    evaluate_expression_with_arguments(
+        id,
+        tokens,
+        values,
+        &mut sum,
+        |_, _, _| Err(EvaluationError::InvalidExpression { node: id }),
+        |_| false,
+    )
+}
+pub(crate) fn evaluate_expression_with_arguments(
+    id: NodeId,
+    tokens: &[BoundToken],
+    values: &BTreeMap<NodeId, NodeResult>,
+    mut sum: impl FnMut(
+        crate::expression::AggregateKind,
+        crate::model::selection::SelectionId,
+    ) -> NodeResult,
+    mut members: impl FnMut(
+        crate::expression::AggregateKind,
+        crate::model::selection::SelectionId,
+        &mut crate::aggregate::Reduction,
+    ) -> Result<(), EvaluationError>,
+    ignore_scalar: impl Fn(NodeId) -> bool,
+) -> NodeResult {
+    use crate::expression::{AggregateControl as C, AggregateKind as K};
     let invalid = || EvaluationError::InvalidExpression { node: id };
     let arithmetic = |error| EvaluationError::Arithmetic { node: id, error };
-    let mut stack = Vec::new();
-    for token in tokens {
+    let mut stack: Vec<Option<PivotDecimal>> = Vec::new();
+    let mut calls: Vec<(usize, crate::aggregate::Reduction)> = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
         match *token {
-            BoundToken::Sum(selection) => {
-                stack.push(sum(crate::expression::AggregateKind::Sum, selection)?)
+            BoundToken::Control(C::Start(kind)) => {
+                calls.push((stack.len(), crate::aggregate::Reduction::new(kind)))
             }
-            BoundToken::Aggregate(kind, selection) => stack.push(sum(kind, selection)?),
-            BoundToken::Decimal(value) => stack.push(value),
+            BoundToken::Control(C::Value) => {
+                let (base, reduction) = calls.last_mut().ok_or_else(invalid)?;
+                let value = stack.pop().ok_or_else(invalid)?;
+                if stack.len() != *base {
+                    return Err(invalid());
+                }
+                if let Some(value) = value {
+                    reduction.push(value).map_err(arithmetic)?;
+                }
+            }
+            BoundToken::Control(C::Range) => (), // preceding selection was consumed inline
+            BoundToken::Control(C::End) => {
+                let (base, reduction) = calls.pop().ok_or_else(invalid)?;
+                if stack.len() != base {
+                    return Err(invalid());
+                }
+                stack.push(Some(reduction.finish(id)?));
+            }
+            BoundToken::Sum(selection) | BoundToken::Aggregate(_, selection) => {
+                let kind = match *token {
+                    BoundToken::Aggregate(k, _) => k,
+                    _ => K::Sum,
+                };
+                if matches!(tokens.get(index + 1), Some(BoundToken::Control(C::Range))) {
+                    let (_, reduction) = calls.last_mut().ok_or_else(invalid)?;
+                    if kind != reduction.kind {
+                        return Err(invalid());
+                    }
+                    reduction.selection.get_or_insert(selection);
+                    members(kind, selection, reduction)?;
+                } else {
+                    stack.push(Some(sum(kind, selection)?));
+                }
+            }
+            BoundToken::Decimal(value) => stack.push(Some(value)),
             BoundToken::Node(dependency) => {
-                let value = values.get(&dependency).ok_or_else(invalid)?;
-                stack.push(
-                    *value
-                        .as_ref()
-                        .map_err(|error| error.dependency(id, dependency))?,
-                );
+                let ignored = matches!(tokens.get(index + 1), Some(BoundToken::Control(C::Value)))
+                    && calls.last().is_some_and(|(_, r)| r.kind != K::Sum)
+                    && ignore_scalar(dependency);
+                if ignored {
+                    stack.push(None);
+                } else {
+                    let value = values.get(&dependency).ok_or_else(invalid)?;
+                    stack.push(Some(
+                        *value
+                            .as_ref()
+                            .map_err(|error| error.dependency(id, dependency))?,
+                    ));
+                }
             }
             BoundToken::Unary(op) => {
-                let value = stack.pop().ok_or_else(invalid)?;
-                stack.push(match op {
+                let value = stack.pop().flatten().ok_or_else(invalid)?;
+                stack.push(Some(match op {
                     UnaryOp::Plus => value,
                     UnaryOp::Minus => value.checked_neg().map_err(arithmetic)?,
-                });
+                }));
             }
             BoundToken::Binary(op) => {
-                let right = stack.pop().ok_or_else(invalid)?;
-                let left = stack.pop().ok_or_else(invalid)?;
+                let right = stack.pop().flatten().ok_or_else(invalid)?;
+                let left = stack.pop().flatten().ok_or_else(invalid)?;
                 let value = match op {
                     BinaryOp::Add => left.checked_add(right),
                     BinaryOp::Subtract => left.checked_sub(right),
@@ -375,14 +451,14 @@ pub(crate) fn evaluate_expression_with_selections(
                     BinaryOp::Divide => left.checked_div(right),
                 }
                 .map_err(arithmetic)?;
-                stack.push(value);
+                stack.push(Some(value));
             }
         }
     }
-    if stack.len() != 1 {
+    if stack.len() != 1 || !calls.is_empty() {
         return Err(invalid());
     }
-    stack.pop().ok_or_else(invalid)
+    stack.pop().flatten().ok_or_else(invalid)
 }
 
 /// Experiment-only scheduling adapter. Reuses the production postfix executor;

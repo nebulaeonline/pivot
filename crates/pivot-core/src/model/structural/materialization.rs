@@ -266,9 +266,12 @@ impl Graph {
                 source,
                 binding: Ok((tokens, _)),
             } = &node.definition
-                && tokens
-                    .iter()
-                    .any(|t| matches!(t, BoundToken::Sum(_) | BoundToken::Aggregate(_, _)))
+                && tokens.iter().any(|t| {
+                    matches!(
+                        t,
+                        BoundToken::Control(_) | BoundToken::Sum(_) | BoundToken::Aggregate(_, _)
+                    )
+                })
             {
                 let translated = tokens
                     .iter()
@@ -283,6 +286,7 @@ impl Graph {
                             }
                             BoundToken::Sum(id) => transfer::SelectionToken::Sum(*id),
                             BoundToken::Unary(op) => transfer::SelectionToken::Unary(*op),
+                            BoundToken::Control(c) => transfer::SelectionToken::Control(*c),
                             BoundToken::Binary(op) => transfer::SelectionToken::Binary(*op),
                         })
                     })

@@ -1,25 +1,43 @@
 # ADR-0023 production-readiness architecture packet
 
+**Current disposition, 2026-10-28: parked at G3.** Owner/parent direction
+suspends history research and G4–G7 in favor of user-visible spreadsheet features.
+Preserve this architecture and its evidence; the 32K packet stays failed/stopped.
+No observer fixes, reruns, larger experiments, new instrumentation or acceptance
+packet is assigned. Resume only for a concrete product need under a scoped
+assignment. G1/G2 remain accepted/closed; production Undo/Redo remains unimplemented.
+Older execution proposals below are preserved design context, not active tasks.
+Their WB5 references describe the accepted research baseline. The separate spreadsheet
+aggregate-argument feature moves current product documents to WB6; it does not reopen
+history milestones or authorize a history experiment.
+See [current project direction](../STATUS.md).
+
 Date: 2026-10-24. **G0 approved; G1 and feature-only G2 accepted/closed.
 G3 first baseline accepted; bounded verified-open 1K/10K research accepted; compact storage accepted; metadata/growth research
 is accepted; hierarchical authentication/receipt normalization and owner-authorized
 dictionary research are accepted. Physical accounting, scalable admission proposal
 and readiness comparison are accepted. Engine/VFS and small-bound resource-admission
-qualification are accepted within stated research limits. One native 32K control
-pilot per target is authorized, not started. G4–G7 and production
+qualification are accepted within stated research limits. The one-shot native 32K
+packet is failed/stopped and the workstream is now parked; authorization is consumed, with
+no replay. Windows/Ubuntu retained 32K controls and passed audit but failed final
+accounting; Mac stopped at 18,595. Final native reopen/lookup gates were not reached.
+G4–G7 and production
 Undo/Redo remain gated.**
+[32K outcomes, accounting/RSS observer diagnosis and missing gates](../handoffs/2026-10-27-g3-32k-control-pilot-results.md) ·
+[Pilot contract](history-32k-control-pilot.md).
 [Engine acceptance and exact 32K pilot scope](../handoffs/2026-10-27-g3-engine-acceptance-32k-authorization.md).
-Keep the fixed build and 1,024-leaf/depth-24/60-entry/eight-split profile. Execute one
-fresh attempt per established native target after read-only preflight; preserve failures
-and stop for review without adjusting limits. 65K, larger-profile enablement and
+The fixed build and 1,024-leaf/depth-24/60-entry/eight-split profile were retained.
+Preserve the original failed/stopped attempts and supplemental read-only diagnoses;
+stop for review without adjusting limits or retrying. 65K, larger-profile enablement and
 full 100K G2 remain unauthorized. Complete physical reservation remains unestablished.
 [Fixed-engine/VFS and admission results](../handoffs/2026-10-27-g3-engine-admission-results.md):
 verified official 3.51.3 source and actual connection/VFS/native telemetry on all
 three targets; 150 native test passes and unchanged genuine 1K/10K canonical evidence.
 The 1,024-leaf profile is unchanged. Native SQLite heap cap and staged index controls
 are implemented; complete Python/physical transaction/WAL/disk reservation is not.
-32K now has its separate bounded authorization; 65K additionally requires
-a larger reviewed profile. Neither ran, and no production backend/configuration is selected.
+32K consumed its separate bounded authorization in the failed/stopped packet above;
+65K still requires a larger reviewed profile and execution authorization. No production
+backend/configuration is selected.
 [Accounting acceptance and engine/admission qualification scope](../handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
 Use a fixed reviewable research engine/VFS, qualify its WAL-reset correction and
 instrument the actual connection. Implement pre-write admission while keeping the
@@ -499,7 +517,7 @@ authorization inferred from this packet.
 | G0 — approved | Review P1–P9 and adversarial plan | Resolve Save/ledger semantics and policy choices; no runtime edits yet |
 | G1 — accepted/closed | One explicit validated native export path for ordinary and historical roots; existing WB5 | Preserve strict generic transfer/IDs/Redo/L; full three-platform Rust/managed/session/desktop/AOT gates accepted; preserve original evidence |
 | G2 — accepted/closed, feature-only | Mutation-local PreparedRecordChanges from staged core/workbook candidates; no persisted journal integration | Independently reconstructed prior-state/full-checkpoint oracle; complete coupled changes, deterministic original-state coalescing, failed/no-op isolation and ownership/work measures; three-platform evidence accepted |
-| G3 — active; engine/VFS/admission accepted; 32K-only native pilot authorized, not started | One fresh 32,768-control attempt per native target with fixed 3.51.3 and unchanged 1,024-leaf profile | Preflight and preserve exact identities/refusal evidence; return after pilot; no 65K, larger profile, full 100K or production selection |
+| G3 — parked (2026-10-28); accepted research preserved; one-shot 32K packet failed/stopped | Windows/Ubuntu 32K publications then accounting guard failure; Mac stopped at 18,595; final native reopen/lookups unreached | Preserve original outcomes; no replay under consumed authorization, 65K, larger profile, full 100K or production selection |
 | G4 | Durable index/decision publication and independent witness | Child restart at payload/index/root/witness windows; lost ACK/suffix, branch/cursor/ledger and wrong-instance checks; no production integration |
 | G5 | Resource, lifecycle and reclamation contracts | Real native Save/decline/Clear/close with tickets/readers, exhaustion and interrupted compaction/relocation; approve numeric budgets/filesystem profiles |
 | G6 | Separately approved Rust session ownership slice | Keep guards, saved content, tickets and uncertainty distinct; review any private protocol cut separately; hosted v1 unchanged |

@@ -89,6 +89,9 @@ fn references_mode(source: &str, proof: bool) -> Result<(Vec<ReferenceSyntax>, u
                 refs.push(first_reference.clone());
                 refs.push(last_reference.clone());
             }
+            Expr::AggregateCall { arguments, .. } => {
+                stack.extend(arguments.iter().rev().map(|a| a.expression()))
+            }
             Expr::Unary { operand, .. } => stack.push(operand),
             Expr::Binary { left, right, .. } => {
                 stack.push(right);
@@ -541,7 +544,8 @@ impl Workbook {
                                         annotations.push((first_reference.span.start, first));
                                         annotations.push((last_reference.span.start, last));
                                     }
-                                    Expr::Unary { operand, .. } => stack.push(operand),
+                                    Expr::AggregateCall { arguments, .. } => stack.extend(arguments.iter().rev().map(|a| a.expression())),
+            Expr::Unary { operand, .. } => stack.push(operand),
                                     Expr::Binary { left, right, .. } => {
                                         stack.push(right);
                                         stack.push(left);

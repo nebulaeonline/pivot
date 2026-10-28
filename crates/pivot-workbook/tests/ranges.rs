@@ -133,7 +133,7 @@ fn transitive_members_cycles_drafts_and_ordered_overflow() {
         book.expected(),
         &[
             f(2, 2, "=A1*3"),
-            f(1, 6, "=SUM(A1)"),
+            f(1, 6, "=SUM(A1,)"),
             f(2, 6, "=SUM(A0:A1)"),
             f(3, 6, "=SUM(A1:B99999)"),
         ],

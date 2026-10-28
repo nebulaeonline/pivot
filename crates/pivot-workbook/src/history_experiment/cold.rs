@@ -92,6 +92,10 @@ fn tokens(w: &mut Writer, ts: &[Token]) -> Result<()> {
     w.n(ts.len() as u64);
     for t in ts {
         match t {
+            Token::Control(c) => {
+                w.n(5);
+                w.n(c.code().into());
+            }
             Token::Decimal(d) => {
                 w.n(0);
                 let (a, b, c, s, e) = d.parts();
@@ -153,6 +157,12 @@ fn read_tokens(r: &mut Reader<'_>) -> Result<Vec<Token>> {
     let mut out = Vec::new();
     for _ in 0..r.count(4096).map_err(graph_error)? {
         out.push(match r.n().map_err(graph_error)? {
+            5 => Token::Control(
+                pivot_core::expression::AggregateControl::from_code(
+                    u8::try_from(r.n().map_err(graph_error)?).map_err(|_| bad())?,
+                )
+                .ok_or_else(bad)?,
+            ),
             0 => Token::Decimal(read_decimal_input(r)?),
             1 => Token::Cell(CellRef {
                 worksheet: WorksheetId::from_uuid(id(r)?),
@@ -845,6 +855,9 @@ impl Workbook {
                             data.bindings.get(&c.cell).ok_or_else(bad)?.runtime,
                         ),
                         Token::Unary(op) => pivot_core::model::transfer::ResolvedToken::Unary(*op),
+                        Token::Control(c) => {
+                            pivot_core::model::transfer::ResolvedToken::Control(*c)
+                        }
                         Token::Binary(op) => {
                             pivot_core::model::transfer::ResolvedToken::Binary(*op)
                         }

@@ -56,6 +56,7 @@ impl Graph {
                                     transfer::ResolvedToken::Decimal(v) => BoundToken::Decimal(*v),
                                     transfer::ResolvedToken::Node(n) => BoundToken::Node(*n),
                                     transfer::ResolvedToken::Unary(op) => BoundToken::Unary(*op),
+                                    transfer::ResolvedToken::Control(c) => BoundToken::Control(*c),
                                     transfer::ResolvedToken::Binary(op) => BoundToken::Binary(*op),
                                     transfer::ResolvedToken::Sum(s) => BoundToken::Sum(*s),
                                     transfer::ResolvedToken::Aggregate(k, s) => {

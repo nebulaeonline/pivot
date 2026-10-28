@@ -458,6 +458,7 @@ impl Transaction<'_> {
                     ResolvedToken::Node(self.data.bindings.get(&r.cell).unwrap().runtime)
                 }
                 Token::Unary(op) => ResolvedToken::Unary(*op),
+                Token::Control(c) => ResolvedToken::Control(*c),
                 Token::Binary(op) => ResolvedToken::Binary(*op),
                 Token::At(_) | Token::SumAt { .. } => unreachable!(),
             });
@@ -989,7 +990,8 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
                             }
                             _ => CellError::InvalidExpression,
                         },
-                        EvaluationError::NoNumericValues { operation, .. } => {
+                        EvaluationError::NoNumericValues { operation, .. }
+                        | EvaluationError::NoNumericArguments { operation, .. } => {
                             CellError::NoNumericValues(*operation)
                         }
                         EvaluationError::NonNumericInput { .. } => CellError::NonNumericInput,

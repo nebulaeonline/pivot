@@ -1,17 +1,72 @@
 # Pivot implementation status
 
-Date: 2026-10-27
+Date: 2026-10-28
+
+## Current direction — spreadsheet features
+
+**ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
+remain accepted and closed. Preserve the accepted research, source and evidence;
+the 32K pilot remains failed/stopped, not accepted. G4–G7 and production history
+integration are on hold. No immediate history research, observer correction, 32K
+rerun, 65K experiment, storage optimization, additional SQLite instrumentation or
+history acceptance packet is assigned. Known observer issues remain documented.
+
+Return to user-visible spreadsheet development. Resume history only when a concrete
+product requirement warrants a scoped assignment, reusing the existing research.
+Production Undo/Redo is still unimplemented; parked research is not a shipped feature.
+
+Use one concise handoff per feature milestone, automated regression evidence and
+focused review of actual failures. Do not reopen closed decisions or repeat platform
+qualification for unchanged application behavior. Validate changes according to
+their actual scope; platform-sensitive changes still need appropriate coverage.
+This direction is recorded here without another history review packet.
+
+**Multi-argument aggregates: accepted and closed by parent review (2026-10-28).**
+Windows/Linux/Mac headless CI passed; no additional qualification round is required.
+SUM/MIN/MAX/AVERAGE/COUNT accept scalar expressions, nested calls and multiple
+rectangles, e.g. `=SUM(A1:A10,C1:C10,5)`. Copy/fill translates all reference axes;
+Save/reopen preserves bound identities. AVERAGE rounds once across each call's
+numeric inputs, and nested calls remain scalar results. Current native documents
+are WB6-only because persisted call-control tokens change the representation;
+WB1-WB5 reject explicitly. No migration reader, protocol or clipboard format cut.
+[Feature handoff and regression evidence](handoffs/2026-10-28-multi-argument-aggregates.md) ·
+[Aggregate semantics](architecture/spreadsheet-aggregates.md).
+The feature uses existing desktop authoring; no new GUI interaction is required.
+
+Next recommended feature: multiple worksheets within a workbook, beginning with
+a bounded design that addresses the current single-worksheet assumptions. This is
+a recommendation, not an implementation assignment; design work has not started.
+
+Before real users depend on saved workbooks, revisit the compatibility policy and
+define a deliberate support commitment. WB6-only remains the current experimental
+policy; permanent backward incompatibility is not established as a product promise.
+No migration work or additional format cut is assigned by this review.
+
+## Preserved history research record — suspended
+
+The dated work below records prior assignments and outcomes. Its old imperative
+language does not authorize resuming history work; the suspension above controls.
 
 **Parent accepted the hierarchy/normalization and separate dictionary research.
-G3 remains open; parent accepted the physical accounting, scalable admission proposal
+G3 is now parked; parent previously accepted the physical accounting, scalable admission proposal
 and readiness assessment. Engine/VFS and small-bound admission qualification are
-accepted; one 32K control pilot per native target is authorized, not started.**
+accepted. The authorized one-shot 32K pilot has returned a failed/stopped packet;
+the workstream is now suspended rather than assigned another correction cycle.**
+[32K pilot results, failure diagnosis and remaining gates](handoffs/2026-10-27-g3-32k-control-pilot-results.md).
+Windows/Ubuntu retained all 32,768 controls plus seed (853/851 leaves), passed native
+audit and seed reconstruction, then failed the final accounting file-set guard.
+Mac stopped on peer failure at 18,595 controls. Copy diagnosis reproduces creation
+of an empty WAL by the read-only analyzer without changing the main DB hash;
+supplemental copy checks validate exact canonical receipts/authentication coverage.
+Original attempts remain failed/stopped, with no replay or reclassification.
+Final native reopen/lookup gates were not reached. The Windows per-publication RSS
+sampler also retains ctypes types; measured process growth includes observer cost.
+No three-platform 32K acceptance, capacity increase or production adoption is claimed.
+[Pilot/measurement contract](architecture/history-32k-control-pilot.md).
 [Engine acceptance and exact 32K authorization](handoffs/2026-10-27-g3-engine-acceptance-32k-authorization.md).
-Run one fresh 32,768-control experiment plus genuine seed on Windows NTFS, Ubuntu
-ext4 and Mac APFS, retaining the fixed engine and **1,024/24/60/8** profile. Preflight
-identity, VFS, native storage, free space and configuration; preserve any refusal or
-failure without changing settings or replaying. Stop after three-platform evidence
-for parent review. **65K, 4,096-leaf enablement and full 100K G2 remain unauthorized.**
+That single-attempt authorization is consumed on Windows NTFS, Ubuntu ext4 and Mac
+APFS. The fixed engine and **1,024/24/60/8** profile were retained. Stop for review;
+**65K, 4,096-leaf enablement and full 100K G2 remain unauthorized.**
 [Fixed-engine/admission results and scaling decision](handoffs/2026-10-27-g3-engine-admission-results.md) ·
 [Implementation and measurement contract](architecture/history-engine-qualification.md).
 All three native targets use the same verified official SQLite 3.51.3 source,
@@ -24,11 +79,11 @@ and genuine 1K/10K G2 replays preserve accepted canonical manifests and cold ima
 Native heap high-water during 10K ingest is 2.27–2.63 MB; roughly 440 MB passes through
 WAL xWrite calls. The largest committed prefix exceeds the 64 MiB trigger, confirming
 it is not a hard cap. Complete Python/physical-WAL/disk reservation and device
-durability are not claimed. The separate 32K control pilot is now authorized;
+durability are not claimed. The separate 32K control pilot returned the failed/stopped packet above;
 65K cannot fit the unchanged 61,440-entry aggregate ceiling and needs a separately
 approved larger profile. No expanded run, production selection or installed-runtime
 upgrade occurred during qualification. Its review is now accepted; the separate
-32K-only assignment is recorded above and has not run.
+32K-only assignment is consumed; no retry is authorized.
 [Acceptance and exact qualification assignment](handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
 Stop storage optimization; 20% is an optimization aspiration, not an acceptance gate.
 Qualify a fixed actual SQLite build/VFS and WAL-reset correction, instrument the actual
@@ -714,7 +769,7 @@ source full gates passed; the cause is unresolved. [G2 evidence/qualification](h
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication/receipt normalization and owner-authorized dictionary research are accepted; physical accounting/admission proposal and readiness comparison are accepted; engine/VFS and small-bound admission qualification are accepted; one 32K control pilot per native target is authorized, not started, under unchanged bounds; 20% is only an optimization aspiration and expanded control workloads require separate authorization; no complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
+History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is parked by owner/parent direction (2026-10-28); its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication/receipt normalization and owner-authorized dictionary research are accepted; physical accounting/admission proposal and readiness comparison are accepted; engine/VFS and small-bound admission qualification are accepted; the one-shot 32K packet failed/stopped (Windows/Ubuntu published 32K then failed accounting; Mac stopped at 18,595), with final native reopen/lookup gates unreached and no replay authorized; 20% is only an optimization aspiration and expanded control workloads require separate authorization; no complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
 [G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
 [Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
 G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.

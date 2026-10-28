@@ -22,7 +22,7 @@ static class RangeChecks
   await s.ApplyAsync(s.Revision,[N(1,5,2),F(2,2,"=E1*3"),F(3,4,"=SUM(B2:B100)"),F(6,9,"=SUM(A10:H1024)")]);Check(await Value(s,3,4)==6,"Computed member");
   await s.ApplyAsync(s.Revision,[N(1,5,4)]);Check(await Value(s,3,4)==12,"Outside input invalidates computed member aggregate");
   await s.ApplyAsync(s.Revision,[F(2,2,"=D3+1")]);var cycle=await s.ReadAsync(P(3,4),P(3,4));Check(cycle.Cells[0].Error.Length>0,"Mixed scalar/selection cycle");Check(await Value(s,2,4)==47,"Unrelated cycle preserves selected local closure");
-  await s.ApplyAsync(s.Revision,[F(2,2,"=E1*3"),F(7,9,"=SUM(A1)"),F(8,9,"=SUM(A1:Z99999)")]);Check((await s.ReadAsync(P(7,9),P(8,9))).Cells.All(c=>c.Error.Length>0),"Invalid range drafts");
+  await s.ApplyAsync(s.Revision,[F(2,2,"=E1*3"),F(7,9,"=SUM(A1,)"),F(8,9,"=SUM(A1:Z99999)")]);Check((await s.ReadAsync(P(7,9),P(8,9))).Cells.All(c=>c.Error.Length>0),"Invalid range drafts");
   var empty=await s.ReadAsync(P(6,9),P(6,9));Check(WorkbookSession.Decode(empty.Cells[0].Value)==0&&empty.SelectionStats.Points<20,"Mostly-empty large rectangle has no per-blank nodes");
   await s.ApplyAsync(s.Revision,[N(1024,6,4)]);Check(await Value(s,6,9)==4,"Sparse member insertion");
   var fileClock=Stopwatch.StartNew();var prepared=await s.PrepareSaveAsync(s.Revision,file);double prepareMs=fileClock.Elapsed.TotalMilliseconds;await s.ApplyAsync(s.Revision,[N(3,1,5)]);fileClock.Restart();await s.CommitSaveAsync(prepared.Revision,prepared.SaveTicket);double commitMs=fileClock.Elapsed.TotalMilliseconds;Check(s.IsDirty,"Range Save S while editing T");

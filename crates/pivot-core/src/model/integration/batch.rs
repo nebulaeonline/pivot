@@ -404,6 +404,7 @@ impl IntegrationRuntime {
                         }
                         transfer::SelectionToken::Sum(id) => transfer::ResolvedToken::Sum(id),
                         transfer::SelectionToken::Unary(op) => transfer::ResolvedToken::Unary(op),
+                        transfer::SelectionToken::Control(c) => transfer::ResolvedToken::Control(c),
                         transfer::SelectionToken::Binary(op) => transfer::ResolvedToken::Binary(op),
                     })
                 })

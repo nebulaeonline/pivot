@@ -1,5 +1,77 @@
 //! Private fixed-width arithmetic for aggregate reduction; no public decimal type.
+use crate::{
+    evaluation::EvaluationError,
+    expression::AggregateKind,
+    model::{NodeId, selection::SelectionId},
+};
 use pivot_types::{DecimalError, PivotDecimal};
+
+pub(crate) struct Reduction {
+    pub kind: AggregateKind,
+    count: u64,
+    total: PivotDecimal,
+    extremum: Option<PivotDecimal>,
+    mean: Mean,
+    pub selection: Option<SelectionId>,
+}
+impl Reduction {
+    pub fn new(kind: AggregateKind) -> Self {
+        Self {
+            kind,
+            count: 0,
+            total: PivotDecimal::ZERO,
+            extremum: None,
+            mean: Mean::default(),
+            selection: None,
+        }
+    }
+    pub fn push(&mut self, value: PivotDecimal) -> Result<(), DecimalError> {
+        self.count = self.count.checked_add(1).ok_or(DecimalError::Overflow)?;
+        match self.kind {
+            AggregateKind::Sum => self.total = self.total.checked_add(value)?,
+            AggregateKind::Average => self.mean.push(value)?,
+            AggregateKind::Min => {
+                self.extremum = Some(self.extremum.map_or(value, |v| v.min(value)))
+            }
+            AggregateKind::Max => {
+                self.extremum = Some(self.extremum.map_or(value, |v| v.max(value)))
+            }
+            AggregateKind::Count => (),
+        }
+        Ok(())
+    }
+    pub fn finish(self, node: NodeId) -> Result<PivotDecimal, EvaluationError> {
+        if self.count == 0 && !matches!(self.kind, AggregateKind::Sum | AggregateKind::Count) {
+            return Err(match self.selection {
+                Some(selection) => EvaluationError::NoNumericValues {
+                    node,
+                    operation: self.kind,
+                    selection,
+                },
+                None => EvaluationError::NoNumericArguments {
+                    node,
+                    operation: self.kind,
+                },
+            });
+        }
+        match self.kind {
+            AggregateKind::Sum => Ok(self.total),
+            AggregateKind::Count => {
+                i64::try_from(self.count)
+                    .map(PivotDecimal::from)
+                    .map_err(|_| EvaluationError::Arithmetic {
+                        node,
+                        error: DecimalError::Overflow,
+                    })
+            }
+            AggregateKind::Min | AggregateKind::Max => Ok(self.extremum.unwrap().normalize()),
+            AggregateKind::Average => self
+                .mean
+                .finish()
+                .map_err(|error| EvaluationError::Arithmetic { node, error }),
+        }
+    }
+}
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 struct Wide([u64; 4]);
 impl Ord for Wide {

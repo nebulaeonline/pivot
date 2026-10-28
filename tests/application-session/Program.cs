@@ -29,6 +29,7 @@ static async Task CancelledAfterDispatch(WorkbookSession session, Func<Cancellat
     try { await Cancelled(action(cancel.Token)); }
     finally { session.RequestDispatchedForTesting = null; }
 }
+await WorksheetChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await FillChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await AggregateChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await StructuredBindingChecks.Run(args[0]);

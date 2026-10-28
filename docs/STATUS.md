@@ -26,21 +26,39 @@ Windows/Linux/Mac headless CI passed; no additional qualification round is requi
 SUM/MIN/MAX/AVERAGE/COUNT accept scalar expressions, nested calls and multiple
 rectangles, e.g. `=SUM(A1:A10,C1:C10,5)`. Copy/fill translates all reference axes;
 Save/reopen preserves bound identities. AVERAGE rounds once across each call's
-numeric inputs, and nested calls remain scalar results. Current native documents
-are WB6-only because persisted call-control tokens change the representation;
-WB1-WB5 reject explicitly. No migration reader, protocol or clipboard format cut.
+numeric inputs, and nested calls remain scalar results. That milestone introduced WB6 for persisted call-control tokens; ADR-0024 now
+supersedes it with WB7. No migration reader was added.
 [Feature handoff and regression evidence](handoffs/2026-10-28-multi-argument-aggregates.md) ·
 [Aggregate semantics](architecture/spreadsheet-aggregates.md).
 The feature uses existing desktop authoring; no new GUI interaction is required.
 
-Next recommended feature: multiple worksheets within a workbook, beginning with
-a bounded design that addresses the current single-worksheet assumptions. This is
-a recommendation, not an implementation assignment; design work has not started.
+**Multiple worksheets: ADR-0024 accepted and closed by parent review (2026-10-28).**
+[ADR-0024](adr/0024-multiple-worksheets.md) implements Add/Rename/switchable tabs,
+qualified scalar and single-sheet rectangular references, one shared calculation
+graph, sheet-scoped commands, and complete Save/reopen. Deletion/reordering/duplicate
+sheets, external links and history integration are deferred. Parent approved the 16-sheet ceiling and
+WB7/private-protocol changes, with effective-name rendering and future compatibility
+clarifications. Native Windows x64/Linux x64/macOS ARM64 headless CI passed 13/13
+on each target, with all 349 non-Markdown implementation inputs matching. The
+automated actual-window suites also passed on all three targets, including worksheet
+controls, edit-on-switch, effective formula rendering, per-sheet view state and
+Save/reopen. Each target reported four successful application runs, zero remaining
+charges and no surviving owned processes.
+[Implementation handoff and validation evidence](handoffs/2026-10-28-multiple-worksheets.md).
+Parent accepted the implementation and supplied evidence; no additional qualification
+round or reconciliation packet is required. Preserve the original failed reports.
+
+**Recommended next feature: bounded cell formatting.** Numeric display formats,
+font emphasis, alignment and basic cell backgrounds should be document-owned
+presentation metadata, preserving canonical calculation values. This is the parent
+recommendation, not a completed design or implementation assignment. Date values
+and their display semantics require explicit scope rather than an assumed new
+calculation type. ADR-0023 remains parked at G3.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
-define a deliberate support commitment. WB6-only remains the current experimental
+define a deliberate support commitment. WB7-only is the current experimental
 policy; permanent backward incompatibility is not established as a product promise.
-No migration work or additional format cut is assigned by this review.
+No migration work beyond the approved WB7 cut is assigned.
 
 ## Preserved history research record — suspended
 

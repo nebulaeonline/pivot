@@ -26,6 +26,24 @@ public sealed class WorkbookSession : IAsyncDisposable
     private Task? disposal;
     private string revision = "";
     public string DocumentId { get; private set; } = "";
+    public ulong DocumentGeneration {get;private set;}
+    public string WorksheetId { get; private set; } = "";
+    public IReadOnlyList<WorksheetInfo> Worksheets { get; private set; } = Array.Empty<WorksheetInfo>();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string,string> capturedSheets = new();
+    public void SelectWorksheet(string id) {
+        if (!Worksheets.Any(s=>s.Id==id)) throw new ArgumentException("Unknown worksheet ID.",nameof(id));
+        WorksheetId=id;
+    }
+    public Task<Response> ListSheetsAsync(CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ListSheets},cancellation);
+    public Task<Response> AddSheetAsync(string expected,string? name=null,CancellationToken cancellation=default) {
+        ArgumentException.ThrowIfNullOrEmpty(expected);
+        return CallAsync(new Request{Operation=Request.Types.Operation.AddSheet,Revision=expected,SheetName=name??""},cancellation);
+    }
+    public Task<Response> RenameSheetAsync(string expected,string id,string name,CancellationToken cancellation=default) {
+        ArgumentException.ThrowIfNullOrEmpty(expected);ArgumentException.ThrowIfNullOrEmpty(id);
+        return CallAsync(new Request{Operation=Request.Types.Operation.RenameSheet,Revision=expected,Worksheet=id,SheetName=name},cancellation);
+    }
+
     public string DocumentPath { get; private set; } = "";
     public string SavedCheckpoint { get; private set; } = "";
     public bool IsDirty { get; private set; }
@@ -120,7 +138,7 @@ public sealed class WorkbookSession : IAsyncDisposable
     {
         var selected = outputs.Take(257).Select(p => p.Clone()).ToArray();
         if (selected.Length is 0 or > 256) throw new ArgumentOutOfRangeException(nameof(outputs));
-        var request = new Request { Operation = Request.Types.Operation.Calculate, Capture = capture };
+        var request = new Request { Operation = Request.Types.Operation.Calculate, Capture = capture, Worksheet=capturedSheets.TryGetValue(capture,out var sheet)?sheet:WorksheetId };
         request.Outputs.AddRange(selected);
         return CallAsync(request, cancellation);
     }
@@ -159,6 +177,8 @@ public sealed class WorkbookSession : IAsyncDisposable
 
     private async Task<Response> CallAsync(Request request, CancellationToken cancellation)
     {
+        // Capture sheet context before queueing; tab switches cannot redirect this request.
+        if(request.Worksheet.Length==0)request.Worksheet=WorksheetId;
         // Reserve envelope space before accepting a queued request, so the queue
         // cannot retain eight arbitrarily large caller-owned formula buffers.
         if (request.CalculateSize() > MaximumFrame - 256)
@@ -176,7 +196,7 @@ public sealed class WorkbookSession : IAsyncDisposable
             cancellation.ThrowIfCancellationRequested();
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 4; request.Id = ++sequence;
+            request.Version = 5; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -200,7 +220,7 @@ public sealed class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 4 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 5 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {
                 closed = true; StopChild();
@@ -213,6 +233,12 @@ public sealed class WorkbookSession : IAsyncDisposable
             if (request.Operation is not (Request.Types.Operation.Calculate or Request.Types.Operation.Release or Request.Types.Operation.ProofEvaluate))
                 Volatile.Write(ref revision, response.Revision);
             IsProjectionProof=response.ProofMode;IsBindingProof=response.BindingMode;ComputationalState=response.ComputationalState;ProofEpoch=response.ProofEpoch;ProofPresentation=response.ProofPresentation;
+            bool documentChanged=DocumentId!=response.DocumentId || (response.Error.Length==0 && request.Operation is (Request.Types.Operation.Create or Request.Types.Operation.New or Request.Types.Operation.Open or Request.Types.Operation.CloseDocument));
+            if(documentChanged)DocumentGeneration++;
+            Worksheets=response.Worksheets.Select(s=>s.Clone()).ToArray();
+            if(documentChanged || !Worksheets.Any(s=>s.Id==WorksheetId)) {WorksheetId=Worksheets.FirstOrDefault()?.Id??"";capturedSheets.Clear();}
+            if(request.Operation==Request.Types.Operation.Capture && response.Capture.Length!=0)capturedSheets[response.Capture]=request.Worksheet;
+            if(request.Operation==Request.Types.Operation.Release)capturedSheets.TryRemove(request.Capture,out _);
             DocumentId = response.DocumentId; DocumentPath = response.Path;
             SavedCheckpoint = response.SavedCheckpoint; IsDirty = response.Dirty;
             InstallationUncertain = response.Uncertain;

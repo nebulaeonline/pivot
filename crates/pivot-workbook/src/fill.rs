@@ -147,6 +147,7 @@ impl Workbook {
             Some(Content::Formula { source, tokens }) => (source, tokens),
             Some(Content::StructuredFormula(f)) => (f.source().into(), f.tokens().to_vec()),
         };
+        let text = sheets::render_source(&text, &bound, self.sheets(), self.limits.source_bytes)?;
         work.source(text.len())?;
         work.tokens += bound.len();
         work.check()?;
@@ -272,6 +273,10 @@ impl Workbook {
                 old_source == source
                     && tokens.len() == old_tokens.len()
                     && tokens.iter().zip(old_tokens).all(|(a, b)| match (a, b) {
+                        (
+                            Token::QualifierAt { name, span },
+                            Token::Qualifier { worksheet, span: s },
+                        ) => span == s && self.sheet_by_name(name) == Some(*worksheet),
                         (Token::At(p), Token::Cell(id)) => {
                             capture
                                 .pinned

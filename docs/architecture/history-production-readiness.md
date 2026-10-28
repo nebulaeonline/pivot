@@ -8,7 +8,7 @@ packet is assigned. Resume only for a concrete product need under a scoped
 assignment. G1/G2 remain accepted/closed; production Undo/Redo remains unimplemented.
 Older execution proposals below are preserved design context, not active tasks.
 Their WB5 references describe the accepted research baseline. The separate spreadsheet
-aggregate-argument feature moves current product documents to WB6; it does not reopen
+aggregate-argument feature introduced WB6 and ADR-0024 now uses WB7; neither reopens
 history milestones or authorize a history experiment.
 See [current project direction](../STATUS.md).
 

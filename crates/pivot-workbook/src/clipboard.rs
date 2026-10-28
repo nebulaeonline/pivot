@@ -74,7 +74,9 @@ fn references_mode(source: &str, proof: bool) -> Result<(Vec<ReferenceSyntax>, u
                 absolute_row,
                 absolute_column,
                 span,
+                qualifier,
             } => refs.push(ReferenceSyntax {
+                qualifier: qualifier.clone(),
                 row: *row,
                 column: *column,
                 absolute_row: *absolute_row,
@@ -460,10 +462,8 @@ impl Workbook {
                         let mut references = Vec::new();
                         for (syntax, bound) in syntax.iter().zip(tokens.iter()) {
                             match (syntax, bound) {
+                                (Token::QualifierAt{span,..},Token::Qualifier{span:s,..}) if span==s=>(),
                                 (Token::At(_), Token::Cell(target)) => {
-                                    if target.worksheet != self.worksheet {
-                                        return Err(invalid());
-                                    }
                                     let (span, submitted_position) =
                                         submitted.next().ok_or_else(invalid)?;
                                     let node = capture
@@ -559,7 +559,7 @@ impl Workbook {
                             }
                         }
                         Slot::Formula {
-                            source: f.original_source,
+                            source: if f.diagnostic.is_some() {f.original_source.clone()} else {sheets::render_source(&f.original_source,&f.tokens,self.sheets(),self.limits.source_bytes)?},
                             effective: annotations.into_iter().map(|(_, p)| p).collect(),
                             rejected: f.diagnostic.is_some(),
                         }
@@ -685,6 +685,24 @@ impl Workbook {
                     if native && rejected {
                         Edit::PreserveRejectedFormula { position, source }
                     } else {
+                        if let Ok(parsed) = expression::parse_spreadsheet(&source) {
+                            let (tokens, _, _) = Self::lower_text_bounds(
+                                self.rows.length,
+                                self.columns.length,
+                                &Ok(parsed),
+                            );
+                            if let Some(name) = tokens.iter().find_map(|t| {
+                                if let Token::QualifierAt { name, .. } = t {
+                                    self.sheet_by_name(name).is_none().then_some(name)
+                                } else {
+                                    None
+                                }
+                            }) {
+                                return Err(Error::Graph(format!(
+                                    "unknown destination worksheet: {name}"
+                                )));
+                            }
+                        }
                         Edit::SetFormulaText { position, source }
                     }
                 }

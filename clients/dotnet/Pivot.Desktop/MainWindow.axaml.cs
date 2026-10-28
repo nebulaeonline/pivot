@@ -300,6 +300,8 @@ public partial class MainWindow : Window
     private void SetEditing(bool enabled) {
         UpdateFillMenu();
         ClearButton.IsEnabled = MoveButton.IsEnabled = FormulaEntry.IsEnabled = CellEditor.IsEnabled = enabled && !shuttingDown && !fileAction && Sheet.ProjectedSelection is null;
+        WorksheetBar.IsVisible=session is not null && !session.IsBindingProof && !session.IsProjectionProof;
+        WorksheetBar.IsEnabled=enabled&&!shuttingDown&&!fileAction;
         BindingPanel.IsVisible=session?.IsBindingProof==true;BindingPanel.IsEnabled=enabled&&!shuttingDown&&!fileAction;
         ProofPanel.IsVisible=session?.IsProjectionProof==true;ProofPanel.IsEnabled=enabled && !shuttingDown && !fileAction;
         // Pointer capture survives the asynchronous commit preceding a selection.
@@ -330,6 +332,9 @@ public partial class MainWindow : Window
         if (session is null || shuttingDown) return;
         refresh?.Cancel(); refresh?.Dispose(); refresh = new CancellationTokenSource();
         var cancellation = refresh.Token; long request = ++displayRequest;
+        EnsureWorksheetViews();
+        string worksheet=session.WorksheetId,document=session.DocumentId;ulong documentGeneration=session.DocumentGeneration;long view=worksheetViewEpoch;
+
         var visible = Stopwatch.StartNew();
         try {
             await Task.Delay(35, cancellation); // Coalesce scrolling before queuing Rust work.
@@ -338,14 +343,14 @@ public partial class MainWindow : Window
             var last=new Position{Row=Math.Min(Sheet.TotalVisualRows,Sheet.FirstRow+(uint)Sheet.VisibleRows-1),Column=Sheet.FirstColumn+9};
             var frame = session.IsProjectionProof ? await session.ReadProofAsync(first,last,cancellation) : await session.ReadAsync(new Position { Row = Sheet.FirstRow, Column = Sheet.FirstColumn },
                 new Position { Row = Math.Min(1024, Sheet.FirstRow + (uint)Sheet.VisibleRows - 1), Column = Sheet.FirstColumn + 9 }, cancellation);
-            if (shuttingDown || request != displayRequest || frame.Revision != session.Revision || frame.ComputationalState!=session.ComputationalState) return;
+            if (shuttingDown || view!=worksheetViewEpoch || documentGeneration!=session.DocumentGeneration || document!=session.DocumentId || worksheet!=session.WorksheetId || (!session.IsProjectionProof && (frame.Worksheet!=worksheet || frame.Cells.Any(c=>c.Worksheet!=worksheet))) || request != displayRequest || frame.Revision != session.Revision || frame.ComputationalState!=session.ComputationalState) return;
             if(frame.ProofView is { } proof && (proof.Epoch!=session.ProofEpoch || proof.Presentation!=session.ProofPresentation))return;
             Sheet.SetProofFrame(frame.ProofView);if(request!=displayRequest)return;
             var dispatch = Stopwatch.StartNew();
             Sheet.SetCells(frame.Cells); frameReady = true; displayedRevision = frame.Revision; displayedGeneration = frame.Generation;
             StatusLabel.Text = $"Ready · {frame.Cells.Count} populated cells · {frame.Cells.Count(c => c.Error.Length > 0)} formula errors";
             if(frame.ProofView?.Error.Length>0)StatusLabel.Text="Publication failed; showing last successful result: "+frame.ProofView.Error;
-            SelectCell(); UpdateDocument();
+            UpdateWorksheetTabs();SelectCell(); UpdateDocument();
             lastUiApply = dispatch.Elapsed.TotalMilliseconds;
             TimingLabel.Text = $"Viewport round trip {session.LastRoundTrip.TotalMilliseconds:F2} ms · Rust {session.LastRustExecutionNs / 1e6:F2} ms · encode C# {session.LastClientSerialization.TotalMilliseconds:F2} / Rust {session.LastRustSerializationNs / 1e6:F2} ms · UI apply {dispatch.Elapsed.TotalMilliseconds:F2} ms (paint measured separately)";
             var painted = await Sheet.PaintCompletion.WaitAsync(TimeSpan.FromSeconds(5), cancellation);
@@ -504,6 +509,7 @@ public partial class MainWindow : Window
     {
         await FillAutomationAsync(report);
         await AggregateAutomationAsync(report);
+        await WorksheetAutomationAsync(report);
         await BindingAutomationAsync(report);
         await ProjectionAutomationAsync(report);
         await TextAutomationAsync(report);
@@ -789,7 +795,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { graphical_backend=PlatformImpl?.GetType().FullName, status="passed", rectangular_fill="passed: routed four-direction menu/shortcuts, typed edge translation, identity/no-op, editor exclusion, unchanged clipboard and WB5 save/reopen", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { graphical_backend=PlatformImpl?.GetType().FullName, status="passed", multiple_worksheets="passed: Add/Rename/tabs, commit on switch, quoted effective names, stale frame rejection, per-sheet view state and WB7 Save/reopen", rectangular_fill="passed: routed four-direction menu/shortcuts, typed edge translation, identity/no-op, editor exclusion, unchanged clipboard and WB5 save/reopen", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
         allowClose = true; Close();
     }
 }

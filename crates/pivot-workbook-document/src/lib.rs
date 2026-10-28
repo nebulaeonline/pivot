@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 4 * 1024 * 1024;
-const MAGIC: &[u8; 8] = b"PIVOTWB6";
+const MAGIC: &[u8; 8] = b"PIVOTWB7";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -122,6 +122,12 @@ impl Writer {
         self.n(tokens.len() as u64);
         for t in tokens {
             match t {
+                Token::Qualifier { worksheet, span } => {
+                    self.n(7);
+                    self.id(worksheet.uuid());
+                    self.n(span.start as u64);
+                    self.n(span.end as u64);
+                }
                 Token::Control(c) => {
                     self.n(6);
                     self.n(c.code().into());
@@ -169,7 +175,10 @@ impl Writer {
                         BinaryOp::Divide => 3,
                     });
                 }
-                Token::Output(_) | Token::At(_) | Token::SumAt { .. } => {
+                Token::QualifierAt { .. }
+                | Token::Output(_)
+                | Token::At(_)
+                | Token::SumAt { .. } => {
                     unreachable!("validated ordinary document formulas are bound")
                 }
             }
@@ -294,6 +303,10 @@ impl<'a> Reader<'a> {
         for _ in 0..n {
             let tag = self.n()?;
             out.push(match tag {
+                7 => Token::Qualifier {
+                    worksheet: WorksheetId::from_uuid(self.id()?),
+                    span: self.count(4096)?..self.count(4096)?,
+                },
                 4 | 5 => {
                     let kind = if tag == 4 {
                         expression::AggregateKind::Sum
@@ -420,6 +433,15 @@ impl Document {
         w.id(projection.columns);
         w.n(projection.column_count.into());
         w.n(projection.state);
+        w.n(projection.sheets.len() as u64);
+        for sheet in &projection.sheets {
+            w.id(sheet.id.uuid());
+            w.text(&sheet.name);
+            w.id(sheet.rows);
+            w.n(sheet.row_count.into());
+            w.id(sheet.columns);
+            w.n(sheet.column_count.into());
+        }
         w.bytes(&graph);
         w.n(1); // Explicit coordinate-area / checked row-major SUM policy.
         w.n(projection.graph.identities.len() as u64);
@@ -447,6 +469,7 @@ impl Document {
             }
             w.id(id.uuid());
             w.id(node.uuid());
+            w.id(record.worksheet.uuid());
             if let (Some(p), Some(c)) = (record.position, record.content.as_ref()) {
                 w.n(1);
                 w.pos(p);
@@ -478,8 +501,15 @@ impl Document {
                             {
                                 2
                             }
+                            Some(error) if error.message == "unknown worksheet" => 3,
                             Some(_) => 1,
                         });
+                        if f.diagnostic
+                            .as_ref()
+                            .is_some_and(|e| e.message == "unknown worksheet")
+                        {
+                            w.n(f.diagnostic.as_ref().unwrap().offset as u64);
+                        }
                         w.id(f.transaction_base.session);
                         w.n(f.transaction_base.state);
                         w.rev(f.transaction_base.graph);
@@ -538,10 +568,10 @@ impl Document {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Limit);
         }
-        for version in ["WB1", "WB2", "WB3", "WB4", "WB5"] {
+        for version in ["WB1", "WB2", "WB3", "WB4", "WB5", "WB6"] {
             if bytes.starts_with(format!("PIVOT{version}").as_bytes()) {
                 return Err(Error::Graph(format!(
-                    "unsupported native workbook version {version}; WB6 required"
+                    "unsupported native workbook version {version}; WB7 required"
                 )));
             }
         }
@@ -567,6 +597,24 @@ impl Document {
             length: r.u32()?,
         };
         let state = r.n()?;
+        let mut sheets = Vec::new();
+        for _ in 0..r.count(16)? {
+            sheets.push(pivot_workbook::transfer::SheetRecord {
+                id: WorksheetId::from_uuid(r.id()?),
+                name: r.text()?,
+                rows: r.id()?,
+                row_count: r.u32()?,
+                columns: r.id()?,
+                column_count: r.u32()?,
+            });
+        }
+        pivot_workbook::transfer::validate_sheet_directory(&sheets, limits)?;
+        if sheets.first().is_none_or(|s| {
+            s.id != worksheet || s.rows != rows.namespace || s.columns != columns.namespace
+        }) {
+            return Err(malformed());
+        }
+        let sheet_ids: BTreeSet<_> = sheets.iter().map(|s| s.id).collect();
         if rows.length != limits.rows
             || columns.length != limits.columns
             || rows.namespace == columns.namespace
@@ -596,7 +644,8 @@ impl Document {
                 _ => return Err(malformed()),
             };
             if let Some(rectangle) = rectangle
-                && (rectangle.space.0 != *worksheet.uuid().as_bytes()
+                && (!sheet_ids
+                    .contains(&WorksheetId::from_uuid(Uuid::from_bytes(rectangle.space.0)))
                     || rectangle.last_row > rows.length
                     || rectangle.last_column > columns.length)
             {
@@ -645,8 +694,13 @@ impl Document {
             if node.uuid() != *expected_node {
                 return Err(malformed());
             }
+            let record_sheet = WorksheetId::from_uuid(r.id()?);
+            if !sheet_ids.contains(&record_sheet) {
+                return Err(malformed());
+            }
             let record = match r.n()? {
                 0 => Record {
+                    worksheet: record_sheet,
                     position: None,
                     content: None,
                 },
@@ -654,7 +708,7 @@ impl Document {
                     let p = r.pos()?;
                     rows.at(p.row)?;
                     columns.at(p.column)?;
-                    if !positions.insert(p) {
+                    if !positions.insert((record_sheet, p)) {
                         return Err(malformed());
                     }
                     let content = match r.n()? {
@@ -680,6 +734,10 @@ impl Document {
                                     .2
                                     .ok_or_else(malformed)?,
                                 ),
+                                3 => Some(expression::ParseError {
+                                    offset: r.count(4096)?,
+                                    message: "unknown worksheet",
+                                }),
                                 2 => Some(expression::ParseError {
                                     offset: 0,
                                     message: pivot_workbook::clipboard::PRESERVED_REJECTION,
@@ -728,6 +786,7 @@ impl Document {
                     };
                     live_ids.insert(node.uuid());
                     Record {
+                        worksheet: record_sheet,
                         position: Some(p),
                         content: Some(content),
                     }
@@ -805,7 +864,9 @@ impl Document {
                         return Err(malformed());
                     }
                     for reference in &f.references {
-                        if reference.target.worksheet != worksheet
+                        if records
+                            .get(&reference.target.cell)
+                            .is_none_or(|r| r.worksheet != reference.target.worksheet)
                             || portable.get(&reference.target.cell) != Some(&reference.node)
                         {
                             return Err(malformed());
@@ -832,6 +893,12 @@ impl Document {
                         let mut refs = f.references.iter();
                         for (syntax, bound) in syntax.iter().zip(&f.tokens) {
                             match syntax {
+                                Token::QualifierAt { span, .. } => {
+                                    if !matches!(bound,Token::Qualifier{worksheet,span:s} if sheet_ids.contains(worksheet) && span==s)
+                                    {
+                                        return Err(malformed());
+                                    }
+                                }
                                 Token::SumAt {
                                     kind,
                                     first,
@@ -888,6 +955,9 @@ impl Document {
                     .position(|n| *n == node.uuid())
                     .ok_or_else(malformed)?;
                 for t in tokens {
+                    if matches!(t, Token::Qualifier { .. }) {
+                        continue;
+                    }
                     selection_tokens.push(match t {
                         Token::Sum {
                             kind,
@@ -915,7 +985,10 @@ impl Document {
                         }
                         Token::Decimal(d) => SelectionToken::Decimal(d.value()),
                         Token::Cell(c) => {
-                            if c.worksheet != worksheet {
+                            if records
+                                .get(&c.cell)
+                                .is_none_or(|r| r.worksheet != c.worksheet)
+                            {
                                 return Err(malformed());
                             }
                             let id = portable.get(&c.cell).ok_or_else(malformed)?.uuid();
@@ -931,7 +1004,11 @@ impl Document {
                         Token::Unary(op) => SelectionToken::Unary(*op),
                         Token::Control(c) => SelectionToken::Control(*c),
                         Token::Binary(op) => SelectionToken::Binary(*op),
-                        Token::Output(_) | Token::At(_) | Token::SumAt { .. } => {
+                        Token::Qualifier { .. }
+                        | Token::QualifierAt { .. }
+                        | Token::Output(_)
+                        | Token::At(_)
+                        | Token::SumAt { .. } => {
                             return Err(malformed());
                         }
                     });
@@ -957,13 +1034,17 @@ impl Document {
                 }
                 let bound = tokens
                     .iter()
+                    .filter(|t| !matches!(t, Token::Qualifier { .. }))
                     .map(|t| {
                         Ok(match t {
                             Token::Decimal(d) => {
                                 storage::Token::Decimal(storage::Decimal96::from_runtime(d.value()))
                             }
                             Token::Cell(c) => {
-                                if c.worksheet != worksheet {
+                                if records
+                                    .get(&c.cell)
+                                    .is_none_or(|r| r.worksheet != c.worksheet)
+                                {
                                     return Err(malformed());
                                 }
                                 storage::Token::Node {
@@ -980,7 +1061,9 @@ impl Document {
                                 BinaryOp::Multiply => 2,
                                 BinaryOp::Divide => 3,
                             }),
-                            Token::Control(_)
+                            Token::Qualifier { .. }
+                            | Token::QualifierAt { .. }
+                            | Token::Control(_)
                             | Token::Output(_)
                             | Token::At(_)
                             | Token::SumAt { .. }
@@ -1031,7 +1114,12 @@ impl Document {
                     return None;
                 }
                 let p = record.position?;
-                Some((SpaceId(*worksheet.uuid().as_bytes()), p.row, p.column, slot))
+                Some((
+                    SpaceId(*record.worksheet.uuid().as_bytes()),
+                    p.row,
+                    p.column,
+                    slot,
+                ))
             })
             .collect();
         let blanks: Vec<_> = ids
@@ -1061,6 +1149,7 @@ impl Document {
             .collect();
         let book = Workbook::restore_portable(
             PortableWorkbook {
+                sheets,
                 worksheet,
                 graph_id: document.graph.model,
                 rows: rows.namespace,

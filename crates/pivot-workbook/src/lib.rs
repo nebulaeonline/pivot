@@ -15,7 +15,9 @@ mod fill;
 #[cfg(feature = "history-experiment")]
 pub mod history_experiment;
 mod persistent;
+mod sheets;
 pub use fill::FillDirection;
+pub use sheets::SheetInfo;
 #[doc(hidden)]
 pub mod structured;
 pub mod transfer;
@@ -61,7 +63,7 @@ pub struct AxisId {
     pub namespace: Uuid,
     pub sequence: u32,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Axis {
     namespace: Uuid,
     length: u32,
@@ -122,6 +124,14 @@ impl DecimalInput {
 /// Typed source is provenance; SetFormulaText uses the shared spreadsheet parser.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
+    QualifierAt {
+        name: String,
+        span: std::ops::Range<usize>,
+    },
+    Qualifier {
+        worksheet: WorksheetId,
+        span: std::ops::Range<usize>,
+    },
     Control(pivot_core::expression::AggregateControl),
     #[doc(hidden)]
     Output(structured::OutputBinding),
@@ -283,6 +293,7 @@ fn graph_error(e: impl std::fmt::Display) -> Error {
 
 #[derive(Debug, PartialEq, Eq)]
 struct Record {
+    worksheet: WorksheetId,
     position: Option<Position>,
     content: Option<Content>,
 }
@@ -304,6 +315,7 @@ impl Clone for Record {
                 },
         );
         Self {
+            worksheet: self.worksheet,
             position: self.position,
             content: self.content.clone(),
         }
@@ -499,8 +511,15 @@ impl Workbook {
                         first,
                         last,
                         span,
+                        first_reference,
                         ..
                     } => {
+                        if let Some(q) = &first_reference.qualifier {
+                            tokens.push(Token::QualifierAt {
+                                name: q.name.clone(),
+                                span: q.span.clone(),
+                            });
+                        }
                         let first = Position::new(first.0, first.1);
                         let last = Position::new(last.0, last.1);
                         if rows.at(first.row).is_err()
@@ -523,8 +542,18 @@ impl Workbook {
                     }
                     Expr::Decimal(v) => tokens.push(Token::Decimal(DecimalInput::from_decimal(*v))),
                     Expr::CellReference {
-                        row, column, span, ..
+                        row,
+                        column,
+                        span,
+                        qualifier,
+                        ..
                     } => {
+                        if let Some(q) = qualifier {
+                            tokens.push(Token::QualifierAt {
+                                name: q.name.clone(),
+                                span: q.span.clone(),
+                            });
+                        }
                         let pos = Position::new(*row, *column);
                         if rows.at(pos.row).is_err() || columns.at(pos.column).is_err() {
                             diagnostic = Some(ParseError {
@@ -604,8 +633,10 @@ impl Workbook {
             .invalidated_selection_nodes()
             .iter()
             .filter_map(|id| {
-                self.persistent.nodes.get(id).map(|cell| CellRef {
-                    worksheet: self.worksheet,
+                let cell = self.persistent.nodes.get(id)?;
+                let record = self.persistent.records.get(cell)?;
+                Some(CellRef {
+                    worksheet: record.worksheet,
                     cell: *cell,
                 })
             })
@@ -663,10 +694,13 @@ impl CalculationCapture {
         self.expected
     }
     pub fn cell_at(&self, position: Position) -> Option<CellRef> {
-        self.pinned.positions.get(&position).map(|id| CellRef {
-            worksheet: self.worksheet,
-            cell: *id,
-        })
+        self.pinned
+            .positions
+            .get(&sheets::at(self.worksheet, position))
+            .map(|id| CellRef {
+                worksheet: self.worksheet,
+                cell: *id,
+            })
     }
     pub fn evaluate(&self, outputs: &[CellRef]) -> Result<Calculation> {
         persistent::evaluate(self, outputs)

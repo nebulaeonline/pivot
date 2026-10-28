@@ -18,12 +18,12 @@ internal static class AggregateChecks {
    await s.ApplyAsync(s.Revision,[new Edit{At=P(1,4),Formula="=SUM(A1:A3,10,MAX(2,3))"},new Edit{At=P(2,4),Formula="=AVERAGE(A1:A3,7)"},new Edit{At=P(3,4),Formula="=COUNT(A4,A5,0,A5+0)"},new Edit{At=P(4,4),Formula="=MIN(7,MAX(3,4))"},new Edit{At=P(5,4),Formula="=MAX(0,MIN(3,4))"},new Edit{At=P(6,4),Formula="=MAX(SUM(A1:A3),1)"},new Edit{At=P(7,4),Formula="=COUNT(COUNT(A1:A3),0)"}]);
    async Task CheckArguments(){var rows=await s.ReadAsync(P(1,4),P(7,4));decimal[] expected=[18,3,2,4,3,5,2];for(uint i=1;i<=7;i++)Check(WorkbookSession.Decode(Cell(rows,i,4).Value)==expected[i-1],"multi-argument expression row "+i);}
    await CheckArguments();
-   string root=Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath();string path=Path.Combine(root,"pivot-aggregate-"+Guid.NewGuid()+".pivot");await s.SaveAsync(s.Revision,path);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..8])=="PIVOTWB6","new save WB6");
+   string root=Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath();string path=Path.Combine(root,"pivot-aggregate-"+Guid.NewGuid()+".pivot");await s.SaveAsync(s.Revision,path);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..8])=="PIVOTWB7","new save WB6");
    await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path,discard:true);Check(!s.IsDirty&&WorkbookSession.Decode((await s.ReadAsync(P(4,2),P(4,2))).Cells.Single().Value)==3,"saved blank remains excluded");
    await CheckArguments();
    await s.ApplyAsync(s.Revision,[new Edit{At=P(6),Number=WorkbookSession.Encode(99)}]);
    string revision=s.Revision, document=s.DocumentId, checkpoint=s.SavedCheckpoint, savedPath=s.DocumentPath;
-   for(int version=1;version<=5;version++){
+   for(int version=1;version<=6;version++){
     string obsolete=Path.Combine(root,"pivot-unsupported-"+Guid.NewGuid()+".pivot");await File.WriteAllTextAsync(obsolete,"PIVOTWB"+version);
     bool rejected=false;try{await s.OpenAsync(s.Revision,obsolete,discard:true);}catch(WorkbookSessionException e){rejected=e.Message.Contains("unsupported native workbook version");}
     Check(rejected,"old format explicitly rejected");

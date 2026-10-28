@@ -21,11 +21,11 @@ without reclassification. TSV escapes text reversibly. The 4,096-byte payload bo
 admits one extra escape byte as syntax, counted in aggregate budgets; this explicit
 implementation clarification is accepted. Existing capacity limits otherwise remain.
 
-WB4 validates document content against graph definitions. The private session
-request/response text extension was introduced in version 2; the current envelope
-is version 3 for the [projection proof](structured-results-and-projections.md),
-retaining typed text and entry arms. Clipboard data and
-platform identifiers are version 2. Old WB1–WB3 Open leaves live state untouched.
+WB4 originally introduced validation of document text against graph definitions.
+Current documents are WB7 and the owned session envelope is version 5 under
+[ADR-0024](../adr/0024-multiple-worksheets.md), retaining typed text and entry arms
+with explicit worksheet context. Clipboard data and platform identifiers remain
+version 2. Unsupported WB1–WB6 Open leaves live state untouched.
 No strings in formulas, connectors, projections or permanent dynamic namespace are
 introduced. Native AOT remains a separate regression gate.
 

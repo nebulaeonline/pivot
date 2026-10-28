@@ -25,7 +25,7 @@ static class TextChecks
    r=await s.ReadAsync(P(4,1),P(5,3));foreach(uint row in new uint[]{4,5}){Check(At(r,row,2).Text=="001.20"&&At(r,row,3).Text=="'Hello","Escaped text native/TSV roundtrip");}
    string root=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"pivot-text-"+Guid.NewGuid());Directory.CreateDirectory(root);string file=Path.Combine(root,"text.pivot");
    await s.SaveAsync(s.Revision,file);Check(!s.IsDirty,"Saved text clean checkpoint");
-   var bytes=await File.ReadAllBytesAsync(file);Check(Encoding.ASCII.GetString(bytes[..8])=="PIVOTWB6","WB5 header");
+   var bytes=await File.ReadAllBytesAsync(file);Check(Encoding.ASCII.GetString(bytes[..8])=="PIVOTWB7","WB5 header");
    await s.ApplyAsync(s.Revision,[Entry(9,1,"Unsaved content")]);string revision=s.Revision,document=s.DocumentId;
    foreach(byte version in new byte[]{(byte)'1',(byte)'2',(byte)'3'}) {
     var old=(byte[])bytes.Clone();old[7]=version;string path=Path.Combine(root,"old-"+(char)version+".pivot");await File.WriteAllBytesAsync(path,old);

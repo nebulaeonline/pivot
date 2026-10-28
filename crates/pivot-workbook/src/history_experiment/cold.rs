@@ -749,6 +749,12 @@ impl Workbook {
         let mut data = core
             .prepare_resource(persistent::Data::new(memory))
             .map_err(graph_error)?;
+        data.install_sheets(vec![SheetInfo {
+            id: worksheet,
+            name: "Sheet1".into(),
+            rows: rows.clone(),
+            columns: columns.clone(),
+        }])?;
         let mut ordinals = BTreeMap::new();
         let mut portable = BTreeSet::new();
         for _ in 0..r.count(self.limits.allocated_cells).map_err(graph_error)? {
@@ -770,11 +776,11 @@ impl Workbook {
                 let p = read_pos(&mut r)?;
                 rows.at(p.row)?;
                 columns.at(p.column)?;
-                if data.positions.contains_key(&p) {
+                if data.positions.contains_key(&sheets::at(worksheet, p)) {
                     return Err(bad());
                 }
                 data.positions
-                    .insert_private(p, cell)
+                    .insert_private(sheets::at(worksheet, p), cell)
                     .map_err(|_| Error::Limit)?;
                 data.live += 1;
                 (Some(p), Some(read_content(&mut r)?))
@@ -785,6 +791,7 @@ impl Workbook {
             data.record(
                 cell,
                 Record {
+                    worksheet,
                     position,
                     content: value,
                 },

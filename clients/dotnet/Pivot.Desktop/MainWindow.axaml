@@ -45,6 +45,12 @@
         <Button Content="Duplicate to B12" Click="BindingDuplicateClick" />
       </StackPanel>
       <TextBlock Text="Pivot" FontSize="22" FontWeight="Bold" />
+      <Grid x:Name="WorksheetBar" ColumnDefinitions="*,Auto,160,Auto" ColumnSpacing="6">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"><StackPanel x:Name="WorksheetTabs" Orientation="Horizontal" Spacing="3" /></ScrollViewer>
+        <Button x:Name="AddWorksheetButton" Grid.Column="1" Content="+ Sheet" Click="AddWorksheetClick" />
+        <TextBox x:Name="WorksheetNameEditor" Grid.Column="2" MaxLength="64" PlaceholderText="Worksheet name" />
+        <Button x:Name="RenameWorksheetButton" Grid.Column="3" Content="Rename" Click="RenameWorksheetClick" />
+      </Grid>
       <Grid ColumnDefinitions="60,*,80" ColumnSpacing="8">
         <TextBlock x:Name="AddressLabel" Text="A1" VerticalAlignment="Center" />
         <TextBox x:Name="FormulaEntry" Grid.Column="1" MaxLength="4096" PlaceholderText="Enter a number or =A1+B1" KeyDown="EntryKeyDown" />

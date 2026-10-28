@@ -49,7 +49,7 @@ fn wb6_preserves_mixed_and_scalar_only_calls_and_stable_bindings() {
     // The range sees current occupants (100+4); scalar A1 still means the old cell (2).
     assert_eq!(values(&b), vec!["114", "4"]);
     let export = Document::export_document(&b, b.expected()).unwrap();
-    assert_eq!(&export.bytes[..8], b"PIVOTWB6");
+    assert_eq!(&export.bytes[..8], b"PIVOTWB7");
     let (mut restored, checkpoint) =
         Document::open_document(&export.bytes, Limits::default(), &rt).unwrap();
     assert_eq!(checkpoint, export.checkpoint);
@@ -62,7 +62,7 @@ fn wb6_preserves_mixed_and_scalar_only_calls_and_stable_bindings() {
         .apply(restored.expected(), &[entry(3, 1, "20")])
         .unwrap();
     assert_eq!(values(&restored), vec!["131", "4"]);
-    for version in b'1'..=b'5' {
+    for version in b'1'..=b'6' {
         let mut obsolete = export.bytes.clone();
         obsolete[7] = version;
         let error = Document::open_document(&obsolete, Limits::default(), &rt)

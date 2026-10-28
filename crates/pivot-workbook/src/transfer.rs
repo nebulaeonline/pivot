@@ -7,10 +7,21 @@ use pivot_core::model::{
 use std::collections::BTreeMap;
 #[derive(Clone)]
 pub struct CellRecord {
+    pub worksheet: WorksheetId,
     pub position: Option<Position>,
     pub content: Option<Content>,
 }
+#[derive(Clone, Debug)]
+pub struct SheetRecord {
+    pub id: WorksheetId,
+    pub name: String,
+    pub rows: Uuid,
+    pub columns: Uuid,
+    pub row_count: u32,
+    pub column_count: u32,
+}
 pub struct PortableWorkbook {
+    pub sheets: Vec<SheetRecord>,
     pub worksheet: WorksheetId,
     pub graph_id: Uuid,
     pub rows: Uuid,
@@ -20,6 +31,32 @@ pub struct PortableWorkbook {
     pub state: u64,
     pub cells: Vec<(CellId, GraphNodeId, CellRecord)>,
     pub graph: transfer::SelectionImage,
+}
+pub fn validate_sheet_directory(sheets: &[SheetRecord], limits: Limits) -> Result<()> {
+    if sheets.is_empty() || sheets.len() > 16 {
+        return Err(Error::Limit);
+    }
+    let mut ids = BTreeSet::new();
+    let mut names = BTreeSet::new();
+    let mut axes = BTreeSet::new();
+    for sheet in sheets {
+        if sheet.id.uuid().is_nil()
+            || !ids.insert(sheet.id)
+            || sheets::normalize_name(&sheet.name)? != sheet.name
+            || !names.insert(sheets::name_key(&sheet.name))
+            || sheet.row_count == 0
+            || sheet.column_count == 0
+            || sheet.row_count != limits.rows
+            || sheet.column_count != limits.columns
+            || sheet.rows.is_nil()
+            || sheet.columns.is_nil()
+            || !axes.insert(sheet.rows)
+            || !axes.insert(sheet.columns)
+        {
+            return Err(Error::InvalidTarget);
+        }
+    }
+    Ok(())
 }
 impl Workbook {
     pub fn export_portable(&self, expected: Expected) -> Result<PortableWorkbook> {
@@ -101,6 +138,7 @@ impl Workbook {
                     id,
                     b.portable,
                     CellRecord {
+                        worksheet: r.worksheet,
                         position: r.position,
                         content: r.content.clone(),
                     },
@@ -108,6 +146,18 @@ impl Workbook {
             })
             .collect();
         Ok(PortableWorkbook {
+            sheets: self
+                .sheets()
+                .iter()
+                .map(|s| SheetRecord {
+                    id: s.id,
+                    name: s.name.clone(),
+                    rows: s.rows.namespace,
+                    columns: s.columns.namespace,
+                    row_count: s.rows.length,
+                    column_count: s.columns.length,
+                })
+                .collect(),
             worksheet: self.worksheet,
             graph_id: self.graph_id,
             rows: self.rows.namespace,
@@ -163,7 +213,8 @@ impl Workbook {
             if cancel.is_cancelled() {
                 return Err(Error::Graph("cancelled document projection".into()));
             }
-            if id.uuid().is_nil()
+            if !self.sheets().iter().any(|s| s.id == record.worksheet)
+                || id.uuid().is_nil()
                 || record.position.is_some() != record.content.is_some()
                 || nodes.contains_key(&slot) != record.content.is_some()
             {
@@ -174,12 +225,17 @@ impl Workbook {
             };
             let definition = &nodes.get(&slot).ok_or_else(bad)?.definition;
             let p = record.position.ok_or_else(bad)?;
-            if self.persistent.positions.get(&p) != Some(id) {
+            if self
+                .persistent
+                .positions
+                .get(&sheets::at(record.worksheet, p))
+                != Some(id)
+            {
                 return Err(bad());
             }
             if !matches!(content, Content::Blank) {
                 expected_points.insert((
-                    pivot_core::model::selection::SpaceId(*self.worksheet.uuid().as_bytes()),
+                    pivot_core::model::selection::SpaceId(*record.worksheet.uuid().as_bytes()),
                     p.row,
                     p.column,
                     slot,
@@ -223,7 +279,7 @@ impl Workbook {
                             let r = references.next().ok_or_else(bad)?;
                             let target_slot = *slots.get(&target.cell).ok_or_else(bad)?;
                             if r.target != *target
-                                || r.target.worksheet != self.worksheet
+                                || r.target.worksheet != image.cells[target_slot].2.worksheet
                                 || r.node != image.cells[target_slot].1
                                 || r.span.start >= r.span.end
                                 || f.original_source.get(r.span.clone()).is_none()
@@ -239,12 +295,18 @@ impl Workbook {
                 }
                 Content::StructuredFormula(_) => return Err(bad()),
             };
+            sheets::validate_scope(record.worksheet, source, tokens, self.sheets())?;
             let translated: Vec<_> = tokens
                 .iter()
+                .filter(|t| !matches!(t, Token::Qualifier { .. }))
                 .map(|t| {
                     Ok(match t {
                         Token::Decimal(d) => S::Decimal(d.value()),
-                        Token::Cell(c) if c.worksheet == self.worksheet => {
+                        Token::Cell(c)
+                            if slots.get(&c.cell).is_some_and(|slot| {
+                                image.cells[*slot].2.worksheet == c.worksheet
+                            }) =>
+                        {
                             S::Node(*slots.get(&c.cell).ok_or_else(bad)?)
                         }
                         Token::Unary(op) => S::Unary(*op),
@@ -331,6 +393,7 @@ impl Workbook {
         limits: Limits,
         runtime: &IntegrationRuntime,
     ) -> Result<Self> {
+        validate_sheet_directory(&image.sheets, limits)?;
         if image.cells.len() > limits.allocated_cells
             || image.graph.scalar_skeleton.node_slots != image.cells.len()
             || !image.graph.scalar_skeleton.ports.is_empty()
@@ -368,10 +431,54 @@ impl Workbook {
             return Err(Error::InvalidTarget);
         }
         let mut data = persistent::Data::new(runtime.memory());
+        data.install_sheets(
+            image
+                .sheets
+                .iter()
+                .map(|s| SheetInfo {
+                    id: s.id,
+                    name: s.name.clone(),
+                    rows: Axis {
+                        namespace: s.rows,
+                        length: s.row_count,
+                    },
+                    columns: Axis {
+                        namespace: s.columns,
+                        length: s.column_count,
+                    },
+                })
+                .collect(),
+        )?;
+        if image.sheets.first().is_none_or(|s| {
+            s.id != image.worksheet || s.rows != image.rows || s.columns != image.columns
+        }) || image
+            .sheets
+            .iter()
+            .any(|s| s.row_count != limits.rows || s.column_count != limits.columns)
+        {
+            return Err(Error::InvalidTarget);
+        }
+        let sheet_ids: BTreeSet<_> = image.sheets.iter().map(|s| s.id).collect();
         let mut cells = BTreeSet::new();
         let mut ids = BTreeSet::new();
         for (slot, (id, node, r)) in image.cells.iter().enumerate() {
-            if id.uuid().is_nil()
+            match &r.content {
+                Some(Content::TextFormula(f)) => sheets::validate_scope(
+                    r.worksheet,
+                    &f.original_source,
+                    &f.tokens,
+                    &data.sheets.as_ref().unwrap().0,
+                )?,
+                Some(Content::Formula { source, tokens }) => sheets::validate_scope(
+                    r.worksheet,
+                    source,
+                    tokens,
+                    &data.sheets.as_ref().unwrap().0,
+                )?,
+                _ => (),
+            }
+            if !sheet_ids.contains(&r.worksheet)
+                || id.uuid().is_nil()
                 || node.uuid().is_nil()
                 || !cells.insert(*id)
                 || !ids.insert(*node)
@@ -393,18 +500,19 @@ impl Workbook {
                     || p.row > limits.rows
                     || p.column == 0
                     || p.column > limits.columns
-                    || data.positions.get(&p).is_some()
+                    || data.positions.get(&sheets::at(r.worksheet, p)).is_some()
                 {
                     return Err(Error::Position);
                 }
                 data.positions
-                    .insert_private(p, *id)
+                    .insert_private(sheets::at(r.worksheet, p), *id)
                     .map_err(|_| Error::Limit)?;
                 data.live += 1;
             }
             data.record(
                 *id,
                 Record {
+                    worksheet: r.worksheet,
                     position: r.position,
                     content: r.content.clone(),
                 },

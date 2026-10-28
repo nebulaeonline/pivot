@@ -128,8 +128,8 @@ def execute(args):
             if mode == 'clipboard-save' and not (peer['native_received'] and peer['cancel_checked']):
                 raise RuntimeError('Native cross-process clipboard/Cancel-Save evidence missing')
         fixture = (ui/'results.pivot').read_bytes()
-        if fixture[:8] != b'PIVOTWB6' or hashlib.sha256(fixture[48:]).digest() != fixture[16:48]:
-            raise RuntimeError('Saved WB6 fixture is invalid')
+        if fixture[:8] != b'PIVOTWB7' or hashlib.sha256(fixture[48:]).digest() != fixture[16:48]:
+            raise RuntimeError('Saved WB7 fixture is invalid')
         summary.update(status='passed', native_desktop_and_all_peers=True, adjacent_rust_child=True,
                        remaining_charge=report['remaining_charge'], publish_warnings=[])
     except Blocked as error:

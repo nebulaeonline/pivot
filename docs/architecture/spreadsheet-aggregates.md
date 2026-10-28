@@ -14,7 +14,10 @@ SUM, MIN, MAX, AVERAGE and COUNT accept one or more comma-separated arguments:
 same-sheet rectangles, scalar decimal expressions, cell references and nested
 aggregate calls. Examples: `=SUM(A1:A10,C1:C10,5)`, `=MIN(A1,2*3,MAX(B1:B4,7))`
 and `=AVERAGE(A1:A2,10)`. Existing single-rectangle calls retain their semantics.
-Empty lists, missing arguments, whole axes, cross-sheet references, strings and
+ADR-0024 now adds sheet-qualified scalar and rectangular arguments, including
+`=SUM(Revenue!A1:A10,Costs!A1:A10,5)`, on the same canonical graph. Qualification
+is written on the first rectangle endpoint only; each rectangle belongs to one sheet.
+Empty lists, missing arguments, whole axes, strings and
 bare ranges in arithmetic remain unsupported. Existing 4,096-byte/64-level parser
 and workbook/core resource limits are unchanged.
 
@@ -73,8 +76,9 @@ reservations; pure SUM admission is unchanged. Extra work is charged through
 existing invocation budgets, and member traversal polls cancellation. The fixed
 finalization loop is bounded independently of input values.
 
-Native workbook read/write supports PIVOTWB5 only. WB1–WB4 explicitly reject;
-no obsolete decoder or migration path remains. WB6 retains explicit blank slots
+Current native workbook read/write is WB7 under ADR-0024; WB1–WB6 reject explicitly
+and no migration reader is provided. WB5 introduced explicit blank slots, and WB6
+added multi-argument call controls. WB7 retains explicit blank slots
 and aggregate metadata; redundant workbook/graph representations must match before
 installation. Graph/workbook aggregate tag 5 carries MIN=1, MAX=2, AVERAGE=3,
 COUNT=4; original SUM tags remain distinct. WB6 adds token tag 6 with validated

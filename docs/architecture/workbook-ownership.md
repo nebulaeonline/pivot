@@ -1,5 +1,10 @@
 # Workbook ownership and boundaries
 
+Current implementation: [ADR-0024](../adr/0024-multiple-worksheets.md) provides an
+ordered directory of up to 16 worksheets over one canonical graph. Positions and
+axes are sheet-local; cell identities, captures and resource budgets are workbook-wide.
+The single-sheet proof descriptions below record the original ADR-0010 foundation.
+
 Status: Accepted structural architecture under ADR-0010. Slice A now provides the dedicated
 workbook boundary; broader document/model composition remains design direction.
 

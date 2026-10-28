@@ -35,9 +35,16 @@ It provides direct grid editing, a formula bar, rectangular selection, copy/past
 and four-direction fill. Formula copies translate relative references and preserve
 `$`-locked axes. Cells support decimal values, formulas and literal text.
 
-Functions include `SUM`, `MIN`, `MAX`, `AVERAGE` and `COUNT`, with rectangular range
-expressions such as `SUM(A1:B20, C1:C20, 5)` and nested scalar arguments. Workbooks open and save as local `.pivot` files,
-preserving typed content and stable bindings.
+Workbooks contain up to **16 worksheets**, with Add/Rename controls and tabs that
+remember each sheet's selection and scroll position. Cross-sheet formulas such as
+`=Revenue!B2-Costs!B2` share one dependency graph. Renaming a sheet updates formula
+presentation while keeping its bindings intact.
+
+Functions include `SUM`, `MIN`, `MAX`, `AVERAGE` and `COUNT`, with rectangular ranges,
+multiple arguments and nested calls: `=SUM('January Sales'!A1:B20, C1:C20, 5)`.
+Workbooks open and save as local `.pivot` files, preserving every sheet, typed
+content and stable bindings. The current experimental format is WB7; earlier
+experimental workbook versions are rejected.
 
 The desktop owns a **Rust session process (`pivot-session`)**, communicating through
 framed Protobuf messages over standard input/output. Rust owns workbook state,

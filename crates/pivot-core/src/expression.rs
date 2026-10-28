@@ -26,6 +26,7 @@ pub enum Expr {
         last_reference: ReferenceSyntax,
     },
     CellReference {
+        qualifier: Option<SheetSyntax>,
         row: u32,
         column: u32,
         absolute_row: bool,
@@ -111,10 +112,16 @@ impl AggregateKind {
 /// Copy-axis flags and exact UTF-8 source span for one spreadsheet address.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReferenceSyntax {
+    pub qualifier: Option<SheetSyntax>,
     pub row: u32,
     pub column: u32,
     pub absolute_row: bool,
     pub absolute_column: bool,
+    pub span: std::ops::Range<usize>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SheetSyntax {
+    pub name: String,
     pub span: std::ops::Range<usize>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -249,6 +256,8 @@ impl Parser<'_> {
     }
     fn range_cell(&mut self) -> Result<ReferenceSyntax, ParseError> {
         self.space();
+        let qualifier = self.sheet_qualifier()?;
+        self.space();
         let start = self.pos;
         let absolute_column = self.peek() == Some(b'$');
         if absolute_column {
@@ -308,12 +317,64 @@ impl Parser<'_> {
             });
         }
         Ok(ReferenceSyntax {
+            qualifier,
             row,
             column,
             absolute_row,
             absolute_column,
             span: start..self.pos,
         })
+    }
+    fn sheet_qualifier(&mut self) -> Result<Option<SheetSyntax>, ParseError> {
+        let start = self.pos;
+        let name = if self.peek() == Some(b'\'') {
+            self.pos += 1;
+            let mut value = String::new();
+            loop {
+                match self.source[self.pos..].chars().next() {
+                    None => return Err(self.error("unterminated worksheet qualifier")),
+                    Some('\'') => {
+                        self.pos += 1;
+                        if self.peek() == Some(b'\'') {
+                            value.push('\'');
+                            self.pos += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    Some(c) => {
+                        value.push(c);
+                        self.pos += c.len_utf8();
+                    }
+                }
+            }
+            value
+        } else {
+            if !self
+                .peek()
+                .is_some_and(|c| c.is_ascii_alphabetic() || c == b'_')
+            {
+                return Ok(None);
+            }
+            while self
+                .peek()
+                .is_some_and(|c| c.is_ascii_alphanumeric() || c == b'_')
+            {
+                self.pos += 1;
+            }
+            self.source[start..self.pos].to_owned()
+        };
+        let end = self.pos;
+        self.space();
+        if self.peek() != Some(b'!') {
+            self.pos = start;
+            return Ok(None);
+        }
+        self.pos += 1;
+        Ok(Some(SheetSyntax {
+            name,
+            span: start..end,
+        }))
     }
     fn expr(&mut self, min: u8, depth: usize) -> Result<Expr, ParseError> {
         self.work += 1;
@@ -386,8 +447,8 @@ impl Parser<'_> {
                     })?;
                 Expr::Decimal(value)
             }
-            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') | Some(b'$')
-                if self.spreadsheet || self.peek() != Some(b'$') =>
+            Some(b'a'..=b'z' | b'A'..=b'Z' | b'_') | Some(b'$' | b'\'')
+                if self.spreadsheet || !matches!(self.peek(), Some(b'$' | b'\'')) =>
             {
                 let start = self.pos;
                 while self
@@ -398,6 +459,13 @@ impl Parser<'_> {
                 }
                 if let Some(kind) = self
                     .spreadsheet
+                    .then_some(())
+                    .filter(|_| {
+                        !self.source[self.pos..]
+                            .trim_start_matches(|c: char| c.is_ascii_whitespace())
+                            .starts_with('!')
+                    })
+                    .is_some()
                     .then(|| AggregateKind::from_name(&self.source[start..self.pos]))
                     .flatten()
                 {
@@ -412,22 +480,26 @@ impl Parser<'_> {
                         let at = self.pos;
                         let first = self.range_cell().ok();
                         self.space();
-                        let argument =
-                            if let Some(first) = first.filter(|_| self.peek() == Some(b':')) {
-                                self.pos += 1;
-                                let last = self.range_cell()?;
-                                AggregateArgument::Range(Expr::SumRange {
-                                    kind,
-                                    first: (first.row, first.column),
-                                    last: (last.row, last.column),
-                                    span: at..self.pos,
-                                    first_reference: first,
-                                    last_reference: last,
-                                })
-                            } else {
-                                self.pos = at;
-                                AggregateArgument::Scalar(self.expr(0, depth + 1)?)
-                            };
+                        let argument = if let Some(first) =
+                            first.filter(|_| self.peek() == Some(b':'))
+                        {
+                            self.pos += 1;
+                            let last = self.range_cell()?;
+                            if last.qualifier.is_some() {
+                                return Err(self.error("range endpoint qualifier is not supported"));
+                            }
+                            AggregateArgument::Range(Expr::SumRange {
+                                kind,
+                                first: (first.row, first.column),
+                                last: (last.row, last.column),
+                                span: at..self.pos,
+                                first_reference: first,
+                                last_reference: last,
+                            })
+                        } else {
+                            self.pos = at;
+                            AggregateArgument::Scalar(self.expr(0, depth + 1)?)
+                        };
                         arguments.push(argument);
                         self.space();
                         match self.peek() {
@@ -456,6 +528,7 @@ impl Parser<'_> {
                     self.pos = start;
                     let reference = self.range_cell()?;
                     Expr::CellReference {
+                        qualifier: reference.qualifier,
                         row: reference.row,
                         column: reference.column,
                         absolute_row: reference.absolute_row,
@@ -638,6 +711,7 @@ mod copy_syntax_tests {
                 absolute_row,
                 absolute_column,
                 span,
+                ..
             } = *left
             else {
                 panic!()

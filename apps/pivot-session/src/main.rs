@@ -4,6 +4,7 @@ use pivot_protocol::{application::v1 as wire, v1::Decimal128};
 use pivot_types::PivotDecimal;
 use pivot_workbook::{
     CalculationCapture, Content, DecimalInput, Edit, Limits, Position, Rectangle, Workbook,
+    WorksheetId,
 };
 use prost::Message;
 use std::{
@@ -142,10 +143,18 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 4 {
+        if q.version != 5 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
+        if matches!(operation, Op::AddSheet | Op::RenameSheet) && self.proof.is_some() {
+            return Err("worksheet metadata is unavailable in experimental proof documents".into());
+        }
+        if matches!(operation, Op::ProofStart | Op::BindingStart)
+            && self.book.as_ref().is_some_and(|b| b.sheets().len() != 1)
+        {
+            return Err("experimental proof modes require a separate single-sheet document".into());
+        }
         self.proof_frame.take();
         if (self.book.as_ref().is_some_and(|b| b.is_structured_proof())
             || operation == wire::request::Operation::BindingStart
@@ -377,7 +386,50 @@ impl Session {
             r.conflict = true;
             return Err("expected-state conflict".into());
         }
+        let sheet = if matches!(
+            operation,
+            Op::Fill
+                | Op::CopyBlock
+                | Op::PasteBlock
+                | Op::Apply
+                | Op::Read
+                | Op::Capture
+                | Op::Calculate
+                | Op::RenameSheet
+        ) {
+            let id = WorksheetId::from_uuid(
+                Uuid::parse_str(&q.worksheet).map_err(|_| "worksheet ID required")?,
+            );
+            if !book.sheets().iter().any(|s| s.id == id) {
+                return Err("unknown worksheet ID".into());
+            }
+            r.worksheet = id.uuid().to_string();
+            Some(id)
+        } else {
+            None
+        };
         match operation {
+            Op::ListSheets => (),
+            Op::AddSheet => {
+                let id = book
+                    .add_sheet(
+                        book.expected(),
+                        (!q.sheet_name.is_empty()).then_some(q.sheet_name.as_str()),
+                    )
+                    .map_err(|e| e.to_string())?;
+                r.worksheet = id.uuid().to_string();
+                self.revision = Uuid::new_v4().to_string();
+                r.revision = self.revision.clone();
+            }
+            Op::RenameSheet => {
+                let before = book.expected();
+                book.rename_sheet(before, sheet.unwrap(), &q.sheet_name)
+                    .map_err(|e| e.to_string())?;
+                if book.expected() != before {
+                    self.revision = Uuid::new_v4().to_string();
+                }
+                r.revision = self.revision.clone();
+            }
             Op::Fill => {
                 let direction = match wire::request::FillDirection::try_from(q.fill_direction) {
                     Ok(wire::request::FillDirection::Up) => pivot_workbook::FillDirection::Up,
@@ -387,7 +439,8 @@ impl Session {
                     _ => return Err("Specify Fill Up, Down, Left or Right".into()),
                 };
                 let before = book.expected();
-                book.fill(
+                book.fill_sheet(
+                    sheet.unwrap(),
                     before,
                     Rectangle {
                         first: pos(q.first.as_ref())?,
@@ -410,7 +463,7 @@ impl Session {
                     last: pos(q.last.as_ref())?,
                 };
                 let copied = book
-                    .copy_block(book.expected(), rectangle)
+                    .copy_sheet(sheet.unwrap(), book.expected(), rectangle)
                     .map_err(|e| e.to_string())?;
                 r.clipboard = copied.native;
                 r.clipboard_text = copied.text;
@@ -422,7 +475,8 @@ impl Session {
                 };
                 let before = book.expected();
                 let pasted = book
-                    .paste_block(
+                    .paste_sheet(
+                        sheet.unwrap(),
                         before,
                         rectangle,
                         &q.clipboard,
@@ -476,7 +530,9 @@ impl Session {
                     })
                     .collect::<Result<Vec<_>, String>>()?;
                 let before = book.expected();
-                let after = book.apply(before, &edits).map_err(|e| e.to_string())?;
+                let after = book
+                    .apply_sheet(sheet.unwrap(), before, &edits)
+                    .map_err(|e| e.to_string())?;
                 if before != after {
                     self.revision = Uuid::new_v4().to_string()
                 }
@@ -492,10 +548,15 @@ impl Session {
                     return Err("viewport exceeds 256 cells".into());
                 }
                 let cells = book
-                    .read(book.expected(), Rectangle { first, last }, MAX_CELLS)
+                    .read_sheet(
+                        sheet.unwrap(),
+                        book.expected(),
+                        Rectangle { first, last },
+                        MAX_CELLS,
+                    )
                     .map_err(|e| e.to_string())?;
                 let mut capture = book
-                    .capture_local(book.expected())
+                    .capture_sheet(sheet.unwrap(), book.expected())
                     .map_err(|e| e.to_string())?;
                 structured::prepare_capture(self.proof.as_ref(), &mut capture)?;
                 r.capture_state = self.computational_state.clone();
@@ -513,6 +574,7 @@ impl Session {
                         at: Some(location(cell.position)),
                         cell_id: cell.reference.cell.uuid().to_string(),
                         node_id: cell.node.uuid().to_string(),
+                        worksheet: cell.reference.worksheet.uuid().to_string(),
                         ..Default::default()
                     };
                     if matches!(&cell.content, Content::StructuredFormula(_))
@@ -520,6 +582,9 @@ impl Session {
                     {
                         structured::set_cell_binding(&mut view, &capture);
                     }
+                    let effective = book
+                        .display_formula(cell.reference)
+                        .map_err(|e| e.to_string())?;
                     view.content = Some(match cell.content {
                         Content::Decimal(d) => wire::cell::Content::Number({
                             let (lo, mid, hi, negative, scale) = d.parts();
@@ -531,8 +596,14 @@ impl Session {
                                 scale,
                             }
                         }),
-                        Content::TextFormula(f) => wire::cell::Content::Formula(f.original_source),
-                        Content::Formula { source, .. } => wire::cell::Content::Formula(source),
+                        Content::TextFormula(f) => {
+                            view.authored_formula = f.original_source.clone();
+                            wire::cell::Content::Formula(effective.unwrap_or(f.original_source))
+                        }
+                        Content::Formula { source, .. } => {
+                            view.authored_formula = source.clone();
+                            wire::cell::Content::Formula(effective.unwrap_or(source))
+                        }
                         Content::StructuredFormula(f) => {
                             wire::cell::Content::Formula(f.source().into())
                         }
@@ -586,7 +657,7 @@ impl Session {
                             .map_err(|e| e.to_string())?,
                         value: {
                             let mut capture = book
-                                .capture_local(book.expected())
+                                .capture_sheet(sheet.unwrap(), book.expected())
                                 .map_err(|e| e.to_string())?;
                             structured::prepare_capture(self.proof.as_ref(), &mut capture)?;
                             capture
@@ -626,7 +697,7 @@ impl Session {
                     .map(|p| {
                         capture
                             .value
-                            .cell_at(pos(Some(p))?)
+                            .cell_at_sheet(sheet.unwrap(), pos(Some(p))?)
                             .ok_or("empty output".into())
                     })
                     .collect::<Result<Vec<_>, String>>()?;
@@ -636,6 +707,7 @@ impl Session {
                     let mut cell = wire::Cell {
                         at: Some(*p),
                         cell_id: id.cell.uuid().to_string(),
+                        worksheet: id.worksheet.uuid().to_string(),
                         ..Default::default()
                     };
                     match value {
@@ -681,7 +753,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 4,
+            version: 5,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -719,6 +791,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .as_ref()
             .map(|b| b.graph_id().to_string())
             .unwrap_or_default();
+        if let Some(book) = &session.book {
+            r.worksheets = book
+                .sheets()
+                .iter()
+                .map(|s| wire::WorksheetInfo {
+                    id: s.id.uuid().to_string(),
+                    name: s.name.clone(),
+                    rows: s.row_count(),
+                    columns: s.column_count(),
+                })
+                .collect();
+            if r.worksheet.is_empty() {
+                r.worksheet = if book
+                    .sheets()
+                    .iter()
+                    .any(|s| s.id.uuid().to_string() == q.worksheet)
+                {
+                    q.worksheet.clone()
+                } else {
+                    book.worksheet().uuid().to_string()
+                };
+            }
+        }
         r.path = session
             .location
             .as_ref()

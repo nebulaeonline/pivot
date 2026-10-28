@@ -13,8 +13,10 @@ namespace Pivot.Desktop;
 public partial class MainWindow {
     private async Task BindingAutomationAsync(string report){
         var s=session!;await s.NewAsync(s.Revision,discard:true);await s.StartBindingsAsync();await RefreshAsync();SetEditing(true);
-        await SelectAsync(AutomationPosition(1,1));
+        await AutomationWaitAsync(()=>frameReady&&!editing&&displayedRevision==s.Revision);
+        AutomationCheck(await SelectAsync(AutomationPosition(1,1)),"Binding editor selects A1");
         Sheet.RaiseEvent(new TextInputEventArgs{RoutedEvent=InputElement.TextInputEvent,Text="=@{InvoiceLines.TotalAmount}*1.1+B1"});
+        AutomationCheck(draftCell is not null&&inlineEditing,"Binding editor starts after layout refresh");
         CellEditor.RaiseEvent(new KeyEventArgs{RoutedEvent=InputElement.KeyDownEvent,Key=Key.Enter});
         await AutomationWaitAsync(()=>!editing&&draftCell is null&&Sheet.Selected.Equals(AutomationPosition(2,1)));
         var first=(await s.ReadAsync(AutomationPosition(1,1),AutomationPosition(1,1))).Cells.Single();

@@ -14,11 +14,12 @@ pub(super) struct Data {
     pub(crate) directory: Option<structured::Directory>,
     pub(crate) adapter: Option<Shared<structured::Adapter>>,
     annotations: Index<CellId, structured::StructuredContent>,
-    pub(super) positions: Index<Position, CellId>,
+    pub(super) positions: Index<sheets::SheetPosition, CellId>,
+    pub(super) sheets: Option<Shared<sheets::Directory>>,
     pub(super) records: Index<CellId, Shared<Record>>,
     pub(super) bindings: Index<CellId, Binding>,
     pub(super) nodes: Index<NodeId, CellId>,
-    memory: Memory,
+    pub(super) memory: Memory,
     tokens: usize,
     source: usize,
     metadata: usize,
@@ -65,6 +66,7 @@ impl Data {
             directory: None,
             adapter: None,
             annotations: Index::new(memory.clone()),
+            sheets: None,
             positions: Index::new(memory.clone()),
             records: Index::new(memory.clone()),
             bindings: Index::new(memory.clone()),
@@ -87,7 +89,8 @@ impl Data {
                 + self.positions.len() * 64
                 + self.tokens * std::mem::size_of::<Token>()
                 + self.source
-                + self.metadata,
+                + self.metadata
+                + self.sheets.as_ref().map_or(0, |s| s.heap_bytes()),
         }
     }
     pub(super) fn record(&mut self, id: CellId, record: Record) -> Result<()> {
@@ -155,9 +158,26 @@ impl Workbook {
             return Err(Error::Limit);
         }
         let core = WorkingModel::new_in(name, runtime).map_err(graph_error)?;
-        let data = core
-            .retain_resource(Data::new(runtime.memory()))
-            .map_err(graph_error)?;
+        let worksheet = WorksheetId::fresh();
+        let rows = Axis {
+            namespace: Uuid::new_v4(),
+            length: limits.rows,
+        };
+        let columns = Axis {
+            namespace: Uuid::new_v4(),
+            length: limits.columns,
+        };
+        let mut initial = Data::new(runtime.memory());
+        initial.install_sheets(vec![SheetInfo {
+            id: worksheet,
+            name: "Sheet1".into(),
+            rows: rows.clone(),
+            columns: columns.clone(),
+        }])?;
+        if initial.stats().estimated_owned_bytes > limits.bytes {
+            return Err(Error::Limit);
+        }
+        let data = core.retain_resource(initial).map_err(graph_error)?;
         Ok(Self {
             #[cfg(feature = "history-experiment")]
             history_content: Uuid::new_v4(),
@@ -167,16 +187,10 @@ impl Workbook {
             history_recording: None,
             session: Uuid::new_v4(),
             state: 0,
-            worksheet: WorksheetId::fresh(),
+            worksheet,
             graph_id: Uuid::new_v4(),
-            rows: Axis {
-                namespace: Uuid::new_v4(),
-                length: limits.rows,
-            },
-            columns: Axis {
-                namespace: Uuid::new_v4(),
-                length: limits.columns,
-            },
+            rows,
+            columns,
             persistent: data,
             core,
             limits,
@@ -200,7 +214,11 @@ pub(crate) fn state(book: &Workbook) -> &Data {
 }
 fn cell_ref(book: &Workbook, id: CellId) -> CellRef {
     CellRef {
-        worksheet: book.worksheet,
+        worksheet: book
+            .persistent
+            .records
+            .get(&id)
+            .map_or(book.worksheet, |r| r.worksheet),
         cell: id,
     }
 }
@@ -231,7 +249,7 @@ fn view(book: &Workbook, p: &Data, id: CellId) -> Option<CellView> {
 pub(super) fn cell_at(book: &Workbook, position: Position) -> Result<Option<CellView>> {
     book.axes_at(position)?;
     let p = state(book);
-    let Some(id) = p.positions.get(&position) else {
+    let Some(id) = p.positions.get(&sheets::at(book.worksheet, position)) else {
         return Ok(None);
     };
     let _copy = p
@@ -241,7 +259,11 @@ pub(super) fn cell_at(book: &Workbook, position: Position) -> Result<Option<Cell
     Ok(view(book, p, *id))
 }
 pub(super) fn node_for(book: &Workbook, r: CellRef) -> Result<GraphNodeId> {
-    if r.worksheet != book.worksheet {
+    if state(book)
+        .records
+        .get(&r.cell)
+        .is_none_or(|record| record.worksheet != r.worksheet)
+    {
         return Err(Error::InvalidTarget);
     }
     state(book)
@@ -252,7 +274,7 @@ pub(super) fn node_for(book: &Workbook, r: CellRef) -> Result<GraphNodeId> {
 }
 struct Journal {
     cells: BTreeSet<CellId>,
-    positions: BTreeSet<Position>,
+    positions: BTreeSet<sheets::SheetPosition>,
     _charge: Charge,
 }
 struct Transaction<'a> {
@@ -263,8 +285,15 @@ struct Transaction<'a> {
 }
 impl Transaction<'_> {
     fn anchor(&mut self, position: Position) -> Result<CellId> {
-        self.book.axes_at(position)?;
-        if let Some(id) = self.data.positions.get(&position) {
+        self.anchor_on(self.book.worksheet, position)
+    }
+    fn anchor_on(&mut self, worksheet: WorksheetId, position: Position) -> Result<CellId> {
+        self.book.sheet_info(worksheet)?.rows.at(position.row)?;
+        self.book
+            .sheet_info(worksheet)?
+            .columns
+            .at(position.column)?;
+        if let Some(id) = self.data.positions.get(&sheets::at(worksheet, position)) {
             return Ok(*id);
         }
         #[cfg(feature = "history-experiment")]
@@ -288,17 +317,20 @@ impl Transaction<'_> {
         drop(identity_profile);
         let _profile = profile::scope(3);
         self.journal.cells.insert(id);
-        self.journal.positions.insert(position);
+        self.journal
+            .positions
+            .insert(sheets::at(worksheet, position));
         self.data.record(
             id,
             Record {
+                worksheet,
                 position: Some(position),
                 content: Some(Content::Blank),
             },
         )?;
         self.data
             .positions
-            .insert_private(position, id)
+            .insert_private(sheets::at(worksheet, position), id)
             .map_err(|_| Error::Limit)?;
         let portable = {
             let _profile = profile::scope(2);
@@ -325,11 +357,15 @@ impl Transaction<'_> {
         self.journal.cells.insert(id);
         let position = self.data.records.get(&id).unwrap().position;
         if let Some(position) = position {
-            self.journal.positions.insert(position);
+            self.journal
+                .positions
+                .insert(sheets::at(self.book.worksheet, position));
         }
+        let worksheet = self.data.records.get(&id).unwrap().worksheet;
         self.data.record(
             id,
             Record {
+                worksheet,
                 position,
                 content: Some(content),
             },
@@ -343,7 +379,35 @@ impl Transaction<'_> {
         let _profile = profile::scope(5);
         let mut bound = Vec::with_capacity(tokens.len());
         let mut normalized = Vec::with_capacity(tokens.len());
+        let mut qualified = None;
         for token in tokens {
+            match token {
+                Token::QualifierAt { name, span } => {
+                    if qualified.is_some() {
+                        return Err(Error::InvalidTarget);
+                    }
+                    let worksheet = self
+                        .book
+                        .sheet_by_name(name)
+                        .ok_or_else(|| Error::Graph("unknown worksheet".into()))?;
+                    qualified = Some(worksheet);
+                    normalized.push(Token::Qualifier {
+                        worksheet,
+                        span: span.clone(),
+                    });
+                    continue;
+                }
+                Token::Qualifier { worksheet, span } => {
+                    self.book.sheet_info(*worksheet)?;
+                    if qualified.is_some() || source.get(span.clone()).is_none() {
+                        return Err(Error::InvalidTarget);
+                    }
+                    qualified = Some(*worksheet);
+                    normalized.push(token.clone());
+                    continue;
+                }
+                _ => (),
+            }
             if let Token::Sum { span, .. } | Token::SumAt { span, .. } = token
                 && (span.start >= span.end || source.get(span.clone()).is_none())
             {
@@ -356,12 +420,11 @@ impl Transaction<'_> {
                     last,
                     span,
                 } => {
-                    self.book.axes_at(*first)?;
-                    self.book.axes_at(*last)?;
+                    let worksheet = qualified.take().unwrap_or(self.book.worksheet);
+                    self.book.sheet_info(worksheet)?.rows.at(first.row)?;
+                    self.book.sheet_info(worksheet)?.columns.at(last.column)?;
                     let rectangle = pivot_core::model::selection::Rectangle {
-                        space: pivot_core::model::selection::SpaceId(
-                            *self.book.worksheet.uuid().as_bytes(),
-                        ),
+                        space: pivot_core::model::selection::SpaceId(*worksheet.uuid().as_bytes()),
                         first_row: first.row.min(last.row),
                         last_row: first.row.max(last.row),
                         first_column: first.column.min(last.column),
@@ -394,7 +457,10 @@ impl Transaction<'_> {
                     {
                         return Err(Error::InvalidTarget);
                     }
-                    if rectangle.space.0 != *self.book.worksheet.uuid().as_bytes() {
+                    let worksheet = WorksheetId::from_uuid(Uuid::from_bytes(rectangle.space.0));
+                    if qualified.take().unwrap_or(self.book.worksheet) != worksheet
+                        || self.book.sheet_info(worksheet).is_err()
+                    {
                         return Err(Error::InvalidTarget);
                     }
                     self.book
@@ -407,12 +473,20 @@ impl Transaction<'_> {
                     token.clone()
                 }
                 Token::At(p) => {
-                    let id = self.anchor(*p)?;
-                    Token::Cell(cell_ref(self.book, id))
+                    let worksheet = qualified.take().unwrap_or(self.book.worksheet);
+                    let id = self.anchor_on(worksheet, *p)?;
+                    Token::Cell(CellRef {
+                        worksheet,
+                        cell: id,
+                    })
                 }
                 Token::Cell(r) => {
-                    if r.worksheet != self.book.worksheet
-                        || !self.data.records.contains_key(&r.cell)
+                    if qualified.take().unwrap_or(self.book.worksheet) != r.worksheet
+                        || self
+                            .data
+                            .records
+                            .get(&r.cell)
+                            .is_none_or(|record| record.worksheet != r.worksheet)
                     {
                         return Err(Error::InvalidTarget);
                     }
@@ -460,9 +534,15 @@ impl Transaction<'_> {
                 Token::Unary(op) => ResolvedToken::Unary(*op),
                 Token::Control(c) => ResolvedToken::Control(*c),
                 Token::Binary(op) => ResolvedToken::Binary(*op),
-                Token::At(_) | Token::SumAt { .. } => unreachable!(),
+                Token::At(_)
+                | Token::SumAt { .. }
+                | Token::QualifierAt { .. }
+                | Token::Qualifier { .. } => unreachable!(),
             });
             normalized.push(t);
+        }
+        if qualified.is_some() {
+            return Err(Error::InvalidTarget);
         }
         Ok((bound, normalized))
     }
@@ -553,6 +633,24 @@ impl Transaction<'_> {
                     expression::parse_spreadsheet(source)
                 };
                 let (mut tokens, references, mut diagnostic) = self.book.lower_text(&parsed);
+                if diagnostic.is_none()
+                    && let Some(span) = tokens.iter().find_map(|t| {
+                        if let Token::QualifierAt { name, span } = t {
+                            self.book
+                                .sheet_by_name(name)
+                                .is_none()
+                                .then_some(span.clone())
+                        } else {
+                            None
+                        }
+                    })
+                {
+                    diagnostic = Some(ParseError {
+                        offset: span.start,
+                        message: "unknown worksheet",
+                    });
+                    tokens.clear();
+                }
                 if matches!(edit, Edit::PreserveRejectedFormula { .. }) {
                     diagnostic = Some(ParseError {
                         offset: 0,
@@ -587,13 +685,22 @@ impl Transaction<'_> {
                     self.batch
                         .set_resolved(node, source, bound)
                         .map_err(graph_error)?;
-                    for (span, pos) in references {
-                        let target = *self.data.positions.get(&pos).unwrap();
+                    let targets: Vec<_> = tokens
+                        .iter()
+                        .filter_map(|t| {
+                            if let Token::Cell(r) = t {
+                                Some(*r)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    for ((span, pos), target) in references.into_iter().zip(targets) {
                         bound_references.push(FormulaReference {
                             span,
                             submitted_position: pos,
-                            target: cell_ref(self.book, target),
-                            node: self.data.bindings.get(&target).unwrap().portable,
+                            target,
+                            node: self.data.bindings.get(&target.cell).unwrap().portable,
                         });
                     }
                 }
@@ -612,7 +719,11 @@ impl Transaction<'_> {
             }
             Edit::Clear(position) => {
                 self.book.axes_at(*position)?;
-                if let Some(id) = self.data.positions.get(position).copied()
+                if let Some(id) = self
+                    .data
+                    .positions
+                    .get(&sheets::at(self.book.worksheet, *position))
+                    .copied()
                     && self.data.records.get(&id).unwrap().content != Some(Content::Blank)
                 {
                     self.batch
@@ -624,19 +735,33 @@ impl Transaction<'_> {
             Edit::Move { from, to } => {
                 self.book.axes_at(*from)?;
                 self.book.axes_at(*to)?;
-                let id = *self.data.positions.get(from).ok_or(Error::InvalidTarget)?;
+                let id = *self
+                    .data
+                    .positions
+                    .get(&sheets::at(self.book.worksheet, *from))
+                    .ok_or(Error::InvalidTarget)?;
                 if from == to {
                     return Ok(());
                 }
-                if self.data.positions.contains_key(to) {
+                if self
+                    .data
+                    .positions
+                    .contains_key(&sheets::at(self.book.worksheet, *to))
+                {
                     return Err(Error::Occupied);
                 }
                 self.journal.cells.insert(id);
-                self.journal.positions.extend([*from, *to]);
-                self.data.positions.remove(from).map_err(|_| Error::Limit)?;
+                self.journal.positions.extend([
+                    sheets::at(self.book.worksheet, *from),
+                    sheets::at(self.book.worksheet, *to),
+                ]);
                 self.data
                     .positions
-                    .insert_private(*to, id)
+                    .remove(&sheets::at(self.book.worksheet, *from))
+                    .map_err(|_| Error::Limit)?;
+                self.data
+                    .positions
+                    .insert_private(sheets::at(self.book.worksheet, *to), id)
                     .map_err(|_| Error::Limit)?;
                 let mut record = (**self.data.records.get(&id).unwrap()).clone();
                 record.position = Some(*to);
@@ -647,20 +772,23 @@ impl Transaction<'_> {
                 let id = *self
                     .data
                     .positions
-                    .get(position)
+                    .get(&sheets::at(self.book.worksheet, *position))
                     .ok_or(Error::InvalidTarget)?;
                 self.batch
                     .retire(self.data.bindings.get(&id).unwrap().runtime)
                     .map_err(graph_error)?;
                 self.journal.cells.insert(id);
-                self.journal.positions.insert(*position);
+                self.journal
+                    .positions
+                    .insert(sheets::at(self.book.worksheet, *position));
                 self.data
                     .positions
-                    .remove(position)
+                    .remove(&sheets::at(self.book.worksheet, *position))
                     .map_err(|_| Error::Limit)?;
                 self.data.record(
                     id,
                     Record {
+                        worksheet: self.book.worksheet,
                         position: None,
                         content: None,
                     },
@@ -798,7 +926,7 @@ fn apply_mode(
         });
         tx.batch
             .place(
-                pivot_core::model::selection::SpaceId(*book.worksheet.uuid().as_bytes()),
+                pivot_core::model::selection::SpaceId(*position.worksheet.uuid().as_bytes()),
                 position.row,
                 position.column,
                 node,
@@ -889,9 +1017,12 @@ pub(super) fn read(
     let mut ids = Vec::new();
     let mut bytes = 0usize;
     for row in rectangle.first.row..=rectangle.last.row {
-        let start = Position::new(row, rectangle.first.column);
+        let start = sheets::at(book.worksheet, Position::new(row, rectangle.first.column));
         for (pos, id) in p.positions.iter_from(&start) {
-            if pos.row != row || pos.column > rectangle.last.column {
+            if pos.worksheet != book.worksheet
+                || pos.row != row
+                || pos.column > rectangle.last.column
+            {
                 break;
             }
             if ids.len() == max {
@@ -943,7 +1074,12 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
     let nodes = outputs
         .iter()
         .map(|r| {
-            if r.worksheet != capture.worksheet {
+            if capture
+                .pinned
+                .records
+                .get(&r.cell)
+                .is_none_or(|record| record.worksheet != r.worksheet)
+            {
                 return Err(Error::InvalidTarget);
             }
             let p = &capture.pinned;
@@ -1093,7 +1229,7 @@ impl CalculationCapture {
     /// Bounded point definition read from the persistent capture's original generation.
     pub fn pinned_content(&self, position: Position) -> Result<Option<CellView>> {
         let p = &self.pinned;
-        let Some(id) = p.positions.get(&position) else {
+        let Some(id) = p.positions.get(&sheets::at(self.worksheet, position)) else {
             return Ok(None);
         };
         let record = p.records.get(id).unwrap();
@@ -1116,12 +1252,28 @@ impl CalculationCapture {
 #[cfg(feature = "history-experiment")]
 pub(super) fn history_weight(book: &Workbook) -> Result<usize> {
     let d = state(book);
-    if d.directory.is_some() || d.adapter.is_some() || !d.annotations.is_empty() {
+    if book.sheets().len() != 1
+        || book.sheets()[0].name != "Sheet1"
+        || d.records.iter().any(|(_, r)| match &r.content {
+            Some(Content::TextFormula(f)) => f
+                .tokens
+                .iter()
+                .any(|t| matches!(t, Token::Qualifier { .. })),
+            Some(Content::Formula { tokens, .. }) => {
+                tokens.iter().any(|t| matches!(t, Token::Qualifier { .. }))
+            }
+            _ => false,
+        })
+        || d.directory.is_some()
+        || d.adapter.is_some()
+        || !d.annotations.is_empty()
+    {
         return Err(Error::InvalidTarget);
     }
     let bytes = 4096u128
         + d.history_payload as u128
-        + d.positions.len() as u128 * Index::<Position, CellId>::history_entry_header() as u128
+        + d.positions.len() as u128
+            * Index::<sheets::SheetPosition, CellId>::history_entry_header() as u128
         + d.records.len() as u128
             * (Index::<CellId, Shared<Record>>::history_entry_header()
                 + pivot_core::model::integration::resources::history_allocation_header::<Record>())

@@ -43,6 +43,13 @@ public sealed partial class WorksheetView : Control
     public event Action? ViewportChanged;
     public event Action? SelectionChanged;
     public Func<Position, bool, bool, Func<bool>, Task<bool>>? SelectionRequested { get; set; }
+    public void RestoreView(uint firstRow,uint firstColumn,Position selectedAnchor,Position selectedActive) {
+        EndPointerSelection(false);
+        FirstRow=Math.Clamp(firstRow,1,1025-(uint)VisibleRows);FirstColumn=Math.Clamp(firstColumn,1,1025-Columns);
+        anchor=new(){Row=Math.Clamp(selectedAnchor.Row,1,1024),Column=Math.Clamp(selectedAnchor.Column,1,1024)};
+        active=new(){Row=Math.Clamp(selectedActive.Row,1,1024),Column=Math.Clamp(selectedActive.Column,1,1024)};
+        cells.Clear();InvalidateVisual();
+    }
     public Cell? SelectedCell => cells.GetValueOrDefault((Selected.Row, Selected.Column));
     public WorksheetView() {
         MinHeight = 260; MaxHeight = (Rows + 1) * HeightPerCell; MinWidth = Header + Columns * WidthPerCell; Focusable = true; ClipToBounds = true;

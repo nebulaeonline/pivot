@@ -21,7 +21,7 @@ message Request {
   uint64 id = 2;
   // Opaque exact Expected identity, including session, sheet state and graph revision.
   string revision = 3;
-  enum Operation { UNSPECIFIED = 0; CREATE = 1; APPLY = 2; READ = 3; CAPTURE = 4; CALCULATE = 5; RELEASE = 6; CLOSE = 7; NEW = 8; OPEN = 9; PREPARE_SAVE = 10; SAVE = 11; CLOSE_DOCUMENT = 12; COPY_BLOCK = 13; PASTE_BLOCK = 14; PROOF_START = 15; PROOF_PUBLISH = 16; PROOF_LAYOUT = 17; PROOF_READ = 18; PROOF_EVALUATE = 19; BINDING_START = 20; RESOLVE_FORMULA = 21; APPLY_FORMULA = 22; DUPLICATE_BLOCK = 23; RENAME_PRODUCER = 24; RETIRE_PRODUCER = 25; RECREATE_PRODUCER = 26; PUBLISH_UNAVAILABLE = 27; RENAME_OUTPUT = 28; RETIRE_OUTPUT = 29; RECREATE_OUTPUT = 30; FILL = 31; }
+  enum Operation { UNSPECIFIED = 0; CREATE = 1; APPLY = 2; READ = 3; CAPTURE = 4; CALCULATE = 5; RELEASE = 6; CLOSE = 7; NEW = 8; OPEN = 9; PREPARE_SAVE = 10; SAVE = 11; CLOSE_DOCUMENT = 12; COPY_BLOCK = 13; PASTE_BLOCK = 14; PROOF_START = 15; PROOF_PUBLISH = 16; PROOF_LAYOUT = 17; PROOF_READ = 18; PROOF_EVALUATE = 19; BINDING_START = 20; RESOLVE_FORMULA = 21; APPLY_FORMULA = 22; DUPLICATE_BLOCK = 23; RENAME_PRODUCER = 24; RETIRE_PRODUCER = 25; RECREATE_PRODUCER = 26; PUBLISH_UNAVAILABLE = 27; RENAME_OUTPUT = 28; RETIRE_OUTPUT = 29; RECREATE_OUTPUT = 30; FILL = 31; LIST_SHEETS = 32; ADD_SHEET = 33; RENAME_SHEET = 34; }
   Operation operation = 4;
   repeated Edit edits = 5;
   Position first = 6;
@@ -48,6 +48,8 @@ message Request {
   string producer_name = 27;
   enum FillDirection { FILL_UNSPECIFIED = 0; UP = 1; DOWN = 2; LEFT = 3; RIGHT = 4; }
   FillDirection fill_direction = 28;
+  string worksheet = 29;
+  string sheet_name = 30;
 }
 message Cell {
   Position at = 1;
@@ -62,6 +64,8 @@ message Cell {
   string source_output = 13;
   string source_producer_name = 14;
   string source_output_name = 15;
+  string worksheet = 16;
+  string authored_formula = 17;
 }
 message Response {
   uint32 version = 1;
@@ -106,6 +110,8 @@ message Response {
   uint64 captured_source_epoch = 39;
   string captured_source_generation = 40;
   string capture_identity = 41;
+  string worksheet = 42;
+  repeated WorksheetInfo worksheets = 43;
 }
 
 // Domain-accounted allocation traffic; excludes caller/process-wide allocations.
@@ -135,3 +141,5 @@ message TypedOccurrence {
  uint32 ordinal=1; uint32 start_byte=2; uint32 end_byte=3;
  string document=4; string producer=5; string output=6; uint32 expected_type=7;
 }
+
+message WorksheetInfo { string id = 1; string name = 2; uint32 rows = 3; uint32 columns = 4; }

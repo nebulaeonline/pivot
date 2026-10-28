@@ -371,7 +371,7 @@ def execute(source,report,env,baseline,rows):
    reports=[read_json(report/'desktop-ui'/n) for n in ['results.json','results.clipboard-save.json','results.discard.json','results.clean.json']]
    result['runtime_identity']=correlate(result['process_observations'],reports,source,baseline['environment'])
    fixture=(report/'desktop-ui/results.pivot').read_bytes()
-   if fixture[:8]!=b'PIVOTWB7' or hashlib.sha256(fixture[48:]).digest()!=fixture[16:48]:raise ValueError('Invalid saved WB7')
+   if fixture[:8]!=b'PIVOTWB8' or hashlib.sha256(fixture[48:]).digest()!=fixture[16:48]:raise ValueError('Invalid saved WB7')
  except (OSError,ValueError,KeyError,TypeError) as error:errors.append(str(error))
  result['status']=classify(code,errors);write_json(report/'run.json',result)
  return 0 if result['status']=='Passed' else 1 if result['status']=='Failed' else 2

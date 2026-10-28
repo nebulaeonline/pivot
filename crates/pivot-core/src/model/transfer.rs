@@ -66,6 +66,7 @@ fn invalid() -> ModelError {
 /// Internal already-resolved expression input. Not a parser, wire or storage ABI.
 #[derive(Clone, Debug)]
 pub enum ResolvedToken {
+    Typed(crate::typed::Op, usize),
     Control(crate::expression::AggregateControl),
     Aggregate(crate::expression::AggregateKind, selection::SelectionId),
     Sum(super::selection::SelectionId),
@@ -84,6 +85,12 @@ pub(super) fn checked_dependencies(tokens: &[BoundToken]) -> Result<Vec<NodeId>,
     for (index, token) in tokens.iter().enumerate() {
         let floor = calls.last().map_or(0, |c| c.0);
         match token {
+            BoundToken::Typed(op, arity) => {
+                if !op.valid_arity(*arity) || depth < floor + arity {
+                    return Err(invalid());
+                }
+                depth = depth - arity + 1;
+            }
             BoundToken::Control(control) => {
                 use crate::expression::{AggregateControl as C, AggregateKind as K};
                 match control {
@@ -274,7 +281,8 @@ fn encode_mapped_image(
                             .iter()
                             .map(|t| {
                                 Ok(match t {
-                                    BoundToken::Control(_)
+                                    BoundToken::Typed(..)
+                                    | BoundToken::Control(_)
                                     | BoundToken::Sum(_)
                                     | BoundToken::Aggregate(_, _) => {
                                         return Err(ModelError::Backend(
@@ -611,6 +619,7 @@ pub struct SelectionFormula {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SelectionToken {
+    Typed(crate::typed::Op, usize),
     Control(crate::expression::AggregateControl),
     Aggregate(crate::expression::AggregateKind, selection::SelectionId),
     Decimal(PivotDecimal),

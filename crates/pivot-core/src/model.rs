@@ -752,6 +752,7 @@ impl GraphImage {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BoundToken {
+    Typed(crate::typed::Op, usize),
     Control(crate::expression::AggregateControl),
     Aggregate(crate::expression::AggregateKind, selection::SelectionId),
     Sum(selection::SelectionId),
@@ -850,6 +851,9 @@ fn bind_with(
     let mut dependencies = BTreeSet::new();
     while let Some((expr, visited)) = stack.pop() {
         match expr {
+            Expr::Typed { .. } => {
+                unreachable!("typed spreadsheet expression requires workbook binding")
+            }
             Expr::SumRange { .. } | Expr::AggregateCall { .. } => {
                 unreachable!("spreadsheet selections require workbook binding")
             }

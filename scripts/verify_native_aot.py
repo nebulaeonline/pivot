@@ -109,7 +109,7 @@ def execute(args):
             (output/'clipboard-lock.json').write_text(json.dumps(lock, indent=2)+'\n', encoding='utf-8')
             run('desktop-ui', [str(executable)], env=env, timeout=180)
         report = json.loads((ui/'results.json').read_text(encoding='utf-8'))
-        for field in ['rectangular_fill', 'spreadsheet_aggregates', 'worksheet_binding', 'structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
+        for field in ['typed_values', 'multiple_worksheets', 'rectangular_fill', 'spreadsheet_aggregates', 'worksheet_binding', 'structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
             if not report.get(field, '').startswith('passed:'):
                 raise RuntimeError(f'Desktop acceptance field failed: {field}: {report}')
         if report['status'] != 'passed' or report['remaining_charge'] != 0 or report['execution_mode'] != 'native-aot':
@@ -128,8 +128,8 @@ def execute(args):
             if mode == 'clipboard-save' and not (peer['native_received'] and peer['cancel_checked']):
                 raise RuntimeError('Native cross-process clipboard/Cancel-Save evidence missing')
         fixture = (ui/'results.pivot').read_bytes()
-        if fixture[:8] != b'PIVOTWB7' or hashlib.sha256(fixture[48:]).digest() != fixture[16:48]:
-            raise RuntimeError('Saved WB7 fixture is invalid')
+        if fixture[:8] != b'PIVOTWB8' or hashlib.sha256(fixture[48:]).digest() != fixture[16:48]:
+            raise RuntimeError('Saved WB8 fixture is invalid')
         summary.update(status='passed', native_desktop_and_all_peers=True, adjacent_rust_child=True,
                        remaining_charge=report['remaining_charge'], publish_warnings=[])
     except Blocked as error:

@@ -1,5 +1,11 @@
 # Document-owned worksheet text
 
+Current source: [ADR-0025](../adr/0025-typed-spreadsheet-values.md) makes literal and
+calculated strings genuine graph values. Boolean/String results, WB8, private v6
+and CB3 supersede the original numeric-marker representation described below.
+An apostrophe alone now creates an empty String; clear creates Blank.
+Implementation and scoped validation are complete; parent implementation review is pending.
+
 ADR-0018 is accepted; the bounded implementation passes Windows/Linux/native Mac
 managed and Native AOT validation. Implementation and escape-overhead clarification are accepted; the milestone is closed. [Semantics](../adr/0018-document-owned-worksheet-text.md),
 [implementation and verification](../handoffs/2026-10-21-worksheet-text-implementation.md).

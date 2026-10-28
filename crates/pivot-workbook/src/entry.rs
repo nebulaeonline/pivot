@@ -1,7 +1,7 @@
 //! Rust-authoritative single-line worksheet entry admission.
 use super::*;
 pub(crate) fn validate_text(text: &str, limit: usize) -> Result<()> {
-    if text.is_empty() || text.len() > limit {
+    if text.len() > limit {
         return Err(Error::Limit);
     }
     if text
@@ -17,9 +17,6 @@ pub fn classify(position: Position, source: &str, limit: usize) -> Result<Edit> 
         return Ok(Edit::Clear(position));
     }
     if let Some(text) = source.strip_prefix('\'') {
-        if text.is_empty() {
-            return Ok(Edit::Clear(position));
-        }
         validate_text(text, limit)?;
         return Ok(Edit::SetText {
             position,
@@ -34,6 +31,12 @@ pub fn classify(position: Position, source: &str, limit: usize) -> Result<Edit> 
         return Ok(Edit::SetFormulaText {
             position,
             source: source.into(),
+        });
+    }
+    if trimmed.eq_ignore_ascii_case("TRUE") || trimmed.eq_ignore_ascii_case("FALSE") {
+        return Ok(Edit::SetBoolean {
+            position,
+            value: trimmed.eq_ignore_ascii_case("TRUE"),
         });
     }
     let body = trimmed.strip_prefix(['+', '-']).unwrap_or(trimmed);

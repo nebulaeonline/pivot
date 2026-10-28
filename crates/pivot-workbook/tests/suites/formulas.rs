@@ -249,6 +249,9 @@ fn hard_failures_roll_back_and_stale_states_are_rejected() {
 fn standalone_grammar_unchanged_and_typed_spans_use_original_source() {
     assert_eq!(expression::parse("A1").unwrap(), Expr::Name("A1".into()));
     assert!(expression::parse("=A1").is_err());
+    assert!(expression::parse_spreadsheet("=A1<2").is_ok());
+    assert!(expression::parse_spreadsheet("=(1=1)=TRUE").is_ok());
+    assert!(expression::parse_spreadsheet("=1=1=TRUE").is_err());
     let Expr::CellReference { row, column, span, .. } =
         expression::parse_spreadsheet("  = aa22 ").unwrap()
     else {
@@ -256,7 +259,7 @@ fn standalone_grammar_unchanged_and_typed_spans_use_original_source() {
     };
     assert_eq!((row, column, span), (22, 27, 4..8));
     for source in [
-        "=1+", "=", "=()", "=A1 B1", "=A1<2", "=1,2", "=A+1", "=_name", "=A-1",
+        "=1+", "=", "=()", "=A1 B1", "=1,2", "=A+1", "=_name", "=A-1",
     ] {
         assert!(expression::parse_spreadsheet(source).is_err(), "{source}");
     }

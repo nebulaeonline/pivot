@@ -31,7 +31,7 @@ fn wb7_restores_directory_bindings_and_authored_and_effective_names() {
     b.rename_sheet(b.expected(), source, "O'Brien Sales")
         .unwrap();
     let saved = Document::export_document(&b, b.expected()).unwrap();
-    assert_eq!(&saved.bytes[..8], b"PIVOTWB7");
+    assert_eq!(&saved.bytes[..8], b"PIVOTWB8");
     let (mut reopened, _) = Document::open_document(&saved.bytes, Limits::default(), &rt).unwrap();
     assert_eq!(reopened.sheets(), b.sheets());
     assert_eq!(

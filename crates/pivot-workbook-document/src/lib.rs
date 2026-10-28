@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 4 * 1024 * 1024;
-const MAGIC: &[u8; 8] = b"PIVOTWB7";
+const MAGIC: &[u8; 8] = b"PIVOTWB8";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -77,10 +77,23 @@ impl Writer {
             self.n(n.into());
         }
     }
+    fn typed_op(&mut self, op: &pivot_core::typed::Op, arity: usize) {
+        self.n(op.code().into());
+        self.n(arity as u64);
+        match op {
+            pivot_core::typed::Op::Boolean(b) => self.n(u64::from(*b)),
+            pivot_core::typed::Op::String(s) => self.text(s),
+            _ => (),
+        }
+    }
     fn graph_tokens(&mut self, tokens: &[SelectionToken]) {
         self.n(tokens.len() as u64);
         for token in tokens {
             match token {
+                SelectionToken::Typed(op, n) => {
+                    self.n(7);
+                    self.typed_op(op, *n);
+                }
                 SelectionToken::Control(c) => {
                     self.n(6);
                     self.n(c.code().into());
@@ -122,6 +135,10 @@ impl Writer {
         self.n(tokens.len() as u64);
         for t in tokens {
             match t {
+                Token::Typed(op, n) => {
+                    self.n(8);
+                    self.typed_op(op, *n);
+                }
                 Token::Qualifier { worksheet, span } => {
                     self.n(7);
                     self.id(worksheet.uuid());
@@ -262,11 +279,33 @@ impl<'a> Reader<'a> {
             _ => return Err(malformed()),
         })
     }
+    fn typed_op(&mut self) -> Result<(pivot_core::typed::Op, usize)> {
+        use pivot_core::typed::Op;
+        let code = u8::try_from(self.n()?).map_err(|_| malformed())?;
+        let arity = self.count(4096)?;
+        let op = match code {
+            0 => Op::Boolean(match self.n()? {
+                0 => false,
+                1 => true,
+                _ => return Err(malformed()),
+            }),
+            1 => Op::String(self.text()?),
+            _ => Op::from_code(code).ok_or_else(malformed)?,
+        };
+        if !op.valid_arity(arity) {
+            return Err(malformed());
+        }
+        Ok((op, arity))
+    }
     fn graph_tokens(&mut self) -> Result<Vec<SelectionToken>> {
         let n = self.count(4096)?;
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
             out.push(match self.n()? {
+                7 => {
+                    let (op, n) = self.typed_op()?;
+                    SelectionToken::Typed(op, n)
+                }
                 0 => SelectionToken::Decimal(self.dec()?.value()),
                 1 => SelectionToken::Node(self.count(8191)?),
                 6 => SelectionToken::Control(
@@ -303,6 +342,10 @@ impl<'a> Reader<'a> {
         for _ in 0..n {
             let tag = self.n()?;
             out.push(match tag {
+                8 => {
+                    let (op, n) = self.typed_op()?;
+                    Token::Typed(op, n)
+                }
                 7 => Token::Qualifier {
                     worksheet: WorksheetId::from_uuid(self.id()?),
                     span: self.count(4096)?..self.count(4096)?,
@@ -474,6 +517,10 @@ impl Document {
                 w.n(1);
                 w.pos(p);
                 match c {
+                    Content::Boolean(b) => {
+                        w.n(5);
+                        w.n(u64::from(*b));
+                    }
                     Content::StructuredFormula(_) => return Err(malformed()),
                     Content::LiteralText(text) => {
                         w.n(4);
@@ -712,6 +759,11 @@ impl Document {
                         return Err(malformed());
                     }
                     let content = match r.n()? {
+                        5 => Content::Boolean(match r.n()? {
+                            0 => false,
+                            1 => true,
+                            _ => return Err(malformed()),
+                        }),
                         4 => Content::LiteralText(r.text()?),
                         0 => Content::Blank,
                         1 => Content::Decimal(r.dec()?),
@@ -827,18 +879,27 @@ impl Document {
                 .find(|n| n.id == node.uuid())
                 .ok_or_else(malformed)?
                 .definition;
+            let literal_tokens;
             let (source, tokens, invalid): (&str, &[Token], bool) = match content {
                 Content::StructuredFormula(_) => return Err(malformed()),
-                Content::LiteralText(text) => {
-                    pivot_workbook::entry::classify(Position::new(1, 1), &format!("'{text}"), 4097)
-                        .map_err(|_| malformed())?;
-                    if text.is_empty()
-                        || text.len() > 4096
-                        || *definition != storage::Definition::NonNumeric
-                    {
-                        return Err(malformed());
-                    }
-                    continue;
+                Content::LiteralText(_) | Content::Boolean(_) => {
+                    let op = match content {
+                        Content::LiteralText(text) => {
+                            if text.len() > 4096 {
+                                return Err(malformed());
+                            }
+                            pivot_workbook::entry::classify(
+                                Position::new(1, 1),
+                                &format!("'{text}"),
+                                4097,
+                            )?;
+                            pivot_core::typed::Op::String(text.clone())
+                        }
+                        Content::Boolean(b) => pivot_core::typed::Op::Boolean(*b),
+                        _ => unreachable!(),
+                    };
+                    literal_tokens = vec![Token::Typed(op, 0)];
+                    ("", &literal_tokens, false)
                 }
                 Content::Blank => {
                     if *definition
@@ -1001,6 +1062,7 @@ impl Document {
                                     .ok_or_else(malformed)?,
                             )
                         }
+                        Token::Typed(op, n) => SelectionToken::Typed(op.clone(), *n),
                         Token::Unary(op) => SelectionToken::Unary(*op),
                         Token::Control(c) => SelectionToken::Control(*c),
                         Token::Binary(op) => SelectionToken::Binary(*op),
@@ -1016,7 +1078,8 @@ impl Document {
                 let has_sum = selection_tokens.iter().any(|t| {
                     matches!(
                         t,
-                        SelectionToken::Control(_)
+                        SelectionToken::Typed(..)
+                            | SelectionToken::Control(_)
                             | SelectionToken::Sum(_)
                             | SelectionToken::Aggregate(_, _)
                     )
@@ -1037,6 +1100,7 @@ impl Document {
                     .filter(|t| !matches!(t, Token::Qualifier { .. }))
                     .map(|t| {
                         Ok(match t {
+                            Token::Typed(..) => return Err(malformed()),
                             Token::Decimal(d) => {
                                 storage::Token::Decimal(storage::Decimal96::from_runtime(d.value()))
                             }
@@ -1090,13 +1154,14 @@ impl Document {
                 .and_then(|r| r.content.as_ref())
                 .ok_or_else(malformed)?;
             let tokens: &[Token] = match content {
+                Content::Boolean(_) | Content::LiteralText(_) => continue,
                 Content::TextFormula(f) if f.diagnostic.is_none() => &f.tokens,
                 Content::Formula { tokens, .. } => tokens,
                 _ => return Err(malformed()),
             };
             if !tokens
                 .iter()
-                .any(|t| matches!(t, Token::Control(_) | Token::Sum { .. }))
+                .any(|t| matches!(t, Token::Typed(..) | Token::Control(_) | Token::Sum { .. }))
             {
                 return Err(malformed());
             }

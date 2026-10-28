@@ -269,7 +269,10 @@ impl Graph {
                 && tokens.iter().any(|t| {
                     matches!(
                         t,
-                        BoundToken::Control(_) | BoundToken::Sum(_) | BoundToken::Aggregate(_, _)
+                        BoundToken::Typed(..)
+                            | BoundToken::Control(_)
+                            | BoundToken::Sum(_)
+                            | BoundToken::Aggregate(_, _)
                     )
                 })
             {
@@ -277,6 +280,9 @@ impl Graph {
                     .iter()
                     .map(|token| {
                         Ok(match token {
+                            BoundToken::Typed(op, n) => {
+                                transfer::SelectionToken::Typed(op.clone(), *n)
+                            }
                             BoundToken::Decimal(v) => transfer::SelectionToken::Decimal(*v),
                             BoundToken::Node(n) => transfer::SelectionToken::Node(
                                 *slots.get(n).ok_or(Error::InvalidTransfer)?,

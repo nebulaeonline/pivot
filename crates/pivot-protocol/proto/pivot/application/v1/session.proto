@@ -14,6 +14,7 @@ message Edit {
     Position move_to = 5;
     string text = 6;
     string entry = 7;
+    bool boolean = 8;
   }
 }
 message Request {
@@ -51,11 +52,19 @@ message Request {
   string worksheet = 29;
   string sheet_name = 30;
 }
+message TypedValue {
+  oneof kind {
+    pivot.v1.Decimal128 decimal = 1;
+    bool boolean = 2;
+    string text = 3;
+    bool blank = 4;
+  }
+}
 message Cell {
   Position at = 1;
   string cell_id = 2;
   string node_id = 3;
-  oneof content { pivot.v1.Decimal128 number = 4; string formula = 5; bool blank = 6; string text = 9; }
+  oneof content { pivot.v1.Decimal128 number = 4; string formula = 5; bool blank = 6; string text = 9; bool boolean = 18; }
   pivot.v1.Decimal128 value = 7;
   string error = 8;
   string source_fault_id = 10;
@@ -66,6 +75,10 @@ message Cell {
   string source_output_name = 15;
   string worksheet = 16;
   string authored_formula = 17;
+  // Authoritative successful value, independently of definition. value field 7
+  // is a Decimal-only convenience mirror and must agree when present.
+  TypedValue result = 19;
+  string error_code = 20;
 }
 message Response {
   uint32 version = 1;

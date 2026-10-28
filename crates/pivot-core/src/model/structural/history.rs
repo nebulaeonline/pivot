@@ -4,6 +4,7 @@ pub mod codec;
 mod cold;
 pub mod records;
 pub enum ColdDefinition<'a> {
+    LiteralString(&'a str),
     Blank,
     NonNumeric,
     Input(PivotDecimal),
@@ -38,6 +39,17 @@ impl Graph {
     ) -> Result<(), Error> {
         let stored = &*self.live_record(id)?.definition;
         let matches = match (stored, expected) {
+            (
+                Compiled::Formula {
+                    source,
+                    binding: Ok((tokens, deps)),
+                },
+                ColdDefinition::LiteralString(text),
+            ) => {
+                source.is_empty()
+                    && deps.is_empty()
+                    && matches!(tokens.as_slice(),[BoundToken::Typed(crate::typed::Op::String(s),0)] if s==text)
+            }
             (Compiled::Blank, ColdDefinition::Blank)
             | (Compiled::NonNumeric, ColdDefinition::NonNumeric) => true,
             (Compiled::Input, ColdDefinition::Input(value)) => {
@@ -53,6 +65,9 @@ impl Graph {
                             let tokens: Vec<_> = tokens
                                 .iter()
                                 .map(|token| match token {
+                                    transfer::ResolvedToken::Typed(op, n) => {
+                                        BoundToken::Typed(op.clone(), *n)
+                                    }
                                     transfer::ResolvedToken::Decimal(v) => BoundToken::Decimal(*v),
                                     transfer::ResolvedToken::Node(n) => BoundToken::Node(*n),
                                     transfer::ResolvedToken::Unary(op) => BoundToken::Unary(*op),

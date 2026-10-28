@@ -186,7 +186,7 @@ public sealed partial class WorksheetView : Control
             else if (row >= 0 && col >= 0 && cells.TryGetValue((r, c), out var cell)) {
                 if (cell.Error.Length > 0) { text = "#ERROR"; ink = Brushes.Firebrick; }
                 else if (cell.ContentCase == Cell.ContentOneofCase.Text) text = cell.Text;
-                else if (cell.Value is not null && cell.ContentCase != Cell.ContentOneofCase.Blank) text = WorkbookSession.Decode(cell.Value).ToString(CultureInfo.InvariantCulture);
+                else if (cell.ContentCase != Cell.ContentOneofCase.Blank) text = WorkbookSession.DisplayValue(cell);
             }
             using (context.PushClip(rect.Deflate(3)))
                 context.DrawText(new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Inter"), 13, ink), new Point(x + 5, y + 4));

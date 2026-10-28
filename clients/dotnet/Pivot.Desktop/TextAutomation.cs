@@ -27,7 +27,7 @@ public partial class MainWindow
         AutomationCheck(CellEditor.Text=="'001.20","Text edit reconstructs escape");
         string unchanged=s.Revision;AutomationCheck(await CommitAsync() && s.Revision==unchanged,"No-op text edit stays unchanged");
         await Enter(2,1,"Label");
-        AutomationCheck(Sheet.CellAt(AutomationPosition(2,2))!.Error.Contains("Nonnumeric") && Sheet.CellAt(AutomationPosition(2,3))!.Error.Contains("Nonnumeric"),"Scalar and SUM text type errors");
+        AutomationCheck(Sheet.CellAt(AutomationPosition(2,2))!.ErrorCode=="TypeMismatch" && Sheet.CellAt(AutomationPosition(2,3))!.ErrorCode=="TypeMismatch","Scalar and SUM text type errors");
         await SelectAsync(AutomationPosition(1,1));await SelectAsync(AutomationPosition(2,3),true);await ClipboardAsync(false);
         await SelectAsync(AutomationPosition(5,1));await ClipboardAsync(true);
         AutomationCheck(Sheet.CellAt(AutomationPosition(5,2))!.Text=="001.20" && Sheet.CellAt(AutomationPosition(5,3))!.Text=="'Hello","Mixed native rectangle preserves text");

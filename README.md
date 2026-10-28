@@ -33,7 +33,7 @@ also be used directly through Rust crate APIs, independently of a workbook or GU
 The desktop is built with **C#/.NET 10 and Avalonia** for Windows, Linux and macOS.
 It provides direct grid editing, a formula bar, rectangular selection, copy/paste
 and four-direction fill. Formula copies translate relative references and preserve
-`$`-locked axes. Cells support decimal values, formulas and literal text.
+`$`-locked axes. Cells support Decimal96, Boolean and String values, from literals or formulas.
 
 Workbooks contain up to **16 worksheets**, with Add/Rename controls and tabs that
 remember each sheet's selection and scroll position. Cross-sheet formulas such as
@@ -42,8 +42,12 @@ presentation while keeping its bindings intact.
 
 Functions include `SUM`, `MIN`, `MAX`, `AVERAGE` and `COUNT`, with rectangular ranges,
 multiple arguments and nested calls: `=SUM('January Sales'!A1:B20, C1:C20, 5)`.
+Comparisons and `IF`, `AND`, `OR`, `NOT`, `LEN`, `MID` and `&` support conditional
+and text calculations, such as `=IF(A1>0,"In stock","Sold out")`. IF and logical
+functions short-circuit; strings and Booleans are never silently converted to numbers.
+
 Workbooks open and save as local `.pivot` files, preserving every sheet, typed
-content and stable bindings. The current experimental format is WB7; earlier
+content and stable bindings. The current experimental format is WB8; earlier
 experimental workbook versions are rejected.
 
 The desktop owns a **Rust session process (`pivot-session`)**, communicating through

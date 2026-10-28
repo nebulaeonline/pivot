@@ -3,6 +3,7 @@ pub mod evaluation;
 pub mod expression;
 pub mod interface;
 pub mod model;
+pub mod typed;
 
 /// Benchmark-only instrumentation; no default production path changes.
 pub mod experiment_profile;

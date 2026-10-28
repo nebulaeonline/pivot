@@ -65,3 +65,5 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 
 - [ADR-0024: Multiple worksheets in one workbook](0024-multiple-worksheets.md) — Accepted; implementation and three-platform validation accepted by parent review, milestone closed (2026-10-28).
+
+- [ADR-0025: Typed spreadsheet values](0025-typed-spreadsheet-values.md) — Design accepted with clarifications; implementation and scoped validation complete, ready for parent implementation review (2026-10-28).

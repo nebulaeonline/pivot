@@ -5,6 +5,10 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
+    Typed {
+        op: crate::typed::Op,
+        arguments: Vec<Expr>,
+    },
     AggregateCall {
         kind: AggregateKind,
         arguments: Vec<AggregateArgument>,
@@ -392,7 +396,7 @@ impl Parser<'_> {
                 self.pos += 1;
                 Expr::Unary {
                     op,
-                    operand: Box::new(self.expr(5, depth + 1)?),
+                    operand: Box::new(self.expr(9, depth + 1)?),
                 }
             }
             Some(b'(') => {
@@ -428,6 +432,33 @@ impl Parser<'_> {
                     span: start..self.pos,
                 }
             }
+            Some(b'"') if self.spreadsheet => {
+                self.pos += 1;
+                let mut value = String::new();
+                loop {
+                    match self.source[self.pos..].chars().next() {
+                        None => return Err(self.error("unterminated string")),
+                        Some('"') => {
+                            self.pos += 1;
+                            if self.peek() == Some(b'"') {
+                                value.push('"');
+                                self.pos += 1;
+                            } else {
+                                break;
+                            }
+                        }
+                        Some('\r' | '\n') => return Err(self.error("multiline formula string")),
+                        Some(c) => {
+                            value.push(c);
+                            self.pos += c.len_utf8();
+                        }
+                    }
+                }
+                Expr::Typed {
+                    op: crate::typed::Op::String(value),
+                    arguments: Vec::new(),
+                }
+            }
             Some(b'0'..=b'9') => {
                 let start = self.pos;
                 while self.peek().is_some_and(|b| b.is_ascii_digit()) {
@@ -457,7 +488,47 @@ impl Parser<'_> {
                 {
                     self.pos += 1;
                 }
-                if let Some(kind) = self
+                let name = &self.source[start..self.pos];
+                let qualified = self.source[self.pos..]
+                    .trim_start_matches(|c: char| c.is_ascii_whitespace())
+                    .starts_with('!');
+                if self.spreadsheet
+                    && !qualified
+                    && (name.eq_ignore_ascii_case("TRUE") || name.eq_ignore_ascii_case("FALSE"))
+                {
+                    Expr::Typed {
+                        op: crate::typed::Op::Boolean(name.eq_ignore_ascii_case("TRUE")),
+                        arguments: Vec::new(),
+                    }
+                } else if let Some(op) = self
+                    .spreadsheet
+                    .then(|| crate::typed::Op::named(name))
+                    .flatten()
+                    .filter(|_| !qualified)
+                {
+                    self.space();
+                    if self.peek() != Some(b'(') {
+                        return Err(self.error("expected function arguments"));
+                    }
+                    self.pos += 1;
+                    let mut arguments = Vec::new();
+                    loop {
+                        arguments.push(self.expr(0, depth + 1)?);
+                        self.space();
+                        match self.peek() {
+                            Some(b',') => self.pos += 1,
+                            Some(b')') => {
+                                self.pos += 1;
+                                break;
+                            }
+                            _ => return Err(self.error("expected comma or closing parenthesis")),
+                        }
+                    }
+                    if !op.valid_arity(arguments.len()) {
+                        return Err(self.error("invalid function arity"));
+                    }
+                    Expr::Typed { op, arguments }
+                } else if let Some(kind) = self
                     .spreadsheet
                     .then_some(())
                     .filter(|_| {
@@ -541,13 +612,46 @@ impl Parser<'_> {
             }
             _ => return Err(self.error("expected decimal, name, sign, or parenthesis")),
         };
+        let mut compared = false;
         loop {
             self.space();
+            if self.spreadsheet {
+                let rest = &self.source[self.pos..];
+                let typed = [
+                    ("<>", crate::typed::Op::NotEqual),
+                    ("<=", crate::typed::Op::LessEqual),
+                    (">=", crate::typed::Op::GreaterEqual),
+                    ("=", crate::typed::Op::Equal),
+                    ("<", crate::typed::Op::Less),
+                    (">", crate::typed::Op::Greater),
+                    ("&", crate::typed::Op::Concat),
+                ]
+                .into_iter()
+                .find(|(s, _)| rest.starts_with(s));
+                if let Some((symbol, op)) = typed {
+                    let power = if symbol == "&" { 2 } else { 0 };
+                    if power < min {
+                        break;
+                    }
+                    if power == 0 && compared {
+                        return Err(self.error("chained comparison"));
+                    }
+                    compared |= power == 0;
+                    self.pos += symbol.len();
+                    self.work += 1;
+                    let right = self.expr(power + 1, depth + 1)?;
+                    left = Expr::Typed {
+                        op,
+                        arguments: vec![left, right],
+                    };
+                    continue;
+                }
+            }
             let (op, power) = match self.peek() {
-                Some(b'+') => (BinaryOp::Add, 1),
-                Some(b'-') => (BinaryOp::Subtract, 1),
-                Some(b'*') => (BinaryOp::Multiply, 3),
-                Some(b'/') => (BinaryOp::Divide, 3),
+                Some(b'+') => (BinaryOp::Add, 4),
+                Some(b'-') => (BinaryOp::Subtract, 4),
+                Some(b'*') => (BinaryOp::Multiply, 6),
+                Some(b'/') => (BinaryOp::Divide, 6),
                 _ => break,
             };
             if power < min {

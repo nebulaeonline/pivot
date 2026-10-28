@@ -47,11 +47,32 @@ impl Footprint for Record {
         match &self.content {
             Some(Content::LiteralText(text)) => text.capacity(),
             Some(Content::Formula { source, tokens }) => {
-                source.capacity() + tokens.capacity() * std::mem::size_of::<Token>()
+                source.capacity()
+                    + tokens.capacity() * std::mem::size_of::<Token>()
+                    + tokens
+                        .iter()
+                        .map(|t| {
+                            if let Token::Typed(op, _) = t {
+                                op.heap_bytes()
+                            } else {
+                                0
+                            }
+                        })
+                        .sum::<usize>()
             }
             Some(Content::TextFormula(f)) => {
                 f.original_source.capacity()
                     + f.tokens.capacity() * std::mem::size_of::<Token>()
+                    + f.tokens
+                        .iter()
+                        .map(|t| {
+                            if let Token::Typed(op, _) = t {
+                                op.heap_bytes()
+                            } else {
+                                0
+                            }
+                        })
+                        .sum::<usize>()
                     + f.references.capacity() * std::mem::size_of::<FormulaReference>()
             }
             _ => 0,
@@ -531,6 +552,7 @@ impl Transaction<'_> {
                 Token::Cell(r) => {
                     ResolvedToken::Node(self.data.bindings.get(&r.cell).unwrap().runtime)
                 }
+                Token::Typed(op, n) => ResolvedToken::Typed(op.clone(), *n),
                 Token::Unary(op) => ResolvedToken::Unary(*op),
                 Token::Control(c) => ResolvedToken::Control(*c),
                 Token::Binary(op) => ResolvedToken::Binary(*op),
@@ -548,6 +570,23 @@ impl Transaction<'_> {
     }
     fn edit(&mut self, edit: &Edit, expected: Expected, ordinal: usize) -> Result<()> {
         match edit {
+            Edit::SetBoolean { position, value } => {
+                let id = self.anchor(*position)?;
+                let content = Content::Boolean(*value);
+                if self.data.records.get(&id).unwrap().content.as_ref() != Some(&content) {
+                    self.batch
+                        .set_resolved(
+                            self.data.bindings.get(&id).unwrap().runtime,
+                            "",
+                            vec![ResolvedToken::Typed(
+                                pivot_core::typed::Op::Boolean(*value),
+                                0,
+                            )],
+                        )
+                        .map_err(graph_error)?;
+                    self.set(id, content)?;
+                }
+            }
             Edit::SetEntry { position, source } => {
                 let classified =
                     crate::entry::classify(*position, source, self.book.limits.source_bytes)?;
@@ -559,7 +598,14 @@ impl Transaction<'_> {
                 let content = Content::LiteralText(text.clone());
                 if self.data.records.get(&id).unwrap().content.as_ref() != Some(&content) {
                     self.batch
-                        .set_nonnumeric(self.data.bindings.get(&id).unwrap().runtime)
+                        .set_resolved(
+                            self.data.bindings.get(&id).unwrap().runtime,
+                            "",
+                            vec![ResolvedToken::Typed(
+                                pivot_core::typed::Op::String(text.clone()),
+                                0,
+                            )],
+                        )
                         .map_err(graph_error)?;
                     self.set(id, content)?;
                 }
@@ -1068,6 +1114,46 @@ pub(super) fn capture(
     })
 }
 pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Result<Calculation> {
+    let result = evaluate_values(capture, outputs)?;
+    Ok(Calculation {
+        expected: result.expected,
+        generation: result.generation,
+        values: result
+            .values
+            .into_iter()
+            .map(|(id, value)| {
+                (
+                    id,
+                    value
+                        .map_err(|e| {
+                            if matches!(e, CellError::Typed(pivot_core::typed::Error::TypeMismatch))
+                            {
+                                CellError::NonNumericInput
+                            } else {
+                                e
+                            }
+                        })
+                        .and_then(|v| match v {
+                            pivot_types::PivotValue::Decimal(d) => Ok(d),
+                            pivot_types::PivotValue::Blank => Ok(PivotDecimal::ZERO),
+                            _ => Err(CellError::NonNumericInput),
+                        }),
+                )
+            })
+            .collect(),
+    })
+}
+pub(super) fn evaluate_values(
+    capture: &CalculationCapture,
+    outputs: &[CellRef],
+) -> Result<TypedCalculation> {
+    evaluate_values_cancelled(capture, outputs, &CancellationToken::default())
+}
+pub(super) fn evaluate_values_cancelled(
+    capture: &CalculationCapture,
+    outputs: &[CellRef],
+    cancel: &CancellationToken,
+) -> Result<TypedCalculation> {
     if outputs.len() > capture.limit {
         return Err(Error::Limit);
     }
@@ -1096,13 +1182,14 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
                 .ok_or(Error::InvalidTarget)
         })
         .collect::<Result<Vec<_>>>()?;
-    let result = match &capture.scalar_context {
-        Some(context) => capture
-            .local_core
-            .evaluate_scalar_context(&nodes, &context.core),
-        None => capture.local_core.evaluate(&nodes),
-    }
-    .map_err(graph_error)?;
+    let result = capture
+        .local_core
+        .evaluate_values(
+            &nodes,
+            capture.scalar_context.as_ref().map(|c| &c.core),
+            cancel,
+        )
+        .map_err(graph_error)?;
     let values = outputs
         .iter()
         .zip(nodes)
@@ -1111,7 +1198,7 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
                 *r,
                 result.values()[&node]
                     .as_ref()
-                    .copied()
+                    .cloned()
                     .map_err(|e| match e {
                         EvaluationError::CapturedSourceFailed { fault_id, .. }
                         | EvaluationError::DependencyFailed {
@@ -1131,8 +1218,14 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
                             CellError::NoNumericValues(*operation)
                         }
                         EvaluationError::NonNumericInput { .. } => CellError::NonNumericInput,
+                        EvaluationError::Typed { error, .. } => CellError::Typed(error.clone()),
                         EvaluationError::Arithmetic { error, .. } => CellError::Arithmetic(*error),
                         EvaluationError::DependencyFailed { origin, .. } => {
+                            if let Some(Err(EvaluationError::Typed { error, .. })) =
+                                result.values().get(origin)
+                            {
+                                return CellError::Typed(error.clone());
+                            }
                             if matches!(
                                 result.values().get(origin),
                                 Some(Err(EvaluationError::NonNumericInput { .. }))
@@ -1147,7 +1240,8 @@ pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Res
             )
         })
         .collect();
-    Ok(Calculation {
+    Ok(TypedCalculation {
+        evaluated_nodes: result.evaluated_nodes(),
         expected: capture.expected,
         generation: Uuid::new_v4(),
         values,
@@ -1258,10 +1352,11 @@ pub(super) fn history_weight(book: &Workbook) -> Result<usize> {
             Some(Content::TextFormula(f)) => f
                 .tokens
                 .iter()
-                .any(|t| matches!(t, Token::Qualifier { .. })),
-            Some(Content::Formula { tokens, .. }) => {
-                tokens.iter().any(|t| matches!(t, Token::Qualifier { .. }))
-            }
+                .any(|t| matches!(t, Token::Typed(..) | Token::Qualifier { .. })),
+            Some(Content::Formula { tokens, .. }) => tokens
+                .iter()
+                .any(|t| matches!(t, Token::Typed(..) | Token::Qualifier { .. })),
+            Some(Content::Boolean(_)) => true,
             _ => false,
         })
         || d.directory.is_some()

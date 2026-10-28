@@ -20,7 +20,7 @@ public partial class MainWindow {
   await Enter(1,1,"1");await Enter(2,1,"2");await Enter(3,1,"2");await Enter(4,1,"Label");
   await Enter(1,2,"=MIN(A1:A5)");await Enter(2,2,"=MAX(A1:A5)");await Enter(3,2,"=AVERAGE(A1:A5)");await Enter(4,2,"=COUNT(A1:A5)");await Enter(5,2,"=SUM(A1:A5)");
   AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(1,2))!.Value)==1&&WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(2,2))!.Value)==2&&WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(3,2))!.Value)==1.6666666666666666666666666667m&&WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(4,2))!.Value)==3,"Actual worksheet MIN/MAX/AVERAGE/COUNT");
-  AutomationCheck(Sheet.CellAt(AutomationPosition(5,2))!.Error.Contains("Nonnumeric"),"SUM unchanged strict text policy");
+  AutomationCheck(Sheet.CellAt(AutomationPosition(5,2))!.ErrorCode=="TypeMismatch","SUM unchanged strict text policy");
   await Enter(5,1,"0");AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(4,2))!.Value)==4,"Explicit zero participates");
   await SelectAsync(AutomationPosition(5,1));string before=s.Revision;ClearClick(null,new global::Avalonia.Interactivity.RoutedEventArgs());await AutomationWaitAsync(()=>!editing&&s.Revision!=before);await RefreshAsync();
   AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(4,2))!.Value)==3,"Clear restores blank classification");
@@ -32,7 +32,7 @@ public partial class MainWindow {
   }finally{if(previous is null)await clipboard.ClearAsync();else await clipboard.SetTextAsync(previous);}
   await SelectAsync(AutomationPosition(3,2));AutomationImage(Path.ChangeExtension(report,"aggregates.png"));
   string root=Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath();string path=Path.Combine(root,"pivot-aggregate-ui-"+Guid.NewGuid()+".pivot");
-  AutomationCheck(await SaveDocumentAsync(true,path),"Aggregate document saves");AutomationCheck(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..8])=="PIVOTWB7","UI writes WB5");
+  AutomationCheck(await SaveDocumentAsync(true,path),"Aggregate document saves");AutomationCheck(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..8])=="PIVOTWB8","UI writes WB5");
   await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path,discard:true);await RefreshAsync();AutomationCheck(!s.IsDirty&&WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(4,2))!.Value)==3,"WB5 UI reopen preserves blank semantics");
   await s.NewAsync(s.Revision,discard:true);CancelDraft();clipboardEditor=null;shortcutModifiers=KeyModifiers.None;Sheet.Scroll(1-(int)Sheet.FirstRow,1-(int)Sheet.FirstColumn);await RefreshAsync();Sheet.Focus();
  }

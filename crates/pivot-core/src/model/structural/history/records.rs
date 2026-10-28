@@ -158,7 +158,7 @@ impl Graph {
                                     Ok((tokens, _)) => {
                                         w.n(tokens.len() as u64);
                                         for t in tokens {
-                                            super::cold::token(&mut w, t);
+                                            super::cold::token(&mut w, t)?;
                                         }
                                     }
                                     Err(e) => super::cold::write_error(&mut w, e)?,

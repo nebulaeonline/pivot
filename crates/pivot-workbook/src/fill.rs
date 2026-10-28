@@ -126,6 +126,12 @@ impl Workbook {
             None | Some(Content::Blank) => {
                 return Ok(Edit::Clear(at));
             }
+            Some(Content::Boolean(value)) => {
+                return Ok(Edit::SetBoolean {
+                    position: at,
+                    value,
+                });
+            }
             Some(Content::Decimal(value)) => {
                 return Ok(Edit::SetDecimal {
                     position: at,

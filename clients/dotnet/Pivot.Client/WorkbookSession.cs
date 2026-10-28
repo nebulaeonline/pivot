@@ -196,7 +196,7 @@ public sealed class WorkbookSession : IAsyncDisposable
             cancellation.ThrowIfCancellationRequested();
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 5; request.Id = ++sequence;
+            request.Version = 6; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -220,7 +220,8 @@ public sealed class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 5 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 6 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                foreach(var cell in response.Cells) ValidateResult(cell);
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {
                 closed = true; StopChild();
@@ -283,6 +284,25 @@ public sealed class WorkbookSession : IAsyncDisposable
         catch (OperationCanceledException) { StopChild(); await process.WaitForExitAsync().ConfigureAwait(false); }
         process.Dispose();
     }
+    private static void ValidateResult(Cell cell) {
+        if(cell.Error.Length!=0) {if(cell.Result is not null || cell.Value is not null)throw new IOException("Fault has a successful value.");return;}
+        var result=cell.Result??throw new IOException("Missing typed result.");
+        switch(result.KindCase) {
+            case TypedValue.KindOneofCase.Decimal:
+                _=Decode(result.Decimal);
+                if(cell.Value is null || !cell.Value.Equals(result.Decimal))throw new IOException("Mismatched Decimal mirror.");break;
+            case TypedValue.KindOneofCase.Boolean: case TypedValue.KindOneofCase.Text: case TypedValue.KindOneofCase.Blank:
+                if(cell.Value is not null || (result.KindCase==TypedValue.KindOneofCase.Blank && !result.Blank) || (result.KindCase==TypedValue.KindOneofCase.Text && System.Text.Encoding.UTF8.GetByteCount(result.Text)>4096))throw new IOException("Invalid typed result.");break;
+            default:throw new IOException("Unsupported typed result.");
+        }
+    }
+    public static string DisplayValue(Cell cell) => cell.Result?.KindCase switch {
+        TypedValue.KindOneofCase.Boolean => cell.Result.Boolean?"TRUE":"FALSE",
+        TypedValue.KindOneofCase.Text => cell.Result.Text,
+        TypedValue.KindOneofCase.Decimal => Decode(cell.Result.Decimal).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        TypedValue.KindOneofCase.Blank => "",
+        _ => cell.Value is not null ? Decode(cell.Value).ToString(System.Globalization.CultureInfo.InvariantCulture) : ""
+    };
     public static Decimal128 Encode(decimal value)
     {
         var bits = decimal.GetBits(value);

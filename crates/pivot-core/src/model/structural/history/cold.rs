@@ -62,8 +62,13 @@ fn read_error(r: &mut Reader<'_>, model: u64, floor: u64) -> Result<SnapshotErro
         _ => return Err(malformed()),
     })
 }
-pub(super) fn token(w: &mut Writer, t: &BoundToken) {
+pub(super) fn token(w: &mut Writer, t: &BoundToken) -> Result<(), ModelError> {
     match t {
+        BoundToken::Typed(crate::typed::Op::String(s), 0) if s.len() <= 4096 => {
+            w.n(7);
+            w.text(s);
+        }
+        BoundToken::Typed(..) => return Err(malformed()),
         BoundToken::Control(c) => {
             w.n(6);
             w.n(c.code().into());
@@ -108,9 +113,11 @@ pub(super) fn token(w: &mut Writer, t: &BoundToken) {
             w.raw(&id.0);
         }
     }
+    Ok(())
 }
 fn read_token(r: &mut Reader<'_>, model: u64, floor: u64) -> Result<BoundToken, ModelError> {
     Ok(match r.n()? {
+        7 => BoundToken::Typed(crate::typed::Op::String(r.text(4096)?), 0),
         6 => BoundToken::Control(
             crate::expression::AggregateControl::from_code(
                 u8::try_from(r.n()?).map_err(|_| malformed())?,
@@ -189,7 +196,7 @@ impl Graph {
                         Ok((tokens, _)) => {
                             w.n(tokens.len() as u64);
                             for t in tokens {
-                                token(&mut w, t);
+                                token(&mut w, t)?;
                             }
                         }
                         Err(e) => write_error(&mut w, e)?,

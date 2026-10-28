@@ -30,7 +30,7 @@ internal static class WorksheetChecks {
    s.SelectWorksheet(summary);Check(await Value(s,1,2)==1021&&await Value(s,1,3)==100,"range occupants and stable scalar binding");
    revision=s.Revision;try{await s.AddSheetAsync(revision,"o'brien sales");throw new Exception("duplicate accepted");}catch(WorkbookSessionException){}Check(s.Revision==revision,"duplicate atomic");
    string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"worksheets-"+Guid.NewGuid()+".pivot");
-   await s.SaveAsync(s.Revision,path);Check(!s.IsDirty&&Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..8])=="PIVOTWB7","whole workbook saved");
+   await s.SaveAsync(s.Revision,path);Check(!s.IsDirty&&Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..8])=="PIVOTWB8","whole workbook saved");
    ulong generation=s.DocumentGeneration;s.SelectWorksheet(revenue);await s.OpenAsync(s.Revision,path);Check(s.DocumentGeneration>generation&&s.WorksheetId==summary&&!s.IsDirty,"same-file reopen resets view context");
    Check(s.Worksheets.Count==2&&s.Worksheets[1].Id==revenue&&s.Worksheets[1].Name=="O'Brien Sales"&&await Value(s,1,3)==100,"directory and binding restored");
   }finally{await s.DisposeAsync();}

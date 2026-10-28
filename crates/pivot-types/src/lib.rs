@@ -8,16 +8,25 @@ use std::{fmt, str::FromStr};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueType {
     Decimal,
+    Boolean,
+    String,
+    Blank,
 }
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PivotValue {
     Decimal(PivotDecimal),
+    Boolean(bool),
+    String(String),
+    Blank,
 }
 impl PivotValue {
     pub fn value_type(&self) -> ValueType {
         match self {
             Self::Decimal(_) => ValueType::Decimal,
+            Self::Boolean(_) => ValueType::Boolean,
+            Self::String(_) => ValueType::String,
+            Self::Blank => ValueType::Blank,
         }
     }
 }

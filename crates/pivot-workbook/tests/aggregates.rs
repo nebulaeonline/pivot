@@ -54,7 +54,18 @@ fn member_kinds_invalidation_and_old_captures() {
     b.apply(b.expected(), &[entry(4, 1, "=E2")]).unwrap(); // Successful formula over blank is numeric zero.
     assert_eq!(result(&b, 4, 3), Ok("3".into()));
     b.apply(b.expected(), &[entry(4, 1, "=A3")]).unwrap();
-    assert_eq!(result(&b, 4, 3), Err(CellError::NonNumericInput));
+    // Calculated strings are successful values under ADR-0025 and COUNT ignores them.
+    assert_eq!(result(&b, 4, 3), Ok("2".into()));
+    let typed = b.capture_local(b.expected()).unwrap();
+    assert!(matches!(
+        &typed
+            .evaluate_values(&[typed.cell_at(p(4, 1)).unwrap()])
+            .unwrap()
+            .values[0]
+            .1,
+        Ok(pivot_types::PivotValue::String(_))
+    ));
+    drop(typed);
     b.enable_structured_proof(uuid::Uuid::new_v4(), uuid::Uuid::new_v4())
         .unwrap();
     let source = "=@{InvoiceLines.TotalAmount}";
@@ -130,7 +141,7 @@ fn no_values_precedence_and_canonical_extrema() {
         }],
     )
     .unwrap();
-    assert_eq!(result(&b, 4, 3), Err(CellError::NonNumericInput));
+    assert_eq!(result(&b, 4, 3), Ok("0".into())); // Only successful String/Blank members remain.
     drop(b);
     let memory = runtime.memory();
     assert!(runtime.finish().is_ok());

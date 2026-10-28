@@ -8,7 +8,7 @@ pub const MAX_BYTES: usize = 256 * 1024;
 const MAX_SOURCE: usize = 128 * 1024;
 const MAX_TOKENS: usize = 16_384;
 const MAX_REFERENCES: usize = 8192;
-const MAGIC: &[u8] = b"PIVOTCB2";
+const MAGIC: &[u8] = b"PIVOTCB3";
 
 #[derive(Debug)]
 pub struct ClipboardBlock {
@@ -17,6 +17,7 @@ pub struct ClipboardBlock {
 }
 #[derive(Clone)]
 enum Slot {
+    Boolean(bool),
     Text(String),
     Blank,
     Number(DecimalInput),
@@ -100,6 +101,7 @@ fn references_mode(source: &str, proof: bool) -> Result<(Vec<ReferenceSyntax>, u
                 stack.push(left);
             }
             Expr::Decimal(_) => (),
+            Expr::Typed { arguments, .. } => stack.extend(arguments.iter()),
             Expr::CapturedOutput { .. } if proof => (),
             Expr::CapturedOutput { .. } | Expr::Name(_) => return Err(invalid()),
         }
@@ -224,6 +226,11 @@ impl Image {
                 });
             }
             match slot {
+                Slot::Boolean(value) => {
+                    native.push(5);
+                    native.push(u8::from(*value));
+                    output.push_str(if *value { "TRUE" } else { "FALSE" });
+                }
                 Slot::Text(value) => {
                     crate::entry::validate_text(value, 4096)?;
                     source_work += value.len() + 1;
@@ -319,6 +326,13 @@ impl Image {
                     crate::entry::validate_text(&value, 4096)?;
                     Slot::Text(value)
                 }
+                5 => {
+                    let b = r.take(1)?[0];
+                    if b > 1 {
+                        return Err(invalid());
+                    }
+                    Slot::Boolean(b == 1)
+                }
                 0 => Slot::Blank,
                 1 => {
                     let lo = r.n()?;
@@ -404,6 +418,7 @@ impl Image {
             for field in fields {
                 slots.push(
                     match crate::entry::classify(Position::new(1, 1), field, 4096)? {
+                        Edit::SetBoolean { value, .. } => Slot::Boolean(value),
                         Edit::Clear(_) => Slot::Blank,
                         Edit::SetDecimal { value, .. } => Slot::Number(value),
                         Edit::SetText { text, .. } => Slot::Text(text),
@@ -506,6 +521,7 @@ impl Workbook {
                     content => content,
                 };
                 slots.push(match content {
+                    Some(Content::Boolean(value)) => Slot::Boolean(value),
                     Some(Content::LiteralText(value)) => Slot::Text(value),
                     None | Some(Content::Blank) => Slot::Blank,
                     Some(Content::Decimal(value)) => Slot::Number(value),
@@ -646,6 +662,7 @@ impl Workbook {
                     }
                     Edit::SetText { position, text }
                 }
+                Slot::Boolean(value) => Edit::SetBoolean { position, value },
                 Slot::Blank => Edit::Clear(position),
                 Slot::Number(value) => Edit::SetDecimal { position, value },
                 Slot::Formula {

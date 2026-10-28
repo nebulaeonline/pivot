@@ -98,6 +98,36 @@ impl Clone for CalculationCapture {
     }
 }
 impl CalculationCapture {
+    pub fn evaluate_values(
+        &self,
+        outputs: &[NodeId],
+        context: Option<&ScalarContext>,
+        cancel: &CancellationToken,
+    ) -> Result<CapturedTypedResult, CalculationFailure> {
+        if context.is_some_and(|c| c.capture != self.capture_id) {
+            return Err(CalculationFailure::Invocation(
+                crate::evaluation::InvocationError::CapturedContext(
+                    crate::captured::ContextError::Snapshot,
+                ),
+            ));
+        }
+        let s = &self.state;
+        let ticket = s
+            .runtime
+            .cleanup
+            .reserve()
+            .map_err(CalculationFailure::Resource)?;
+        let result = s
+            .value
+            .get()
+            .evaluate_values_cancelled(outputs, context.map(|c| &c.values), || {
+                cancel.is_cancelled()
+            })
+            .map_err(compute_failure)?;
+        Ok(CapturedTypedResult {
+            state: ticket.own(result),
+        })
+    }
     pub fn revision(&self) -> Revision {
         self.revision
     }
@@ -195,6 +225,17 @@ impl CalculationCapture {
             revision: self.revision,
             state,
         })
+    }
+}
+pub struct CapturedTypedResult {
+    state: Owned<structural::TypedCalculation>,
+}
+impl CapturedTypedResult {
+    pub fn values(&self) -> &BTreeMap<NodeId, Result<pivot_types::PivotValue, EvaluationError>> {
+        &self.state.get().values
+    }
+    pub fn evaluated_nodes(&self) -> usize {
+        self.state.get().evaluated_nodes
     }
 }
 fn compute_failure(e: ComputeError) -> CalculationFailure {

@@ -195,6 +195,7 @@ fn read_tokens(r: &mut Reader<'_>) -> Result<Vec<Token>> {
 }
 pub(super) fn content(w: &mut Writer, c: &Content) -> Result<()> {
     match c {
+        Content::Boolean(_) => return Err(bad()),
         Content::Blank => w.n(0),
         Content::Decimal(d) => {
             w.n(1);
@@ -900,7 +901,7 @@ impl Workbook {
             } else {
                 match value {
                     Content::Blank => ColdDefinition::Blank,
-                    Content::LiteralText(_) => ColdDefinition::NonNumeric,
+                    Content::LiteralText(text) => ColdDefinition::LiteralString(text),
                     Content::Decimal(d) => ColdDefinition::Input(d.value()),
                     _ => return Err(bad()),
                 }

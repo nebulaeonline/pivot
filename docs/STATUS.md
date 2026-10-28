@@ -48,17 +48,33 @@ charges and no surviving owned processes.
 Parent accepted the implementation and supplied evidence; no additional qualification
 round or reconciliation packet is required. Preserve the original failed reports.
 
-**Recommended next feature: bounded cell formatting.** Numeric display formats,
-font emphasis, alignment and basic cell backgrounds should be document-owned
-presentation metadata, preserving canonical calculation values. This is the parent
-recommendation, not a completed design or implementation assignment. Date values
-and their display semantics require explicit scope rather than an assumed new
-calculation type. ADR-0023 remains parked at G3.
+**Typed spreadsheet values: ADR-0025 implemented and validated; ready for parent review.** The parent follow-up
+separates definition, value type and display metadata. [Accepted ADR-0025](adr/0025-typed-spreadsheet-values.md)
+defines Decimal96/Boolean/String, Blank/errors, coercion/comparison, short circuit,
+IF/AND/OR/NOT, LEN/MID and concatenation, as one bounded implementation milestone.
+Integer-valued results remain Decimal96 for this milestone; first-class Integer and
+date/time semantics are explicitly deferred, not inferred from formatting.
+Parent requires genuine canonical demand-driven short circuit, deterministic scalar
+Unicode comparisons without normalization, and only necessary WB8/private v6/CB3
+representation changes with explicit rejection and clipboard-ownership validation.
+Current source uses WB8/private v6/CB3 with explicit incompatible-version rejection.
+Focused native regression/desktop evidence and typed .NET Native AOT compatibility
+are required. Deliver one concise handoff and stop for parent implementation review.
+Basic formatting follows; it keeps display rounding separate from calculated values.
+Changed-crate all-feature tests passed (253), strict Clippy passed and final native
+headless CI passed 13/13 on Windows x64/Linux x64/macOS ARM64, including .NET session
+regression. All 356 implementation inputs match. Managed desktop suites passed on
+all three targets; native Mac ARM64 AOT publish/execution passed without warnings.
+GUI/AOT used the prepared source preceding one final Rust-only admission-order fix;
+that fix passed the final native headless and local all-feature runs.
+[Single implementation handoff and source-qualified evidence](handoffs/2026-10-28-typed-spreadsheet-values.md).
+Stop for parent implementation review; no implementation acceptance is claimed.
+ADR-0023 remains parked at G3.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
-define a deliberate support commitment. WB7-only is the current experimental
+define a deliberate support commitment. WB8-only is the current experimental
 policy; permanent backward incompatibility is not established as a product promise.
-No migration work beyond the approved WB7 cut is assigned.
+No migration framework is assigned.
 
 ## Preserved history research record — suspended
 

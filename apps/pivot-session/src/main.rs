@@ -31,6 +31,7 @@ struct PendingSave {
     export: pivot_workbook_document::Export,
     location: pivot_storage::experimental_file::native::Location,
 }
+#[derive(Default)]
 struct Session {
     computational_state: String,
     proof: Option<pivot_workbook::projection::State>,
@@ -58,6 +59,38 @@ fn decimal(d: PivotDecimal) -> Decimal128 {
         negative,
         scale,
     }
+}
+fn set_value(cell: &mut wire::Cell, value: pivot_types::PivotValue) {
+    use pivot_types::PivotValue as V;
+    use wire::typed_value::Kind;
+    cell.result = Some(wire::TypedValue {
+        kind: Some(match value {
+            V::Decimal(d) => {
+                cell.value = Some(decimal(d));
+                Kind::Decimal(decimal(d))
+            }
+            V::Boolean(b) => Kind::Boolean(b),
+            V::String(s) => Kind::Text(s),
+            V::Blank => Kind::Blank(true),
+            _ => unreachable!("closed current value kinds"),
+        }),
+    });
+}
+fn error_code(error: &pivot_workbook::CellError) -> String {
+    use pivot_workbook::CellError as E;
+    match error {
+        E::Typed(pivot_core::typed::Error::TypeMismatch) => "TypeMismatch",
+        E::Typed(pivot_core::typed::Error::InvalidArgument) => "InvalidArgument",
+        E::Typed(pivot_core::typed::Error::TextTooLong) => "TextTooLong",
+        E::Arithmetic(pivot_types::DecimalError::DivisionByZero) => "DivisionByZero",
+        E::Arithmetic(_) => "NumericError",
+        E::NoNumericValues(_) => "NoNumericValues",
+        E::NonNumericInput => "TypeMismatch",
+        E::DependencyFailed => "DependencyFailed",
+        E::CapturedSourceFailed { .. } => "CapturedSourceFailed",
+        _ => "InvalidExpression",
+    }
+    .into()
 }
 fn location(p: Position) -> wire::Position {
     wire::Position {
@@ -143,7 +176,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 5 {
+        if q.version != 6 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -501,6 +534,10 @@ impl Session {
                     .map(|e| {
                         let position = pos(e.at.as_ref())?;
                         Ok(match e.action.as_ref().ok_or("edit action required")? {
+                            wire::edit::Action::Boolean(value) => Edit::SetBoolean {
+                                position,
+                                value: *value,
+                            },
                             wire::edit::Action::Text(text) => Edit::SetText {
                                 position,
                                 text: text.clone(),
@@ -586,6 +623,7 @@ impl Session {
                         .display_formula(cell.reference)
                         .map_err(|e| e.to_string())?;
                     view.content = Some(match cell.content {
+                        Content::Boolean(b) => wire::cell::Content::Boolean(b),
                         Content::Decimal(d) => wire::cell::Content::Number({
                             let (lo, mid, hi, negative, scale) = d.parts();
                             Decimal128 {
@@ -611,12 +649,13 @@ impl Session {
                         Content::Blank => wire::cell::Content::Blank(true),
                     });
                     // One bounded viewport request, independent cell diagnostics from one pinned S.
-                    if !matches!(view.content, Some(wire::cell::Content::Text(_))) {
-                        match capture.evaluate(&[cell.reference]) {
+                    {
+                        match capture.evaluate_values(&[cell.reference]) {
                             Ok(result) => match &result.values[0].1 {
-                                Ok(v) => view.value = Some(decimal(*v)),
+                                Ok(v) => set_value(&mut view, v.clone()),
                                 Err(e) => {
                                     structured::set_cell_fault(&mut view, e, &capture);
+                                    view.error_code = error_code(e);
                                     view.error = readable_error(format!("{e:?}"));
                                 }
                             },
@@ -701,7 +740,10 @@ impl Session {
                             .ok_or("empty output".into())
                     })
                     .collect::<Result<Vec<_>, String>>()?;
-                let values = capture.value.evaluate(&refs).map_err(|e| e.to_string())?;
+                let values = capture
+                    .value
+                    .evaluate_values(&refs)
+                    .map_err(|e| e.to_string())?;
                 r.generation = values.generation.to_string();
                 for (p, (id, value)) in q.outputs.iter().zip(values.values) {
                     let mut cell = wire::Cell {
@@ -711,9 +753,10 @@ impl Session {
                         ..Default::default()
                     };
                     match value {
-                        Ok(v) => cell.value = Some(decimal(v)),
+                        Ok(v) => set_value(&mut cell, v),
                         Err(e) => {
                             structured::set_cell_fault(&mut cell, &e, &capture.value);
+                            cell.error_code = error_code(&e);
                             cell.error = readable_error(format!("{e:?}"));
                         }
                     };
@@ -753,7 +796,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 5,
+            version: 6,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -867,4 +910,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod protocol_version_tests {
+    use super::*;
+    #[test]
+    fn incompatible_peers_reject_before_creating_state() {
+        let mut session = Session::default();
+        for version in 0..6 {
+            let request = wire::Request {
+                version,
+                operation: wire::request::Operation::Create as i32,
+                ..Default::default()
+            };
+            assert_eq!(
+                session.handle(&request, &mut wire::Response::default()),
+                Err("unsupported application version".into())
+            );
+            assert!(session.book.is_none() && session.runtime.is_none());
+        }
+    }
 }

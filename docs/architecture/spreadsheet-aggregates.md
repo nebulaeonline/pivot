@@ -1,5 +1,10 @@
 # Canonical spreadsheet aggregates and blank definitions
 
+ADR-0025 current-source extension: reducers ignore successful String/Boolean/Blank
+values for MIN/MAX/AVERAGE/COUNT, including calculated strings. SUM remains strict
+and errors still propagate in encounter order. COUNT remains Decimal96. Native
+documents now use WB8; the older format milestones below are historical context.
+
 ADR-0021 design is accepted; the bounded implementation is in place. Platform
 validation and parent implementation acceptance are recorded separately in the
 [implementation handoff](../handoffs/2026-10-22-spreadsheet-aggregate-implementation.md).

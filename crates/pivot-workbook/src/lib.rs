@@ -124,6 +124,7 @@ impl DecimalInput {
 /// Typed source is provenance; SetFormulaText uses the shared spreadsheet parser.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
+    Typed(pivot_core::typed::Op, usize),
     QualifierAt {
         name: String,
         span: std::ops::Range<usize>,
@@ -177,6 +178,7 @@ pub struct TextFormula {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Content {
+    Boolean(bool),
     LiteralText(String),
     TextFormula(TextFormula),
     Blank,
@@ -198,6 +200,10 @@ pub struct CellView {
 
 #[derive(Clone, Debug)]
 pub enum Edit {
+    SetBoolean {
+        position: Position,
+        value: bool,
+    },
     SetText {
         position: Position,
         text: String,
@@ -487,6 +493,16 @@ impl Workbook {
                     continue;
                 }
                 match expr {
+                    Expr::Typed { op, arguments } => {
+                        if visited == 1 {
+                            tokens.push(Token::Typed(op.clone(), arguments.len()));
+                        } else {
+                            stack.push((expr, 1));
+                            for argument in arguments.iter().rev() {
+                                stack.push((argument, 0));
+                            }
+                        }
+                    }
                     Expr::AggregateCall { kind, arguments } => {
                         use pivot_core::expression::AggregateControl as C;
                         tokens.push(Token::Control(C::Start(*kind)));
@@ -673,6 +689,7 @@ pub struct CalculationCapture {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CellError {
+    Typed(pivot_core::typed::Error),
     NoNumericValues(pivot_core::expression::AggregateKind),
     CapturedSourceFailed {
         fault_id: pivot_core::captured::CapturedFaultId,
@@ -682,6 +699,16 @@ pub enum CellError {
     Arithmetic(DecimalError),
     DependencyFailed,
     InvalidExpression,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypedCalculation {
+    pub expected: Expected,
+    pub generation: Uuid,
+    pub values: Vec<(
+        CellRef,
+        std::result::Result<pivot_types::PivotValue, CellError>,
+    )>,
+    pub evaluated_nodes: usize,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Calculation {
@@ -701,6 +728,16 @@ impl CalculationCapture {
                 worksheet: self.worksheet,
                 cell: *id,
             })
+    }
+    pub fn evaluate_values(&self, outputs: &[CellRef]) -> Result<TypedCalculation> {
+        persistent::evaluate_values(self, outputs)
+    }
+    pub fn evaluate_values_cancelled(
+        &self,
+        outputs: &[CellRef],
+        cancel: &pivot_core::model::integration::CancellationToken,
+    ) -> Result<TypedCalculation> {
+        persistent::evaluate_values_cancelled(self, outputs, cancel)
     }
     pub fn evaluate(&self, outputs: &[CellRef]) -> Result<Calculation> {
         persistent::evaluate(self, outputs)

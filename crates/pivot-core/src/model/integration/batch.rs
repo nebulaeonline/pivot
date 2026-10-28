@@ -144,17 +144,30 @@ impl Batch {
         if source.len() > 4096 || tokens.len() > 1_048_576 {
             return self.fail(ModelError::Backend("batch formula limit"));
         }
+        let payload = tokens
+            .iter()
+            .map(|t| {
+                if let transfer::ResolvedToken::Typed(op, _) = t {
+                    op.heap_bytes()
+                } else {
+                    0
+                }
+            })
+            .sum::<usize>();
         let charge = self
             .base
             .get()
             .memory()
-            .reserve(tokens.len().saturating_mul(128))
+            .reserve(tokens.len().saturating_mul(128).saturating_add(payload))
             .map_err(|_| {
                 self.failed = true;
                 ModelError::Backend("batch token admission")
             })?;
         self.token_charges.push(charge);
-        self.push(Edit::Resolved(id, source.into(), tokens), source.len())
+        self.push(
+            Edit::Resolved(id, source.into(), tokens),
+            source.len().saturating_add(payload),
+        )
     }
     pub fn set_invalid(
         &mut self,
@@ -395,6 +408,9 @@ impl IntegrationRuntime {
                 .into_iter()
                 .map(|t| {
                     Ok(match t {
+                        transfer::SelectionToken::Typed(op, n) => {
+                            transfer::ResolvedToken::Typed(op, n)
+                        }
                         transfer::SelectionToken::Decimal(v) => transfer::ResolvedToken::Decimal(v),
                         transfer::SelectionToken::Node(slot) => transfer::ResolvedToken::Node(
                             *imported.nodes.get(slot).ok_or_else(invalid)?,

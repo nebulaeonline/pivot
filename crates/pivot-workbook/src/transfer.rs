@@ -255,8 +255,18 @@ impl Workbook {
                     }
                     continue;
                 }
-                Content::LiteralText(_) => {
-                    if !matches!(definition, D::NonNumeric) {
+                Content::LiteralText(_) | Content::Boolean(_) => {
+                    let op = match content {
+                        Content::LiteralText(s) => pivot_core::typed::Op::String(s.clone()),
+                        Content::Boolean(b) => pivot_core::typed::Op::Boolean(*b),
+                        _ => unreachable!(),
+                    };
+                    let overlay = overlays.get(&slot).ok_or_else(bad)?;
+                    expected_overlays.insert(slot);
+                    if !overlay.source.is_empty()
+                        || !same_selection_tokens(&overlay.tokens, &[S::Typed(op, 0)])
+                        || !matches!(definition,D::Computed{source,binding:B::ParseFailed{offset:0,code:1}} if source.is_empty())
+                    {
                         return Err(bad());
                     }
                     continue;
@@ -310,6 +320,7 @@ impl Workbook {
                             S::Node(*slots.get(&c.cell).ok_or_else(bad)?)
                         }
                         Token::Unary(op) => S::Unary(*op),
+                        Token::Typed(op, n) => S::Typed(op.clone(), *n),
                         Token::Control(c) => S::Control(*c),
                         Token::Binary(op) => S::Binary(*op),
                         Token::Sum {
@@ -340,10 +351,12 @@ impl Workbook {
                     })
                 })
                 .collect::<Result<_>>()?;
-            if translated
-                .iter()
-                .any(|t| matches!(t, S::Control(_) | S::Sum(_) | S::Aggregate(_, _)))
-            {
+            if translated.iter().any(|t| {
+                matches!(
+                    t,
+                    S::Typed(..) | S::Control(_) | S::Sum(_) | S::Aggregate(_, _)
+                )
+            }) {
                 expected_overlays.insert(slot);
                 let overlay = overlays.get(&slot).ok_or_else(bad)?;
                 if overlay.source != *source
@@ -576,6 +589,7 @@ fn same_selection_tokens(a: &[transfer::SelectionToken], b: &[transfer::Selectio
         && a.iter().zip(b).all(|(a, b)| match (a, b) {
             (T::Decimal(a), T::Decimal(b)) => a.parts() == b.parts(),
             (T::Node(a), T::Node(b)) => a == b,
+            (T::Typed(a, n), T::Typed(b, m)) => a == b && n == m,
             (T::Control(a), T::Control(b)) => a == b,
             (T::Unary(a), T::Unary(b)) => a == b,
             (T::Binary(a), T::Binary(b)) => a == b,

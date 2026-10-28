@@ -10,6 +10,8 @@ mod inspection;
 #[cfg(feature = "history-experiment")]
 pub use history::HistoryMetrics;
 mod materialization;
+mod typed_evaluation;
+pub use typed_evaluation::TypedCalculation;
 pub mod memory;
 pub mod reclaim;
 pub use index::{Index, Key};
@@ -266,7 +268,16 @@ impl Footprint for Compiled {
                 source.capacity()
                     + match binding {
                         Ok((t, d)) => {
-                            t.capacity() * std::mem::size_of::<BoundToken>()
+                            t.iter()
+                                .map(|token| {
+                                    if let BoundToken::Typed(op, _) = token {
+                                        op.heap_bytes()
+                                    } else {
+                                        0
+                                    }
+                                })
+                                .sum::<usize>()
+                                + t.capacity() * std::mem::size_of::<BoundToken>()
                                 + d.capacity() * std::mem::size_of::<NodeId>()
                         }
                         Err(e) => e.heap_bytes(),
@@ -318,7 +329,16 @@ impl Compiled {
             Self::Formula { source, binding } => {
                 source.len()
                     + binding.as_ref().map_or(0, |(t, d)| {
-                        t.len() * std::mem::size_of::<BoundToken>()
+                        t.iter()
+                            .map(|token| {
+                                if let BoundToken::Typed(op, _) = token {
+                                    op.heap_bytes()
+                                } else {
+                                    0
+                                }
+                            })
+                            .sum::<usize>()
+                            + t.len() * std::mem::size_of::<BoundToken>()
                             + d.len() * std::mem::size_of::<NodeId>()
                     })
             }
@@ -1167,6 +1187,7 @@ impl Graph {
                     let mut bound = Vec::with_capacity(tokens.len());
                     for token in tokens {
                         bound.push(match token {
+                            transfer::ResolvedToken::Typed(op, n) => BoundToken::Typed(op, n),
                             transfer::ResolvedToken::Aggregate(kind, id) => {
                                 if kind == crate::expression::AggregateKind::Sum
                                     || candidate
@@ -1768,6 +1789,14 @@ impl Capture {
                     }
                 }
             }
+            // Typed operations use the same captured graph and static checks, with
+            // demand-driven execution even when called through a Decimal adapter.
+            if order.iter().any(|id|matches!(&*self.0.live_record(*id).unwrap().definition,Compiled::Formula {binding:Ok((tokens,_)),..} if tokens.iter().any(|t|matches!(t,BoundToken::Typed(..))))) {
+                let typed=self.evaluate_values_with_inputs(&request.outputs,sources,&inputs,&cancelled)?;
+                work.add(typed.values.len()*128)?;
+                let adapted=typed.values.iter().map(|(id,value)|(*id,value.clone().and_then(|v| match v {pivot_types::PivotValue::Decimal(d)=>Ok(d),pivot_types::PivotValue::Blank=>Ok(PivotDecimal::ZERO),_=>Err(EvaluationError::NonNumericInput{node:*id})}))).collect();
+                return Ok(Calculation {version:self.version(),values:adapted,input_overrides:std::mem::take(&mut inputs),_capture:self.clone(),_typed:Some(typed),_work:std::mem::replace(&mut work,Work::new(self.0.memory.clone()))});
+            }
             for &id in &order {
                 if cancelled() {
                     return Err(ComputeError::Cancelled);
@@ -2026,6 +2055,7 @@ impl Capture {
                 values.insert(id, value);
             }
             Ok(Calculation {
+                _typed: None,
                 version: self.version(),
                 values: std::mem::take(&mut values),
                 input_overrides: std::mem::take(&mut inputs),
@@ -2059,6 +2089,7 @@ pub(super) struct CalculationScratch {
     _work: Work,
 }
 pub struct Calculation {
+    _typed: Option<TypedCalculation>,
     version: Version,
     values: BTreeMap<NodeId, Result<PivotDecimal, EvaluationError>>,
     input_overrides: BTreeMap<NodeId, PivotDecimal>,

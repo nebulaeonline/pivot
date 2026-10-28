@@ -101,10 +101,13 @@ fn classification_utf8_and_atomic_rejections() {
             b.cell_at(p(3, 1)).unwrap().unwrap().content,
             b.cell_at(p(3, 2)).unwrap().unwrap().content
         );
-        for source in ["'", ""] {
-            b.apply(b.expected(), &[entry(3, 1, source)]).unwrap();
-            assert_eq!(b.cell_at(p(3, 1)).unwrap().unwrap().content, Content::Blank);
-        }
+        b.apply(b.expected(), &[entry(3, 1, "'")]).unwrap();
+        assert_eq!(
+            b.cell_at(p(3, 1)).unwrap().unwrap().content,
+            Content::LiteralText(String::new())
+        );
+        b.apply(b.expected(), &[entry(3, 1, "")]).unwrap();
+        assert_eq!(b.cell_at(p(3, 1)).unwrap().unwrap().content, Content::Blank);
         b.apply(
             b.expected(),
             &[
@@ -202,7 +205,7 @@ fn mixed_native_and_tsv_roundtrip_overlap_and_bad_version() {
                 },
             )
             .unwrap();
-        assert!(block.native.starts_with(b"PIVOTCB2"));
+        assert!(block.native.starts_with(b"PIVOTCB3"));
         assert_eq!(block.text, "''Hello\t'001.20\t'=A1\t2\t=D1+1");
         for (row, bytes, native) in [
             (2, block.native.as_slice(), true),

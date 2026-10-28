@@ -11,6 +11,10 @@ use std::{
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum EvaluationError {
+    Typed {
+        node: NodeId,
+        error: crate::typed::Error,
+    },
     NoNumericArguments {
         node: NodeId,
         operation: crate::expression::AggregateKind,
@@ -65,7 +69,8 @@ impl EvaluationError {
 
     pub fn origin(&self) -> NodeId {
         match *self {
-            Self::NoNumericArguments { node, .. }
+            Self::Typed { node, .. }
+            | Self::NoNumericArguments { node, .. }
             | Self::NoNumericValues { node, .. }
             | Self::CapturedSourceFailed { node, .. }
             | Self::NonNumericInput { node }
@@ -80,6 +85,11 @@ impl EvaluationError {
 impl fmt::Debug for EvaluationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Typed { node, error } => f
+                .debug_struct("Typed")
+                .field("node", node)
+                .field("error", error)
+                .finish(),
             Self::NoNumericArguments { node, operation } => f
                 .debug_struct("NoNumericArguments")
                 .field("node", node)
@@ -381,6 +391,7 @@ pub(crate) fn evaluate_expression_with_arguments(
     let mut calls: Vec<(usize, crate::aggregate::Reduction)> = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
         match *token {
+            BoundToken::Typed(..) => return Err(invalid()),
             BoundToken::Control(C::Start(kind)) => {
                 calls.push((stack.len(), crate::aggregate::Reduction::new(kind)))
             }

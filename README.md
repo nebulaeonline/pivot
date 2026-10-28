@@ -1,101 +1,70 @@
 # Pivot
 
-Pivot is a reusable computation platform with a spreadsheet frontend. Its core
-is an expression and dependency graph that can run independently of a workbook
-or graphical interface.
+Pivot combines a spreadsheet desktop application with a reusable calculation engine
+and daemon. Build models interactively, work with local workbook files, or run
+calculations headlessly from another application.
 
-The engine and daemon are written in Rust. The desktop client uses
-C#/.NET 10 and Avalonia for a cross-platform interface. Decimal arithmetic is
-the default for financial and analytical calculations.
+The Rust engine represents calculations as expressions with explicit dependencies.
+The desktop client uses C#/.NET 10 and Avalonia on Windows, Linux and macOS.
+
+## Desktop
+
+The spreadsheet interface provides direct cell editing, formulas, text labels and
+rectangular selection. Copy, paste and four-direction fill translate formula
+references, including absolute references. Workbooks open and save as local `.pivot`
+files.
+
+Supported aggregate functions include `SUM`, `MIN`, `MAX`, `AVERAGE` and `COUNT`.
+Decimal arithmetic has explicit rounding behavior and reports calculation errors.
+
+## Daemon and application integration
+
+`pivotd` exposes named computation models through a Protobuf protocol over local
+IPC. Clients can discover models, inspect their inputs and outputs, and invoke
+calculations. The command-line client and REPL provide another way to use the engine.
+
+Models remain editable while each calculation runs against an immutable snapshot.
+Invocation-specific inputs support independent scenarios without changing the shared
+model. Stable identities keep references independent of display names.
 
 ## Goals
 
-- Build named computation models with explicit inputs and outputs.
-- Use spreadsheets to view, edit, and explore those models.
-- Run models headlessly, directly from Rust or through a stable public protocol.
-- Support a REPL and clients written in other languages.
-- Evaluate independent scenarios without changing shared model state.
-- Keep calculations predictable, errors explicit, and clients replaceable.
+- Make calculation models useful through both spreadsheets and application APIs.
+- Keep calculation behavior consistent across desktop and headless use.
+- Support clear inputs, outputs, dependencies and errors.
+- Keep the engine reusable independently of the user interface or hosting model.
 
-## Current state
+## Try Pivot
 
-Pivot is in early development. A canonical persistent Rust graph/workbook supports
-stable references, atomic edits, immutable calculations and exact decimal arithmetic.
-The daemon and REPL support local invocation and optional memory-only authoring.
-A headless document proof supports experimental model files.
-
-The first Avalonia worksheet now edits and calculates through a real Rust-owned
-local session. It supports decimal/formula entry, clear/move and bounded scrolling.
-Native workbook files now support New, Open, Save, Save As and Close, preserving
-stable bindings and editable drafts. Same-sheet `SUM(A1:B20)` uses current occupants
-of a fixed rectangle and checked decimal arithmetic. MIN, MAX, AVERAGE and COUNT
-also operate on rectangular ranges. Advanced spreadsheet features and deployment
-are still ahead.
-
-## Run the desktop
-
-With Rust, .NET 10 and Python installed, run from the repository root:
+Install Rust, the .NET 10 SDK and Python, then run from the repository root:
 
 ```sh
 python scripts/run_desktop.py
 ```
 
-Drag or use Shift+click/arrows to select a rectangle. Copy/Paste operates on up to
-256 selected cells; editing, Clear and Move still target the active cell. Select a cell and type a label, number or `=A1+B1`. F2 or double-click edits in place;
-Enter/Tab or plain arrows commit and move, and Escape cancels. Modified arrows
-select text; formula-bar arrows move the caret. The formula bar is optional.
-Copy/Paste buttons and Ctrl+C/V (Cmd+C/V on Mac) operate on the rectangle or selected
-editor text. Grid paste commits atomically; paste while editing inserts text. Native
-formula copies translate current bound references; `$` locks copy axes. External TSV
-formulas use literal addresses. Paste onto one cell to expand, or select an exact
-matching destination shape.
-Use a leading apostrophe to store numeric/formula-looking text literally (for
-example, `'001.20`). Numeric formulas and SUM report a type error when they consume
-text. Text is single-line and limited to 4,096 UTF-8 bytes. Native documents now use
-WB5 only; WB1–WB4 are explicitly unsupported. MIN/MAX/AVERAGE/COUNT ignore direct blanks and literal text;
-formula errors propagate. AVERAGE uses exact accumulation and normal midpoint-away
-rounding.
-Use the Fill menu to copy a selection's top, bottom, left or right edge across
-its remaining cells. Fill supports all four directions and translates formula
-references. Finish editing before Fill; selections are limited to 256 positions.
-Fill copies content rather than generating a series.
-The active outline dims when unfocused; caret blinking is configurable.
-See the [clipboard handoff](docs/handoffs/2026-10-20-rectangular-clipboard.md)
-for workflow, limits and validation status.
+To try the daemon, start the sample model in one terminal:
 
-The transport-independent Protobuf protocol has Rust/C# serialization tests and an
-in-process host adapter for discovery and invocation. See [local IPC usage](docs/architecture/local-ipc.md)
-to run the demo daemon and CLI. Engine/daemon coverage includes Windows, WSL2 Linux
-and macOS ARM64. The preceding clipboard foundation is accepted on all three platforms.
-The worksheet text and structured-binding foundations are accepted. The aggregate
-slice has a separate [implementation handoff](docs/handoffs/2026-10-23-wb5-only-aggregate-correction.md).
-See [platform validation](docs/platform-validation.md) for
-coverage and the recorded WSLg startup limitation.
+```sh
+cargo run -p pivotd -- --demo
+```
 
-See [implementation status](docs/STATUS.md) and
-[architecture decisions](docs/adr/README.md) for more detail.
+Use a second terminal to discover and invoke it:
+
+```sh
+cargo run -p pivot-cli -- models
+cargo run -p pivot-cli -- invoke RestaurantProfit Revenue=250000 Costs=85000
+```
+
+See [daemon and CLI usage](docs/architecture/local-ipc.md) and
+[REPL usage](docs/architecture/command-repl.md) for more options.
+
+## Development
+
+Run the contributor checks with `python scripts/ci.py`. See
+[testing](docs/testing.md) for prerequisites, desktop validation and artifacts.
+Design decisions are recorded in [ADRs](docs/adr/README.md); development review
+records live in [docs/handoffs/](docs/handoffs/).
 
 ## License
 
 Pivot is licensed under the [Apache License 2.0](LICENSE).
-
-## Local CI
-
-Run `python scripts/ci.py` to check Rust formatting, linting, tests, the .NET
-Release build, cross-language decimal/protocol compatibility, real IPC, and the
-Rust/C# application session. Logs and a JSON summary
-are saved under `artifacts/ci/`. See [testing and desktop safety](docs/testing.md)
-and [local CI setup](docs/local-ci.md). No VM is required for contributor CI.
-
-For desktop acceptance, run `python scripts/ci.py --desktop`. This includes real
-window, cross-process clipboard and Save/Discard/Cancel checks and saves screenshots.
-A desktop session and explicit interactive confirmation are required. These tests
-change focus and use the system clipboard; avoid other applications during the run.
-Unattended GUI execution is blocked until guest isolation is independently approved.
-The shared clipboard lock only serializes cooperating suites.
-
-For separate Native AOT publication and desktop acceptance, run
-`python scripts/verify_native_aot.py`. It builds the native desktop and places the
-Rust child beside it for validation. This also launches graphical/clipboard tests
-and requires the same interactive consent. The current text candidate passes Windows,
-Linux and native Mac ARM64; the worksheet-text implementation is accepted. See the [text handoff](docs/handoffs/2026-10-21-worksheet-text-implementation.md).

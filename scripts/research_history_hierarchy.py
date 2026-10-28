@@ -186,7 +186,7 @@ class PackedStore(NormalizedStore):
         super().__init__(*args,**kwargs)
         import sqlite3
         self.schema_sql+='CREATE TABLE branch(id INTEGER PRIMARY KEY,bytes BLOB NOT NULL);'
-        model=sqlite3.connect(':memory:')
+        model=self.connect(':memory:')
         try:
             model.executescript(self.schema_sql)
             self.schema=set(model.execute('SELECT type,name,tbl_name,sql FROM sqlite_schema'))

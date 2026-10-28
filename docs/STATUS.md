@@ -4,14 +4,38 @@ Date: 2026-10-27
 
 **Parent accepted the hierarchy/normalization and separate dictionary research.
 G3 remains open; parent accepted the physical accounting, scalable admission proposal
-and readiness assessment. Engine/VFS and small-bound admission qualification are next.**
+and readiness assessment. Engine/VFS and small-bound admission qualification are
+accepted; one 32K control pilot per native target is authorized, not started.**
+[Engine acceptance and exact 32K authorization](handoffs/2026-10-27-g3-engine-acceptance-32k-authorization.md).
+Run one fresh 32,768-control experiment plus genuine seed on Windows NTFS, Ubuntu
+ext4 and Mac APFS, retaining the fixed engine and **1,024/24/60/8** profile. Preflight
+identity, VFS, native storage, free space and configuration; preserve any refusal or
+failure without changing settings or replaying. Stop after three-platform evidence
+for parent review. **65K, 4,096-leaf enablement and full 100K G2 remain unauthorized.**
+[Fixed-engine/admission results and scaling decision](handoffs/2026-10-27-g3-engine-admission-results.md) ·
+[Implementation and measurement contract](architecture/history-engine-qualification.md).
+All three native targets use the same verified official SQLite 3.51.3 source,
+including the documented WAL-reset fix, through the actual instrumented connection.
+VFS delegates are win32/unix. Pre-write index staging, bootstrap admission, native
+headroom/heap controls and failure isolation are implemented within **1,024 leaves**.
+**150 native tests passed** (48 actual-engine cases plus 102 original regressions),
+and genuine 1K/10K G2 replays preserve accepted canonical manifests and cold images.
+
+Native heap high-water during 10K ingest is 2.27–2.63 MB; roughly 440 MB passes through
+WAL xWrite calls. The largest committed prefix exceeds the 64 MiB trigger, confirming
+it is not a hard cap. Complete Python/physical-WAL/disk reservation and device
+durability are not claimed. The separate 32K control pilot is now authorized;
+65K cannot fit the unchanged 61,440-entry aggregate ceiling and needs a separately
+approved larger profile. No expanded run, production selection or installed-runtime
+upgrade occurred during qualification. Its review is now accepted; the separate
+32K-only assignment is recorded above and has not run.
 [Acceptance and exact qualification assignment](handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
 Stop storage optimization; 20% is an optimization aspiration, not an acceptance gate.
 Qualify a fixed actual SQLite build/VFS and WAL-reset correction, instrument the actual
 connection, and implement pre-write planning/admission within the unchanged 1,024-leaf
 profile. Test resource failures, pinned WAL/readers and crash/reopen at small bounds.
-New qualification implementation has not started. **32K/65K controls require separate
-authorization**; no expanded workload is enabled by this assignment.
+That bounded implementation is accepted. The later 32K-only authorization is linked
+above; 65K remains unauthorized.
 [Assessment, readiness comparison and stopping boundary](handoffs/2026-10-27-g3-storage-admission-assessment.md) ·
 [Exact storage accounting](architecture/history-storage-accounting.md) ·
 [Proposed admission bounds](architecture/history-scalable-admission-proposal.md).
@@ -690,7 +714,7 @@ source full gates passed; the cause is unresolved. [G2 evidence/qualification](h
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
-History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication/receipt normalization and owner-authorized dictionary research are accepted; physical accounting/admission proposal and readiness comparison are accepted; engine/VFS and small-bound admission qualification are authorized, not started; 20% is only an optimization aspiration and expanded control workloads require separate authorization; no complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
+History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is active; its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication/receipt normalization and owner-authorized dictionary research are accepted; physical accounting/admission proposal and readiness comparison are accepted; engine/VFS and small-bound admission qualification are accepted; one 32K control pilot per native target is authorized, not started, under unchanged bounds; 20% is only an optimization aspiration and expanded control workloads require separate authorization; no complete feasibility or production adoption approval. G4â€“G7 and production Undo/Redo remain gated**.
 [G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
 [Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
 G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.

@@ -126,13 +126,14 @@ CREATE TABLE authority(singleton INTEGER PRIMARY KEY CHECK(singleton=1),body BLO
 
 class CompactStore:
     schema_sql=SCHEMA
-    def __init__(self,path,instance,mode,*,fullfsync=False):
+    def __init__(self,path,instance,mode,*,fullfsync=False,connection_factory=None):
         if mode not in ('plain','buckets'):raise ValueError('research mode')
         self.path=path;self.instance=instance;self.mode=mode;self.verified=None;self.corrupt_handle=False
         self.meta=None;self.metrics={'proof_read_bytes':0,'proof_written_bytes':0,'proof_ns':0,'sql_ns':0,'commit_ns':0}
         self.recovery_bytes=VerifiedStore.preflight(path)
-        self.db=sqlite3.connect(path,isolation_level=None,timeout=.2)
-        model=sqlite3.connect(':memory:')
+        self.connect=connection_factory or sqlite3.connect
+        self.db=self.connect(path,isolation_level=None,timeout=.2)
+        model=self.connect(':memory:')
         try:
             model.executescript(self.schema_sql)
             self.schema=set(model.execute('SELECT type,name,tbl_name,sql FROM sqlite_schema'))

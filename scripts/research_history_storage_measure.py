@@ -20,7 +20,7 @@ def measure(fixture,output,mode,*,fullfsync=False,store_class=CompactStore):
     with fixture.open(encoding='utf-8') as stream:seed=json.loads(next(stream))
     instance=sha(encoded(seed['records']));path=output/'history.sqlite'
     store=store_class(path,instance,mode,fullfsync=fullfsync);store.create(seed);records=dict(seed['records'])
-    report={'mode':mode,'sqlite':sqlite3.sqlite_version,'sqlite_source_id':store.db.execute('SELECT sqlite_source_id()').fetchone()[0],
+    report={'mode':mode,'sqlite':getattr(store.db,'sqlite_version',sqlite3.sqlite_version),'sqlite_source_id':store.db.execute('SELECT sqlite_source_id()').fetchone()[0],
             'compile_options':[r[0] for r in store.db.execute('PRAGMA compile_options')],
             'zlib_runtime':zlib.ZLIB_RUNTIME_VERSION,'zlib_level':6,'compression_policy':'research baseline; no production codec selected',
             'platform':platform.platform(),'memory_start':own_memory(),'instance':instance.hex()}

@@ -5,14 +5,27 @@ G3 first baseline accepted; bounded verified-open 1K/10K research accepted; comp
 is accepted; hierarchical authentication/receipt normalization and owner-authorized
 dictionary research are accepted. Physical accounting, scalable admission proposal
 and readiness comparison are accepted. Engine/VFS and small-bound resource-admission
-qualification are authorized, not started. G4–G7 and production
+qualification are accepted within stated research limits. One native 32K control
+pilot per target is authorized, not started. G4–G7 and production
 Undo/Redo remain gated.**
+[Engine acceptance and exact 32K pilot scope](../handoffs/2026-10-27-g3-engine-acceptance-32k-authorization.md).
+Keep the fixed build and 1,024-leaf/depth-24/60-entry/eight-split profile. Execute one
+fresh attempt per established native target after read-only preflight; preserve failures
+and stop for review without adjusting limits. 65K, larger-profile enablement and
+full 100K G2 remain unauthorized. Complete physical reservation remains unestablished.
+[Fixed-engine/VFS and admission results](../handoffs/2026-10-27-g3-engine-admission-results.md):
+verified official 3.51.3 source and actual connection/VFS/native telemetry on all
+three targets; 150 native test passes and unchanged genuine 1K/10K canonical evidence.
+The 1,024-leaf profile is unchanged. Native SQLite heap cap and staged index controls
+are implemented; complete Python/physical transaction/WAL/disk reservation is not.
+32K now has its separate bounded authorization; 65K additionally requires
+a larger reviewed profile. Neither ran, and no production backend/configuration is selected.
 [Accounting acceptance and engine/admission qualification scope](../handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
 Use a fixed reviewable research engine/VFS, qualify its WAL-reset correction and
 instrument the actual connection. Implement pre-write admission while keeping the
 1,024-leaf profile; stop after small-bound native failure/recovery evidence. Storage
-optimization is parked and 20% is not an acceptance gate. No 32K/65K execution is
-authorized; those scaling points require a separate parent decision.
+optimization is parked and 20% is not an acceptance gate. That qualification assignment
+is accepted; its later 32K-only authorization is linked above. 65K remains unauthorized.
 [Physical accounting, admission proposal and readiness comparison](../handoffs/2026-10-27-g3-storage-admission-assessment.md):
 the unchanged representation has a serialized-record floor about 41.21% beyond
 compressed payload even before page overhead. A proposed 4,096-leaf profile has
@@ -486,7 +499,7 @@ authorization inferred from this packet.
 | G0 — approved | Review P1–P9 and adversarial plan | Resolve Save/ledger semantics and policy choices; no runtime edits yet |
 | G1 — accepted/closed | One explicit validated native export path for ordinary and historical roots; existing WB5 | Preserve strict generic transfer/IDs/Redo/L; full three-platform Rust/managed/session/desktop/AOT gates accepted; preserve original evidence |
 | G2 — accepted/closed, feature-only | Mutation-local PreparedRecordChanges from staged core/workbook candidates; no persisted journal integration | Independently reconstructed prior-state/full-checkpoint oracle; complete coupled changes, deterministic original-state coalescing, failed/no-op isolation and ownership/work measures; three-platform evidence accepted |
-| G3 — active; accounting/admission assessment accepted; small-bound engine/VFS/admission qualification next | Fixed research engine and actual-connection telemetry; pre-write planning within unchanged 1,024-leaf profile | Return after native small-bound resource/fault/recovery qualification; 32K/65K controls and full G2 require separate authorization; no production selection |
+| G3 — active; engine/VFS/admission accepted; 32K-only native pilot authorized, not started | One fresh 32,768-control attempt per native target with fixed 3.51.3 and unchanged 1,024-leaf profile | Preflight and preserve exact identities/refusal evidence; return after pilot; no 65K, larger profile, full 100K or production selection |
 | G4 | Durable index/decision publication and independent witness | Child restart at payload/index/root/witness windows; lost ACK/suffix, branch/cursor/ledger and wrong-instance checks; no production integration |
 | G5 | Resource, lifecycle and reclamation contracts | Real native Save/decline/Clear/close with tickets/readers, exhaustion and interrupted compaction/relocation; approve numeric budgets/filesystem profiles |
 | G6 | Separately approved Rust session ownership slice | Keep guards, saved content, tickets and uncertainty distinct; review any private protocol cut separately; hosted v1 unchanged |

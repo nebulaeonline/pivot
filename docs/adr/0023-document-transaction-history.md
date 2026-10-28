@@ -7,9 +7,13 @@ G3 indexed-store feasibility active: first baseline accepted; bounded verified-o
 hierarchical authentication/receipt normalization and the owner-authorized dictionary
 comparison accepted. Physical-storage accounting, scalable admission proposal and
 readiness comparison accepted. Engine/VFS and small-bound resource-admission
-qualification authorized, not started. No larger profile or expanded workload enabled.
+qualification accepted within stated research limits. One 32K control pilot per native
+target authorized, not started, with the existing 1,024-leaf profile. No 65K/larger
+profile or full 100K G2 authorization; complete physical reservation remains open.
 20% is an optimization aspiration, not an acceptance gate; storage optimization is parked.
 G4–G7 and production history integration remain gated (2026-10-27)**.
+[Engine acceptance and bounded 32K control authorization](../handoffs/2026-10-27-g3-engine-acceptance-32k-authorization.md).
+[Fixed engine/VFS, pre-write admission and native results](../handoffs/2026-10-27-g3-engine-admission-results.md).
 [Accounting acceptance and exact engine/admission qualification assignment](../handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
 [Physical accounting, admission proposal and G3 readiness assessment](../handoffs/2026-10-27-g3-storage-admission-assessment.md).
 [Research acceptance and scalability/storage-efficiency assignment](../handoffs/2026-10-27-g3-hierarchy-dictionary-acceptance.md).

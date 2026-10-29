@@ -58,6 +58,16 @@ Workbooks open and save as local `.pivot` files, preserving every sheet, typed
 content, presentation and stable bindings. The current experimental format is WB9; earlier
 experimental workbook versions are rejected.
 
+CSV import creates a new unsaved workbook; CSV export writes calculated values
+from the selection or active sheet. Text is the default import mode. Optional
+Numbers and Booleans mode preserves quoted Strings and leading-zero integer
+identifiers by default, with independent controls for each conversion policy.
+Quoted empty fields remain empty Strings; unquoted empty fields are Blank. Import
+never executes formulas. Initial admission allows 1,024 live cells, 65,536 CSV
+fields and 4 MiB; excessive imports fail without replacing the current workbook.
+CSV uses UTF-8 and comma separators, with quoted multiline text supported.
+Strings are always quoted on export; other applications may interpret them differently.
+
 The desktop owns a **Rust session process (`pivot-session`)**, communicating through
 framed Protobuf messages over standard input/output. Rust owns workbook state,
 validation and calculation; Avalonia handles presentation and interaction. The .NET

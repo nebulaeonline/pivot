@@ -127,17 +127,33 @@ All 368 validated implementation inputs and active configuration remain intact.
 Parent accepts this retention policy as the ongoing housekeeping standard; no further
 acceptance process is required.
 
-**Owner hold before new feature work (2026-10-29):** wait for Rust and VS Code
-updates, the owner's Git commit/push and a Codex restart. Do not begin CSV design,
-implementation, new tests or another feature until explicitly told to proceed.
+**Owner update hold lifted (2026-10-29):** owner confirms updates and Git
+commit/push complete and explicitly authorizes proceeding. ROBPC locally reports
+Rust `1.101.0-nightly (92ffebece 2026-10-28)`; other host updates are owner-reported.
+The working tree was clean at resumption.
 
-Parent proposes CSV import/export next: separate from native workbook persistence,
+Parent authorizes CSV import/export next: separate from native workbook persistence,
 explicit parsing/type choices, predictable UTF-8, correct quotation/escaping and
 export of calculated values. Make the current 1,024 live-cell limit visible and
 reject excessive imports atomically; no automatic capacity increase is assigned.
-These are future design considerations, not work started or authorized through this
-review response. Row/column insertion/deletion and sorting/filtering remain roadmap
-suggestions. ADR-0023 remains parked at G3.
+[Accepted ADR-0028](adr/0028-csv-import-export.md) now records the bounded CSV
+design: new-workbook import, explicit text/typed modes, strict UTF-8 and comma
+syntax, atomic admission and snapshot-based calculated-value export. Owner/parent
+clarifications preserve leading-zero integer identifiers by default, use quotation
+as a String hint with independent opt-in inference, and preserve empty String versus
+Blank. An all-quoted file offers an explicit choice in typed mode. Implementation
+and headless validation are complete: 171 changed-crate all-feature tests, strict
+workspace Clippy, real .NET sessions and native Windows/Linux/macOS headless CI
+(13/13 each) passed; all 375 implementation inputs match. Ubuntu's disk-full
+attempt remains failed separately from its passing recovery. Managed actual-window
+CSV suites passed on all three targets, four successful application reports per
+target, zero remaining runtime charges and no owned survivors. All 375 desktop
+implementation inputs match the headless-qualified source and current tree.
+The milestone is ready for parent implementation review. No new Native AOT pass
+or parent implementation acceptance is claimed.
+[Single implementation handoff and validation evidence](handoffs/2026-10-29-csv-import-export.md).
+Row/column insertion/deletion and sorting/filtering remain roadmap suggestions.
+ADR-0023 remains parked at G3.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
 define a deliberate support commitment. WB9-only is the current experimental

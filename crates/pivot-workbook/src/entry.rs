@@ -1,5 +1,19 @@
 //! Rust-authoritative single-line worksheet entry admission.
 use super::*;
+/// Literal String values may contain CSV line breaks and tabs. Editors retain
+/// their existing single-line admission; this validates stored value content.
+pub fn validate_value_text(text: &str, limit: usize) -> Result<()> {
+    if text.len() > limit {
+        return Err(Error::Limit);
+    }
+    if text.chars().any(|ch| {
+        (ch.is_control() && !matches!(ch, '\r' | '\n' | '\t'))
+            || matches!(ch, '\u{2028}' | '\u{2029}')
+    }) {
+        return Err(Error::InvalidTarget);
+    }
+    Ok(())
+}
 pub(crate) fn validate_text(text: &str, limit: usize) -> Result<()> {
     if text.len() > limit {
         return Err(Error::Limit);

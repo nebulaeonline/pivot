@@ -29,6 +29,7 @@ static async Task CancelledAfterDispatch(WorkbookSession session, Func<Cancellat
     try { await Cancelled(action(cancel.Token)); }
     finally { session.RequestDispatchedForTesting = null; }
 }
+await CsvChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await RoundingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await FormattingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await TypedChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());

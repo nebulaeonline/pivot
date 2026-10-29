@@ -913,11 +913,7 @@ impl Document {
                             if text.len() > 4096 {
                                 return Err(malformed());
                             }
-                            pivot_workbook::entry::classify(
-                                Position::new(1, 1),
-                                &format!("'{text}"),
-                                4097,
-                            )?;
+                            pivot_workbook::entry::validate_value_text(text, 4096)?;
                             pivot_core::typed::Op::String(text.clone())
                         }
                         Content::Boolean(b) => pivot_core::typed::Op::Boolean(*b),

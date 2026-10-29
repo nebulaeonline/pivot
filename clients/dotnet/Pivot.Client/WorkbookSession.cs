@@ -189,6 +189,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
         bool acquired = false;
         string? abandonedCapture = null;
         string? abandonedSave = null;
+        string? abandonedCsv = null;
         try {
             await gate.WaitAsync(cancellation).ConfigureAwait(false); acquired = true;
             ObjectDisposedException.ThrowIf(closed, this);
@@ -244,6 +245,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             SavedCheckpoint = response.SavedCheckpoint; IsDirty = response.Dirty;
             InstallationUncertain = response.Uncertain;
             if (cancellation.IsCancellationRequested && response.SaveTicket.Length != 0) abandonedSave = response.SaveTicket;
+            if (cancellation.IsCancellationRequested && response.CsvTicket.Length != 0) abandonedCsv = response.CsvTicket;
             if (response.Closed) { FinalCharge = response.RemainingCharge; closed = true; }
             if (cancellation.IsCancellationRequested && response.Capture.Length != 0) abandonedCapture = response.Capture;
             cancellation.ThrowIfCancellationRequested();
@@ -252,6 +254,10 @@ public sealed partial class WorkbookSession : IAsyncDisposable
         }
         finally {
             if (acquired) gate.Release(); Interlocked.Decrement(ref outstanding);
+            if (abandonedCsv is not null && !closed) {
+                try { await CancelCsvImportAsync(abandonedCsv).ConfigureAwait(false); }
+                catch (Exception e) when (e is IOException or WorkbookSessionException or ObjectDisposedException) { closed = true; StopChild(); }
+            }
             if (abandonedSave is not null && !closed) {
                 try { await CommitSaveAsync(Revision, abandonedSave, abandon: true).ConfigureAwait(false); }
                 catch (Exception e) when (e is IOException or WorkbookSessionException or ObjectDisposedException) { closed = true; StopChild(); }

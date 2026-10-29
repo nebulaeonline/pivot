@@ -15,6 +15,12 @@
         <Button Content="Save" Click="SaveClick" />
         <Button Content="Save As…" Click="SaveAsClick" />
         <Button Content="Close workbook" Click="CloseDocumentClick" />
+        <Menu VerticalAlignment="Center">
+          <MenuItem Header="CSV">
+            <MenuItem Header="Import CSV…" Click="ImportCsvClick" />
+            <MenuItem Header="Export CSV…" Click="ExportCsvClick" />
+          </MenuItem>
+        </Menu>
         <Button Content="Copy" Click="CopyClick" ToolTip.Tip="Copy selected text, or the selected rectangle (up to 256 cells)" />
         <Button Content="Paste" Click="PasteClick" ToolTip.Tip="Paste text into the editor or atomically paste a rectangle" />
         <Menu VerticalAlignment="Center">

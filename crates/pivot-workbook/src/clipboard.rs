@@ -234,7 +234,7 @@ impl Image {
                     output.push_str(if *value { "TRUE" } else { "FALSE" });
                 }
                 Slot::Text(value) => {
-                    crate::entry::validate_text(value, 4096)?;
+                    crate::entry::validate_value_text(value, 4096)?;
                     source_work += value.len() + 1;
                     native.push(4);
                     text(&mut native, value);
@@ -327,7 +327,7 @@ impl Image {
             slots.push(match tag {
                 4 => {
                     let value = r.text()?;
-                    crate::entry::validate_text(&value, 4096)?;
+                    crate::entry::validate_value_text(&value, 4096)?;
                     Slot::Text(value)
                 }
                 5 => {

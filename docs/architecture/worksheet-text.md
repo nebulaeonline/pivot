@@ -1,5 +1,12 @@
 # Document-owned worksheet text
 
+[ADR-0028](../adr/0028-csv-import-export.md) adds CSV interchange with quotation
+provenance and configurable numeric inference. Stored String values may contain
+CR, LF and tabs for CSV data; direct entry retains its single-line restrictions.
+Native WB9, CB4 and Fill preserve those stored values. Other control characters
+and Unicode line/paragraph separators retain their existing rejection policy.
+The sections below preserve earlier milestone history and representation names.
+
 Current source: [ADR-0025](../adr/0025-typed-spreadsheet-values.md) makes literal and
 calculated strings genuine graph values. Boolean/String results, WB8, private v6
 and CB3 supersede the original numeric-marker representation described below.

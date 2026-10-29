@@ -14,6 +14,7 @@ use std::{
 };
 use uuid::Uuid;
 
+mod csv;
 mod projections;
 mod structured;
 
@@ -40,6 +41,7 @@ struct Session {
     saved: Option<pivot_workbook::Expected>,
     checkpoint: String,
     pending: Option<PendingSave>,
+    csv_import: Option<csv::PendingImport>,
     uncertain: bool,
     runtime: Option<IntegrationRuntime>,
     book: Option<Workbook>,
@@ -152,6 +154,7 @@ impl Session {
             saved: None,
             checkpoint: String::new(),
             pending: None,
+            csv_import: None,
             uncertain: false,
             runtime: Some(IntegrationRuntime::standalone().map_err(|e| e.to_string())?),
             book: None,
@@ -162,6 +165,7 @@ impl Session {
     fn close(&mut self) -> Result<u64, String> {
         self.proof_frame.take();
         self.pending.take();
+        self.csv_import.take();
         self.captures.clear();
         self.proof.take();
         self.book.take();
@@ -180,6 +184,16 @@ impl Session {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
+        if matches!(
+            operation,
+            Op::PrepareCsvImport
+                | Op::ImportCsv
+                | Op::ExportCsv
+                | Op::CancelCsvImport
+                | Op::CsvBounds
+        ) {
+            return self.handle_csv(q, r, operation);
+        }
         if matches!(operation, Op::AddSheet | Op::RenameSheet) && self.proof.is_some() {
             return Err("worksheet metadata is unavailable in experimental proof documents".into());
         }
@@ -320,6 +334,7 @@ impl Session {
                     None
                 };
                 self.pending.take();
+                self.csv_import.take();
                 self.captures.clear();
                 self.proof.take();
                 self.book.take();

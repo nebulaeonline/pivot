@@ -596,7 +596,7 @@ impl Transaction<'_> {
                 self.edit(&classified, expected, ordinal)?;
             }
             Edit::SetText { position, text } => {
-                crate::entry::validate_text(text, self.book.limits.source_bytes)?;
+                crate::entry::validate_value_text(text, self.book.limits.source_bytes)?;
                 let id = self.anchor(*position)?;
                 let content = Content::LiteralText(text.clone());
                 if self.data.records.get(&id).unwrap().content.as_ref() != Some(&content) {

@@ -11,6 +11,7 @@ use pivot_types::{DecimalError, PivotDecimal};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 pub mod clipboard;
+pub mod csv;
 mod fill;
 pub mod formatting;
 #[cfg(feature = "history-experiment")]

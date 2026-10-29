@@ -48,6 +48,7 @@ try:
         if not report.get("spreadsheet_aggregates", "").startswith("passed:"): raise SystemExit("Spreadsheet aggregate acceptance missing")
 
         if not report.get("basic_formatting", "").startswith("passed:"): raise SystemExit("Basic formatting acceptance missing")
+        if not report.get("csv", "").startswith("passed:"): raise SystemExit("CSV acceptance missing")
 
         if not report.get("typed_values", "").startswith("passed:"): raise SystemExit("Typed value acceptance missing")
 

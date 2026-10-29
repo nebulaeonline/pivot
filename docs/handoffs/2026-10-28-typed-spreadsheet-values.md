@@ -1,7 +1,8 @@
 # Typed spreadsheet values — ADR-0025 implementation
 
-Date: 2026-10-28. Design accepted; implementation and scoped validation complete,
-ready for parent implementation review. ADR-0023 stays parked.
+Date: 2026-10-28. **Accepted and closed by parent implementation review.**
+Parent accepts the source-qualified validation below; no additional GUI/AOT,
+validation, reconciliation or architecture packet is required. ADR-0023 stays parked.
 
 ## Delivered behavior
 
@@ -95,5 +96,8 @@ Existing worksheet limits and deferred operations from ADR-0024 remain.
 
 WB8 rejects earlier experimental documents; no migration framework is included.
 Establish a deliberate compatibility commitment before users depend on valuable
-saved files. Implementation is complete; stop for parent implementation review with
-this single handoff. Acceptance is not yet claimed. ADR-0023 remains parked at G3.
+saved files. Parent accepted the implementation and explicitly accepted the risk of
+not rerunning GUI/AOT after the Rust admission-only correction. Retain this single
+handoff and the precise source distinction above. The next assignment is a bounded
+basic-formatting design, not implementation or foundational research.
+ADR-0023 remains parked at G3.

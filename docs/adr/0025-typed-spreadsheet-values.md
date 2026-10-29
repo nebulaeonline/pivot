@@ -1,9 +1,11 @@
 # ADR-0025: Typed spreadsheet values
 
-Status: **Accepted with parent clarifications; implementation authorized as one bounded
-feature milestone (2026-10-28).**
-Date: 2026-10-28. Design accepted; implementation and scoped validation complete.
-Implementation acceptance remains pending.
+Status: **Accepted — implementation accepted and milestone closed by parent review
+(2026-10-28), with the recorded GUI/AOT source qualification.**
+Date: 2026-10-28. No additional validation or reconciliation round is required.
+The final Rust source is headless-qualified on all three platforms; earlier GUI/AOT
+runs cover the source preceding the admission-order correction, not a graphical
+execution of the final Rust binary. Parent explicitly accepts this qualification.
 [Implementation handoff and evidence](../handoffs/2026-10-28-typed-spreadsheet-values.md).
 
 ## Decision and scope
@@ -192,7 +194,7 @@ Native AOT serialization; no new platform qualification program. Preserve existi
 numeric and hosted-v1 commitments. Do not accept merely displaying Booleans/strings
 while calculations still use a decimal-only placeholder path.
 
-Parent approved this contract and authorized direct implementation as one milestone.
-Deliver one concise feature handoff with relevant evidence and material limitations,
-then stop for parent implementation review. Formatting follows without waiting for
-Integer/date/time implementation; its metadata must not change these values.
+Parent accepted the implementation and closed this milestone, retaining the single
+feature handoff and its source-qualified evidence. No additional validation round
+is required. Formatting design follows in ADR-0026, without waiting for Integer or
+date/time implementation; formatting must not change these values.

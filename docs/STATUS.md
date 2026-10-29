@@ -48,7 +48,7 @@ charges and no surviving owned processes.
 Parent accepted the implementation and supplied evidence; no additional qualification
 round or reconciliation packet is required. Preserve the original failed reports.
 
-**Typed spreadsheet values: ADR-0025 implemented and validated; ready for parent review.** The parent follow-up
+**Typed spreadsheet values: ADR-0025 accepted and closed by parent review (2026-10-28).** The parent follow-up
 separates definition, value type and display metadata. [Accepted ADR-0025](adr/0025-typed-spreadsheet-values.md)
 defines Decimal96/Boolean/String, Blank/errors, coercion/comparison, short circuit,
 IF/AND/OR/NOT, LEN/MID and concatenation, as one bounded implementation milestone.
@@ -58,8 +58,6 @@ Parent requires genuine canonical demand-driven short circuit, deterministic sca
 Unicode comparisons without normalization, and only necessary WB8/private v6/CB3
 representation changes with explicit rejection and clipboard-ownership validation.
 Current source uses WB8/private v6/CB3 with explicit incompatible-version rejection.
-Focused native regression/desktop evidence and typed .NET Native AOT compatibility
-are required. Deliver one concise handoff and stop for parent implementation review.
 Basic formatting follows; it keeps display rounding separate from calculated values.
 Changed-crate all-feature tests passed (253), strict Clippy passed and final native
 headless CI passed 13/13 on Windows x64/Linux x64/macOS ARM64, including .NET session
@@ -68,8 +66,30 @@ all three targets; native Mac ARM64 AOT publish/execution passed without warning
 GUI/AOT used the prepared source preceding one final Rust-only admission-order fix;
 that fix passed the final native headless and local all-feature runs.
 [Single implementation handoff and source-qualified evidence](handoffs/2026-10-28-typed-spreadsheet-values.md).
-Stop for parent implementation review; no implementation acceptance is claimed.
+Parent explicitly accepts this source qualification: final Rust is headless-qualified
+on all three platforms; the earlier GUI/AOT runs are not graphical execution of the
+final Rust binary. No additional validation or reconciliation packet is required.
 ADR-0023 remains parked at G3.
+
+**Basic formatting: [ADR-0026](adr/0026-basic-cell-formatting.md) design accepted
+with parent clarifications (2026-10-28). Implementation awaits owner go-ahead.**
+Parent authorizes one bounded implementation milestone, but the owner's latest
+instruction limits current work to documentation and explicitly holds new tasks
+until told to proceed. No formatting implementation or new validation has started.
+
+Numeric display precision/rounding, grouping/currency/percentage and basic visual
+styles remain document-owned presentation. Styled blank positions create no graph
+cells. Styles belong to positions: content replacement retains them; explicit Move
+transfers/resets them; Clear retains them. Test these independently of formula identity.
+The initial 4,096 styled-position/per-command bounds are revisable admission policy,
+not intrinsic representation/file-format limits; no capacity increase is assigned.
+Exact coefficient/digit rendering and independent reference cases must cover all
+rounding modes and maximum-value percentages without intermediate arithmetic overflow
+or value mutation. WB9/private v7/CB4 are approved representation directions, not yet
+implemented; current formats remain WB8/private v6/CB3. Retain atomic style/content
+operations, mixed patches, scoped native/AOT validation and one implementation handoff.
+ROUND, Integer/date/time implementation, unrelated infrastructure and ADR-0023 remain
+out of scope. Stop after documentation reconciliation until the owner says proceed.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
 define a deliberate support commitment. WB8-only is the current experimental

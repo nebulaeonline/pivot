@@ -46,8 +46,13 @@ Comparisons and `IF`, `AND`, `OR`, `NOT`, `LEN`, `MID` and `&` support condition
 and text calculations, such as `=IF(A1>0,"In stock","Sold out")`. IF and logical
 functions short-circuit; strings and Booleans are never silently converted to numbers.
 
+A Format pane provides fixed-decimal, grouped, currency and percentage display,
+all seven display rounding modes, bold/italic, alignment and cell colors. Formatting
+keeps exact calculation values intact; even empty regions can be styled without
+creating calculation nodes. Native copy/paste and Fill carry styles with content.
+
 Workbooks open and save as local `.pivot` files, preserving every sheet, typed
-content and stable bindings. The current experimental format is WB8; earlier
+content, presentation and stable bindings. The current experimental format is WB9; earlier
 experimental workbook versions are rejected.
 
 The desktop owns a **Rust session process (`pivot-session`)**, communicating through

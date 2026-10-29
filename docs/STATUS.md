@@ -71,11 +71,23 @@ on all three platforms; the earlier GUI/AOT runs are not graphical execution of 
 final Rust binary. No additional validation or reconciliation packet is required.
 ADR-0023 remains parked at G3.
 
-**Basic formatting: [ADR-0026](adr/0026-basic-cell-formatting.md) design accepted
-with parent clarifications (2026-10-28). Implementation awaits owner go-ahead.**
-Parent authorizes one bounded implementation milestone, but the owner's latest
-instruction limits current work to documentation and explicitly holds new tasks
-until told to proceed. No formatting implementation or new validation has started.
+**Basic formatting: [ADR-0026](adr/0026-basic-cell-formatting.md) implementation complete;
+ready for parent review.** Design accepted with clarifications (2026-10-28).
+Native Windows x64/Linux x64/macOS ARM64 headless CI passed 13/13 each; 161
+workbook/document all-feature tests, strict Clippy and session checks passed.
+Managed actual-window suites passed on all three targets, four reports each,
+zero remaining charges and no owned survivors.
+
+Mac ARM64 Native AOT publishing and four native application runs passed without
+publish warnings. Its original runner gate remains failed on a stale WB8 fixture
+post-check. The corrected WB9 verifier passed focused tests and a read-only audit
+of retained artifacts, unchanged binary hashes, zero charges and process cleanup.
+No GUI rerun or relabeling of the original failed gate is claimed.
+Product code matches the headless-tested source; subsequent differences are desktop
+automation/verifier corrections and a focused verifier test. Exact evidence and
+qualifications are in the [single implementation handoff](handoffs/2026-10-28-basic-cell-formatting.md).
+Earlier failed reports remain preserved. No further run is assigned for these
+verifier-only corrections. Stop for parent review; ADR-0023 remains parked.
 
 Numeric display precision/rounding, grouping/currency/percentage and basic visual
 styles remain document-owned presentation. Styled blank positions create no graph
@@ -85,14 +97,14 @@ The initial 4,096 styled-position/per-command bounds are revisable admission pol
 not intrinsic representation/file-format limits; no capacity increase is assigned.
 Exact coefficient/digit rendering and independent reference cases must cover all
 rounding modes and maximum-value percentages without intermediate arithmetic overflow
-or value mutation. WB9/private v7/CB4 are approved representation directions, not yet
-implemented; current formats remain WB8/private v6/CB3. Retain atomic style/content
+or value mutation. Formatting implementation now uses WB9/private v7/CB4; earlier
+experimental representations are explicitly rejected. Validation is complete with the AOT qualification above. Retain atomic style/content
 operations, mixed patches, scoped native/AOT validation and one implementation handoff.
 ROUND, Integer/date/time implementation, unrelated infrastructure and ADR-0023 remain
-out of scope. Stop after documentation reconciliation until the owner says proceed.
+out of scope. Stop for parent implementation review after the bounded feature is validated.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
-define a deliberate support commitment. WB8-only is the current experimental
+define a deliberate support commitment. WB9-only is the current experimental
 policy; permanent backward incompatibility is not established as a product promise.
 No migration framework is assigned.
 

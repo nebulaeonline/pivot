@@ -176,7 +176,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 6 {
+        if q.version != 7 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -429,6 +429,8 @@ impl Session {
                 | Op::Capture
                 | Op::Calculate
                 | Op::RenameSheet
+                | Op::Format
+                | Op::ReadStyles
         ) {
             let id = WorksheetId::from_uuid(
                 Uuid::parse_str(&q.worksheet).map_err(|_| "worksheet ID required")?,
@@ -570,8 +572,121 @@ impl Session {
                 let after = book
                     .apply_sheet(sheet.unwrap(), before, &edits)
                     .map_err(|e| e.to_string())?;
-                if before != after {
+                if before != after && q.operation != wire::request::Operation::Format as i32 {
                     self.revision = Uuid::new_v4().to_string()
+                }
+                r.revision = self.revision.clone();
+            }
+            Op::ReadStyles => {
+                let first = pos(q.first.as_ref())?;
+                let last = pos(q.last.as_ref())?;
+                book.axes_at_sheet(sheet.unwrap(), first)
+                    .map_err(|e| e.to_string())?;
+                book.axes_at_sheet(sheet.unwrap(), last)
+                    .map_err(|e| e.to_string())?;
+                let height = last.row.checked_sub(first.row).ok_or("invalid rectangle")? as u64 + 1;
+                let width = last
+                    .column
+                    .checked_sub(first.column)
+                    .ok_or("invalid rectangle")? as u64
+                    + 1;
+                if height * width > book.style_limits().command_positions {
+                    return Err("format selection exceeds style command limit".into());
+                }
+                for row in first.row..=last.row {
+                    for column in first.column..=last.column {
+                        let p = Position::new(row, column);
+                        let style = book
+                            .style_at(sheet.unwrap(), p)
+                            .map_err(|e| e.to_string())?;
+                        r.styles.push(wire::StyledPosition {
+                            at: Some(location(p)),
+                            style: style.encode().to_vec(),
+                        });
+                    }
+                }
+            }
+            Op::Format => {
+                if self.proof.is_some() {
+                    return Err("formatting unavailable in proof documents".into());
+                }
+                use pivot_workbook::formatting::{Field, Style, StylePatch};
+                let bits = q.style_fields;
+                if bits & !1023 != 0 {
+                    return Err("unknown style fields".into());
+                }
+                let v = if q.reset_format {
+                    Style::default()
+                } else {
+                    Style::decode(&q.style).map_err(|e| e.to_string())?
+                };
+                let patch = StylePatch {
+                    numeric: if bits & 1 != 0 {
+                        Field::Set(v.numeric)
+                    } else {
+                        Field::Keep
+                    },
+                    places: if bits & 2 != 0 {
+                        Field::Set(v.places)
+                    } else {
+                        Field::Keep
+                    },
+                    rounding: if bits & 4 != 0 {
+                        Field::Set(v.rounding)
+                    } else {
+                        Field::Keep
+                    },
+                    grouping: if bits & 8 != 0 {
+                        Field::Set(v.grouping)
+                    } else {
+                        Field::Keep
+                    },
+                    currency: if bits & 16 != 0 {
+                        Field::Set(v.currency)
+                    } else {
+                        Field::Keep
+                    },
+                    bold: if bits & 32 != 0 {
+                        Field::Set(v.bold)
+                    } else {
+                        Field::Keep
+                    },
+                    italic: if bits & 64 != 0 {
+                        Field::Set(v.italic)
+                    } else {
+                        Field::Keep
+                    },
+                    alignment: if bits & 128 != 0 {
+                        Field::Set(v.alignment)
+                    } else {
+                        Field::Keep
+                    },
+                    foreground: if bits & 256 != 0 {
+                        Field::Set(v.foreground)
+                    } else {
+                        Field::Keep
+                    },
+                    background: if bits & 512 != 0 {
+                        Field::Set(v.background)
+                    } else {
+                        Field::Keep
+                    },
+                };
+                let before = book.expected();
+                book.format_sheet(
+                    sheet.unwrap(),
+                    before,
+                    Rectangle {
+                        first: pos(q.first.as_ref())?,
+                        last: pos(q.last.as_ref())?,
+                    },
+                    patch,
+                    q.reset_format,
+                    &Default::default(),
+                )
+                .map_err(|e| e.to_string())?;
+                if book.expected() != before {
+                    self.revision = Uuid::new_v4().to_string();
                 }
                 r.revision = self.revision.clone();
             }
@@ -606,6 +721,19 @@ impl Session {
                 }
                 r.generation = Uuid::new_v4().to_string();
                 r.capture_identity = r.generation.clone();
+                for row in first.row..=last.row {
+                    for column in first.column..=last.column {
+                        let p = Position::new(row, column);
+                        let style = book
+                            .style_at(sheet.unwrap(), p)
+                            .map_err(|e| e.to_string())?;
+                        // Include defaults too so Mixed selection fields are unambiguous.
+                        r.styles.push(wire::StyledPosition {
+                            at: Some(location(p)),
+                            style: style.encode().to_vec(),
+                        });
+                    }
+                }
                 for cell in cells.cells {
                     let mut view = wire::Cell {
                         at: Some(location(cell.position)),
@@ -661,6 +789,19 @@ impl Session {
                             },
                             Err(e) => view.error = readable_error(e),
                         }
+                    }
+                    if let Some(wire::TypedValue {
+                        kind: Some(wire::typed_value::Kind::Decimal(d)),
+                    }) = &view.result
+                    {
+                        let v = PivotDecimal::from_parts(d.lo, d.mid, d.hi, d.negative, d.scale)
+                            .map_err(|e| e.to_string())?;
+                        view.formatted_number = pivot_workbook::formatting::render_decimal(
+                            v,
+                            book.style_at(sheet.unwrap(), cell.position)
+                                .map_err(|e| e.to_string())?,
+                        )
+                        .map_err(|e| e.to_string())?;
                     }
                     r.cells.push(view);
                 }
@@ -796,7 +937,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 6,
+            version: 7,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -810,7 +951,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .as_ref()
                 .is_some_and(|b| b.is_structured_proof()),
         );
-        if let Err(e) = session.handle(&q, &mut r) {
+        // Retain admission through response encoding for style viewport records,
+        // per-cell formatted strings and the additional encoded presentation bytes.
+        let presentation_lease = if matches!(
+            wire::request::Operation::try_from(q.operation),
+            Ok(wire::request::Operation::Read | wire::request::Operation::ReadStyles)
+        ) {
+            session
+                .runtime
+                .as_ref()
+                .map(|runtime| runtime.memory().reserve(MAX_FRAME))
+        } else {
+            None
+        };
+        if presentation_lease
+            .as_ref()
+            .is_some_and(|lease| lease.is_err())
+        {
+            r.error = "presentation memory limit".into();
+        } else if let Err(e) = session.handle(&q, &mut r) {
             r.error = e;
         }
         let after = (

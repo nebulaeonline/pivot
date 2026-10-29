@@ -25,6 +25,7 @@ internal sealed class DesktopReport
     public ulong? remaining_charge { get; init; }
     public string? rectangular_fill {get;init;}
     public string? multiple_worksheets {get;init;}
+    public string? basic_formatting {get;init;}
     public string? typed_values {get;init;}
     public string? spreadsheet_aggregates {get;init;}
     public string? worksheet_binding {get;init;}

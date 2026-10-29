@@ -70,8 +70,14 @@ but commits must carry the state against which that display was resolved. Submit
 one bounded edit/paste operation; preserve the local editor on conflicts instead
 of silently resubmitting against new coordinates.
 
-Formatting/rendering belongs in the client or a shared presentation formatter,
-using exact authoritative values and format metadata. It must not interpret or
+ADR-0026 implements exact numeric display in the Rust workbook formatter. Private
+session v7 returns bounded position-style records independently of populated cells
+and a separate formatted numeric string alongside the unchanged authoritative typed
+value. The Avalonia grid applies emphasis, alignment and opaque RGB colors; editors
+still use exact content/effective formula source. The Format pane reads at most the
+configured style-command bound, reports Mixed and submits only touched fields.
+All frames retain existing document/sheet/revision/view-epoch guards.
+Formatting/rendering uses exact authoritative values and document-owned metadata. It must not interpret or
 calculate formulas. Future Avalonia virtualization can consume these batches and
 geometry independently of core graph internals. Drawing and calculation run without
 holding the workbook edit gate.

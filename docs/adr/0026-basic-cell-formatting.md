@@ -1,8 +1,8 @@
 # ADR-0026: Basic cell formatting
 
 Status: **Design accepted with parent clarifications (2026-10-28).**
-Parent authorizes one bounded implementation milestone. **Implementation is on hold
-by the owner's latest instruction until explicitly told to proceed; no code has started.**
+**Implementation complete with owner go-ahead (2026-10-28); parent implementation
+review pending.** [Single handoff and qualified validation evidence](../handoffs/2026-10-28-basic-cell-formatting.md).
 Date: 2026-10-28. ADR-0025 is accepted and closed, with its recorded source qualification.
 
 ## Decision and scope
@@ -170,8 +170,7 @@ behavior/builds; no sheet history or ADR-0023 work is implied.
 
 ## Implementation and acceptance
 
-Parent approved direct implementation as one vertical slice, subject to the owner
-hold above: sparse metadata/atomic
+Parent approved direct implementation as one vertical slice, with owner go-ahead: sparse metadata/atomic
 commands and exact rendering; session/viewport/UI integration; clipboard/Fill/Move
 and native persistence; focused automated regression evidence. Deliver one concise
 implementation handoff and stop for parent implementation review.

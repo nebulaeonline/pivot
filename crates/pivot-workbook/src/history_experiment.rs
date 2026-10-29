@@ -40,6 +40,9 @@ impl Workbook {
         self.core.history_metrics().map_err(graph_error)
     }
     pub fn history_weight(&self) -> Result<usize> {
+        if self.styled_positions() != 0 {
+            return Err(Error::InvalidTarget);
+        }
         self.history_metrics()?
             .weight
             .checked_add(persistent::history_weight(self)?)

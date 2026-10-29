@@ -8,7 +8,7 @@ pub const MAX_BYTES: usize = 256 * 1024;
 const MAX_SOURCE: usize = 128 * 1024;
 const MAX_TOKENS: usize = 16_384;
 const MAX_REFERENCES: usize = 8192;
-const MAGIC: &[u8] = b"PIVOTCB3";
+const MAGIC: &[u8] = b"PIVOTCB4";
 
 #[derive(Debug)]
 pub struct ClipboardBlock {
@@ -32,6 +32,7 @@ struct Image {
     height: u32,
     width: u32,
     slots: Vec<Slot>,
+    styles: Vec<formatting::Style>,
 }
 fn invalid() -> Error {
     Error::Graph("invalid or unsupported clipboard block".into())
@@ -218,6 +219,7 @@ impl Image {
         let mut token_work = 0;
         let mut reference_work = 0;
         for (i, slot) in self.slots.iter().enumerate() {
+            native.extend(self.styles[i].encode());
             if i > 0 {
                 output.push(if i % self.width as usize == 0 {
                     '\n'
@@ -318,7 +320,9 @@ impl Image {
             return Err(invalid());
         }
         let mut slots = Vec::new();
+        let mut styles = Vec::new();
         for _ in 0..height * width {
+            styles.push(formatting::Style::decode(r.take(17)?)?);
             let tag = r.take(1)?[0];
             slots.push(match tag {
                 4 => {
@@ -380,6 +384,7 @@ impl Image {
             height,
             width,
             slots,
+            styles,
         };
         image.encode()?;
         Ok(image)
@@ -436,6 +441,7 @@ impl Image {
             first: Position::new(1, 1),
             height: rows.len() as u32,
             width: width.unwrap() as u32,
+            styles: vec![formatting::Style::default(); slots.len()],
             slots,
         })
     }
@@ -587,6 +593,13 @@ impl Workbook {
             first: rectangle.first,
             height,
             width,
+            styles: (rectangle.first.row..=rectangle.last.row)
+                .flat_map(|r| {
+                    (rectangle.first.column..=rectangle.last.column)
+                        .map(move |c| Position::new(r, c))
+                })
+                .map(|p| self.style_at(self.worksheet, p))
+                .collect::<Result<Vec<_>>>()?,
             slots,
         }
         .encode()
@@ -646,6 +659,7 @@ impl Workbook {
         let dr = i64::from(rectangle.first.row) - i64::from(image.first.row);
         let dc = i64::from(rectangle.first.column) - i64::from(image.first.column);
         let mut edits = Vec::new();
+        let mut styles = Vec::new();
         let mut source_work = 0;
         let mut token_work = 0;
         let mut reference_work = 0;
@@ -654,6 +668,9 @@ impl Workbook {
                 rectangle.first.row + i as u32 / image.width,
                 rectangle.first.column + i as u32 % image.width,
             );
+            if native {
+                styles.push((position, image.styles[i]));
+            }
             edits.push(match slot {
                 Slot::Text(text) => {
                     source_work += text.len() + 1;
@@ -725,7 +742,7 @@ impl Workbook {
                 }
             });
         }
-        self.apply_cancelled(expected, &edits, cancel)?;
+        persistent::apply_styled(self, expected, &edits, &styles, cancel, false)?;
         Ok(Rectangle {
             first: rectangle.first,
             last,

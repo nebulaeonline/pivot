@@ -39,11 +39,11 @@ static class ClipboardChecks
    Check(At(await target.ReadAsync(P(10,10),P(10,10)),10,10).Formula=="=B2+1","External formula remains literal");
    await target.ApplyAsync(target.Revision,[F(20,1,"=1+2")]);
    var rejected=(await target.CopyBlockAsync(target.Revision,P(20,1),P(20,1))).Clipboard.ToByteArray();
-   rejected[24]=3; // Explicit bounded non-executable draft kind; no reference annotations.
+   rejected[24+17]=3; // Explicit bounded non-executable draft kind; no reference annotations.
    await target.PasteBlockAsync(target.Revision,P(20,2),P(20,2),rejected,true);
    Check(At(await target.ReadAsync(P(20,2),P(20,2)),20,2).Error.Length>0,"Copied rejected text cannot auto-promote despite valid syntax");
    string root=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"pivot-clipboard-"+Guid.NewGuid());Directory.CreateDirectory(root);string path=Path.Combine(root,"clipboard.pivot");
-   await target.SaveAsync(target.Revision,path);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..8])=="PIVOTWB8","WB5 format");
+   await target.SaveAsync(target.Revision,path);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..8])=="PIVOTWB9","WB5 format");
    await target.OpenAsync(target.Revision,path,discard:true);
    Check(At(await target.ReadAsync(P(20,2),P(20,2)),20,2).Error.Length>0,"WB3 preserves constrained rejected draft state");
    Check(At(await target.ReadAsync(P(8,7),P(8,7)),8,7).Formula=="=SUM($B$2:F8)","WB3 restores dollar-axis source and selection binding");

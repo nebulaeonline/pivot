@@ -12,6 +12,7 @@ use std::collections::BTreeSet;
 use uuid::Uuid;
 pub mod clipboard;
 mod fill;
+pub mod formatting;
 #[cfg(feature = "history-experiment")]
 pub mod history_experiment;
 mod persistent;
@@ -246,6 +247,7 @@ pub struct Expected {
 }
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
+    pub styles: formatting::StyleLimits,
     pub rows: u32,
     pub columns: u32,
     pub live_cells: usize,
@@ -260,6 +262,7 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
+            styles: formatting::StyleLimits::default(),
             rows: 1024,
             columns: 1024,
             live_cells: 1024,

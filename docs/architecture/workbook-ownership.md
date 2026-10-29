@@ -3,6 +3,10 @@
 Current implementation: [ADR-0024](../adr/0024-multiple-worksheets.md) provides an
 ordered directory of up to 16 worksheets over one canonical graph. Positions and
 axes are sheet-local; cell identities, captures and resource budgets are workbook-wide.
+[ADR-0026](../adr/0026-basic-cell-formatting.md) adds a separate sparse persistent
+position-style index. Styled blanks allocate no content or computational identities.
+Clear retains styles; Move transfers/resets them; native Paste and Fill publish styles
+and content atomically. Style edits change workbook state without graph revisions.
 The single-sheet proof descriptions below record the original ADR-0010 foundation.
 
 Status: Accepted structural architecture under ADR-0010. Slice A now provides the dedicated

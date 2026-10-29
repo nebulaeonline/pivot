@@ -100,7 +100,9 @@ impl Workbook {
         poll(cancel)?;
         let mut work = Work::default();
         let mut edits = Vec::new();
+        let mut styles = Vec::new();
         for (from, at) in pairs {
+            styles.push((at, self.style_at(self.worksheet, from)?));
             poll(cancel)?;
             let edit = self.plan_duplicate(&capture, from, at, &mut work)?;
             if !self.duplicate_unchanged(&capture, &edit)? {
@@ -109,10 +111,7 @@ impl Workbook {
         }
         drop(capture);
         poll(cancel)?;
-        if edits.is_empty() {
-            return Ok(expected);
-        }
-        persistent::apply_fill(self, expected, &edits, cancel)
+        persistent::apply_styled(self, expected, &edits, &styles, cancel, true)
     }
     fn plan_duplicate(
         &self,

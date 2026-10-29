@@ -205,7 +205,7 @@ fn mixed_native_and_tsv_roundtrip_overlap_and_bad_version() {
                 },
             )
             .unwrap();
-        assert!(block.native.starts_with(b"PIVOTCB3"));
+        assert!(block.native.starts_with(b"PIVOTCB4"));
         assert_eq!(block.text, "''Hello\t'001.20\t'=A1\t2\t=D1+1");
         for (row, bytes, native) in [
             (2, block.native.as_slice(), true),

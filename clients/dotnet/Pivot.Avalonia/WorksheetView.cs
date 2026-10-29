@@ -18,6 +18,9 @@ public sealed partial class WorksheetView : Control
     public const int Rows = 20, Columns = 10;
     private const double Header = 48, WidthPerCell = 94, HeightPerCell = 26;
     private readonly Dictionary<(uint, uint), Cell> cells = [];
+    private readonly Dictionary<(uint,uint),CellStyle> styles=[];
+    public CellStyle StyleAt(Position at)=>styles.GetValueOrDefault((at.Row,at.Column))??new();
+    public void SetStyles(IEnumerable<StyledPosition> values) {styles.Clear();foreach(var v in values)styles[(v.At.Row,v.At.Column)]=CellStyle.Decode(v.Style);InvalidateVisual();}
     private TaskCompletionSource<TimeSpan>? paint;
     private long paintStart;
     private bool awaitingPaint;
@@ -48,7 +51,7 @@ public sealed partial class WorksheetView : Control
         FirstRow=Math.Clamp(firstRow,1,1025-(uint)VisibleRows);FirstColumn=Math.Clamp(firstColumn,1,1025-Columns);
         anchor=new(){Row=Math.Clamp(selectedAnchor.Row,1,1024),Column=Math.Clamp(selectedAnchor.Column,1,1024)};
         active=new(){Row=Math.Clamp(selectedActive.Row,1,1024),Column=Math.Clamp(selectedActive.Column,1,1024)};
-        cells.Clear();InvalidateVisual();
+        cells.Clear();styles.Clear();InvalidateVisual();
     }
     public Cell? SelectedCell => cells.GetValueOrDefault((Selected.Row, Selected.Column));
     public WorksheetView() {
@@ -57,7 +60,7 @@ public sealed partial class WorksheetView : Control
         DetachedFromVisualTree += (_, _) => EndPointerSelection(false);
         SizeChanged += (_, _) => {
             FirstRow = Math.Min(FirstRow, TotalVisualRows + 1 - (uint)VisibleRows);
-            cells.Clear(); ViewportChanged?.Invoke();
+            cells.Clear();styles.Clear(); ViewportChanged?.Invoke();
         };
     }
     protected override Size MeasureOverride(Size availableSize) => new(Header + Columns * WidthPerCell,
@@ -66,7 +69,7 @@ public sealed partial class WorksheetView : Control
     {
         paint?.TrySetCanceled(); paint = new(TaskCreationOptions.RunContinuationsAsynchronously);
         paintStart = Stopwatch.GetTimestamp(); awaitingPaint = true;
-        cells.Clear(); foreach (var cell in values) cells[(cell.At.Row, cell.At.Column)] = cell;
+        cells.Clear();styles.Clear(); foreach (var cell in values) cells[(cell.At.Row, cell.At.Column)] = cell;
         InvalidateVisual();
     }
     public void Scroll(int rows, int columns = 0)
@@ -74,7 +77,7 @@ public sealed partial class WorksheetView : Control
         uint r = (uint)Math.Clamp((int)FirstRow + rows, 1, (int)TotalVisualRows + 1 - VisibleRows);
         uint c = (uint)Math.Clamp((int)FirstColumn + columns, 1, 1025 - Columns);
         if (r == FirstRow && c == FirstColumn) return;
-        FirstRow = r; FirstColumn = c; cells.Clear(); InvalidateVisual(); ViewportChanged?.Invoke();
+        FirstRow = r; FirstColumn = c; cells.Clear();styles.Clear(); InvalidateVisual(); ViewportChanged?.Invoke();
     }
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
@@ -178,7 +181,9 @@ public sealed partial class WorksheetView : Control
             if(row>=0 && ProjectionFrame is not null)r=MappedRow(row)!.OrdinaryRow;
             bool selected = row >= 0 && col >= 0 && r == active.Row && c == active.Column;
             bool region = row >= 0 && col >= 0 && r>=first.Row && r<=last.Row && c>=first.Column && c<=last.Column;
-            var fill=row<0 || col<0 ? Brushes.WhiteSmoke : selected ? Brushes.White : region ? ActiveFocus ? Brushes.AliceBlue : Brushes.WhiteSmoke : Brushes.White;
+            var style=row>=0&&col>=0 ? StyleAt(new Position{Row=r,Column=c}) : new CellStyle();
+            IBrush fill=row<0 || col<0 ? Brushes.WhiteSmoke : selected ? Brushes.White : region ? ActiveFocus ? Brushes.AliceBlue : Brushes.WhiteSmoke : Brushes.White;
+            if(style.Background is uint bg)fill=new SolidColorBrush(Color.FromUInt32(0xff000000|bg));
             context.DrawRectangle(fill, selected ? new Pen(ActiveFocus ? Brushes.DodgerBlue : Brushes.SlateGray,2) : border,rect);
             string text = ""; IBrush ink = Brushes.Black;
             if (row < 0 && col >= 0) text = Address(new Position { Row = 1, Column = c }).TrimEnd('1');
@@ -186,10 +191,16 @@ public sealed partial class WorksheetView : Control
             else if (row >= 0 && col >= 0 && cells.TryGetValue((r, c), out var cell)) {
                 if (cell.Error.Length > 0) { text = "#ERROR"; ink = Brushes.Firebrick; }
                 else if (cell.ContentCase == Cell.ContentOneofCase.Text) text = cell.Text;
-                else if (cell.ContentCase != Cell.ContentOneofCase.Blank) text = WorkbookSession.DisplayValue(cell);
+                else if (cell.ContentCase != Cell.ContentOneofCase.Blank) text = cell.FormattedNumber.Length>0 ? cell.FormattedNumber : WorkbookSession.DisplayValue(cell);
             }
-            using (context.PushClip(rect.Deflate(3)))
-                context.DrawText(new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Inter"), 13, ink), new Point(x + 5, y + 4));
+            if(style.Foreground is uint fg)ink=new SolidColorBrush(Color.FromUInt32(0xff000000|fg));
+            var typeface=new Typeface("Inter",style.Italic?FontStyle.Italic:FontStyle.Normal,style.Bold?FontWeight.Bold:FontWeight.Normal);
+            var formatted=new FormattedText(text,CultureInfo.InvariantCulture,FlowDirection.LeftToRight,typeface,13,ink);
+            int align=style.Alignment;
+            if(align==0 && row>=0 && col>=0 && cells.TryGetValue((r,c),out var content))
+                align=content.Error.Length>0?1:content.Result?.KindCase==TypedValue.KindOneofCase.Decimal?3:content.Result?.KindCase==TypedValue.KindOneofCase.Boolean?2:1;
+            double left=align==3?Math.Max(x+5,x+rect.Width-5-formatted.Width):align==2?Math.Max(x+5,x+(rect.Width-formatted.Width)/2):x+5;
+            using (context.PushClip(rect.Deflate(3))) context.DrawText(formatted,new Point(left,y+4));
         }
         if(HasRegion && ProjectionFrame is null) {
             var begin=CellBounds(first); var end=CellBounds(last);

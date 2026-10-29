@@ -21,6 +21,7 @@ pub struct SheetRecord {
     pub column_count: u32,
 }
 pub struct PortableWorkbook {
+    pub styles: Vec<(WorksheetId, Position, formatting::Style)>,
     pub sheets: Vec<SheetRecord>,
     pub worksheet: WorksheetId,
     pub graph_id: Uuid,
@@ -146,6 +147,7 @@ impl Workbook {
             })
             .collect();
         Ok(PortableWorkbook {
+            styles: self.styles().collect(),
             sheets: self
                 .sheets()
                 .iter()
@@ -472,6 +474,25 @@ impl Workbook {
             return Err(Error::InvalidTarget);
         }
         let sheet_ids: BTreeSet<_> = image.sheets.iter().map(|s| s.id).collect();
+        if image.styles.len() > limits.styles.positions {
+            return Err(Error::Limit);
+        }
+        for &(sheet, p, style) in &image.styles {
+            style.validate()?;
+            if !sheet_ids.contains(&sheet)
+                || p.row == 0
+                || p.column == 0
+                || p.row > limits.rows
+                || p.column > limits.columns
+                || style == formatting::Style::default()
+                || data.styles.contains_key(&sheets::at(sheet, p))
+            {
+                return Err(Error::InvalidTarget);
+            }
+            data.styles
+                .insert(sheets::at(sheet, p), style)
+                .map_err(|_| Error::Limit)?;
+        }
         let mut cells = BTreeSet::new();
         let mut ids = BTreeSet::new();
         for (slot, (id, node, r)) in image.cells.iter().enumerate() {

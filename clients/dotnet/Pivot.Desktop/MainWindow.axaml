@@ -62,6 +62,7 @@
         <TextBox x:Name="MoveTarget" Width="100" PlaceholderText="Move to B22" />
         <Button x:Name="MoveButton" Content="Move selected" Click="MoveClick" />
       </StackPanel>
+      <Expander x:Name="FormatPane" Header="Format selection" HorizontalAlignment="Stretch"><StackPanel x:Name="FormatFields" Spacing="6" /></Expander>
       <TextBlock x:Name="SelectionLabel" FontSize="11" TextWrapping="Wrap" />
       <TextBlock Text="Drag or Shift+click/arrows to select · Type to replace · F2/double-click to edit · Enter/Tab/arrows commit · Escape to cancel" />
     </StackPanel>

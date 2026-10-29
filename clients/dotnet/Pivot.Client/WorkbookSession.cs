@@ -14,7 +14,7 @@ public sealed class WorkbookSessionException(string message, bool conflict = fal
 /// <summary>One owned Rust child, one workbook, at most eight outstanding callers.
 /// Cancellation before dispatch prevents execution. After dispatch we drain the reply,
 /// update known committed state, then discard the cancelled caller's result. No replay.</summary>
-public sealed class WorkbookSession : IAsyncDisposable
+public sealed partial class WorkbookSession : IAsyncDisposable
 {
     public const int MaximumFrame = 1_048_576;
     private readonly Process process;
@@ -196,7 +196,7 @@ public sealed class WorkbookSession : IAsyncDisposable
             cancellation.ThrowIfCancellationRequested();
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 6; request.Id = ++sequence;
+            request.Version = 7; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -220,7 +220,7 @@ public sealed class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 6 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 7 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
                 foreach(var cell in response.Cells) ValidateResult(cell);
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {

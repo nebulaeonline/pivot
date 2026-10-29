@@ -14,6 +14,7 @@ pub(super) struct Data {
     pub(crate) directory: Option<structured::Directory>,
     pub(crate) adapter: Option<Shared<structured::Adapter>>,
     annotations: Index<CellId, structured::StructuredContent>,
+    pub(super) styles: Index<sheets::SheetPosition, formatting::Style>,
     pub(super) positions: Index<sheets::SheetPosition, CellId>,
     pub(super) sheets: Option<Shared<sheets::Directory>>,
     pub(super) records: Index<CellId, Shared<Record>>,
@@ -88,6 +89,7 @@ impl Data {
             adapter: None,
             annotations: Index::new(memory.clone()),
             sheets: None,
+            styles: Index::new(memory.clone()),
             positions: Index::new(memory.clone()),
             records: Index::new(memory.clone()),
             bindings: Index::new(memory.clone()),
@@ -111,6 +113,7 @@ impl Data {
                 + self.tokens * std::mem::size_of::<Token>()
                 + self.source
                 + self.metadata
+                + self.styles.len() * 128
                 + self.sheets.as_ref().map_or(0, |s| s.heap_bytes()),
         }
     }
@@ -809,6 +812,20 @@ impl Transaction<'_> {
                     .positions
                     .insert_private(sheets::at(self.book.worksheet, *to), id)
                     .map_err(|_| Error::Limit)?;
+                let source = sheets::at(self.book.worksheet, *from);
+                let destination = sheets::at(self.book.worksheet, *to);
+                let style = self.data.styles.get(&source).copied();
+                self.data.styles.remove(&source).map_err(|_| Error::Limit)?;
+                self.data
+                    .styles
+                    .remove(&destination)
+                    .map_err(|_| Error::Limit)?;
+                if let Some(style) = style {
+                    self.data
+                        .styles
+                        .insert(destination, style)
+                        .map_err(|_| Error::Limit)?;
+                }
                 let mut record = (**self.data.records.get(&id).unwrap()).clone();
                 record.position = Some(*to);
                 self.data.record(id, record)?;
@@ -861,21 +878,13 @@ impl Transaction<'_> {
             .all(|p| self.data.positions.get(p) == original.positions.get(p))
     }
 }
-pub(super) fn apply_fill(
-    book: &mut Workbook,
-    expected: Expected,
-    edits: &[Edit],
-    cancel: &CancellationToken,
-) -> Result<Expected> {
-    apply_mode(book, expected, edits, cancel, true)
-}
 fn apply(
     book: &mut Workbook,
     expected: Expected,
     edits: &[Edit],
     cancel: &CancellationToken,
 ) -> Result<Expected> {
-    apply_mode(book, expected, edits, cancel, false)
+    apply_mode(book, expected, edits, cancel, false, &[])
 }
 fn apply_mode(
     book: &mut Workbook,
@@ -883,9 +892,22 @@ fn apply_mode(
     edits: &[Edit],
     cancel: &CancellationToken,
     reject_cycles: bool,
+    styles: &[(Position, formatting::Style)],
 ) -> Result<Expected> {
     let _profile = profile::scope(11);
     book.check(expected)?;
+    if styles
+        .iter()
+        .any(|(_, s)| *s != formatting::Style::default())
+    {
+        if book.is_structured_proof() {
+            return Err(Error::InvalidTarget);
+        }
+        #[cfg(feature = "history-experiment")]
+        if book.history_active {
+            return Err(Error::InvalidTarget);
+        }
+    }
     {
         let _profile = profile::scope(8);
         book.preflight(edits)?;
@@ -958,7 +980,29 @@ fn apply_mode(
         }
         tx.edit(edit, expected, ordinal)?;
     }
-    if tx.same() {
+    let mut styles_changed = false;
+    for &(p, style) in styles {
+        book.axes_at(p)?;
+        style.validate()?;
+        let key = sheets::at(book.worksheet, p);
+        if tx.data.styles.get(&key).copied().unwrap_or_default() != style {
+            styles_changed = true;
+            if style == formatting::Style::default() {
+                tx.data.styles.remove(&key).map_err(|_| Error::Limit)?;
+            } else {
+                tx.data
+                    .styles
+                    .insert(key, style)
+                    .map_err(|_| Error::Limit)?;
+            }
+        }
+    }
+    if tx.data.styles.len() > book.limits.styles.positions
+        || tx.data.stats().estimated_owned_bytes > book.limits.bytes
+    {
+        return Err(Error::Limit);
+    }
+    if tx.same() && !styles_changed {
         return Ok(expected);
     }
     for position in tx.journal.positions.iter() {
@@ -1376,4 +1420,15 @@ pub(super) fn history_weight(book: &Workbook) -> Result<usize> {
         + d.bindings.len() as u128 * Index::<CellId, Binding>::history_entry_header() as u128
         + d.nodes.len() as u128 * Index::<NodeId, CellId>::history_entry_header() as u128;
     usize::try_from(bytes).map_err(|_| Error::Exhausted)
+}
+
+pub(super) fn apply_styled(
+    book: &mut Workbook,
+    expected: Expected,
+    edits: &[Edit],
+    styles: &[(Position, formatting::Style)],
+    cancel: &CancellationToken,
+    reject_cycles: bool,
+) -> Result<Expected> {
+    apply_mode(book, expected, edits, cancel, reject_cycles, styles)
 }

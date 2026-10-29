@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 4 * 1024 * 1024;
-const MAGIC: &[u8; 8] = b"PIVOTWB8";
+const MAGIC: &[u8; 8] = b"PIVOTWB9";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -485,6 +485,13 @@ impl Document {
             w.id(sheet.columns);
             w.n(sheet.column_count.into());
         }
+        w.n(projection.styles.len() as u64);
+        for (sheet, p, style) in &projection.styles {
+            w.id(sheet.uuid());
+            w.n(p.row.into());
+            w.n(p.column.into());
+            w.bytes(&style.encode());
+        }
         w.bytes(&graph);
         w.n(1); // Explicit coordinate-area / checked row-major SUM policy.
         w.n(projection.graph.identities.len() as u64);
@@ -615,10 +622,10 @@ impl Document {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Limit);
         }
-        for version in ["WB1", "WB2", "WB3", "WB4", "WB5", "WB6"] {
+        for version in ["WB1", "WB2", "WB3", "WB4", "WB5", "WB6", "WB7", "WB8"] {
             if bytes.starts_with(format!("PIVOT{version}").as_bytes()) {
                 return Err(Error::Graph(format!(
-                    "unsupported native workbook version {version}; WB7 required"
+                    "unsupported native workbook version {version}; WB9 required"
                 )));
             }
         }
@@ -667,6 +674,24 @@ impl Document {
             || rows.namespace == columns.namespace
         {
             return Err(malformed());
+        }
+        let mut styles = Vec::new();
+        let mut style_keys = BTreeSet::new();
+        for _ in 0..r.count(limits.styles.positions)? {
+            let sheet = WorksheetId::from_uuid(r.id()?);
+            let p = Position::new(r.u32()?, r.u32()?);
+            let style = pivot_workbook::formatting::Style::decode(r.bytes(17)?)?;
+            if !sheet_ids.contains(&sheet)
+                || p.row == 0
+                || p.column == 0
+                || p.row > limits.rows
+                || p.column > limits.columns
+                || style == Default::default()
+                || !style_keys.insert((sheet, p))
+            {
+                return Err(malformed());
+            }
+            styles.push((sheet, p, style));
         }
         let document =
             storage::decode_document(r.bytes(MAX_BYTES)?, self::limits()).map_err(graph_error)?;
@@ -1214,6 +1239,7 @@ impl Document {
             .collect();
         let book = Workbook::restore_portable(
             PortableWorkbook {
+                styles,
                 sheets,
                 worksheet,
                 graph_id: document.graph.model,

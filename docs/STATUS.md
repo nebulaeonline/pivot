@@ -132,10 +132,11 @@ commit/push complete and explicitly authorizes proceeding. ROBPC locally reports
 Rust `1.101.0-nightly (92ffebece 2026-10-28)`; other host updates are owner-reported.
 The working tree was clean at resumption.
 
-Parent authorizes CSV import/export next: separate from native workbook persistence,
+**CSV import/export: ADR-0028 accepted and closed by parent implementation review
+(2026-10-29).** CSV is separate from native workbook persistence, with
 explicit parsing/type choices, predictable UTF-8, correct quotation/escaping and
-export of calculated values. Make the current 1,024 live-cell limit visible and
-reject excessive imports atomically; no automatic capacity increase is assigned.
+export of calculated values. The current 1,024 live-cell limit is visible and
+excessive imports are rejected atomically; no capacity increase was included.
 [Accepted ADR-0028](adr/0028-csv-import-export.md) now records the bounded CSV
 design: new-workbook import, explicit text/typed modes, strict UTF-8 and comma
 syntax, atomic admission and snapshot-based calculated-value export. Owner/parent
@@ -149,11 +150,23 @@ attempt remains failed separately from its passing recovery. Managed actual-wind
 CSV suites passed on all three targets, four successful application reports per
 target, zero remaining runtime charges and no owned survivors. All 375 desktop
 implementation inputs match the headless-qualified source and current tree.
-The milestone is ready for parent implementation review. No new Native AOT pass
-or parent implementation acceptance is claimed.
+Parent accepts the supplied evidence and the absence of a fresh Native AOT run;
+no additional GUI/AOT, platform qualification or acceptance packet is required.
+The accepted file-installation clarification preserves destinations on errors
+before replacement; an uncertain outcome after a replacement attempt must be
+reported explicitly without claiming success, rollback or unchanged destination.
+No file-broker rewrite is assigned. Retain original failure evidence and follow
+the accepted artifact-retention policy.
 [Single implementation handoff and validation evidence](handoffs/2026-10-29-csv-import-export.md).
 Row/column insertion/deletion and sorting/filtering remain roadmap suggestions.
 ADR-0023 remains parked at G3.
+
+Parent recommends production workbook capacity and identity-allocation scalability
+as the next product priority. Begin with a bounded design establishing targets for
+live cells, allocation identities, CSV import performance and memory while
+preserving persistent-graph correctness. This is a recommendation for the next
+assignment, not an implemented capacity increase or permission to resume history.
+No new scalability design or implementation has started.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
 define a deliberate support commitment. WB9-only is the current experimental

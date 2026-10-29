@@ -1,8 +1,11 @@
 # CSV import/export — ADR-0028 implementation
 
-Date: 2026-10-29. **Implemented; native headless and managed desktop validation
-passed on Windows x64, Linux x64 and macOS ARM64. Parent implementation review
-remains pending.** This is the single feature handoff.
+Date: 2026-10-29. **Accepted and closed by parent implementation review.**
+Native headless and managed desktop validation passed on Windows x64, Linux x64
+and macOS ARM64. Parent accepts this evidence, the export installation contract
+clarification below and the absence of a fresh Native AOT run. No additional
+GUI/AOT, platform qualification or acceptance packet is required. Retain this
+single handoff and the original evidence under the accepted retention policy.
 
 The desktop CSV menu imports into a new unsaved Sheet1 workbook and exports either
 the selection or active sheet content. Native WB9 Open/Save remains separate.
@@ -104,9 +107,13 @@ interpret quoted values and formula-like text differently. File export reuses th
 established native safe-install broker: failures before replacement preserve the
 destination; errors after an attempted atomic replacement retain the broker's
 explicit uncertain-installation outcome. Absolute rollback after a post-install
-filesystem failure is not claimed. This qualification needs parent review against
-the design's blanket failed-export preservation wording.
+filesystem failure is not claimed. Parent accepts this as a clarification of the
+ADR's earlier blanket preservation wording, consistent with native Save. An
+uncertain outcome must not be presented as success, rollback or an unchanged
+destination. No file-broker rewrite is required.
 
 No capacity increase, XLSX, structural editing or history work was added.
-ADR-0023 remains parked at G3. The milestone is ready for parent implementation
-review; no parent implementation acceptance or new Native AOT pass is claimed.
+ADR-0023 remains parked at G3. Parent recommends production workbook capacity and
+identity-allocation scalability as the next product priority, beginning with a
+bounded design for live cells, identities, import performance and memory. This
+recommendation does not reopen history work or authorize a capacity increase.

@@ -1,12 +1,15 @@
 # ADR-0028: CSV import and export
 
 Date: 2026-10-29.
-Status: **Accepted for implementation, with parent and owner clarifications.**
-Implementation review remains pending. The owner authorized proceeding after
-settling leading zeros, quotation and the all-quoted import prompt.
+Status: **Accepted and closed by parent implementation review (2026-10-29).**
+Parent accepts the implementation, quotation/leading-zero contract and supplied
+three-platform headless and managed-desktop evidence. The owner authorized
+implementation after settling leading zeros, quotation and the all-quoted prompt.
 [Implementation handoff and scoped validation](../handoffs/2026-10-29-csv-import-export.md).
 Native Windows x64/Linux x64/macOS ARM64 headless CI and managed actual-window
-suites passed on matching implementation inputs. No new Native AOT pass is claimed.
+suites passed on matching implementation inputs. Parent accepts the absence of a
+fresh Native AOT run because existing pickers and static serialization are reused.
+No additional GUI/AOT, platform qualification or acceptance packet is required.
 
 ## Context
 
@@ -107,8 +110,12 @@ Decimal96 and Boolean without quotes, empty String as `""`, Blank as unquoted em
 Preserve all fields in every selected row, including trailing blanks. Enforce
 65,536 logical fields and a 4 MiB encoded-output limit before replacing a file.
 Stage output in a sibling temporary file and use the existing platform-appropriate
-safe replacement pattern; failure must preserve an existing destination. Clean
-owned temporary files on failure. Native workbook state remains unchanged.
+safe replacement pattern. Errors before replacement preserve an existing
+destination. Successful replacement completes the export. If an error after a
+replacement attempt leaves installation uncertain, explicitly report that outcome;
+do not claim success, rollback or an unchanged destination. Parent accepts this
+clarification as consistent with native Save; no broker rewrite is assigned.
+Clean owned temporary files on failure. Native workbook state remains unchanged.
 
 Show a concise export notice: CSV omits formulas, styles and other sheets. Pivot
 uses quotation as a type hint; other consumers need not respect it.
@@ -147,7 +154,8 @@ checks and desktop lifecycle coverage. Exercise quoted multiline Unicode,
 escaped quotes, trailing blanks, malformed UTF-8/syntax, exact decimal boundaries,
 formula-like strings, ragged rows, each budget boundary and atomic rollback.
 Verify snapshot-consistent calculated exports, dependent formulas, cell errors,
-destination preservation on write failure and native Save/reopen after import.
+destination preservation before replacement, explicit uncertain-installation
+outcomes after replacement attempts and native Save/reopen after import.
 Run native Windows/Linux/macOS headless checks and focused actual-window tests
 for the new controls. AOT validation is warranted if new serialization or picker
 code changes its compatibility. Record what actually ran in one milestone handoff.
@@ -157,7 +165,9 @@ entry keeps its existing single-line checks. Native persistence, native clipboar
 and Fill preserve these values using the existing representations. No new value
 type or encoding is introduced. Other control characters remain rejected.
 
-Implementation and validation evidence belong in the single feature handoff;
-design acceptance does not imply implementation acceptance. Reconsider limits only
+Implementation and validation evidence remain in the single accepted feature
+handoff. Original failed setup and disk-full outcomes remain preserved separately
+from successful recovery. Follow the accepted artifact-retention policy.
+Reconsider limits only
 from a concrete user requirement and measured admission costs. ADR-0023 remains
 parked at G3.

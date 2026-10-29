@@ -3,6 +3,10 @@
 Status: **Accepted and closed by parent implementation review (2026-10-28).**
 [Single handoff and accepted, qualified validation evidence](../handoffs/2026-10-28-basic-cell-formatting.md).
 
+Design-approved successor: [ADR-0030](0030-region-formatting.md) extends formatting to rows,
+columns and stored regions. ADR-0026 remains the accepted implementation until that
+implementation is complete; its exact-value/rendering contract is retained.
+
 Parent accepts the completed sparse formatting implementation, graph-free styled
 blanks, exact display rounding, atomic content/style operations, revisable admission
 policy, native clipboard and WB9 persistence. The supplied Windows x64, Linux x64

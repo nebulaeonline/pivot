@@ -199,28 +199,32 @@ ADR-0028 evidence retains its
 original frozen-source scope; ADR-0029 supersedes its capacity policy only.
 ADR-0023 remains parked at G3.
 
-**Next design priority — layered worksheet formatting.** Parent discussion recommends
-first-class worksheet defaults, row/column formatting, rectangular regions and sparse
-cell overrides before structural row/column insertion/deletion. Current formatting
-is stored per position even for rectangular commands; the accepted 4,096-position
-policy remains until a new design is approved. This is a presentation/document-model
-feature, independent of calculation types, identities and CSV interpretation.
+**Formatting — [ADR-0030](adr/0030-region-formatting.md) design accepted; implementation authorized (2026-10-29).**
+Owner authorized design work and explicitly rejected permanent cell-over-range
+precedence: formatting a selection must change the selected properties on every
+position, including existing individually formatted exceptions. The proposal uses
+latest-action-per-property semantics across cells, rows, columns and rectangles;
+untouched properties remain intact. Sparse disjoint property regions retain current
+assignments rather than formatting history. Explicit defaults and inheritance from
+worksheet defaults remain distinct; neither restores superseded assignments.
 
-The next ADR should settle per-property inheritance and precedence, intersecting
-row/column/range edits and editing order, explicit default versus removing an override,
-indexed sparse representation and bounded overlap normalization. Include atomic
-admission/rollback, viewport resolution, Clear/Move/Copy/Fill/native clipboard,
-Save/reopen compatibility and performance at the accepted worksheet capacity.
-Formatting empty regions must not allocate computational identities or enumerate
-every coordinate. Preserve exact String content such as `001234`; formatting never
-converts value types. Structural insertion/deletion follows with deliberate stable
-reference and position-owned formatting semantics. These are design recommendations,
-not acceptance of a particular precedence algorithm, new encoding or implementation.
+The ADR specifies normalization/indexing, proposed fragment/byte/work quotas,
+atomic operations, viewport/UI behavior, Copy/Fill/Move snapshots, WB10-only
+persistence, private v8 and unchanged CB4, and correctness/performance acceptance.
+Parent accepts initial resource targets subject to measurement. The owner
+withdraws WB9 compatibility: no old reader/conversion/migration; obsolete versions
+are rejected and current fixtures move to WB10. One complete implementation
+milestone is authorized without another design review. Current ADR-0026 behavior
+remains until implementation replaces it. Exact String content such as
+`001234` remains untouched. Structural insertion/deletion follows with deliberate
+stable-reference and region-transformation semantics; ADR-0023 stays parked at G3.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
-define a deliberate support commitment. WB9-only is the current experimental
-policy; permanent backward incompatibility is not established as a product promise.
-No migration framework is assigned.
+define a deliberate support commitment. WB10 will be the sole native format after
+ADR-0030. Until an explicit external
+compatibility commitment is made, justified experimental format changes may break
+compatibility; do not automatically add old readers or migrations. Historical
+artifacts remain evidence, not current test dependencies.
 
 ## Preserved history research record — suspended
 

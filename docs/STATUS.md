@@ -1,6 +1,6 @@
 # Pivot implementation status
 
-Date: 2026-10-28
+Date: 2026-10-29
 
 ## Current direction — spreadsheet features
 
@@ -100,10 +100,44 @@ Exact rendering covers all seven rounding modes and maximum-value percentages
 without intermediate overflow or calculated-value mutation. Current representations
 are WB9/private v7/CB4; older experimental formats are explicitly rejected.
 
-Parent recommends calculation-rounding functions (`ROUND`, `ROUNDUP`, `ROUNDDOWN`)
-as a next feature. CSV import/export, row/column insertion/deletion and sorting/filtering
-remain near-term roadmap suggestions. These are future assignments, not work started
-by this acceptance update; no further feature or history work is begun here.
+**Calculation rounding: [ADR-0027](adr/0027-calculation-rounding-functions.md)
+accepted and closed by parent review (2026-10-29).** ROUND uses nearest
+ties away, ROUNDUP away from zero and ROUNDDOWN toward zero; negative integer digits
+round left of the decimal point. Exact checked Decimal96 results remain independent
+of display rounding. Existing WB9/private v7/CB4 encodings are retained. Native headless CI passed 13/13
+on Windows x64/Linux x64/macOS ARM64, with all
+368 inputs matching. Local all-feature tests passed (268), Clippy passed, and real
+.NET session/error/capture/clipboard/Save-reopen checks passed. Ubuntu recovered from
+native disk exhaustion on the same frozen source; its original failed setup receipt
+remains separate. Interaction/transport are unchanged; no attended GUI/AOT round
+was assigned. [Single implementation handoff](handoffs/2026-10-29-calculation-rounding.md).
+Parent accepts this evidence and the frozen-source recovery without reclassifying
+the original Ubuntu failure. No additional GUI/AOT, migration, platform qualification
+or reconciliation round is required.
+
+Owner also authorized workspace cleanup and historical archival. The
+[artifact retention policy](artifact-retention.md) defines at most two completed run
+product sets per RID/suite, disposable historical build caches, verified report ZIPs,
+and milestone/weekly maintenance. Source and live configuration are protected;
+archival does not change original validation outcomes or reopen closed gates.
+The 2026-10-29 cleanup reduced the shared tree from 105.0 GiB to 1.85 GiB, with
+361 byte-verified ZIP archives (105,075 files). Archive index/manifests and the
+cleanup receipt are under `artifacts/archives/` and `artifacts/workspace-cleanup-summary.json`.
+All 368 validated implementation inputs and active configuration remain intact.
+Parent accepts this retention policy as the ongoing housekeeping standard; no further
+acceptance process is required.
+
+**Owner hold before new feature work (2026-10-29):** wait for Rust and VS Code
+updates, the owner's Git commit/push and a Codex restart. Do not begin CSV design,
+implementation, new tests or another feature until explicitly told to proceed.
+
+Parent proposes CSV import/export next: separate from native workbook persistence,
+explicit parsing/type choices, predictable UTF-8, correct quotation/escaping and
+export of calculated values. Make the current 1,024 live-cell limit visible and
+reject excessive imports atomically; no automatic capacity increase is assigned.
+These are future design considerations, not work started or authorized through this
+review response. Row/column insertion/deletion and sorting/filtering remain roadmap
+suggestions. ADR-0023 remains parked at G3.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
 define a deliberate support commitment. WB9-only is the current experimental

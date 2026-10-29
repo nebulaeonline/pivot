@@ -127,6 +127,70 @@ impl PivotDecimal {
         }
         Ok(Self(self.0.round_dp_with_strategy(places, mode.into())))
     }
+    /// Exact calculation rounding, including positions left of the decimal point.
+    /// Uses one coefficient division; never scales a Decimal96 intermediate.
+    pub fn round_signed_with_mode(
+        self,
+        places: i32,
+        mode: RoundingMode,
+    ) -> Result<Self, DecimalError> {
+        let (lo, mid, hi, negative, scale) = self.parts();
+        let coefficient = u128::from(lo) | (u128::from(mid) << 32) | (u128::from(hi) << 64);
+        if coefficient == 0 {
+            return Ok(Self::ZERO);
+        }
+        if places >= scale as i32 {
+            return Ok(self.normalize());
+        }
+        // More than 29 discarded coefficient digits are strictly below midpoint.
+        let cut = i64::from(scale) - i64::from(places);
+        let (q, remainder, half_order) = if cut > 29 {
+            (0, coefficient, std::cmp::Ordering::Less)
+        } else {
+            let divisor = 10u128.pow(cut as u32);
+            (
+                coefficient / divisor,
+                coefficient % divisor,
+                ((coefficient % divisor) * 2).cmp(&divisor),
+            )
+        };
+        use std::cmp::Ordering::*;
+        let up = match mode {
+            RoundingMode::ToEven => half_order == Greater || (half_order == Equal && q % 2 == 1),
+            RoundingMode::MidpointAwayFromZero => half_order != Less,
+            RoundingMode::MidpointTowardZero => half_order == Greater,
+            RoundingMode::ToZero => false,
+            RoundingMode::AwayFromZero => remainder != 0,
+            RoundingMode::ToNegativeInfinity => negative && remainder != 0,
+            RoundingMode::ToPositiveInfinity => !negative && remainder != 0,
+        };
+        let mut rounded = q + u128::from(up);
+        let output_scale = if places >= 0 {
+            places as u32
+        } else {
+            if rounded == 0 {
+                return Ok(Self::ZERO);
+            }
+            if places < -28 {
+                return Err(DecimalError::Overflow);
+            }
+            let factor = 10u128.pow((-places) as u32);
+            let maximum = (1u128 << 96) - 1;
+            if rounded > maximum / factor {
+                return Err(DecimalError::Overflow);
+            }
+            rounded *= factor;
+            0
+        };
+        Self::from_parts(
+            rounded as u32,
+            (rounded >> 32) as u32,
+            (rounded >> 64) as u32,
+            negative,
+            output_scale,
+        )
+        .map(Self::normalize)
+    }
     /// Remove insignificant fractional zeros, canonicalizing numeric zero.
     pub fn normalize(self) -> Self {
         Self(self.0.normalize())

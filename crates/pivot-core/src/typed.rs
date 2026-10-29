@@ -12,6 +12,9 @@ pub enum Op {
     Not,
     Len,
     Mid,
+    Round,
+    RoundUp,
+    RoundDown,
     Concat,
     Equal,
     NotEqual,
@@ -38,6 +41,9 @@ impl Op {
             Self::LessEqual => 12,
             Self::Greater => 13,
             Self::GreaterEqual => 14,
+            Self::Round => 15,
+            Self::RoundUp => 16,
+            Self::RoundDown => 17,
         }
     }
     pub fn from_code(code: u8) -> Option<Self> {
@@ -55,6 +61,9 @@ impl Op {
             12 => Self::LessEqual,
             13 => Self::Greater,
             14 => Self::GreaterEqual,
+            15 => Self::Round,
+            16 => Self::RoundUp,
+            17 => Self::RoundDown,
             _ => return None,
         })
     }
@@ -66,6 +75,9 @@ impl Op {
             "NOT" => Self::Not,
             "LEN" => Self::Len,
             "MID" => Self::Mid,
+            "ROUND" => Self::Round,
+            "ROUNDUP" => Self::RoundUp,
+            "ROUNDDOWN" => Self::RoundDown,
             _ => return None,
         })
     }
@@ -110,6 +122,12 @@ pub fn condition(value: &V) -> Result<bool, Error> {
 }
 pub(crate) fn validate_argument(op: &Op, index: usize, value: &V) -> Result<(), Error> {
     match op {
+        Op::Round | Op::RoundUp | Op::RoundDown => {
+            let n = number(value)?;
+            if index == 1 {
+                rounding_places(n)?;
+            }
+        }
         Op::Concat | Op::Len => {
             text(value)?;
         }
@@ -145,6 +163,21 @@ fn text(value: &V) -> Result<&str, Error> {
         _ => Err(Error::TypeMismatch),
     }
 }
+fn rounding_places(value: PivotDecimal) -> Result<i32, Error> {
+    let normalized = value.normalize();
+    let (lo, mid, hi, negative, scale) = normalized.parts();
+    if scale != 0 {
+        return Err(Error::InvalidArgument);
+    }
+    // Classify unbounded Decimal96 integer arguments before machine conversion.
+    // >=28 preserves every Decimal96; <=-30 yields zero or checked overflow.
+    let places = if mid != 0 || hi != 0 || lo > 30 {
+        30
+    } else {
+        lo as i32
+    };
+    Ok(if negative { -places } else { places })
+}
 pub fn apply(op: &Op, args: &[V]) -> Result<V, Error> {
     if !op.valid_arity(args.len()) {
         return Err(Error::InvalidArgument);
@@ -156,6 +189,20 @@ pub fn apply(op: &Op, args: &[V]) -> Result<V, Error> {
         Op::And => V::Boolean(args.iter().try_fold(true, |v, a| Ok(v && condition(a)?))?),
         Op::Or => V::Boolean(args.iter().try_fold(false, |v, a| Ok(v || condition(a)?))?),
         Op::Not => V::Boolean(!condition(&args[0])?),
+        Op::Round | Op::RoundUp | Op::RoundDown => {
+            let value = number(&args[0])?;
+            let places = rounding_places(number(&args[1])?)?;
+            let mode = match op {
+                Op::Round => pivot_types::RoundingMode::MidpointAwayFromZero,
+                Op::RoundUp => pivot_types::RoundingMode::AwayFromZero,
+                _ => pivot_types::RoundingMode::ToZero,
+            };
+            V::Decimal(
+                value
+                    .round_signed_with_mode(places, mode)
+                    .map_err(Error::Arithmetic)?,
+            )
+        }
         Op::Len => V::Decimal((text(&args[0])?.chars().count() as i64).into()),
         Op::Concat => {
             let a = text(&args[0])?;

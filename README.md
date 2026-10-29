@@ -44,7 +44,10 @@ Functions include `SUM`, `MIN`, `MAX`, `AVERAGE` and `COUNT`, with rectangular r
 multiple arguments and nested calls: `=SUM('January Sales'!A1:B20, C1:C20, 5)`.
 Comparisons and `IF`, `AND`, `OR`, `NOT`, `LEN`, `MID` and `&` support conditional
 and text calculations, such as `=IF(A1>0,"In stock","Sold out")`. IF and logical
-functions short-circuit; strings and Booleans are never silently converted to numbers.
+functions short-circuit; strings and Booleans are never silently converted to numbers. Calculation
+rounding is explicit: `ROUND`, `ROUNDUP` and `ROUNDDOWN` accept positive or negative
+integer decimal-place arguments, such as `=ROUND(125,-1)` → `130`. They change the
+calculated value; cell number formats change only its presentation.
 
 A Format pane provides fixed-decimal, grouped, currency and percentage display,
 all seven display rounding modes, bold/italic, alignment and cell colors. Formatting
@@ -123,6 +126,7 @@ cross-language decimal/protocol checks and real process communication. See
 [testing](docs/testing.md) for prerequisites, desktop validation and Native AOT.
 
 - [Decimal and expression semantics](docs/architecture/expressions-and-decimals.md)
+- [Build output and artifact retention](docs/artifact-retention.md)
 - [Architecture decisions](docs/adr/README.md)
 - [Development review records](docs/handoffs/)
 

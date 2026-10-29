@@ -69,3 +69,5 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 - [ADR-0025: Typed spreadsheet values](0025-typed-spreadsheet-values.md) — Accepted; implementation and source-qualified evidence accepted by parent review, milestone closed (2026-10-28).
 
 - [ADR-0026: Basic cell formatting](0026-basic-cell-formatting.md) — Accepted; implementation and explicitly qualified macOS AOT evidence accepted by parent review, milestone closed (2026-10-28).
+
+- [ADR-0027: Calculation rounding functions](0027-calculation-rounding-functions.md) — Accepted; implementation and native three-platform evidence accepted by parent review, milestone closed (2026-10-29).

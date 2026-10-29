@@ -171,7 +171,10 @@ impl Capture {
         let mut values = BTreeMap::<NodeId, Answer>::new();
         let mut tasks: Vec<_> = outputs.iter().rev().map(|n| Task::Node(*n)).collect();
         let mut stack = Vec::<Answer>::new();
-        let typed = |node, error| EvaluationError::Typed { node, error };
+        let typed = |node, error| match error {
+            typed::Error::Arithmetic(error) => EvaluationError::Arithmetic { node, error },
+            error => EvaluationError::Typed { node, error },
+        };
         let mut evaluated_nodes = 0;
         while let Some(task) = tasks.pop() {
             if cancelled() {

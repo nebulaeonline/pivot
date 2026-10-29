@@ -78,3 +78,13 @@ See the [execution-policy design and audit](architecture/validation-execution-sa
 for the owner matrix, verification requirements and deferred work. Prior milestone
 receipts remain historical evidence, not authorization to run old GUI commands
 unattended on an active desktop.
+
+
+## Artifact retention
+
+Follow [build output and validation artifact retention](artifact-retention.md):
+keep at most two completed run product sets per RID/suite, discard historical
+compiler caches, and archive older closed evidence with verified manifests.
+Collect results before pruning; keep active runs and live configuration. Check free
+space before full batches and perform maintenance at milestone close and weekly.
+Historical archives do not create a requirement to rerun accepted tests.

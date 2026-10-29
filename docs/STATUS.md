@@ -57,8 +57,9 @@ date/time semantics are explicitly deferred, not inferred from formatting.
 Parent requires genuine canonical demand-driven short circuit, deterministic scalar
 Unicode comparisons without normalization, and only necessary WB8/private v6/CB3
 representation changes with explicit rejection and clipboard-ownership validation.
-Current source uses WB8/private v6/CB3 with explicit incompatible-version rejection.
-Basic formatting follows; it keeps display rounding separate from calculated values.
+That milestone introduced WB8/private v6/CB3; ADR-0026 now supersedes them with
+WB9/private v7/CB4, retaining explicit incompatible-version rejection. Basic
+formatting keeps display rounding separate from calculated values.
 Changed-crate all-feature tests passed (253), strict Clippy passed and final native
 headless CI passed 13/13 on Windows x64/Linux x64/macOS ARM64, including .NET session
 regression. All 356 implementation inputs match. Managed desktop suites passed on
@@ -71,8 +72,8 @@ on all three platforms; the earlier GUI/AOT runs are not graphical execution of 
 final Rust binary. No additional validation or reconciliation packet is required.
 ADR-0023 remains parked at G3.
 
-**Basic formatting: [ADR-0026](adr/0026-basic-cell-formatting.md) implementation complete;
-ready for parent review.** Design accepted with clarifications (2026-10-28).
+**Basic formatting: [ADR-0026](adr/0026-basic-cell-formatting.md) accepted and closed
+by parent implementation review (2026-10-28).**
 Native Windows x64/Linux x64/macOS ARM64 headless CI passed 13/13 each; 161
 workbook/document all-feature tests, strict Clippy and session checks passed.
 Managed actual-window suites passed on all three targets, four reports each,
@@ -86,22 +87,23 @@ No GUI rerun or relabeling of the original failed gate is claimed.
 Product code matches the headless-tested source; subsequent differences are desktop
 automation/verifier corrections and a focused verifier test. Exact evidence and
 qualifications are in the [single implementation handoff](handoffs/2026-10-28-basic-cell-formatting.md).
-Earlier failed reports remain preserved. No further run is assigned for these
-verifier-only corrections. Stop for parent review; ADR-0023 remains parked.
+Parent accepts this evidence and the explicit AOT qualification. The original runner
+outcome is not reclassified; earlier desktop failures and corrections remain preserved.
+No additional qualification, reconciliation or acceptance packet is required.
+ADR-0023 remains parked at G3.
 
-Numeric display precision/rounding, grouping/currency/percentage and basic visual
-styles remain document-owned presentation. Styled blank positions create no graph
-cells. Styles belong to positions: content replacement retains them; explicit Move
-transfers/resets them; Clear retains them. Test these independently of formula identity.
-The initial 4,096 styled-position/per-command bounds are revisable admission policy,
-not intrinsic representation/file-format limits; no capacity increase is assigned.
-Exact coefficient/digit rendering and independent reference cases must cover all
-rounding modes and maximum-value percentages without intermediate arithmetic overflow
-or value mutation. Formatting implementation now uses WB9/private v7/CB4; earlier
-experimental representations are explicitly rejected. Validation is complete with the AOT qualification above. Retain atomic style/content
-operations, mixed patches, scoped native/AOT validation and one implementation handoff.
-ROUND, Integer/date/time implementation, unrelated infrastructure and ADR-0023 remain
-out of scope. Stop for parent implementation review after the bounded feature is validated.
+Numeric and visual formatting is document-owned presentation. Styles belong to
+positions; content replacement/Clear retains them, Move transfers/resets them, and
+native clipboard/Fill carry them atomically. Styled blanks create no graph cells.
+The initial 4,096 style-position/command bounds are revisable admission policy.
+Exact rendering covers all seven rounding modes and maximum-value percentages
+without intermediate overflow or calculated-value mutation. Current representations
+are WB9/private v7/CB4; older experimental formats are explicitly rejected.
+
+Parent recommends calculation-rounding functions (`ROUND`, `ROUNDUP`, `ROUNDDOWN`)
+as a next feature. CSV import/export, row/column insertion/deletion and sorting/filtering
+remain near-term roadmap suggestions. These are future assignments, not work started
+by this acceptance update; no further feature or history work is begun here.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
 define a deliberate support commitment. WB9-only is the current experimental

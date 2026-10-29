@@ -1,8 +1,19 @@
 # ADR-0026: Basic cell formatting
 
-Status: **Design accepted with parent clarifications (2026-10-28).**
-**Implementation complete with owner go-ahead (2026-10-28); parent implementation
-review pending.** [Single handoff and qualified validation evidence](../handoffs/2026-10-28-basic-cell-formatting.md).
+Status: **Accepted and closed by parent implementation review (2026-10-28).**
+[Single handoff and accepted, qualified validation evidence](../handoffs/2026-10-28-basic-cell-formatting.md).
+
+Parent accepts the completed sparse formatting implementation, graph-free styled
+blanks, exact display rounding, atomic content/style operations, revisable admission
+policy, native clipboard and WB9 persistence. The supplied Windows x64, Linux x64
+and macOS ARM64 headless and managed-desktop evidence is sufficient.
+
+The macOS ARM64 Native AOT publish and four native application executions succeeded.
+The original runner gate remains **Failed** on its obsolete WB8 post-check. Parent
+accepts the corrected WB9 verifier and read-only artifact audit as supplementary
+evidence; the original outcome is not reclassified. Earlier desktop automation
+failures and their corrections remain documented. No additional qualification,
+reconciliation or acceptance packet is required. ADR-0023 remains parked at G3.
 Date: 2026-10-28. ADR-0025 is accepted and closed, with its recorded source qualification.
 
 ## Decision and scope

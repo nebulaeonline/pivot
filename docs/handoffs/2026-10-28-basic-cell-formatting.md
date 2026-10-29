@@ -1,7 +1,10 @@
 # Basic cell formatting — ADR-0026 implementation
 
-Date: 2026-10-28. **Implementation complete; ready for parent review.**
-ADR-0023 remains parked at G3. This is the single feature handoff.
+Date: 2026-10-28. **Accepted and closed by parent implementation review.**
+Parent accepts the supplied evidence, including the explicit AOT qualification below.
+The original failed gate is not reclassified. No additional qualification,
+reconciliation or acceptance packet is required. ADR-0023 remains parked at G3.
+This remains the single feature handoff.
 
 ## Delivered
 
@@ -86,4 +89,5 @@ No custom/locale formats, financial currency value type, Date/Time/Integer, ROUN
 conditional formatting, borders, wrapping, structural edits or history integration.
 Style-only Move is deferred; Copy/Paste handles those regions. Before real users
 rely on saved files, the experimental current-format-only policy needs a deliberate
-compatibility commitment. Stop here for parent implementation review.
+compatibility commitment. The formatting milestone is closed; further spreadsheet
+features are separate assignments.

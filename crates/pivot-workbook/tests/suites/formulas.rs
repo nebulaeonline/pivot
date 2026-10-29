@@ -133,7 +133,7 @@ fn malformed_and_out_of_bounds_references_are_editable_drafts() {
         ("=A1B2", 1),
         ("=A4294967296", 1),
         ("=ZZZZZZZZZZ1", 1),
-        ("=A1025", 1),
+        ("=A65537", 1),
         ("=ZZZ1", 1),
         ("=A1+)", 4),
         ("=A1+💰", 4),
@@ -239,7 +239,7 @@ fn hard_failures_roll_back_and_stale_states_are_rejected() {
         let before = small.expected();
         assert_eq!(
             small.apply(before, &[formula(C, "=A1+1")]),
-            Err(Error::Limit)
+            Err(if limits.live_cells==1 { Error::Capacity {resource:"positioned cells",limit:1} } else { Error::Limit })
         );
         assert_eq!(small.expected(), before);
         assert_eq!(small.stats().live_cells, 0);

@@ -41,6 +41,24 @@ impl IntegrationRuntime {
     }
 }
 impl WorkingModel {
+    /// Configure coordinate/document admission before any placement is installed.
+    pub fn configure_document_admission(
+        &mut self,
+        admission: transfer::AdmissionLimits,
+    ) -> Result<(), ModelError> {
+        let i = &mut self.integrated;
+        let mut graph = i.graph().clone();
+        graph
+            .configure_document_admission(admission)
+            .map_err(map_error)?;
+        i.graph = i
+            .runtime
+            .cleanup
+            .reserve()
+            .map_err(ModelError::Backend)?
+            .own(graph);
+        Ok(())
+    }
     /// Preferred application-owned standalone construction.
     pub fn new_in(
         name: impl Into<String>,

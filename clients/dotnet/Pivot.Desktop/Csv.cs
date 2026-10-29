@@ -20,7 +20,7 @@ public partial class MainWindow
         var zeros = new CheckBox { Content = "Preserve leading-zero integer identifiers", IsChecked = true, IsEnabled = false };
         var quotation = new ComboBox { ItemsSource = new[] { "Preserve quoted fields as Strings", "Allow type inference in quoted fields" }, SelectedIndex = 0, IsEnabled = false, HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch };
         mode.SelectionChanged += (_, _) => zeros.IsEnabled = quotation.IsEnabled = mode.SelectedIndex == 1;
-        panel.Children.Add(new TextBlock { Text = "Import into a new, unsaved workbook. UTF-8, comma-separated CSV only.\nLimits: 1,024 live cells; 1,024 × 1,024 positions; 65,536 fields; 4 MiB.", TextWrapping = global::Avalonia.Media.TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = "Import into a new, unsaved workbook. UTF-8, comma-separated CSV only.\nLimits: 65,536 positioned cells; 65,536 rows × 1,024 columns; 1,048,576 fields; 16 MiB.", TextWrapping = global::Avalonia.Media.TextWrapping.Wrap });
         panel.Children.Add(mode); panel.Children.Add(quotation); panel.Children.Add(zeros);
         panel.Children.Add(new TextBlock { Text = "Leading zeros in unsigned integers stay text by default. Signed and decimal-point values can become numbers. Quoted empty fields remain empty Strings; unquoted empty fields are Blank. Formulas never execute.", TextWrapping = global::Avalonia.Media.TextWrapping.Wrap });
         var buttons = new StackPanel { Orientation = global::Avalonia.Layout.Orientation.Horizontal, Spacing = 12 };
@@ -79,7 +79,7 @@ public partial class MainWindow
         scope.Items.Add(new ComboBoxItem { Content = "Selected rectangle" });
         scope.Items.Add(new ComboBoxItem { Content = "Active sheet content", IsEnabled = hasContent });
         panel.Children.Add(scope);
-        panel.Children.Add(new TextBlock { Text = "Exports exact calculated values. Formulas, styles and other sheets are omitted. Strings are quoted to preserve their types in Pivot; other programs may interpret types or formula-like text differently. Limits: 65,536 fields and 4 MiB.", TextWrapping = global::Avalonia.Media.TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = "Exports exact calculated values. Formulas, styles and other sheets are omitted. Strings are quoted to preserve their types in Pivot; other programs may interpret types or formula-like text differently. Limits: 1,048,576 fields and 16 MiB.", TextWrapping = global::Avalonia.Media.TextWrapping.Wrap });
         var buttons = new StackPanel { Orientation = global::Avalonia.Layout.Orientation.Horizontal, Spacing = 12 };
         var export = new Button { Content = "Choose destination…" }; var cancel = new Button { Content = "Cancel" };
         export.Click += (_, _) => dialog.Close(scope.SelectedIndex); cancel.Click += (_, _) => dialog.Close();

@@ -33,13 +33,20 @@ use pivot_storage::{self as storage, document::ModelDocument};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub const MAX_BYTES: usize = 4 * 1024 * 1024;
+pub const MAX_BYTES: usize = 64 * 1024 * 1024;
 const MAGIC: &[u8; 8] = b"PIVOTWB9";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
 fn limits() -> storage::Limits {
-    storage::Limits::default()
+    storage::Limits {
+        bytes: 64 * 1024 * 1024,
+        nodes: 65_536,
+        identities: 262_144,
+        items: 4_194_304,
+        work: 64 * 1024 * 1024,
+        ..storage::Limits::default()
+    }
 }
 struct Writer(Vec<u8>);
 impl Writer {
@@ -669,8 +676,10 @@ impl Document {
             return Err(malformed());
         }
         let sheet_ids: BTreeSet<_> = sheets.iter().map(|s| s.id).collect();
-        if rows.length != limits.rows
-            || columns.length != limits.columns
+        if rows.length == 0
+            || rows.length > limits.rows
+            || columns.length == 0
+            || columns.length > limits.columns
             || rows.namespace == columns.namespace
         {
             return Err(malformed());
@@ -705,6 +714,15 @@ impl Document {
         if r.n()? != 1 {
             return Err(Error::Graph("unsupported range semantics policy".into()));
         }
+        let definitions: BTreeMap<_, _> = document
+            .graph
+            .nodes
+            .iter()
+            .map(|n| (n.id, &n.definition))
+            .collect();
+        if definitions.len() != document.graph.nodes.len() {
+            return Err(malformed());
+        }
         let selection_count = r.count(pivot_core::model::selection::MAX_IDENTITIES)?;
         let mut identities = Vec::with_capacity(selection_count);
         let mut selection_map = BTreeMap::new();
@@ -728,12 +746,14 @@ impl Document {
             }
             identities.push((id, rectangle));
         }
-        let formula_count = r.count(pivot_core::model::selection::MAX_CONSUMERS)?;
+        // Typed scalar/literal overlays are not range consumers. Actual range
+        // consumers retain their independent selection-state admission.
+        let formula_count = r.count(limits.live_cells.min(limits.allocated_cells))?;
         let mut formulas = Vec::with_capacity(formula_count);
         let mut overlay = BTreeMap::new();
         for _ in 0..formula_count {
             let f = SelectionFormula {
-                slot: r.count(8191)?,
+                slot: r.count(limits.allocated_cells.saturating_sub(1))?,
                 source: r.text()?,
                 tokens: r.graph_tokens()?,
             };
@@ -743,16 +763,16 @@ impl Document {
             formulas.push(f);
         }
         let declared_blanks = {
-            let n = r.count(8192)?;
+            let n = r.count(limits.allocated_cells)?;
             let mut slots = BTreeSet::new();
             for _ in 0..n {
-                if !slots.insert(r.count(8191)?) {
+                if !slots.insert(r.count(limits.allocated_cells.saturating_sub(1))?) {
                     return Err(malformed());
                 }
             }
             slots
         };
-        let count = r.count(limits.allocated_cells.min(8192))?;
+        let count = r.count(limits.allocated_cells)?;
         if count != document.graph.node_ids.len() {
             return Err(malformed());
         }
@@ -809,6 +829,22 @@ impl Document {
                                         &expression::parse_spreadsheet(&original_source),
                                     )
                                     .2
+                                    // Persisted invalid definitions are authoritative: admission
+                                    // or parser capabilities may have grown since authoring.
+                                    // Keep the original rejection until explicit resubmission.
+                                    .or_else(|| match definitions.get(&node.uuid()) {
+                                        Some(storage::Definition::ParseFailed {
+                                            source,
+                                            offset,
+                                            ..
+                                        }) if source == &original_source => {
+                                            Some(expression::ParseError {
+                                                offset: *offset as usize,
+                                                message: "preserved rejected source",
+                                            })
+                                        }
+                                        _ => None,
+                                    })
                                     .ok_or_else(malformed)?,
                                 ),
                                 3 => Some(expression::ParseError {
@@ -897,13 +933,7 @@ impl Document {
             let Some(content) = records[id].content.as_ref() else {
                 continue;
             };
-            let definition = &document
-                .graph
-                .nodes
-                .iter()
-                .find(|n| n.id == node.uuid())
-                .ok_or_else(malformed)?
-                .definition;
+            let definition = *definitions.get(&node.uuid()).ok_or_else(malformed)?;
             let literal_tokens;
             let (source, tokens, invalid): (&str, &[Token], bool) = match content {
                 Content::StructuredFormula(_) => return Err(malformed()),

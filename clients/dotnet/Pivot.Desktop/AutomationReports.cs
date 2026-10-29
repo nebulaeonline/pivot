@@ -27,6 +27,7 @@ internal sealed class DesktopReport
     public string? multiple_worksheets {get;init;}
     public string? basic_formatting {get;init;}
     public string? csv {get;init;}
+    public string? capacity {get;init;}
     public string? typed_values {get;init;}
     public string? spreadsheet_aggregates {get;init;}
     public string? worksheet_binding {get;init;}

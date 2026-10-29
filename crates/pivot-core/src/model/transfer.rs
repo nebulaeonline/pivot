@@ -1,6 +1,37 @@
 //! Slot-based, owned graph transfer. No parsing or name binding on import.
 use super::*;
 
+/// Per-model document admission; ordinary hosted transfer keeps its old defaults.
+#[derive(Clone, Copy, Debug)]
+pub struct AdmissionLimits {
+    pub nodes: usize,
+    pub identities: usize,
+    pub points: usize,
+    pub work: usize,
+}
+impl Default for AdmissionLimits {
+    fn default() -> Self {
+        Self {
+            nodes: 4096,
+            identities: 8192,
+            points: 4096,
+            work: 1_048_576,
+        }
+    }
+}
+impl AdmissionLimits {
+    pub fn valid(self) -> bool {
+        self.nodes > 0
+            && self.nodes <= 65_536
+            && self.identities >= self.nodes
+            && self.identities <= 262_144
+            && self.points > 0
+            && self.points <= 65_536
+            && self.work > 0
+            && self.work <= 64 * 1024 * 1024
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Token {
     Decimal(PivotDecimal),
@@ -342,9 +373,10 @@ fn encode_mapped_image(
 pub(super) fn project_document_image(
     model: &GraphImage,
     nodes: &[NodeId],
+    admission: AdmissionLimits,
 ) -> Result<Image, ModelError> {
-    if nodes.len() > 8192
-        || model.nodes.len() > 4096
+    if nodes.len() > admission.identities
+        || model.nodes.len() > admission.nodes
         || model.next_port != 0
         || !model.interface.inputs.is_empty()
         || !model.interface.outputs.is_empty()
@@ -372,7 +404,7 @@ pub(super) fn project_document_image(
                 work = work.saturating_add(tokens.len());
             }
         }
-        if work > 1_048_576 {
+        if work > admission.work {
             return Err(invalid());
         }
     }
@@ -448,9 +480,16 @@ pub fn export_snapshot(
 /// Validates before installing private core fields. Invalid *draft semantics*
 /// (cycles, retired targets, computed input-port targets) deliberately survive.
 pub(super) fn check_header(image: &Image) -> Result<(), ModelError> {
-    if image.node_slots > 8192
+    check_header_admitted(image, AdmissionLimits::default())
+}
+pub(super) fn check_header_admitted(
+    image: &Image,
+    admission: AdmissionLimits,
+) -> Result<(), ModelError> {
+    if !admission.valid()
+        || image.node_slots > admission.identities
         || image.port_slots > 8192
-        || image.nodes.len() > 4096
+        || image.nodes.len() > admission.nodes
         || image.ports.len() > 4096
         || image.name.is_empty()
         || image.name.len() > 128
@@ -470,7 +509,13 @@ pub(super) struct Decoded {
     pub ports: Vec<PortId>,
 }
 pub(super) fn decode(image: Image) -> Result<Decoded, ModelError> {
-    check_header(&image)?;
+    decode_admitted(image, AdmissionLimits::default())
+}
+pub(super) fn decode_admitted(
+    image: Image,
+    admission: AdmissionLimits,
+) -> Result<Decoded, ModelError> {
+    check_header_admitted(&image, admission)?;
     let mut model = GraphImage::empty(image.name)?;
     let nodes: Vec<_> = (0..image.node_slots)
         .map(|i| NodeId {
@@ -502,7 +547,7 @@ pub(super) fn decode(image: Image) -> Result<Decoded, ModelError> {
                 let binding = match binding {
                     Binding::Bound(tokens) => {
                         work = work.checked_add(tokens.len()).ok_or_else(invalid)?;
-                        if work > 1_048_576 {
+                        if work > admission.work {
                             return Err(invalid());
                         }
                         let mut bound = Vec::new();
@@ -544,7 +589,7 @@ pub(super) fn decode(image: Image) -> Result<Decoded, ModelError> {
                         Err(SnapshotError::UnknownName { node: id, name })
                     }
                 };
-                if work > 1_048_576 {
+                if work > admission.work {
                     return Err(invalid());
                 }
                 Definition::Computed { source, binding }
@@ -639,6 +684,8 @@ pub struct SelectionImage {
 }
 impl WorkingModel {
     /// Internal exhaustive document projection, not the full allocation-ledger transfer API.
+    /// The native caller retains admission for the returned workbook/transfer image
+    /// through encoding. Intermediate GraphImage materialization is charged here.
     #[doc(hidden)]
     pub fn project_document_definitions(
         &self,

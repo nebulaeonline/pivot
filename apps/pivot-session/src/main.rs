@@ -1009,6 +1009,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|b| b.graph_id().to_string())
             .unwrap_or_default();
         if let Some(book) = &session.book {
+            let stats = book.stats();
+            let limits = book.admission_limits();
+            r.positioned_cells = stats.live_cells as u32;
+            r.allocated_cell_identities = stats.allocated_nodes as u32;
+            r.positioned_cell_limit = limits.live_cells as u32;
+            r.allocated_cell_identity_limit = limits.allocated_cells as u32;
             r.worksheets = book
                 .sheets()
                 .iter()

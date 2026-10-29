@@ -26,6 +26,10 @@ public sealed partial class WorkbookSession : IAsyncDisposable
     private Task? disposal;
     private string revision = "";
     public string DocumentId { get; private set; } = "";
+    public uint PositionedCells {get;private set;}
+    public uint AllocatedCellIdentities {get;private set;}
+    public uint PositionedCellLimit {get;private set;}
+    public uint AllocatedCellIdentityLimit {get;private set;}
     public ulong DocumentGeneration {get;private set;}
     public string WorksheetId { get; private set; } = "";
     public IReadOnlyList<WorksheetInfo> Worksheets { get; private set; } = Array.Empty<WorksheetInfo>();
@@ -242,6 +246,8 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             if(request.Operation==Request.Types.Operation.Capture && response.Capture.Length!=0)capturedSheets[response.Capture]=request.Worksheet;
             if(request.Operation==Request.Types.Operation.Release)capturedSheets.TryRemove(request.Capture,out _);
             DocumentId = response.DocumentId; DocumentPath = response.Path;
+            PositionedCells=response.PositionedCells;AllocatedCellIdentities=response.AllocatedCellIdentities;
+            PositionedCellLimit=response.PositionedCellLimit;AllocatedCellIdentityLimit=response.AllocatedCellIdentityLimit;
             SavedCheckpoint = response.SavedCheckpoint; IsDirty = response.Dirty;
             InstallationUncertain = response.Uncertain;
             if (cancellation.IsCancellationRequested && response.SaveTicket.Length != 0) abandonedSave = response.SaveTicket;

@@ -62,7 +62,7 @@ internal static class CsvChecks
             await s.ApplyAsync(s.Revision, [new Edit { At = P(2, 5), Formula = "=1/0" }, new Edit { At = P(3, 2), Formula = "=2/0" }]);
             await Reject(() => s.ExportCsvAsync(s.Revision, destination, P(1), P(3, 7)), "E2");
             Check(Enumerable.SequenceEqual(bytes, await File.ReadAllBytesAsync(destination)), "evaluation failure preserves destination");
-            await Reject(() => s.ExportCsvAsync(s.Revision, destination, P(1), P(1024, 1024)), "logical-field");
+            await Reject(() => s.ExportCsvAsync(s.Revision, destination, P(1), P(1025, 1024)), "logical-field");
             Check(Enumerable.SequenceEqual(bytes, await File.ReadAllBytesAsync(destination)), "quota failure preserves destination");
             await Reject(() => s.ExportCsvAsync(s.Revision, Path.Combine(root, "missing", "out.csv"), P(1), P(1)), "destination");
 
@@ -72,14 +72,14 @@ internal static class CsvChecks
                 Check(s.Revision == revision && s.DocumentId == id && s.DocumentPath == path && s.IsDirty, "bad CSV keeps previous workbook");
             }
             await File.WriteAllBytesAsync(source, [0xff]); await Reject(() => s.PrepareCsvImportAsync(source), "UTF-8");
-            await File.WriteAllBytesAsync(source, new byte[4 * 1024 * 1024 + 1]); await Reject(() => s.PrepareCsvImportAsync(source), "file-size");
+            await File.WriteAllBytesAsync(source, new byte[16 * 1024 * 1024 + 1]); await Reject(() => s.PrepareCsvImportAsync(source), "file-size");
             await File.WriteAllTextAsync(source, "a,b"); prepare = await s.PrepareCsvImportAsync(source);
             await s.CancelCsvImportAsync(prepare.CsvTicket); Check(s.Revision == revision, "cancel has no mutation");
             await Reject(() => s.ImportCsvAsync(s.Revision, prepare.CsvTicket, discard: true), "ticket");
             await File.WriteAllTextAsync(source, "79228162514264337593543950336"); prepare = await s.PrepareCsvImportAsync(source);
             await Reject(() => s.ImportCsvAsync(s.Revision, prepare.CsvTicket, typed: true, discard: true), "numeric conversion");
             Check(s.Revision == revision && s.DocumentId == id, "conversion failure atomic");
-            await File.WriteAllTextAsync(source, string.Join('\n', Enumerable.Repeat("1,1", 513))); prepare = await s.PrepareCsvImportAsync(source);
+            await File.WriteAllTextAsync(source, string.Join('\n', Enumerable.Repeat(string.Join(',',Enumerable.Repeat("1",256)),257))); prepare = await s.PrepareCsvImportAsync(source);
             await Reject(() => s.ImportCsvAsync(s.Revision, prepare.CsvTicket, typed: true, discard: true), "live-cell limit");
             Check(s.Revision == revision && s.DocumentId == id, "multi-batch candidate failure atomic");
 

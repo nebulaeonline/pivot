@@ -47,8 +47,8 @@ pub fn validate_sheet_directory(sheets: &[SheetRecord], limits: Limits) -> Resul
             || !names.insert(sheets::name_key(&sheet.name))
             || sheet.row_count == 0
             || sheet.column_count == 0
-            || sheet.row_count != limits.rows
-            || sheet.column_count != limits.columns
+            || sheet.row_count > limits.rows
+            || sheet.column_count > limits.columns
             || sheet.rows.is_nil()
             || sheet.columns.is_nil()
             || !axes.insert(sheet.rows)
@@ -413,8 +413,10 @@ impl Workbook {
             || image.graph.scalar_skeleton.node_slots != image.cells.len()
             || !image.graph.scalar_skeleton.ports.is_empty()
             || image.graph.scalar_skeleton.port_slots != 0
-            || image.row_count != limits.rows
-            || image.column_count != limits.columns
+            || image.row_count == 0
+            || image.row_count > limits.rows
+            || image.column_count == 0
+            || image.column_count > limits.columns
             || image.rows.is_nil()
             || image.columns.is_nil()
             || image.rows == image.columns
@@ -455,21 +457,25 @@ impl Workbook {
                     name: s.name.clone(),
                     rows: Axis {
                         namespace: s.rows,
-                        length: s.row_count,
+                        length: limits.rows,
                     },
                     columns: Axis {
                         namespace: s.columns,
-                        length: s.column_count,
+                        length: limits.columns,
                     },
                 })
                 .collect(),
         )?;
         if image.sheets.first().is_none_or(|s| {
-            s.id != image.worksheet || s.rows != image.rows || s.columns != image.columns
+            s.id != image.worksheet
+                || s.rows != image.rows
+                || s.columns != image.columns
+                || s.row_count != image.row_count
+                || s.column_count != image.column_count
         }) || image
             .sheets
             .iter()
-            .any(|s| s.row_count != limits.rows || s.column_count != limits.columns)
+            .any(|s| s.row_count > limits.rows || s.column_count > limits.columns)
         {
             return Err(Error::InvalidTarget);
         }
@@ -495,6 +501,16 @@ impl Workbook {
         }
         let mut cells = BTreeSet::new();
         let mut ids = BTreeSet::new();
+        let live_slots: BTreeSet<_> = image
+            .graph
+            .scalar_skeleton
+            .nodes
+            .iter()
+            .map(|n| n.slot)
+            .collect();
+        if live_slots.len() != image.graph.scalar_skeleton.nodes.len() {
+            return Err(Error::InvalidTarget);
+        }
         for (slot, (id, node, r)) in image.cells.iter().enumerate() {
             match &r.content {
                 Some(Content::TextFormula(f)) => sheets::validate_scope(
@@ -520,12 +536,7 @@ impl Workbook {
             {
                 return Err(Error::InvalidTarget);
             }
-            let live = image
-                .graph
-                .scalar_skeleton
-                .nodes
-                .iter()
-                .any(|n| n.slot == slot);
+            let live = live_slots.contains(&slot);
             if live != r.position.is_some() {
                 return Err(Error::InvalidTarget);
             }
@@ -554,14 +565,18 @@ impl Workbook {
         }
         let stats = data.stats();
         if stats.live_cells > limits.live_cells
-            || stats.formula_tokens > limits.formula_tokens
-            || stats.source_bytes > limits.source_bytes
+            || stats.formula_tokens > limits.total_formula_tokens
+            || stats.source_bytes > limits.total_source_bytes
             || stats.estimated_owned_bytes > limits.bytes
         {
             return Err(Error::Limit);
         }
         let imported = runtime
-            .import_selections(image.graph, &CancellationToken::default())
+            .import_selections_admitted(
+                image.graph,
+                &CancellationToken::default(),
+                limits.document_admission(),
+            )
             .map_err(graph_error)?;
         for ((id, portable, _), runtime_id) in image.cells.into_iter().zip(imported.nodes) {
             data.bindings
@@ -591,11 +606,11 @@ impl Workbook {
             graph_id: image.graph_id,
             rows: Axis {
                 namespace: image.rows,
-                length: image.row_count,
+                length: limits.rows,
             },
             columns: Axis {
                 namespace: image.columns,
-                length: image.column_count,
+                length: limits.columns,
             },
             persistent,
             core: imported.model,

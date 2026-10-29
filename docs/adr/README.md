@@ -73,3 +73,5 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 - [ADR-0027: Calculation rounding functions](0027-calculation-rounding-functions.md) — Accepted; implementation and native three-platform evidence accepted by parent review, milestone closed (2026-10-29).
 
 - [ADR-0028: CSV import and export](0028-csv-import-export.md) — Accepted; implementation, file-installation clarification and native three-platform headless/managed desktop evidence accepted by parent review; milestone closed (2026-10-29).
+
+- [ADR-0029: Production workbook capacity and identity scalability](0029-production-workbook-capacity.md) — Accepted and closed by parent implementation review (2026-10-29), including source-qualified native evidence and separately reported identity-memory cost.

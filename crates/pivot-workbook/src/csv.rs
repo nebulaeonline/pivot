@@ -13,9 +13,14 @@ pub struct Policy {
 }
 impl Default for Policy {
     fn default() -> Self {
+        Self::capacity()
+    }
+}
+impl Policy {
+    pub fn capacity() -> Self {
         Self {
-            bytes: 4 * 1024 * 1024,
-            fields: 65_536,
+            bytes: 16 * 1024 * 1024,
+            fields: 1_048_576,
         }
     }
 }

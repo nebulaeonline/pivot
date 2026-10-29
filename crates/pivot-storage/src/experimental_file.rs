@@ -179,6 +179,9 @@ fn target(path: &Path) -> Result<PathBuf> {
     Ok(parent.join(name))
 }
 fn read_target(path: &Path, limits: FileLimits) -> Result<(Vec<u8>, Fingerprint)> {
+    read_target_bounded(path, limits.total()?)
+}
+fn read_target_bounded(path: &Path, total: usize) -> Result<(Vec<u8>, Fingerprint)> {
     let before = fs::symlink_metadata(path)?;
     if !before.file_type().is_file() {
         return Err(Error::Conflict);
@@ -186,14 +189,12 @@ fn read_target(path: &Path, limits: FileLimits) -> Result<(Vec<u8>, Fingerprint)
     let mut file = platform::open_read(path)?;
     let metadata = file.metadata()?;
     let identity = platform::identity(&file)?;
-    if metadata.len() > limits.total()? as u64 {
+    if metadata.len() > total as u64 {
         return Err(Error::Limit);
     }
     let mut bytes = Vec::new();
-    (&mut file)
-        .take(limits.total()? as u64 + 1)
-        .read_to_end(&mut bytes)?;
-    if bytes.len() > limits.total()? {
+    (&mut file).take(total as u64 + 1).read_to_end(&mut bytes)?;
+    if bytes.len() > total {
         return Err(Error::Limit);
     }
     let after = file.metadata()?;
@@ -600,18 +601,6 @@ impl FileDocument {
 /// This does not wrap bytes in the experimental model-file format.
 pub mod native {
     use super::*;
-    const LIMITS: FileLimits = FileLimits {
-        payload_bytes: 4 * 1024 * 1024,
-        graph: Limits {
-            bytes: 1_048_576,
-            depth: 16,
-            items: 100_000,
-            nodes: 1024,
-            ports: 256,
-            identities: 8192,
-            work: 1_048_576,
-        },
-    };
     #[derive(Clone, Debug)]
     pub struct Location {
         pub path: PathBuf,
@@ -630,7 +619,7 @@ pub mod native {
     pub fn destination(path: &Path) -> Result<Location> {
         let path = target(path)?;
         let fingerprint = match fs::symlink_metadata(&path) {
-            Ok(_) => Some(read_target(&path, LIMITS)?.1),
+            Ok(_) => Some(read_target_bounded(&path, 64 * 1024 * 1024)?.1),
             Err(e) if e.kind() == io::ErrorKind::NotFound => None,
             Err(e) => return Err(e.into()),
         };
@@ -638,7 +627,7 @@ pub mod native {
     }
     pub fn read(path: &Path) -> Result<(Vec<u8>, Location)> {
         let path = target(path)?;
-        let (bytes, fingerprint) = read_target(&path, LIMITS)?;
+        let (bytes, fingerprint) = read_target_bounded(&path, 64 * 1024 * 1024)?;
         Ok((
             bytes,
             Location {
@@ -657,7 +646,7 @@ pub mod native {
         bytes: &[u8],
         mut hook: impl FnMut(SavePoint) -> io::Result<()>,
     ) -> Result<Location> {
-        if bytes.len() > 4 * 1024 * 1024 {
+        if bytes.len() > 64 * 1024 * 1024 {
             return Err(Error::Limit);
         }
         let parent = location.path.parent().ok_or(Error::Malformed)?;
@@ -665,7 +654,7 @@ pub mod native {
         let check = || -> Result<()> {
             match &location.fingerprint {
                 Some(expected) => {
-                    if &read_target(&location.path, LIMITS)
+                    if &read_target_bounded(&location.path, 64 * 1024 * 1024)
                         .map_err(|_| Error::Conflict)?
                         .1
                         != expected
@@ -695,7 +684,7 @@ pub mod native {
             platform::set_mode(&temporary.file, old.mode)?;
         }
         temporary.file.sync_all()?;
-        if read_target(&temporary.path, LIMITS)?.0 != bytes {
+        if read_target_bounded(&temporary.path, 64 * 1024 * 1024)?.0 != bytes {
             return Err(Error::Integrity);
         }
         hook(SavePoint::BeforeInstall)?;
@@ -711,7 +700,7 @@ pub mod native {
             hook(SavePoint::AfterInstall)?;
             platform::sync_parent(parent)?;
             hook(SavePoint::BeforeVerify)?;
-            let (actual, fingerprint) = read_target(&location.path, LIMITS)?;
+            let (actual, fingerprint) = read_target_bounded(&location.path, 64 * 1024 * 1024)?;
             if actual != bytes {
                 return Err(Error::Integrity);
             }

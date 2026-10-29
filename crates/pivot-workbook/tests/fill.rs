@@ -177,7 +177,7 @@ fn late_invalid_reference_quota_cycle_stale_and_cancelled_fill_are_atomic() {
     let mut b = Workbook::new_in("rollback", Limits::default(), &rt).unwrap();
     b.apply(
         b.expected(),
-        &[e(1, 1, "8"), e(1, 2, "=C1023"), e(2, 1, "9")],
+        &[e(1, 1, "8"), e(1, 2, "=C65535"), e(2, 1, "9")],
     )
     .unwrap();
     let before = b.expected();

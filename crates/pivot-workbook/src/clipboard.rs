@@ -153,7 +153,7 @@ pub(crate) fn transform_mode(
     let mut out = String::new();
     let mut cursor = 0;
     for (r, p) in refs.iter().zip(effective) {
-        if p.row == 0 || p.row > 1024 || p.column == 0 || p.column > 1024 {
+        if p.row == 0 || p.row > crate::MAX_ROWS || p.column == 0 || p.column > crate::MAX_COLUMNS {
             return Err(invalid());
         }
         let row = i64::from(p.row) + if r.absolute_row { 0 } else { dr };
@@ -269,7 +269,14 @@ impl Image {
                     let rendered = if *rejected {
                         source.clone()
                     } else {
-                        let (text, tokens, refs) = transform(source, effective, 0, 0, 1024, 1024)?;
+                        let (text, tokens, refs) = transform(
+                            source,
+                            effective,
+                            0,
+                            0,
+                            crate::MAX_ROWS,
+                            crate::MAX_COLUMNS,
+                        )?;
                         token_work += tokens;
                         reference_work += refs;
                         text
@@ -316,7 +323,7 @@ impl Image {
             first.column.checked_add(width - 1).ok_or_else(invalid)?,
         );
         area(first, last)?;
-        if last.row > 1024 || last.column > 1024 {
+        if last.row > crate::MAX_ROWS || last.column > crate::MAX_COLUMNS {
             return Err(invalid());
         }
         let mut slots = Vec::new();
@@ -365,7 +372,14 @@ impl Image {
                             return Err(invalid());
                         }
                     } else {
-                        transform(&source, &effective, 0, 0, 1024, 1024)?;
+                        transform(
+                            &source,
+                            &effective,
+                            0,
+                            0,
+                            crate::MAX_ROWS,
+                            crate::MAX_COLUMNS,
+                        )?;
                     }
                     Slot::Formula {
                         source,

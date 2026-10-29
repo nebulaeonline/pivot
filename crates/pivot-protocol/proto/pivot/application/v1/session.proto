@@ -142,6 +142,10 @@ message Response {
   string csv_ticket = 45;
   bool csv_all_quoted = 46;
   bool csv_has_content = 47;
+  uint32 positioned_cells = 48;
+  uint32 allocated_cell_identities = 49;
+  uint32 positioned_cell_limit = 50;
+  uint32 allocated_cell_identity_limit = 51;
 }
 
 // Domain-accounted allocation traffic; excludes caller/process-wide allocations.

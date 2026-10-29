@@ -244,6 +244,7 @@ public partial class MainWindow : Window
         bool pending = draftCell is not null && (draftReplace || (FormulaEntry.Text ?? "") != draftOriginal);
         Title = $"{name}{(session.IsDirty || pending ? " *" : "")} — Pivot";
         DocumentLabel.Text = $"{name} · {(pending ? "Uncommitted edit" : session.IsDirty ? "Unsaved changes" : session.DocumentPath.Length == 0 ? "Untitled" : "Saved")}{(session.InstallationUncertain ? " · Installation uncertain: reopen to verify" : "")}";
+        if(session.DocumentId.Length!=0) DocumentLabel.Text+=$" · {session.PositionedCells:N0}/{session.PositionedCellLimit:N0} positions · {session.AllocatedCellIdentities:N0}/{session.AllocatedCellIdentityLimit:N0} identities";
     }
     private async Task<bool> ConfirmDiscardAsync()
     {
@@ -346,7 +347,7 @@ public partial class MainWindow : Window
             var first=new Position{Row=Sheet.FirstRow,Column=Sheet.FirstColumn};
             var last=new Position{Row=Math.Min(Sheet.TotalVisualRows,Sheet.FirstRow+(uint)Sheet.VisibleRows-1),Column=Sheet.FirstColumn+9};
             var frame = session.IsProjectionProof ? await session.ReadProofAsync(first,last,cancellation) : await session.ReadAsync(new Position { Row = Sheet.FirstRow, Column = Sheet.FirstColumn },
-                new Position { Row = Math.Min(1024, Sheet.FirstRow + (uint)Sheet.VisibleRows - 1), Column = Sheet.FirstColumn + 9 }, cancellation);
+                new Position { Row = Math.Min(WorkbookCapacity.MaximumRows, Sheet.FirstRow + (uint)Sheet.VisibleRows - 1), Column = Sheet.FirstColumn + 9 }, cancellation);
             if (shuttingDown || view!=worksheetViewEpoch || documentGeneration!=session.DocumentGeneration || document!=session.DocumentId || worksheet!=session.WorksheetId || (!session.IsProjectionProof && (frame.Worksheet!=worksheet || frame.Cells.Any(c=>c.Worksheet!=worksheet))) || request != displayRequest || frame.Revision != session.Revision || frame.ComputationalState!=session.ComputationalState) return;
             if(frame.ProofView is { } proof && (proof.Epoch!=session.ProofEpoch || proof.Presentation!=session.ProofPresentation))return;
             Sheet.SetProofFrame(frame.ProofView);if(request!=displayRequest)return;
@@ -443,7 +444,7 @@ public partial class MainWindow : Window
     private async Task NavigateAsync(int rows, int columns, bool extend=false)
     {
         var at = Sheet.Selected;
-        await SelectAsync(new Position { Row=(uint)Math.Clamp((int)at.Row+rows,1,1024), Column=(uint)Math.Clamp((int)at.Column+columns,1,1024) },extend);
+        await SelectAsync(new Position { Row=(uint)Math.Clamp((int)at.Row+rows,1,WorkbookCapacity.MaximumRows), Column=(uint)Math.Clamp((int)at.Column+columns,1,1024) },extend);
     }
     private async void GridKeyDown(object? sender, KeyEventArgs e)
     {
@@ -465,7 +466,7 @@ public partial class MainWindow : Window
             e.Handled=true;
             var at=Sheet.Selected;
             bool whole=e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
-            if(e.Key is Key.Home or Key.End) await SelectAsync(new Position {Row=whole ? (e.Key==Key.Home ? 1u : 1024u) : at.Row, Column=e.Key==Key.Home ? 1u : 1024u},e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            if(e.Key is Key.Home or Key.End) await SelectAsync(new Position {Row=whole ? (e.Key==Key.Home ? 1u : (uint)WorkbookCapacity.MaximumRows) : at.Row, Column=e.Key==Key.Home ? 1u : 1024u},e.KeyModifiers.HasFlag(KeyModifiers.Shift));
             else await NavigateAsync(e.Key==Key.PageUp ? -Sheet.VisibleRows : Sheet.VisibleRows,0,e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         }
         else if (e.Key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Tab) {
@@ -511,6 +512,7 @@ public partial class MainWindow : Window
 
     private async Task SmokeAsync(string report)
     {
+        await CapacityAutomationAsync(report);
         await CsvAutomationAsync(report);
         await FillAutomationAsync(report);
         await AggregateAutomationAsync(report);
@@ -558,8 +560,8 @@ public partial class MainWindow : Window
         Check(Sheet.Anchor.Column==3 && Sheet.SelectionLast.Column==1024,"Shift End extends to bounded row end");
         Key(Sheet,global::Avalonia.Input.Key.Home);await WaitFor(()=>Sheet.Selected.Column==1);await RefreshAsync();
         Check(!Sheet.HasRegion && Sheet.Selected.Row==3,"Home collapses selection at column one");
-        Key(Sheet,global::Avalonia.Input.Key.End,KeyModifiers.Control);await WaitFor(()=>Sheet.Selected.Row==1024 && Sheet.Selected.Column==1024);await RefreshAsync();
-        Check(Sheet.FirstRow+(uint)Sheet.VisibleRows-1==1024 && Sheet.FirstColumn+9==1024,"Whole-sheet End reveals bounded bottom-right cell");
+        Key(Sheet,global::Avalonia.Input.Key.End,KeyModifiers.Control);await WaitFor(()=>Sheet.Selected.Row==WorkbookCapacity.MaximumRows && Sheet.Selected.Column==1024);await RefreshAsync();
+        Check(Sheet.FirstRow+(uint)Sheet.VisibleRows-1==WorkbookCapacity.MaximumRows && Sheet.FirstColumn+9==1024,"Whole-sheet End reveals bounded bottom-right cell");
         Key(Sheet,global::Avalonia.Input.Key.Home,KeyModifiers.Control);await WaitFor(()=>Sheet.Selected.Row==1 && Sheet.Selected.Column==1);await RefreshAsync();
         Key(Sheet,global::Avalonia.Input.Key.PageDown,KeyModifiers.Shift);await RefreshAsync();
         Check(Sheet.Anchor.Row==1 && Sheet.Selected.Row==(uint)Sheet.VisibleRows+1,"Shift PageDown extends by visible rows");
@@ -739,7 +741,7 @@ public partial class MainWindow : Window
         await SelectAsync(P(10,4));Key(Sheet,global::Avalonia.Input.Key.Delete);await WaitFor(()=>!editing && Sheet.CellAt(P(10,4))?.ContentCase==Cell.ContentOneofCase.Blank);
         Check(WorkbookSession.Decode(Sheet.CellAt(P(10,5))!.Value)==2m,"Delete clears selected cell");
         await EditAsync(new Edit{At=P(10,5),Clear=true});
-        await SelectAsync(P(1024,1024));Key(Sheet,global::Avalonia.Input.Key.Right);
+        await SelectAsync(P(WorkbookCapacity.MaximumRows,1024));Key(Sheet,global::Avalonia.Input.Key.Right);
         Check(Sheet.Selected.Column==1024 && Sheet.FirstColumn+9==1024,"Keyboard navigation reveals and bounds edge");
         await SelectAsync(P(1,1)); Sheet.Scroll(-5000,-5000);await RefreshAsync();
 
@@ -777,9 +779,9 @@ public partial class MainWindow : Window
         var superseded = RefreshAsync(); Sheet.Scroll(20); await RefreshAsync(); await superseded;
         Check(Sheet.FirstRow==21 && Sheet.CellAt(P(1,3)) is null,"UI scroll bounded frame");
         Sheet.Scroll(-20); await RefreshAsync(); Check(Value(1,3)==100m,"UI scroll back");
-        Sheet.Scroll(5000,5000); await RefreshAsync();
-        Check(Sheet.FirstRow+(uint)Sheet.VisibleRows-1==1024 && Sheet.FirstColumn+9==1024,"UI scroll respects worksheet bounds");
-        Sheet.Scroll(-5000,-5000); await RefreshAsync(); Check(Value(1,3)==100m,"UI return from worksheet edge");
+        Sheet.Scroll(100000,5000); await RefreshAsync();
+        Check(Sheet.FirstRow+(uint)Sheet.VisibleRows-1==WorkbookCapacity.MaximumRows && Sheet.FirstColumn+9==1024,"UI scroll respects worksheet bounds");
+        Sheet.Scroll(-100000,-5000); await RefreshAsync(); Check(Value(1,3)==100m,"UI return from worksheet edge");
         await Enter(2,8,"1500");await Enter(3,8,"2350");await Enter(4,8,"1275");await Enter(5,8,"900");
         await Enter(6,9,"=SUM(H2:H5)");Check(Value(6,9)==6025m,"UI SUM");
         await Enter(3,8,"2400");Check(Value(6,9)==6075m,"UI SUM member edit");
@@ -802,7 +804,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { graphical_backend=PlatformImpl?.GetType().FullName, status="passed", csv="passed: quoted inference controls, all-quoted choices, leading zeros, Blank/empty String, calculated export and native lifecycle", basic_formatting="passed: exact Rust display, Format pane/mixed patches, graph-free styled blanks, editor exactness, native clipboard and WB9 reopen", typed_values="passed: typed literal/results, Unicode LEN, lazy IF, editor provenance, native clipboard translation and WB8 Save/reopen", multiple_worksheets="passed: Add/Rename/tabs, commit on switch, quoted effective names, stale frame rejection, per-sheet view state and WB7 Save/reopen", rectangular_fill="passed: routed four-direction menu/shortcuts, typed edge translation, identity/no-op, editor exclusion, unchanged clipboard and WB5 save/reopen", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { graphical_backend=PlatformImpl?.GetType().FullName, status="passed", capacity="passed: 65,536-row address, select, scroll, edit, Fill, native clipboard, WB9 reopen and capacity diagnostics", csv="passed: quoted inference controls, all-quoted choices, leading zeros, Blank/empty String, calculated export and native lifecycle", basic_formatting="passed: exact Rust display, Format pane/mixed patches, graph-free styled blanks, editor exactness, native clipboard and WB9 reopen", typed_values="passed: typed literal/results, Unicode LEN, lazy IF, editor provenance, native clipboard translation and WB8 Save/reopen", multiple_worksheets="passed: Add/Rename/tabs, commit on switch, quoted effective names, stale frame rejection, per-sheet view state and WB7 Save/reopen", rectangular_fill="passed: routed four-direction menu/shortcuts, typed edge translation, identity/no-op, editor exclusion, unchanged clipboard and WB5 save/reopen", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
         allowClose = true; Close();
     }
 }

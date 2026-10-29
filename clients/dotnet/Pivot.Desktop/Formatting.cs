@@ -17,6 +17,7 @@ public partial class MainWindow {
     private readonly uint?[] palette=[null,0x000000,0xffffff,0x1f4e78,0x008000,0xc00000,0xffeb9c,0xddebf7,0xe2efda];
     private TextBox formatPlaces=null!;
     private void InitializeFormatting() {
+        FormatFields.Children.Add(new TextBlock { Text="Formatting is limited to 4,096 styled positions per workbook; computational capacity is 65,536 positioned cells.", TextWrapping=global::Avalonia.Media.TextWrapping.Wrap });
         var row=new WrapPanel {Orientation=global::Avalonia.Layout.Orientation.Horizontal};FormatFields.Children.Add(row);
         ComboBox Add(string label,string[] items,int field) {
             var box=new ComboBox {Width=155,ItemsSource=new[]{"Mixed"}.Concat(items).ToArray(),SelectedIndex=0};

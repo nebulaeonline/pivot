@@ -263,9 +263,9 @@ impl GraphView<'_> {
     fn validate(&self, limits: Limits) -> Result<()> {
         if limits.depth == 0
             || limits.depth > 64
-            || self.nodes.len() > limits.nodes.min(4096)
+            || self.nodes.len() > limits.nodes
             || self.ports.len() > limits.ports.min(4096)
-            || self.node_ids.len().saturating_add(self.port_ids.len()) > limits.identities.min(8192)
+            || self.node_ids.len().saturating_add(self.port_ids.len()) > limits.identities
         {
             return Err(Error::Limit);
         }

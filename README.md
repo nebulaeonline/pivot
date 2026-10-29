@@ -63,8 +63,12 @@ from the selection or active sheet. Text is the default import mode. Optional
 Numbers and Booleans mode preserves quoted Strings and leading-zero integer
 identifiers by default, with independent controls for each conversion policy.
 Quoted empty fields remain empty Strings; unquoted empty fields are Blank. Import
-never executes formulas. Initial admission allows 1,024 live cells, 65,536 CSV
-fields and 4 MiB; excessive imports fail without replacing the current workbook.
+never executes formulas. Production admission allows 65,536 positioned graph cells
+and 262,144 allocated cell identities across the workbook, with 65,536 rows and
+1,024 columns per sheet. Cleared cells and referenced blanks retain positions;
+formatting-only blanks remain graph-free. CSV admits 1,048,576 fields and 16 MiB;
+excessive imports fail without replacing the current workbook. Formatting has a
+separate limit of 4,096 styled positions.
 CSV uses UTF-8 and comma separators, with quoted multiline text supported.
 Strings are always quoted on export; other applications may interpret them differently.
 

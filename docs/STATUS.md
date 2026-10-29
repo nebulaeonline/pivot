@@ -161,12 +161,61 @@ the accepted artifact-retention policy.
 Row/column insertion/deletion and sorting/filtering remain roadmap suggestions.
 ADR-0023 remains parked at G3.
 
-Parent recommends production workbook capacity and identity-allocation scalability
-as the next product priority. Begin with a bounded design establishing targets for
-live cells, allocation identities, CSV import performance and memory while
-preserving persistent-graph correctness. This is a recommendation for the next
-assignment, not an implemented capacity increase or permission to resume history.
-No new scalability design or implementation has started.
+**Production workbook capacity: [ADR-0029](adr/0029-production-workbook-capacity.md)
+accepted and closed by parent implementation review (2026-10-29).**
+Current source enables 65,536 positioned cells workbook-wide, 262,144 allocated
+identities, 65,536 worksheet rows × 1,024 columns, CSV 1,048,576 fields/16 MiB and
+a 64 MiB native envelope. Existing small WB9 documents remain readable and gain
+the admitted row extent without rebinding existing references. WB9/CB4/private v7
+are retained; additive session metadata reports distinct capacity counters.
+Styles remain limited to 4,096 positions, independently of computational capacity.
+
+The production 1,024-cell baseline and staged 10,000/65,536-cell checkpoints ran.
+The original full-size attempt exceeded the 512 MiB compact-corpus peak-memory
+objective; focused native-projection reservation and restoration-index corrections
+passed the same target without raising that objective. Both mandatory table shapes
+pass local real .NET/Rust import/calculate/export/native Save/reopen. Independent
+262,144-identity churn with one positioned cell passes exhaustion, old captures
+and native persistence; its approximately 1.08 GiB charged peak is reported
+separately from the compact-table memory gate and remains within the existing
+2 GiB runtime policy. No identity recycling, reset or compaction was added.
+
+Native Windows x64/Linux x64/macOS ARM64 headless CI passed 13/13 each; Ubuntu
+recovered on the same frozen source after a VM reboot interrupted its original
+attempt. All three attended desktop suites passed, four reports each, zero final
+charges and no surviving owned processes. All 381 original implementation inputs
+match. Final persistence corrections preserve legacy rejected formulas and remove
+an inappropriate range-consumer bound from scalar text/Boolean overlays. Separate
+source-qualified checks passed on all three targets, including exact 10,000/65,536
+text/Boolean round trips, identity exhaustion and real .NET/Rust session regression.
+Final local workspace all-feature regression passed 445 test executions; strict
+Clippy passed. Desktop application sources are unchanged by the final corrections;
+their native persistence validation is headless, separately identified from GUI evidence.
+[Single implementation handoff and evidence](handoffs/2026-10-29-production-workbook-capacity.md).
+Parent accepts the supplied evidence, final correction scope and separately reported
+identity-memory cost. No additional GUI/AOT qualification or reconciliation packet
+is required. Short target-local attended launchers are the approved standing workflow.
+ADR-0028 evidence retains its
+original frozen-source scope; ADR-0029 supersedes its capacity policy only.
+ADR-0023 remains parked at G3.
+
+**Next design priority — layered worksheet formatting.** Parent discussion recommends
+first-class worksheet defaults, row/column formatting, rectangular regions and sparse
+cell overrides before structural row/column insertion/deletion. Current formatting
+is stored per position even for rectangular commands; the accepted 4,096-position
+policy remains until a new design is approved. This is a presentation/document-model
+feature, independent of calculation types, identities and CSV interpretation.
+
+The next ADR should settle per-property inheritance and precedence, intersecting
+row/column/range edits and editing order, explicit default versus removing an override,
+indexed sparse representation and bounded overlap normalization. Include atomic
+admission/rollback, viewport resolution, Clear/Move/Copy/Fill/native clipboard,
+Save/reopen compatibility and performance at the accepted worksheet capacity.
+Formatting empty regions must not allocate computational identities or enumerate
+every coordinate. Preserve exact String content such as `001234`; formatting never
+converts value types. Structural insertion/deletion follows with deliberate stable
+reference and position-owned formatting semantics. These are design recommendations,
+not acceptance of a particular precedence algorithm, new encoding or implementation.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
 define a deliberate support commitment. WB9-only is the current experimental

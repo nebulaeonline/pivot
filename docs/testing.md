@@ -47,6 +47,14 @@ without a valid broker refuses **before Avalonia initialization**. Use the suppo
 wrapper rather than hand-setting self-check environment variables. Once a suite
 ends its permit is invalid; don't copy it into shell configuration or scripts.
 
+For attended validation, provide short target-local launchers and a text file of
+commands under `artifacts/`. The owner cannot paste commands into the ARM64 targets
+or Ubuntu x64; do not require transcription of long frozen-source paths or run IDs
+from another screen. The current capacity launcher is `~/PivotValidation/cap.py`:
+after `cd ~/PivotValidation`, run `python cap.py` on Windows or `./cap.py` on Linux
+and macOS. Keep the ordinary runner consent prompt and prevent duplicate attempts.
+Update the generated launcher for a new prepared run; retain the previous evidence.
+
 `python scripts/run_desktop.py` remains the ordinary manual application launcher.
 It strips inherited automation activation/permits and does not run acceptance.
 No normal workbook editing, file picker or clipboard behavior was changed.

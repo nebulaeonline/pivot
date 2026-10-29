@@ -424,6 +424,7 @@ pub struct Graph {
     import_invalid: bool,
     max_name: usize,
     local_validation: bool,
+    transfer_admission: transfer::AdmissionLimits,
     proof: Shared<Proof>,
 }
 // A bulk private root always has a reserved reclamation destination, including
@@ -455,12 +456,26 @@ impl Footprint for selection::State {}
 struct Proof(std::sync::atomic::AtomicBool);
 impl Footprint for Proof {}
 impl Graph {
+    pub(crate) fn document_admission(&self) -> transfer::AdmissionLimits {
+        self.transfer_admission
+    }
+    pub(crate) fn configure_document_admission(
+        &mut self,
+        admission: transfer::AdmissionLimits,
+    ) -> Result<(), Error> {
+        if !admission.valid() || self.selections.is_some() {
+            return Err(Error::InvalidTransfer);
+        }
+        self.transfer_admission = admission;
+        Ok(())
+    }
     /// Empty persistent root, with no legacy import or global snapshot bridge.
     pub(super) fn empty(name: String, revision: Revision, memory: Memory) -> Result<Self, Error> {
         Ok(Self {
             #[cfg(feature = "history-experiment")]
             history: Default::default(),
             local_validation: true,
+            transfer_admission: transfer::AdmissionLimits::default(),
             captured_scalar: None,
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(true)))?,
             selections: None,
@@ -570,6 +585,7 @@ impl Graph {
                 ..Default::default()
             },
             local_validation: false,
+            transfer_admission: transfer::AdmissionLimits::default(),
             captured_scalar: None,
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(
                 initial_error.is_none(),
@@ -722,7 +738,14 @@ impl Graph {
     ) -> Result<(), Error> {
         let mut state = match &self.selections {
             Some(s) => (**s).clone(),
-            None => selection::State::new(self.memory.clone()).map_err(|_| Error::Admission)?,
+            None if self.transfer_admission.points == selection::MAX_POINTS => {
+                selection::State::new(self.memory.clone()).map_err(|_| Error::Admission)?
+            }
+            None => selection::State::with_point_limit(
+                self.memory.clone(),
+                self.transfer_admission.points,
+            )
+            .map_err(|_| Error::Admission)?,
         };
         #[cfg(feature = "history-experiment")]
         if self.history.record_trace.is_some() {

@@ -479,7 +479,9 @@ impl WorkingModel {
         cancel: &CancellationToken,
     ) -> Result<transfer::SelectionImage, ModelError> {
         let i = &self.integrated;
-        if nodes.len() > 8192 || i.graph().live_count() > 4096 {
+        if nodes.len() > i.graph().document_admission().identities
+            || i.graph().live_count() > i.graph().document_admission().nodes
+        {
             return Err(ModelError::Backend("document projection limit"));
         }
         let _request = i
@@ -493,7 +495,9 @@ impl WorkingModel {
         i.runtime
             .heavy
             .run(&i.runtime.cleanup, cancel, move || {
-                let _copy = graph.get().copy_reservation()?;
+                // The native caller retains its complete workbook/transfer lease.
+                // materialize_mode separately charges the intermediate GraphImage;
+                // a second generic image-copy lease here double-counted that image.
                 graph
                     .get()
                     .project_document(&nodes, || token.is_cancelled())
@@ -539,6 +543,15 @@ impl IntegrationRuntime {
         cancel: &CancellationToken,
     ) -> Result<transfer::Imported, ModelError> {
         transfer::check_header(&image)?;
+        self.import_portable_admitted(image, cancel, transfer::AdmissionLimits::default())
+    }
+    pub fn import_portable_admitted(
+        &self,
+        image: transfer::Image,
+        cancel: &CancellationToken,
+        admission: transfer::AdmissionLimits,
+    ) -> Result<transfer::Imported, ModelError> {
+        transfer::check_header_admitted(&image, admission)?;
         let state = self.state().clone();
         let root = state.cleanup.reserve().map_err(ModelError::Backend)?;
         let runtime = state.clone();
@@ -582,10 +595,13 @@ impl IntegrationRuntime {
                 let _copy = memory
                     .reserve(bytes)
                     .map_err(|_| ModelError::Backend("transfer copy-in admission"))?;
-                let imported = transfer::decode(image)?;
+                let imported = transfer::decode_admitted(image, admission)?;
                 let mut graph = Graph::from_image_in(&imported.model, Limits::default(), memory)
                     .map_err(map_error)?;
                 graph.enable_local_validation();
+                graph
+                    .configure_document_admission(admission)
+                    .map_err(map_error)?;
                 let model = WorkingModel {
                     integrated: Integrated {
                         graph: root.own(graph),

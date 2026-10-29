@@ -316,7 +316,7 @@ impl Graph {
         }
         formulas.sort_by_key(|f| f.slot);
         let scalar_skeleton = if projection {
-            transfer::project_document_image(&image.model, nodes)?
+            transfer::project_document_image(&image.model, nodes, self.transfer_admission)?
         } else {
             transfer::export_image(&image.model, nodes, ports)?
         };

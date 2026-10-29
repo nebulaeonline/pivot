@@ -316,12 +316,21 @@ impl IntegrationRuntime {
         image: transfer::SelectionImage,
         cancel: &CancellationToken,
     ) -> Result<transfer::Imported, ModelError> {
-        use selection::{MAX_CONSUMERS, MAX_IDENTITIES, MAX_POINTS, MAX_SELECTIONS};
+        self.import_selections_admitted(image, cancel, transfer::AdmissionLimits::default())
+    }
+    pub fn import_selections_admitted(
+        &self,
+        image: transfer::SelectionImage,
+        cancel: &CancellationToken,
+        admission: transfer::AdmissionLimits,
+    ) -> Result<transfer::Imported, ModelError> {
+        use selection::{MAX_IDENTITIES, MAX_SELECTIONS};
         let invalid = || ModelError::Backend("invalid selection-aware transfer");
-        if image.version != 3
+        if !admission.valid()
+            || image.version != 3
             || image.identities.len() > MAX_IDENTITIES
-            || image.points.len() > MAX_POINTS
-            || image.formulas.len() > MAX_CONSUMERS
+            || image.points.len() > admission.points
+            || image.formulas.len() > admission.nodes
         {
             return Err(invalid());
         }
@@ -358,76 +367,144 @@ impl IntegrationRuntime {
         }
         let mut slots = BTreeSet::new();
         let mut point_keys = BTreeSet::new();
-        let mut sources = 0usize;
+        let node_slots: BTreeMap<_, _> = image
+            .scalar_skeleton
+            .nodes
+            .iter()
+            .map(|n| (n.slot, n))
+            .collect();
+        if node_slots.len() != image.scalar_skeleton.nodes.len() {
+            return Err(invalid());
+        }
         for f in &image.formulas {
-            if !slots.insert(f.slot)||!image.scalar_skeleton.nodes.iter().any(|n|n.slot==f.slot&&matches!(&n.definition,transfer::NodeDefinition::Computed{source,binding:transfer::Binding::ParseFailed{offset:0,code:1}} if *source==f.source)){return Err(invalid())}
+            if !slots.insert(f.slot)||!node_slots.get(&f.slot).is_some_and(|n|matches!(&n.definition,transfer::NodeDefinition::Computed{source,binding:transfer::Binding::ParseFailed{offset:0,code:1}} if *source==f.source)){return Err(invalid())}
             if f.tokens.len() > 4096 || f.source.len() > 4096 {
                 return Err(invalid());
             }
-            sources = sources.checked_add(f.source.len()).ok_or_else(invalid)?;
         }
         for (space, row, column, slot) in &image.points {
-            if !point_keys.insert((*space, *row, *column))
-                || !image.scalar_skeleton.nodes.iter().any(|n| n.slot == *slot)
-            {
+            if !point_keys.insert((*space, *row, *column)) || !node_slots.contains_key(slot) {
                 return Err(invalid());
             }
         }
         let mut blank_slots = BTreeSet::new();
         for slot in &image.blanks {
-            if !blank_slots.insert(*slot) || !image.scalar_skeleton.nodes.iter().any(|n| n.slot==*slot && matches!(n.definition,transfer::NodeDefinition::Input(v) if v==PivotDecimal::ZERO)){return Err(invalid());}
+            if !blank_slots.insert(*slot) || !node_slots.get(slot).is_some_and(|n| matches!(n.definition,transfer::NodeDefinition::Input(v) if v==PivotDecimal::ZERO)){return Err(invalid());}
         }
-        let capacity =
-            image.identities.len() + image.points.len() + image.formulas.len() + image.blanks.len();
-        let mut imported = self.import_portable(image.scalar_skeleton, cancel)?;
-        let mut batch = imported
-            .model
-            .begin_batch(capacity, sources.saturating_add(capacity * 128))?;
-        for slot in image.blanks {
-            batch.set_blank(*imported.nodes.get(slot).ok_or_else(invalid)?)?;
-        }
-        for (id, rectangle) in image.identities {
-            if let Some(rectangle) = rectangle {
-                batch.define_selection(id, rectangle)?;
-            } else {
-                batch.restore_retired_selection(id)?;
+        let mut imported =
+            self.import_portable_admitted(image.scalar_skeleton, cancel, admission)?;
+        // The imported model is private until every phase succeeds. Keep staging
+        // bounded without exposing partially restored state to a live workbook.
+        for chunk in image.blanks.chunks(256) {
+            let mut batch = imported.model.begin_batch(chunk.len(), 0)?;
+            for slot in chunk {
+                batch.set_blank(*imported.nodes.get(*slot).ok_or_else(invalid)?)?;
             }
+            imported.model.apply_batch(batch, cancel)?;
         }
-        for (space, row, column, slot) in image.points {
-            batch.place(
-                space,
-                row,
-                column,
-                Some(*imported.nodes.get(slot).ok_or_else(invalid)?),
+        let descriptors: BTreeMap<_, _> = image.identities.into_iter().collect();
+        let retired: Vec<_> = descriptors
+            .iter()
+            .filter_map(|(id, r)| r.is_none().then_some(*id))
+            .collect();
+        for chunk in retired.chunks(256) {
+            let mut batch = imported.model.begin_batch(chunk.len(), chunk.len() * 64)?;
+            for id in chunk {
+                batch.restore_retired_selection(*id)?;
+            }
+            imported.model.apply_batch(batch, cancel)?;
+        }
+        for chunk in image.points.chunks(256) {
+            let mut batch = imported.model.begin_batch(chunk.len(), chunk.len() * 64)?;
+            for (space, row, column, slot) in chunk {
+                batch.place(
+                    *space,
+                    *row,
+                    *column,
+                    Some(*imported.nodes.get(*slot).ok_or_else(invalid)?),
+                )?;
+            }
+            imported.model.apply_batch(batch, cancel)?;
+        }
+        let mut defined = BTreeSet::new();
+        let mut formulas = image.formulas.into_iter();
+        loop {
+            let chunk: Vec<_> = formulas.by_ref().take(256).collect();
+            if chunk.is_empty() {
+                break;
+            }
+            let mut new_ids = BTreeSet::new();
+            let mut source_bytes = 0usize;
+            for f in &chunk {
+                source_bytes = source_bytes.saturating_add(f.source.len());
+                for t in &f.tokens {
+                    match t {
+                        transfer::SelectionToken::Typed(op, _) => {
+                            source_bytes = source_bytes.saturating_add(op.heap_bytes())
+                        }
+                        transfer::SelectionToken::Sum(id)
+                        | transfer::SelectionToken::Aggregate(_, id)
+                            if !defined.contains(id) =>
+                        {
+                            new_ids.insert(*id);
+                        }
+                        _ => (),
+                    }
+                }
+            }
+            let mut batch = imported.model.begin_batch(
+                chunk.len() + new_ids.len(),
+                source_bytes.saturating_add(new_ids.len() * 128),
             )?;
-        }
-        for f in image.formulas {
-            let node = *imported.nodes.get(f.slot).ok_or_else(invalid)?;
-            let tokens = f
-                .tokens
-                .into_iter()
-                .map(|t| {
-                    Ok(match t {
-                        transfer::SelectionToken::Typed(op, n) => {
-                            transfer::ResolvedToken::Typed(op, n)
-                        }
-                        transfer::SelectionToken::Decimal(v) => transfer::ResolvedToken::Decimal(v),
-                        transfer::SelectionToken::Node(slot) => transfer::ResolvedToken::Node(
-                            *imported.nodes.get(slot).ok_or_else(invalid)?,
-                        ),
-                        transfer::SelectionToken::Aggregate(kind, id) => {
-                            transfer::ResolvedToken::Aggregate(kind, id)
-                        }
-                        transfer::SelectionToken::Sum(id) => transfer::ResolvedToken::Sum(id),
-                        transfer::SelectionToken::Unary(op) => transfer::ResolvedToken::Unary(op),
-                        transfer::SelectionToken::Control(c) => transfer::ResolvedToken::Control(c),
-                        transfer::SelectionToken::Binary(op) => transfer::ResolvedToken::Binary(op),
+            // Install each live descriptor with its first consumer in the same
+            // batch; otherwise retire_unused would correctly retire it early.
+            for id in new_ids {
+                batch.define_selection(
+                    id,
+                    descriptors
+                        .get(&id)
+                        .copied()
+                        .flatten()
+                        .ok_or_else(invalid)?,
+                )?;
+                defined.insert(id);
+            }
+            for f in chunk {
+                let node = *imported.nodes.get(f.slot).ok_or_else(invalid)?;
+                let tokens = f
+                    .tokens
+                    .into_iter()
+                    .map(|t| {
+                        Ok(match t {
+                            transfer::SelectionToken::Typed(op, n) => {
+                                transfer::ResolvedToken::Typed(op, n)
+                            }
+                            transfer::SelectionToken::Decimal(v) => {
+                                transfer::ResolvedToken::Decimal(v)
+                            }
+                            transfer::SelectionToken::Node(slot) => transfer::ResolvedToken::Node(
+                                *imported.nodes.get(slot).ok_or_else(invalid)?,
+                            ),
+                            transfer::SelectionToken::Aggregate(kind, id) => {
+                                transfer::ResolvedToken::Aggregate(kind, id)
+                            }
+                            transfer::SelectionToken::Sum(id) => transfer::ResolvedToken::Sum(id),
+                            transfer::SelectionToken::Unary(op) => {
+                                transfer::ResolvedToken::Unary(op)
+                            }
+                            transfer::SelectionToken::Control(c) => {
+                                transfer::ResolvedToken::Control(c)
+                            }
+                            transfer::SelectionToken::Binary(op) => {
+                                transfer::ResolvedToken::Binary(op)
+                            }
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>, ModelError>>()?;
-            batch.set_resolved(node, &f.source, tokens)?;
+                    .collect::<Result<Vec<_>, ModelError>>()?;
+                batch.set_resolved(node, &f.source, tokens)?;
+            }
+            imported.model.apply_batch(batch, cancel)?;
         }
-        imported.model.apply_batch(batch, cancel)?;
         Ok(imported)
     }
 }

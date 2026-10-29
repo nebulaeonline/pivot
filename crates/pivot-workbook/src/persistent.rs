@@ -173,15 +173,17 @@ impl Workbook {
             || limits.columns == 0
             || name.len() > 128
             || (!benchmark
-                && (limits.live_cells > 4096
-                    || limits.allocated_cells > 8192
-                    || limits.bytes > 1_048_576))
+                && (limits.live_cells > 65_536
+                    || limits.allocated_cells > 262_144
+                    || limits.bytes > 96 * 1024 * 1024))
             || limits.source_bytes > 4096
             || limits.formula_tokens > 4096
         {
             return Err(Error::Limit);
         }
-        let core = WorkingModel::new_in(name, runtime).map_err(graph_error)?;
+        let mut core = WorkingModel::new_in(name, runtime).map_err(graph_error)?;
+        core.configure_document_admission(limits.document_admission())
+            .map_err(graph_error)?;
         let worksheet = WorksheetId::fresh();
         let rows = Axis {
             namespace: Uuid::new_v4(),
@@ -326,10 +328,17 @@ impl Transaction<'_> {
         {
             return Err(Error::Limit);
         }
-        if self.data.positions.len() >= self.book.limits.live_cells
-            || self.data.records.len() >= self.book.limits.allocated_cells
-        {
-            return Err(Error::Limit);
+        if self.data.positions.len() >= self.book.limits.live_cells {
+            return Err(Error::Capacity {
+                resource: "positioned cells",
+                limit: self.book.limits.live_cells,
+            });
+        }
+        if self.data.records.len() >= self.book.limits.allocated_cells {
+            return Err(Error::Capacity {
+                resource: "allocated cell identities",
+                limit: self.book.limits.allocated_cells,
+            });
         }
         let identity_profile = profile::scope(2);
         let id = CellId::fresh();
@@ -862,7 +871,10 @@ impl Transaction<'_> {
         let _profile = profile::scope(8);
         let stats = self.data.stats();
         if stats.estimated_owned_bytes > self.book.limits.bytes {
-            return Err(Error::Limit);
+            return Err(Error::Capacity {
+                resource: "estimated workbook bytes",
+                limit: self.book.limits.bytes,
+            });
         }
         Ok(())
     }
@@ -997,10 +1009,30 @@ fn apply_mode(
             }
         }
     }
-    if tx.data.styles.len() > book.limits.styles.positions
-        || tx.data.stats().estimated_owned_bytes > book.limits.bytes
-    {
+    if tx.data.styles.len() > book.limits.styles.positions {
         return Err(Error::Limit);
+    }
+    let stats = tx.data.stats();
+    for (used, limit, resource) in [
+        (
+            stats.estimated_owned_bytes,
+            book.limits.bytes,
+            "estimated workbook bytes",
+        ),
+        (
+            stats.source_bytes,
+            book.limits.total_source_bytes,
+            "total source bytes",
+        ),
+        (
+            stats.formula_tokens,
+            book.limits.total_formula_tokens,
+            "total formula tokens",
+        ),
+    ] {
+        if used > limit {
+            return Err(Error::Capacity { resource, limit });
+        }
     }
     if tx.same() && !styles_changed {
         return Ok(expected);

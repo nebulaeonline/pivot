@@ -275,7 +275,7 @@ fn resource_failures_rollback_new_nodes_and_keep_retired_identity_quota() {
     let before = w.expected();
     assert!(matches!(
         w.apply(before, &[input(A, 1), input(B, 2)]),
-        Err(Error::Limit)
+        Err(Error::Capacity { resource:"positioned cells",limit:1 })
     ));
     assert_eq!(w.expected(), before);
     assert_eq!(w.stats().live_nodes, 0);
@@ -290,7 +290,7 @@ fn resource_failures_rollback_new_nodes_and_keep_retired_identity_quota() {
     .unwrap();
     assert!(matches!(
         w.apply(w.expected(), &[input(A, 1), input(B, 2)]),
-        Err(Error::Limit)
+        Err(Error::Capacity { resource:"estimated workbook bytes",limit:512 })
     ));
     assert_eq!(w.stats().live_nodes, 0);
     let mut w = build_book(
@@ -304,7 +304,7 @@ fn resource_failures_rollback_new_nodes_and_keep_retired_identity_quota() {
     w.apply(w.expected(), &[input(A, 1), Edit::Retire(A)])
         .unwrap();
     let before = w.expected();
-    assert!(matches!(w.apply(before, &[input(A, 2)]), Err(Error::Limit)));
+    assert!(matches!(w.apply(before, &[input(A, 2)]), Err(Error::Capacity {resource:"allocated cell identities",limit:1})));
     assert_eq!(w.expected(), before);
     assert_eq!(w.stats().live_nodes, 0);
     assert_eq!(w.stats().allocated_nodes, 1);

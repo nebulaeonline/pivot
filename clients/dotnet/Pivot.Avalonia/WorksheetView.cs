@@ -48,9 +48,9 @@ public sealed partial class WorksheetView : Control
     public Func<Position, bool, bool, Func<bool>, Task<bool>>? SelectionRequested { get; set; }
     public void RestoreView(uint firstRow,uint firstColumn,Position selectedAnchor,Position selectedActive) {
         EndPointerSelection(false);
-        FirstRow=Math.Clamp(firstRow,1,1025-(uint)VisibleRows);FirstColumn=Math.Clamp(firstColumn,1,1025-Columns);
-        anchor=new(){Row=Math.Clamp(selectedAnchor.Row,1,1024),Column=Math.Clamp(selectedAnchor.Column,1,1024)};
-        active=new(){Row=Math.Clamp(selectedActive.Row,1,1024),Column=Math.Clamp(selectedActive.Column,1,1024)};
+        FirstRow=Math.Clamp(firstRow,1,(uint)WorkbookCapacity.MaximumRows+1-(uint)VisibleRows);FirstColumn=Math.Clamp(firstColumn,1,1025-Columns);
+        anchor=new(){Row=Math.Clamp(selectedAnchor.Row,1,WorkbookCapacity.MaximumRows),Column=Math.Clamp(selectedAnchor.Column,1,1024)};
+        active=new(){Row=Math.Clamp(selectedActive.Row,1,WorkbookCapacity.MaximumRows),Column=Math.Clamp(selectedActive.Column,1,1024)};
         cells.Clear();styles.Clear();InvalidateVisual();
     }
     public Cell? SelectedCell => cells.GetValueOrDefault((Selected.Row, Selected.Column));
@@ -90,7 +90,7 @@ public sealed partial class WorksheetView : Control
         int index=(int)Math.Floor(point.Y/HeightPerCell)-1;
         uint row;
         if(ProjectionFrame is not null){var mapped=MappedRow(index);if(mapped is null || mapped.Kind!=0)return null;row=mapped.OrdinaryRow;}
-        else row=(uint)Math.Clamp((int)FirstRow+index,1,1024);
+        else row=(uint)Math.Clamp((int)FirstRow+index,1,WorkbookCapacity.MaximumRows);
         return new Position{Row=row,Column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,1024)};
     }
     protected override async void OnPointerPressed(PointerPressedEventArgs e)
@@ -153,7 +153,7 @@ public sealed partial class WorksheetView : Control
     }
     public void Select(Position at, bool extend=false)
     {
-        if(at.Row is <1 or >1024 || at.Column is <1 or >1024) throw new ArgumentOutOfRangeException(nameof(at));
+        if(at.Row is <1 or >WorkbookCapacity.MaximumRows || at.Column is <1 or >1024) throw new ArgumentOutOfRangeException(nameof(at));
         if(ProjectedSelection is not null){ProjectedSelection=null;MissingProjectedRecord=false;ProjectedSelectionChanged?.Invoke();}
         if(!extend) anchor=at.Clone();
         if(active.Row==at.Row && active.Column==at.Column && extend) return;
@@ -223,8 +223,8 @@ public sealed partial class WorksheetView : Control
             column = checked(column * 26 + (uint)(text[i++] - 'A' + 1));
             if (column > 1024) throw new FormatException("Column must be between A and AMJ.");
         }
-        if (column == 0 || !uint.TryParse(text.AsSpan(i), NumberStyles.None, CultureInfo.InvariantCulture, out uint row) || row is < 1 or > 1024)
-            throw new FormatException("Enter a worksheet address such as B22 (rows and columns 1–1024).");
+        if (column == 0 || !uint.TryParse(text.AsSpan(i), NumberStyles.None, CultureInfo.InvariantCulture, out uint row) || row is < 1 or > WorkbookCapacity.MaximumRows)
+            throw new FormatException("Enter a worksheet address such as B22 (rows 1–65536; columns A–AMJ).");
         return new Position { Row = row, Column = column };
     }
 }

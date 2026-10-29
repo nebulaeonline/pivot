@@ -12,6 +12,8 @@ use std::collections::BTreeSet;
 use uuid::Uuid;
 pub mod clipboard;
 pub mod csv;
+pub const MAX_ROWS: u32 = 65_536;
+pub const MAX_COLUMNS: u32 = 1024;
 mod fill;
 pub mod formatting;
 #[cfg(feature = "history-experiment")]
@@ -256,12 +258,20 @@ pub struct Limits {
     pub edits: usize,
     pub formula_tokens: usize,
     pub source_bytes: usize,
+    pub total_source_bytes: usize,
+    pub total_formula_tokens: usize,
     pub bytes: usize,
     pub read_area: u64,
     pub read_records: usize,
 }
 impl Default for Limits {
     fn default() -> Self {
+        Self::capacity()
+    }
+}
+impl Limits {
+    /// Original production profile retained for baseline measurements.
+    pub fn baseline() -> Self {
         Self {
             styles: formatting::StyleLimits::default(),
             rows: 1024,
@@ -271,9 +281,37 @@ impl Default for Limits {
             edits: 256,
             formula_tokens: 4096,
             source_bytes: 4096,
+            total_source_bytes: 4096,
+            total_formula_tokens: 4096,
             bytes: 1_048_576,
             read_area: 4096,
             read_records: 1024,
+        }
+    }
+}
+impl Limits {
+    /// Production profile qualified at staged capacity checkpoints.
+    pub fn capacity() -> Self {
+        Self {
+            rows: 65_536,
+            live_cells: 65_536,
+            allocated_cells: 262_144,
+            bytes: 96 * 1024 * 1024,
+            total_source_bytes: 16 * 1024 * 1024,
+            total_formula_tokens: 1_048_576,
+            ..Self::baseline()
+        }
+    }
+    pub fn document_admission(self) -> pivot_core::model::transfer::AdmissionLimits {
+        pivot_core::model::transfer::AdmissionLimits {
+            nodes: self.live_cells.min(self.allocated_cells),
+            identities: self.allocated_cells,
+            points: self.live_cells,
+            work: self
+                .total_source_bytes
+                .saturating_add(self.total_formula_tokens)
+                .saturating_add(self.allocated_cells)
+                .clamp(1_048_576, 64 * 1024 * 1024),
         }
     }
 }
@@ -286,6 +324,10 @@ pub enum Error {
     StaleRevision,
     Limit,
     Exhausted,
+    Capacity {
+        resource: &'static str,
+        limit: usize,
+    },
     Numeric(DecimalError),
     Graph(String),
     InvalidDraft,
@@ -377,6 +419,9 @@ pub struct Workbook {
     limits: Limits,
 }
 impl Workbook {
+    pub fn admission_limits(&self) -> Limits {
+        self.limits
+    }
     /// Convenience workbooks share bounded runtime resources, never one pool per workbook.
     pub fn new(name: &str, limits: Limits) -> Result<Self> {
         pivot_core::model::integration::IntegrationRuntime::with_convenience(|runtime| {

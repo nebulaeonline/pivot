@@ -83,6 +83,7 @@ pub(crate) struct State {
     descriptors: Index<SelectionId, Option<Rectangle>>,
     consumers: Index<SelectionId, Shared<Consumers>>,
     points: usize,
+    point_limit: usize,
     live: usize,
     uses: usize,
     memory: Memory,
@@ -102,6 +103,9 @@ impl From<Admission> for Error {
 }
 impl State {
     pub fn new(memory: Memory) -> Result<Self, Error> {
+        Self::with_point_limit(memory, MAX_POINTS)
+    }
+    pub(crate) fn with_point_limit(memory: Memory, point_limit: usize) -> Result<Self, Error> {
         Ok(Self {
             #[cfg(feature = "history-experiment")]
             record_trace: None,
@@ -115,6 +119,7 @@ impl State {
             descriptors: Index::new(memory.clone()),
             consumers: Index::new(memory.clone()),
             points: 0,
+            point_limit,
             live: 0,
             uses: 0,
             counters: memory.alloc(Counters::default())?,
@@ -244,7 +249,7 @@ impl State {
         let exists = old.is_some();
         match node {
             Some(node) => {
-                if !exists && self.points >= MAX_POINTS {
+                if !exists && self.points >= self.point_limit {
                     return Err(Error::Quota);
                 }
                 cols.0.insert(column, node)?;

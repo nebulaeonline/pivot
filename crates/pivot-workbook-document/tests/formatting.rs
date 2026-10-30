@@ -39,9 +39,9 @@ fn sparse_styles_roundtrip_and_old_formats_refused() {
     let graph = b.expected().graph;
     let count = b.stats().allocated_nodes;
     let bytes = Document::export_document(&b, b.expected()).unwrap().bytes;
-    assert_eq!(&bytes[..8], b"PIVOTWB9");
+    assert_eq!(&bytes[..9], b"PIVOTWB10");
     let (opened, _) = Document::open_document(&bytes, Limits::default(), &runtime).unwrap();
-    assert_eq!(opened.styled_positions(), 16);
+    assert_eq!(opened.style_regions(), 3);
     assert_eq!(opened.stats().allocated_nodes, count);
     assert_eq!(
         opened
@@ -57,13 +57,14 @@ fn sparse_styles_roundtrip_and_old_formats_refused() {
             .is_none()
     );
     assert_eq!(b.expected().graph, graph);
-    for old in b'1'..=b'8' {
+    for old in b'1'..=b'9' {
         let mut obsolete = bytes.clone();
+        obsolete.remove(8);
         obsolete[7] = old;
         assert!(Document::open_document(&obsolete, Limits::default(), &runtime).is_err());
     }
     let mut low = Limits::default();
-    low.styles.positions = 15;
+    low.styles.positions = 2;
     assert!(Document::open_document(&bytes, low, &runtime).is_err());
     drop(opened);
     drop(b);
@@ -102,32 +103,26 @@ fn checksum_valid_invalid_styles_are_rejected() {
     )
     .unwrap();
     let bytes = Document::export_document(&b, b.expected()).unwrap().bytes;
-    let encoded = style.encode();
+    let region = b.regions().find(|r| r.property == 0).unwrap();
+    let mut pattern = region.sheet.uuid().as_bytes().to_vec();
+    for n in [0u64, 1, 1, 1, 1, 2] {
+        pattern.extend(n.to_le_bytes());
+    }
     let offset = bytes
-        .windows(encoded.len())
-        .position(|b| b == encoded)
+        .windows(pattern.len())
+        .position(|b| b == pattern)
         .unwrap();
-    for (relative, value) in [
-        (0, 4),
-        (1, 29),
-        (2, 7),
-        (3, 2),
-        (4, 3),
-        (5, 2),
-        (7, 4),
-        (8, 1),
-        (12, 1),
-    ] {
+    for (relative, value) in [(16, 10u64), (24, 0), (40, 65537), (56, 4)] {
         let mut malformed = bytes.clone();
-        malformed[offset + relative] = value;
-        let hash = Sha256::digest(&malformed[48..]);
-        malformed[16..48].copy_from_slice(&hash);
+        malformed[offset + relative..offset + relative + 8].copy_from_slice(&value.to_le_bytes());
+        let hash = Sha256::digest(&malformed[49..]);
+        malformed[17..49].copy_from_slice(&hash);
         assert!(
             Document::open_document(&malformed, Limits::default(), &runtime).is_err(),
             "field {relative}"
         );
     }
-    assert_eq!(b.styled_positions(), 1);
+    assert_eq!(b.style_regions(), 3);
     drop(b);
     assert!(runtime.finish().is_ok());
 }

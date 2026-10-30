@@ -44,7 +44,7 @@ public partial class MainWindow
         await OpenDocumentAsync(path);await SelectAsync(P(65536,2));await RefreshAsync();
         AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(P(65536,2))!.Result.Decimal)==8,"large-row formula reopen");
         AutomationCheck(s.PositionedCells==6&&s.AllocatedCellIdentities==6,"position and identity diagnostics");
-        AutomationCheck(FormatFields.Children.OfType<TextBlock>().Any(t=>t.Text?.Contains("4,096")==true),"independent style ceiling visible");
+        AutomationCheck(FormatFields.Children.OfType<TextBlock>().Any(t=>t.Text?.Contains("property regions")==true),"format-region diagnostics visible");
         AutomationImage(Path.ChangeExtension(report,"capacity.png"));
         await s.NewAsync(s.Revision,discard:true);CancelDraft();clipboardEditor=null;shortcutModifiers=KeyModifiers.None;await RefreshAsync();Sheet.Focus();
     }

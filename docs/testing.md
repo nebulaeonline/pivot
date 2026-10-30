@@ -54,6 +54,10 @@ from another screen. The current capacity launcher is `~/PivotValidation/cap.py`
 after `cd ~/PivotValidation`, run `python cap.py` on Windows or `./cap.py` on Linux
 and macOS. Keep the ordinary runner consent prompt and prevent duplicate attempts.
 Update the generated launcher for a new prepared run; retain the previous evidence.
+ADR-0030 uses `~/PivotValidation/fmt.py`: `python fmt.py` on Windows, `./fmt.py`
+on Linux/macOS. It runs the prepared managed suite then Native AOT, keeping the
+ordinary consent prompt for each and refusing duplicate/failed attempts. The short
+commands are also in `artifacts/formatting-commands.txt`.
 
 `python scripts/run_desktop.py` remains the ordinary manual application launcher.
 It strips inherited automation activation/permits and does not run acceptance.

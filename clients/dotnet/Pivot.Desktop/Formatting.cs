@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Pivot.Client;
+using Pivot.Avalonia;
 using Pivot.Protocol.Application.V1;
 namespace Pivot.Desktop;
 public partial class MainWindow {
@@ -16,8 +17,12 @@ public partial class MainWindow {
     private readonly List<ComboBox> formatCombos=[];
     private readonly uint?[] palette=[null,0x000000,0xffffff,0x1f4e78,0x008000,0xc00000,0xffeb9c,0xddebf7,0xe2efda];
     private TextBox formatPlaces=null!;
+    private ComboBox formatTarget=null!;
+    private TextBlock formatInfo=null!;
     private void InitializeFormatting() {
-        FormatFields.Children.Add(new TextBlock { Text="Formatting is limited to 4,096 styled positions per workbook; computational capacity is 65,536 positioned cells.", TextWrapping=global::Avalonia.Media.TextWrapping.Wrap });
+        formatInfo=new TextBlock{Text="Formatting uses property regions independently of computational cell capacity.",TextWrapping=global::Avalonia.Media.TextWrapping.Wrap};FormatFields.Children.Add(formatInfo);
+        formatTarget=new ComboBox{ItemsSource=new[]{"Selected cells","Worksheet defaults (inherited properties only)"},SelectedIndex=0,Width=380};FormatFields.Children.Add(formatTarget);
+        formatTarget.SelectionChanged+=async(_,_)=>{if(!loadingFormat)await LoadFormatting();};
         var row=new WrapPanel {Orientation=global::Avalonia.Layout.Orientation.Horizontal};FormatFields.Children.Add(row);
         ComboBox Add(string label,string[] items,int field) {
             var box=new ComboBox {Width=155,ItemsSource=new[]{"Mixed"}.Concat(items).ToArray(),SelectedIndex=0};
@@ -40,9 +45,9 @@ public partial class MainWindow {
         string[] colors=["Theme","Black","White","Navy","Green","Red","Pale yellow","Pale blue","Pale green"];
         Add("Foreground",colors,8);Add("Background",colors,9);
         var buttons=new StackPanel{Orientation=global::Avalonia.Layout.Orientation.Horizontal,Spacing=8};
-        var apply=new Button{Content="Apply format"};var reset=new Button{Content="Reset Formatting"};var cancel=new Button{Content="Cancel"};
+        var apply=new Button{Content="Apply format"};var reset=new Button{Content="Reset Formatting"};var cancel=new Button{Content="Cancel"};var inherit=new Button{Content="Use worksheet defaults"};inherit.Click+=async(_,_)=>await ApplyFormatting(false,true);
         apply.Click+=async(_,_)=>await ApplyFormatting(false);reset.Click+=async(_,_)=>await ApplyFormatting(true);cancel.Click+=(_,_)=>{formatTouched=0;FormatPane.IsExpanded=false;Sheet.Focus();};
-        buttons.Children.Add(apply);buttons.Children.Add(reset);buttons.Children.Add(cancel);FormatFields.Children.Add(buttons);
+        buttons.Children.Add(apply);buttons.Children.Add(reset);buttons.Children.Add(inherit);buttons.Children.Add(cancel);FormatFields.Children.Add(buttons);
         FormatPane.PropertyChanged+=async(_,e)=>{if(e.Property==Expander.IsExpandedProperty && FormatPane.IsExpanded)await LoadFormatting();};
         Sheet.SelectionChanged+=()=>{if(FormatPane.IsExpanded)_=LoadFormatting();};
     }
@@ -51,40 +56,42 @@ public partial class MainWindow {
         long request=++formatRequest;var s=session;var first=Sheet.SelectionFirst;var last=Sheet.SelectionLast;string sheet=s.WorksheetId,revision=s.Revision;
         formatRevision="";
         try {
-            var response=await s.ReadStylesAsync(first,last);
+            var response=await s.ReadStyleSummaryAsync(first,last);
             if(request!=formatRequest || s!=session || s.WorksheetId!=sheet || s.Revision!=revision || !Same(first,Sheet.SelectionFirst)||!Same(last,Sheet.SelectionLast))return;
-            var values=response.Styles.Select(p=>CellStyle.Decode(p.Style)).ToArray();
-            if(values.Length==0)return;
+            var values=new[]{CellStyle.Decode(formatTarget.SelectedIndex==1?response.WorksheetDefaultStyle:response.SummaryStyle)};
+            uint mixedFields=formatTarget.SelectedIndex==1?0:response.MixedStyleFields;
+            formatInfo.Text=$"{WorksheetView.Address(first)}:{WorksheetView.Address(last)} · {response.FormatRegions:N0}/{response.FormatRegionLimit:N0} property regions · {response.FormatBytes:N0} style bytes. Apply replaces chosen properties throughout the selection.";
             loadingFormat=true;
-            int Mixed(Func<CellStyle,int> selector)=>values.All(v=>selector(v)==selector(values[0]))?selector(values[0])+1:0;
-            formatCombos[0].SelectedIndex=Mixed(v=>v.Numeric);
-            formatPlaces.Text=values.All(v=>v.Places==values[0].Places)?values[0].Places.ToString():"";
-            formatCombos[1].SelectedIndex=Mixed(v=>v.Rounding);
-            formatCombos[2].SelectedIndex=Mixed(v=>v.Grouping?1:0);
-            formatCombos[3].SelectedIndex=Mixed(v=>v.Currency);
-            formatCombos[4].SelectedIndex=Mixed(v=>v.Bold?1:0);
-            formatCombos[5].SelectedIndex=Mixed(v=>v.Italic?1:0);
-            formatCombos[6].SelectedIndex=Mixed(v=>v.Alignment);
-            for(int i=0;i<2;i++) {uint? color=i==0?values[0].Foreground:values[0].Background;bool mixed=values.Any(v=>(i==0?v.Foreground:v.Background)!=color);int index=Array.IndexOf(palette,color);formatCombos[7+i].SelectedIndex=mixed||index<0?0:index+1;}
+            int Mixed(int field,Func<CellStyle,int> selector)=>(mixedFields&(1u<<field))==0?selector(values[0])+1:0;
+            formatCombos[0].SelectedIndex=Mixed(0,v=>v.Numeric);
+            formatPlaces.Text=(mixedFields&2)==0?values[0].Places.ToString():"";
+            formatCombos[1].SelectedIndex=Mixed(2,v=>v.Rounding);
+            formatCombos[2].SelectedIndex=Mixed(3,v=>v.Grouping?1:0);
+            formatCombos[3].SelectedIndex=Mixed(4,v=>v.Currency);
+            formatCombos[4].SelectedIndex=Mixed(5,v=>v.Bold?1:0);
+            formatCombos[5].SelectedIndex=Mixed(6,v=>v.Italic?1:0);
+            formatCombos[6].SelectedIndex=Mixed(7,v=>v.Alignment);
+            for(int i=0;i<2;i++) {uint? color=i==0?values[0].Foreground:values[0].Background;bool mixed=(mixedFields&(1u<<(8+i)))!=0;int index=Array.IndexOf(palette,color);formatCombos[7+i].SelectedIndex=mixed||index<0?0:index+1;}
             formatTouched=0;formatRevision=revision;formatWorksheet=sheet;formatFirst=first;formatLast=last;
         }catch(Exception e){StatusLabel.Text=e.Message;}
         finally{loadingFormat=false;}
     }
     private static bool Same(Position a,Position b)=>a.Row==b.Row&&a.Column==b.Column;
-    private async Task ApplyFormatting(bool reset) {
+    private async Task ApplyFormatting(bool reset,bool inherit=false) {
         if(session is null||editing||fileAction||shuttingDown||Sheet.IsSelecting||Sheet.ProjectedSelection is not null)return;
         if(formatRevision!=session.Revision) {StatusLabel.Text="Reload the format pane after workbook changes.";return;}
         if(!await CommitAsync())return;
         // Committing a draft changes the revision; retain explicit field choices but bind to this exact state.
         if(formatFirst is null||formatLast is null||formatWorksheet!=session.WorksheetId||!Same(formatFirst,Sheet.SelectionFirst)||!Same(formatLast,Sheet.SelectionLast)) {StatusLabel.Text="Reload the format pane for the current selection.";return;}
-        if(!reset && formatTouched==0)return;
+        if(inherit && formatTarget.SelectedIndex==1){StatusLabel.Text="Worksheet defaults cannot inherit from themselves.";return;}
+        if(!reset && !inherit && formatTouched==0)return;
         try {
             int Value(int combo,int field) {int i=formatCombos[combo].SelectedIndex;if((formatTouched&(1u<<field))!=0&&i<=0)throw new ArgumentException("Choose a value for each changed field.");return Math.Max(0,i-1);}
-            byte places=2;if(!reset && (formatTouched&2)!=0 && (!byte.TryParse(formatPlaces.Text,out places)||places>28))throw new ArgumentException("Decimal places must be 0–28.");
-            var style=reset ? new CellStyle() : new CellStyle((byte)Value(0,0),places,(byte)Value(1,2),Value(2,3)==1,(byte)Value(3,4),Value(4,5)==1,Value(5,6)==1,(byte)Value(6,7),palette[Value(7,8)],palette[Value(8,9)]);
+            byte places=2;if(!reset && !inherit && (formatTouched&2)!=0 && (!byte.TryParse(formatPlaces.Text,out places)||places>28))throw new ArgumentException("Decimal places must be 0–28.");
+            var style=reset || inherit ? new CellStyle() : new CellStyle((byte)Value(0,0),places,(byte)Value(1,2),Value(2,3)==1,(byte)Value(3,4),Value(4,5)==1,Value(5,6)==1,(byte)Value(6,7),palette[Value(7,8)],palette[Value(8,9)]);
             editing=true;SetEditing(false);refresh?.Cancel();++displayRequest;
-            await session.FormatAsync(session.Revision,formatFirst,formatLast,style,formatTouched,reset);
-            await RefreshAsync();await LoadFormatting();StatusLabel.Text=reset?"Formatting reset; contents retained.":"Formatting applied.";
+            await session.FormatRegionAsync(session.Revision,formatFirst,formatLast,style,inherit?1023u:formatTouched,reset,inherit,formatTarget.SelectedIndex==1);
+            await RefreshAsync();await LoadFormatting();StatusLabel.Text=inherit?"Selected formatting now inherits worksheet defaults.":reset?"Formatting reset; contents retained.":"Formatting applied.";
         }catch(Exception e){StatusLabel.Text=e.Message;}
         finally{editing=false;SetEditing(session.DocumentId.Length!=0);Sheet.Focus();}
     }

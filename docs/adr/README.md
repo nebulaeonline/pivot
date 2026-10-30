@@ -76,4 +76,4 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0029: Production workbook capacity and identity scalability](0029-production-workbook-capacity.md) — Accepted and closed by parent implementation review (2026-10-29), including source-qualified native evidence and separately reported identity-memory cost.
 
-- [ADR-0030: Row, column and rectangular-range formatting](0030-region-formatting.md) — Design accepted; implementation authorized. Latest action wins per property, sparse normalized regions, WB10 only (no WB9 reader), private v8 and unchanged CB4.
+- [ADR-0030: Row, column and rectangular-range formatting](0030-region-formatting.md) — Accepted and closed by parent implementation review (2026-10-29), including the normalization correction, native validation and separately qualified benchmark-only extension. WB10 only, private v8 and unchanged CB4.

@@ -97,6 +97,24 @@ public sealed partial class WorksheetView : Control
     {
         base.OnPointerPressed(e);
         var point=e.GetPosition(this);
+        if(e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && ProjectionFrame is null && point.X>=0 && point.Y>=0 && point.X<Header+Columns*WidthPerCell && point.Y<(VisibleRows+1)*HeightPerCell && (point.X<Header || point.Y<HeightPerCell)) {
+            EndPointerSelection(false);e.Handled=true;
+            long headerGesture=++gesture;
+            bool rows=point.X<Header,columns=point.Y<HeightPerCell;
+            uint row=(uint)Math.Clamp((int)FirstRow+(int)Math.Floor(point.Y/HeightPerCell)-1,1,WorkbookCapacity.MaximumRows);
+            uint column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,WorkbookCapacity.MaximumColumns);
+            bool extendHeader=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            uint firstRow=columns?1:extendHeader?Math.Min(Anchor.Row,row):row,lastRow=columns?WorkbookCapacity.MaximumRows:extendHeader?Math.Max(Anchor.Row,row):row;
+            uint firstColumn=rows?1:extendHeader?Math.Min(Anchor.Column,column):column,lastColumn=rows?WorkbookCapacity.MaximumColumns:extendHeader?Math.Max(Anchor.Column,column):column;
+            var firstHeader=new Position{Row=firstRow,Column=firstColumn};
+            selectionPending=true;
+            bool headerAccepted=SelectionRequested is not null && await SelectionRequested(firstHeader,false,false,()=>gesture==headerGesture);
+            if(headerGesture==gesture)selectionPending=false;
+            if(!headerAccepted || headerGesture!=gesture)return;
+            Select(firstHeader);
+            Select(new Position{Row=lastRow,Column=lastColumn},true);
+            Focus();return;
+        }
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || point.X<Header || point.X>=Header+Columns*WidthPerCell
             || point.Y<HeightPerCell || point.Y>=(VisibleRows+1)*HeightPerCell) return;
         if(ProjectionTargetAt(point) is { } projected){EndPointerSelection(false);e.Handled=true;if(ProjectionRequested is not null)await ProjectionRequested(projected);return;}

@@ -725,6 +725,7 @@ pub struct RectangleRead {
 }
 
 pub struct CalculationCapture {
+    style_limits: formatting::StyleLimits,
     expected: Expected,
     worksheet: WorksheetId,
     pinned: persistent::State,

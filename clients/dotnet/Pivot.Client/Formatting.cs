@@ -24,6 +24,10 @@ public sealed record CellStyle(byte Numeric=0,byte Places=2,byte Rounding=1,bool
 public sealed partial class WorkbookSession {
     public Task<Response> FormatAsync(string expected,Position first,Position last,CellStyle style,uint fields,bool reset=false,CancellationToken cancellation=default) =>
         CallAsync(new Request {Operation=Request.Types.Operation.Format,Revision=expected,First=first.Clone(),Last=last.Clone(),Style=ByteString.CopyFrom(style.Encode()),StyleFields=fields,ResetFormat=reset},cancellation);
+    public Task<Response> FormatRegionAsync(string expected,Position first,Position last,CellStyle style,uint fields,bool reset=false,bool inherit=false,bool defaults=false,CancellationToken cancellation=default) =>
+        CallAsync(new Request {Operation=Request.Types.Operation.Format,Revision=expected,First=first.Clone(),Last=last.Clone(),Style=ByteString.CopyFrom(style.Encode()),StyleFields=fields,ResetFormat=reset,StyleInherit=inherit,WorksheetDefaults=defaults},cancellation);
+    public Task<Response> ReadStyleSummaryAsync(Position first,Position last,CancellationToken cancellation=default) =>
+        CallAsync(new Request {Operation=Request.Types.Operation.ReadStyles,First=first.Clone(),Last=last.Clone(),StyleSummary=true},cancellation);
     public Task<Response> ReadStylesAsync(Position first,Position last,CancellationToken cancellation=default) =>
         CallAsync(new Request {Operation=Request.Types.Operation.ReadStyles,First=first.Clone(),Last=last.Clone()},cancellation);
 }

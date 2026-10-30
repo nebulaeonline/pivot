@@ -1,7 +1,26 @@
 # ADR-0030: Row, column and rectangular-range formatting
 
 Date: 2026-10-29.
-Status: **Accepted for implementation by parent design review (2026-10-29).**
+Status: **Accepted and closed by parent implementation review (2026-10-29).**
+
+Parent accepts the selection-wide latest-action-per-property behavior, sparse
+region representation, explicit defaults/inheritance, atomic snapshot operations,
+65,536-region capacity and performance/memory results. The normalization correction
+is accepted without increasing its original work budget. WB10-only persistence,
+private v8 and unchanged CB4 are accepted; no WB9 reader or migration is required.
+The supplied three-platform headless, managed desktop, Native AOT and independent
+correctness evidence is sufficient. The separately qualified benchmark-only
+extension and its source distinction are accepted. No additional validation,
+acceptance packet, reconciliation or AOT rerun is required. Preserve original
+failed/corrected evidence and the short target-local launcher convention.
+ADR-0023 remains parked at G3; no production history integration is authorized.
+
+Owner direction supersedes the parent's permission to commit/push: the owner will
+do that after the documentation update. Further work, including the next ADR design,
+is held until the owner's explicit go-ahead under the cadence in [STATUS](../STATUS.md).
+
+[Implementation handoff, native measurements and source-qualified validation](../handoffs/2026-10-29-region-formatting.md).
+Parent design authorization and superseding compatibility direction are retained below.
 
 The owner’s subsequent WB9 clarification supersedes the original compatibility
 proposal: WB10 only, no WB9 reader/conversion/migration. Earlier versions are
@@ -14,10 +33,10 @@ the accepted ADR-0026 presentation contract; it does not reopen that milestone.
 
 ## Context and governing interaction
 
-Current `format_sheet` expands a rectangle into position-owned complete `Style`
-records. `style_at` reads that position or the built-in default. Formatting blanks
-is graph-free, but commands and non-default positions are independently capped at
-4,096. This prevents ordinary whole-column and 65,536-cell table formatting.
+At design time, `format_sheet` expanded a rectangle into position-owned complete `Style`
+records. `style_at` read that position or the built-in default. Formatting blanks
+was graph-free, but commands and non-default positions were independently capped at
+4,096. That prevented ordinary whole-column and 65,536-cell table formatting.
 
 Make rows, columns and rectangles first-class formatting targets without enumerating
 their coordinates. Preserve exact rendering, position ownership, atomic publication
@@ -110,9 +129,10 @@ For each changed property, stage this operation on the candidate root:
 2. For Set/default, insert the selection with the requested explicit value. For
    Inherit, insert nothing. Unchanged properties retain their old roots.
 3. Merge same-value neighbors sharing a complete edge and identical orthogonal
-   extent, using a deterministic sorted horizontal pass followed by a vertical pass.
-   Additional bounded passes may merge newly exposed neighbors; correctness never
-   depends on reaching a minimum cover. Admit a stable valid cover within work limits.
+   extent in deterministic horizontal/vertical passes, then index in row order.
+   Implementation coalesces changed pieces against current neighbors and uses an
+   adaptive row sort, avoiding expensive global sorts of unaffected regions. A
+   minimum cover is not required; admit a valid disjoint cover within work limits.
 4. Validate disjointness, bounds, value types, fragment/byte/work limits and cancellation,
    then publish all changed property maps and the workbook revision together.
 

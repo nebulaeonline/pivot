@@ -40,12 +40,23 @@ impl Workbook {
         self.core.history_metrics().map_err(graph_error)
     }
     pub fn history_weight(&self) -> Result<usize> {
-        if self.styled_positions() != 0 {
+        // Content Move/Fill now produce explicit built-in style snapshots. This
+        // content-only experiment can still represent their appearance because
+        // worksheet-default editing and non-default formatting remain unsupported.
+        // No region history or presentation mutation records are introduced.
+        if self.worksheet_defaults().next().is_some()
+            || self.regions().any(|r| {
+                r.value
+                    != formatting::regions::values(formatting::Style::default())
+                        [r.property as usize]
+            })
+        {
             return Err(Error::InvalidTarget);
         }
         self.history_metrics()?
             .weight
             .checked_add(persistent::history_weight(self)?)
+            .and_then(|v| v.checked_add(self.style_bytes()))
             .and_then(|v| v.checked_add(std::mem::size_of::<HistoricalRoot>() + 256))
             .ok_or(Error::Exhausted)
     }

@@ -47,6 +47,7 @@ try:
 
         if not report.get("spreadsheet_aggregates", "").startswith("passed:"): raise SystemExit("Spreadsheet aggregate acceptance missing")
 
+        if not report.get("region_formatting", "").startswith("passed:"): raise SystemExit("Region formatting acceptance missing")
         if not report.get("basic_formatting", "").startswith("passed:"): raise SystemExit("Basic formatting acceptance missing")
         if not report.get("csv", "").startswith("passed:"): raise SystemExit("CSV acceptance missing")
         if not report.get("capacity", "").startswith("passed:"): raise SystemExit("Capacity acceptance missing")

@@ -21,7 +21,8 @@ pub struct SheetRecord {
     pub column_count: u32,
 }
 pub struct PortableWorkbook {
-    pub styles: Vec<(WorksheetId, Position, formatting::Style)>,
+    pub styles: Vec<formatting::Region>,
+    pub style_defaults: Vec<(WorksheetId, formatting::Style)>,
     pub sheets: Vec<SheetRecord>,
     pub worksheet: WorksheetId,
     pub graph_id: Uuid,
@@ -147,7 +148,8 @@ impl Workbook {
             })
             .collect();
         Ok(PortableWorkbook {
-            styles: self.styles().collect(),
+            styles: self.regions().collect(),
+            style_defaults: self.worksheet_defaults().collect(),
             sheets: self
                 .sheets()
                 .iter()
@@ -480,25 +482,31 @@ impl Workbook {
             return Err(Error::InvalidTarget);
         }
         let sheet_ids: BTreeSet<_> = image.sheets.iter().map(|s| s.id).collect();
-        if image.styles.len() > limits.styles.positions {
-            return Err(Error::Limit);
-        }
-        for &(sheet, p, style) in &image.styles {
+        for &(sheet, style) in &image.style_defaults {
+            if !sheet_ids.contains(&sheet) {
+                return Err(Error::InvalidTarget);
+            }
             style.validate()?;
-            if !sheet_ids.contains(&sheet)
-                || p.row == 0
-                || p.column == 0
-                || p.row > limits.rows
-                || p.column > limits.columns
-                || style == formatting::Style::default()
-                || data.styles.contains_key(&sheets::at(sheet, p))
+        }
+        for region in &image.styles {
+            let r = region.rectangle;
+            let sheet = image
+                .sheets
+                .iter()
+                .find(|s| s.id == region.sheet)
+                .ok_or(Error::InvalidTarget)?;
+            if r.first.row == 0
+                || r.first.column == 0
+                || r.first.row > r.last.row
+                || r.first.column > r.last.column
+                || r.last.row > sheet.row_count
+                || r.last.column > sheet.column_count
             {
                 return Err(Error::InvalidTarget);
             }
-            data.styles
-                .insert(sheets::at(sheet, p), style)
-                .map_err(|_| Error::Limit)?;
         }
+        data.styles
+            .restore(&image.style_defaults, &image.styles, limits.styles)?;
         let mut cells = BTreeSet::new();
         let mut ids = BTreeSet::new();
         let live_slots: BTreeSet<_> = image

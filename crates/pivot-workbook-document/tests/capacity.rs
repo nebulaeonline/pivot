@@ -13,9 +13,9 @@ fn entry(at: Position, source: &str) -> Edit {
 }
 
 #[test]
-fn small_wb9_remains_readable_and_gains_sparse_row_admission_without_rebinding() {
+fn small_wb10_gains_sparse_row_admission_without_rebinding() {
     let rt = IntegrationRuntime::standalone().unwrap();
-    let mut old = Workbook::new_in("small WB9", Limits::baseline(), &rt).unwrap();
+    let mut old = Workbook::new_in("small WB10", Limits::baseline(), &rt).unwrap();
     old.apply(
         old.expected(),
         &[entry(p(1, 1), "7"), entry(p(1, 2), "=A1+1")],
@@ -25,7 +25,7 @@ fn small_wb9_remains_readable_and_gains_sparse_row_admission_without_rebinding()
     let bytes = Document::export_document(&old, old.expected())
         .unwrap()
         .bytes;
-    assert_eq!(&bytes[..8], b"PIVOTWB9");
+    assert_eq!(&bytes[..9], b"PIVOTWB10");
     let (mut restored, _) = Document::open_document(&bytes, Limits::default(), &rt).unwrap();
     assert_eq!(
         restored.cell_at(p(1, 1)).unwrap().unwrap().reference,
@@ -193,7 +193,7 @@ fn aggregate_source_admission_matches_reopen_and_preserves_individual_limits() {
 }
 
 #[test]
-fn legacy_rejected_formula_stays_rejected_after_row_admission_grows_and_resave() {
+fn rejected_formula_stays_rejected_after_row_admission_grows_and_resave() {
     let rt = IntegrationRuntime::standalone().unwrap();
     let mut old = Workbook::new_in("legacy rejected draft", Limits::baseline(), &rt).unwrap();
     old.apply(old.expected(), &[entry(p(1, 1), "=A1025")])

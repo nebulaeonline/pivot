@@ -155,7 +155,7 @@ impl Session {
                 if let (Some(min), Some(max)) = (ordinary.first(), ordinary.last()) {
                     // Ordinary rows visible around a band remain a bounded logical span.
                     let nested = wire::Request {
-                        version: 7,
+                        version: 8,
                         worksheet: q.worksheet.clone(),
                         revision: q.revision.clone(),
                         operation: Op::Read as i32,

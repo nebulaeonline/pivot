@@ -52,10 +52,14 @@ calculated value; cell number formats change only its presentation.
 A Format pane provides fixed-decimal, grouped, currency and percentage display,
 all seven display rounding modes, bold/italic, alignment and cell colors. Formatting
 keeps exact calculation values intact; even empty regions can be styled without
-creating calculation nodes. Native copy/paste and Fill carry styles with content.
+creating calculation nodes. Cell, row, column and range formatting uses sparse
+property regions: applying a property changes every selected position, including
+prior exceptions, while untouched properties remain intact. Reset Formatting and
+Use worksheet defaults distinguish explicit built-in defaults from inheritance.
+Native copy/paste and Fill carry effective style snapshots with content.
 
 Workbooks open and save as local `.pivot` files, preserving every sheet, typed
-content, presentation and stable bindings. The current experimental format is WB9; earlier
+content, presentation and stable bindings. The current experimental format is WB10; earlier
 experimental workbook versions are rejected.
 
 CSV import creates a new unsaved workbook; CSV export writes calculated values
@@ -68,7 +72,8 @@ and 262,144 allocated cell identities across the workbook, with 65,536 rows and
 1,024 columns per sheet. Cleared cells and referenced blanks retain positions;
 formatting-only blanks remain graph-free. CSV admits 1,048,576 fields and 16 MiB;
 excessive imports fail without replacing the current workbook. Formatting has a
-separate limit of 4,096 styled positions.
+separate limit of 65,536 stored property regions and an 8 MiB style-data/index budget;
+coverage is not limited to 65,536 styled positions.
 CSV uses UTF-8 and comma separators, with quoted multiline text supported.
 Strings are always quoted on export; other applications may interpret them differently.
 

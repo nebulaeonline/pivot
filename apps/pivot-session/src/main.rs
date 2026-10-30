@@ -180,7 +180,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 7 {
+        if q.version != 8 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -599,21 +599,23 @@ impl Session {
                     .map_err(|e| e.to_string())?;
                 book.axes_at_sheet(sheet.unwrap(), last)
                     .map_err(|e| e.to_string())?;
-                let height = last.row.checked_sub(first.row).ok_or("invalid rectangle")? as u64 + 1;
-                let width = last
-                    .column
-                    .checked_sub(first.column)
-                    .ok_or("invalid rectangle")? as u64
-                    + 1;
-                if height * width > book.style_limits().command_positions {
-                    return Err("format selection exceeds style command limit".into());
-                }
-                for row in first.row..=last.row {
-                    for column in first.column..=last.column {
-                        let p = Position::new(row, column);
-                        let style = book
-                            .style_at(sheet.unwrap(), p)
-                            .map_err(|e| e.to_string())?;
+                let rectangle = Rectangle { first, last };
+                if q.style_summary {
+                    let (style, mixed) = book
+                        .style_summary(sheet.unwrap(), rectangle)
+                        .map_err(|e| e.to_string())?;
+                    r.summary_style = style.encode().to_vec();
+                    r.mixed_style_fields = mixed;
+                    r.worksheet_default_style = book
+                        .worksheet_default(sheet.unwrap())
+                        .map_err(|e| e.to_string())?
+                        .encode()
+                        .to_vec();
+                } else {
+                    for (p, style) in book
+                        .style_viewport(sheet.unwrap(), rectangle)
+                        .map_err(|e| e.to_string())?
+                    {
                         r.styles.push(wire::StyledPosition {
                             at: Some(location(p)),
                             style: style.encode().to_vec(),
@@ -621,12 +623,13 @@ impl Session {
                     }
                 }
             }
+
             Op::Format => {
                 if self.proof.is_some() {
                     return Err("formatting unavailable in proof documents".into());
                 }
                 use pivot_workbook::formatting::{Field, Style, StylePatch};
-                let bits = q.style_fields;
+                let bits = if q.reset_format { 1023 } else { q.style_fields };
                 if bits & !1023 != 0 {
                     return Err("unknown style fields".into());
                 }
@@ -637,68 +640,112 @@ impl Session {
                 };
                 let patch = StylePatch {
                     numeric: if bits & 1 != 0 {
-                        Field::Set(v.numeric)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.numeric)
+                        }
                     } else {
                         Field::Keep
                     },
                     places: if bits & 2 != 0 {
-                        Field::Set(v.places)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.places)
+                        }
                     } else {
                         Field::Keep
                     },
                     rounding: if bits & 4 != 0 {
-                        Field::Set(v.rounding)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.rounding)
+                        }
                     } else {
                         Field::Keep
                     },
                     grouping: if bits & 8 != 0 {
-                        Field::Set(v.grouping)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.grouping)
+                        }
                     } else {
                         Field::Keep
                     },
                     currency: if bits & 16 != 0 {
-                        Field::Set(v.currency)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.currency)
+                        }
                     } else {
                         Field::Keep
                     },
                     bold: if bits & 32 != 0 {
-                        Field::Set(v.bold)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.bold)
+                        }
                     } else {
                         Field::Keep
                     },
                     italic: if bits & 64 != 0 {
-                        Field::Set(v.italic)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.italic)
+                        }
                     } else {
                         Field::Keep
                     },
                     alignment: if bits & 128 != 0 {
-                        Field::Set(v.alignment)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.alignment)
+                        }
                     } else {
                         Field::Keep
                     },
                     foreground: if bits & 256 != 0 {
-                        Field::Set(v.foreground)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.foreground)
+                        }
                     } else {
                         Field::Keep
                     },
                     background: if bits & 512 != 0 {
-                        Field::Set(v.background)
+                        if q.style_inherit {
+                            Field::Inherit
+                        } else {
+                            Field::Set(v.background)
+                        }
                     } else {
                         Field::Keep
                     },
                 };
                 let before = book.expected();
-                book.format_sheet(
-                    sheet.unwrap(),
-                    before,
-                    Rectangle {
-                        first: pos(q.first.as_ref())?,
-                        last: pos(q.last.as_ref())?,
-                    },
-                    patch,
-                    q.reset_format,
-                    &Default::default(),
-                )
+                if q.worksheet_defaults {
+                    book.set_worksheet_default(sheet.unwrap(), before, patch, &Default::default())
+                } else {
+                    book.format_sheet(
+                        sheet.unwrap(),
+                        before,
+                        Rectangle {
+                            first: pos(q.first.as_ref())?,
+                            last: pos(q.last.as_ref())?,
+                        },
+                        patch,
+                        q.reset_format,
+                        &Default::default(),
+                    )
+                }
                 .map_err(|e| e.to_string())?;
                 if book.expected() != before {
                     self.revision = Uuid::new_v4().to_string();
@@ -736,18 +783,14 @@ impl Session {
                 }
                 r.generation = Uuid::new_v4().to_string();
                 r.capture_identity = r.generation.clone();
-                for row in first.row..=last.row {
-                    for column in first.column..=last.column {
-                        let p = Position::new(row, column);
-                        let style = book
-                            .style_at(sheet.unwrap(), p)
-                            .map_err(|e| e.to_string())?;
-                        // Include defaults too so Mixed selection fields are unambiguous.
-                        r.styles.push(wire::StyledPosition {
-                            at: Some(location(p)),
-                            style: style.encode().to_vec(),
-                        });
-                    }
+                for (p, style) in book
+                    .style_viewport(sheet.unwrap(), Rectangle { first, last })
+                    .map_err(|e| e.to_string())?
+                {
+                    r.styles.push(wire::StyledPosition {
+                        at: Some(location(p)),
+                        style: style.encode().to_vec(),
+                    });
                 }
                 for cell in cells.cells {
                     let mut view = wire::Cell {
@@ -952,7 +995,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 7,
+            version: 8,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -1013,6 +1056,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let limits = book.admission_limits();
             r.positioned_cells = stats.live_cells as u32;
             r.allocated_cell_identities = stats.allocated_nodes as u32;
+            r.format_regions = book.style_regions() as u32;
+            r.format_region_limit = book.style_limits().positions as u32;
+            r.format_bytes = book.style_bytes() as u64;
             r.positioned_cell_limit = limits.live_cells as u32;
             r.allocated_cell_identity_limit = limits.allocated_cells as u32;
             r.worksheets = book

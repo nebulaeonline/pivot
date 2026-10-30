@@ -117,8 +117,17 @@ fn blank_fill_preserves_referenced_destination_id_and_numeric_classification() {
         &Default::default(),
     )
     .unwrap();
-    assert_eq!(b.expected(), before);
-    assert_eq!(b.stats(), stats);
+    assert_eq!(b.expected().graph, before.graph);
+    assert_eq!(b.stats().allocated_nodes, stats.allocated_nodes);
+    let snapshot = b.expected();
+    b.fill(
+        snapshot,
+        rect(p(7, 1), p(9, 1)),
+        FillDirection::Down,
+        &Default::default(),
+    )
+    .unwrap();
+    assert_eq!(b.expected(), snapshot);
     finish(rt, b);
 }
 #[test]

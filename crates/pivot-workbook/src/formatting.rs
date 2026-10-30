@@ -2,6 +2,9 @@
 use super::*;
 use pivot_core::model::integration::{CancellationToken, resources::Footprint};
 use pivot_types::{PivotDecimal, RoundingMode};
+pub(crate) mod regions;
+pub use regions::Region;
+pub(crate) use regions::Store;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum NumericFormat {
@@ -145,13 +148,14 @@ pub enum Field<T> {
     Keep,
     Set(T),
     Reset,
+    Inherit,
 }
 impl<T: Copy> Field<T> {
     fn apply(self, old: T, default: T) -> T {
         match self {
             Self::Keep => old,
             Self::Set(v) => v,
-            Self::Reset => default,
+            Self::Reset | Self::Inherit => default,
         }
     }
 }
@@ -192,12 +196,18 @@ impl StylePatch {
 pub struct StyleLimits {
     pub positions: usize,
     pub command_positions: u64,
+    pub bytes: usize,
+    pub command_work: usize,
+    pub query_work: usize,
 }
 impl Default for StyleLimits {
     fn default() -> Self {
         Self {
-            positions: 4096,
+            positions: 65_536,
             command_positions: 4096,
+            bytes: 8 * 1024 * 1024,
+            command_work: 2_097_152,
+            query_work: 1_048_576,
         }
     }
 }
@@ -272,101 +282,207 @@ pub fn render_decimal(value: PivotDecimal, style: Style) -> Result<String> {
     Ok(out)
 }
 
-impl Workbook {
-    pub fn style_at(&self, sheet: WorksheetId, position: Position) -> Result<Style> {
-        let info = self.sheet_info(sheet)?;
-        info.rows.at(position.row)?;
-        info.columns.at(position.column)?;
-        Ok(self
-            .persistent
-            .styles
-            .get(&sheets::at(sheet, position))
-            .copied()
-            .unwrap_or_default())
+impl StylePatch {
+    fn intents(self) -> [u8; 10] {
+        fn intent<T>(f: Field<T>) -> u8 {
+            match f {
+                Field::Keep => 0,
+                Field::Inherit => 2,
+                _ => 1,
+            }
+        }
+        [
+            intent(self.numeric),
+            intent(self.places),
+            intent(self.rounding),
+            intent(self.grouping),
+            intent(self.currency),
+            intent(self.bold),
+            intent(self.italic),
+            intent(self.alignment),
+            intent(self.foreground),
+            intent(self.background),
+        ]
     }
-    pub fn styled_positions(&self) -> usize {
+    pub fn inherit() -> Self {
+        Self {
+            numeric: Field::Inherit,
+            places: Field::Inherit,
+            rounding: Field::Inherit,
+            grouping: Field::Inherit,
+            currency: Field::Inherit,
+            bold: Field::Inherit,
+            italic: Field::Inherit,
+            alignment: Field::Inherit,
+            foreground: Field::Inherit,
+            background: Field::Inherit,
+        }
+    }
+}
+impl persistent::Data {
+    pub(crate) fn paint_style(
+        &mut self,
+        sheet: WorksheetId,
+        r: Rectangle,
+        patch: StylePatch,
+        reset: bool,
+        limits: StyleLimits,
+        cancel: &CancellationToken,
+    ) -> Result<bool> {
+        let available = limits
+            .command_work
+            .checked_sub(self.styles.work)
+            .ok_or(Error::Limit)?;
+        let mut work = regions::Work::new(available, cancel);
+        let v = regions::values(if reset {
+            Style::default()
+        } else {
+            patch.apply(Style::default())?
+        });
+        let intents = if reset { [1; 10] } else { patch.intents() };
+        let mut changed = false;
+        for property in 0..10 {
+            let intent = intents[property];
+            if intent != 0 {
+                changed |= self.styles.paint(
+                    sheet,
+                    r,
+                    property as u8,
+                    if intent == 2 { None } else { Some(v[property]) },
+                    limits,
+                    &mut work,
+                )?;
+            }
+        }
+        self.styles.work += work.used();
+        Ok(changed)
+    }
+    pub(crate) fn resolved_style(
+        &self,
+        sheet: WorksheetId,
+        p: Position,
+        limits: StyleLimits,
+        cancel: &CancellationToken,
+    ) -> Result<Style> {
+        self.styles
+            .style_at(sheet, p, &mut regions::Work::new(limits.query_work, cancel))
+    }
+    pub(crate) fn snapshot_style(
+        &mut self,
+        sheet: WorksheetId,
+        p: Position,
+        s: Style,
+        limits: StyleLimits,
+        cancel: &CancellationToken,
+    ) -> Result<bool> {
+        s.validate()?;
+        self.paint_style(
+            sheet,
+            Rectangle { first: p, last: p },
+            StylePatch {
+                numeric: Field::Set(s.numeric),
+                places: Field::Set(s.places),
+                rounding: Field::Set(s.rounding),
+                grouping: Field::Set(s.grouping),
+                currency: Field::Set(s.currency),
+                bold: Field::Set(s.bold),
+                italic: Field::Set(s.italic),
+                alignment: Field::Set(s.alignment),
+                foreground: Field::Set(s.foreground),
+                background: Field::Set(s.background),
+            },
+            false,
+            limits,
+            cancel,
+        )
+    }
+}
+impl Workbook {
+    fn check_style_rectangle(&self, sheet: WorksheetId, r: Rectangle) -> Result<()> {
+        if r.first.row > r.last.row || r.first.column > r.last.column {
+            return Err(Error::Position);
+        }
+        self.axes_at_sheet(sheet, r.first)?;
+        self.axes_at_sheet(sheet, r.last)?;
+        Ok(())
+    }
+    pub fn style_at(&self, sheet: WorksheetId, p: Position) -> Result<Style> {
+        self.axes_at_sheet(sheet, p)?;
+        self.persistent
+            .resolved_style(sheet, p, self.limits.styles, &Default::default())
+    }
+    /// Stored property rectangles, not the number of positions they cover.
+    pub fn style_regions(&self) -> usize {
         self.persistent.styles.len()
+    }
+    pub fn style_command_work(&self) -> usize {
+        self.persistent.styles.work
+    }
+    pub fn style_bytes(&self) -> usize {
+        self.persistent.styles.bytes()
     }
     pub fn style_limits(&self) -> StyleLimits {
         self.limits.styles
     }
-    pub fn styles(&self) -> impl Iterator<Item = (WorksheetId, Position, Style)> + '_ {
+    pub fn regions(&self) -> impl Iterator<Item = Region> + '_ {
+        self.persistent.styles.regions()
+    }
+    pub fn worksheet_defaults(&self) -> impl Iterator<Item = (WorksheetId, Style)> + '_ {
+        self.persistent.styles.defaults()
+    }
+    pub fn worksheet_default(&self, sheet: WorksheetId) -> Result<Style> {
+        self.sheet_info(sheet)?;
+        Ok(self.persistent.styles.default_style(sheet))
+    }
+    pub fn style_summary(&self, sheet: WorksheetId, r: Rectangle) -> Result<(Style, u32)> {
+        self.check_style_rectangle(sheet, r)?;
+        self.persistent.styles.summary(
+            sheet,
+            r,
+            &mut regions::Work::new(self.limits.styles.query_work, &Default::default()),
+        )
+    }
+    pub fn style_viewport(
+        &self,
+        sheet: WorksheetId,
+        r: Rectangle,
+    ) -> Result<Vec<(Position, Style)>> {
+        self.check_style_rectangle(sheet, r)?;
+        let area =
+            u64::from(r.last.row - r.first.row + 1) * u64::from(r.last.column - r.first.column + 1);
+        if area > self.limits.styles.command_positions {
+            return Err(Error::Limit);
+        }
+        // Resolve each map once for the complete viewport under one shared work budget.
         self.persistent
             .styles
-            .iter()
-            .map(|(p, s)| (p.worksheet, p.position, *s))
+            .viewport(sheet, r, self.limits.styles)
     }
-    pub fn format_sheet(
+    pub fn set_worksheet_default(
         &mut self,
         sheet: WorksheetId,
         expected: Expected,
-        rectangle: Rectangle,
         patch: StylePatch,
-        reset: bool,
         cancel: &CancellationToken,
     ) -> Result<Expected> {
         self.check(expected)?;
+        self.sheet_info(sheet)?;
+        self.formatting_allowed(cancel)?;
+        if patch.intents().contains(&2) {
+            return Err(Error::InvalidTarget);
+        }
+        let mut data = self
+            .core
+            .stage_resource(&self.persistent)
+            .map_err(graph_error)?;
+        let style = patch.apply(data.styles.default_style(sheet))?;
+        let changed = data.styles.set_default(sheet, style)?;
+        self.publish_styles(data, changed, cancel)
+    }
+    fn formatting_allowed(&self, cancel: &CancellationToken) -> Result<()> {
         if cancel.is_cancelled() {
             return Err(Error::Graph("cancelled".into()));
         }
-        let info = self.sheet_info(sheet)?;
-        info.rows.at(rectangle.first.row)?;
-        info.rows.at(rectangle.last.row)?;
-        info.columns.at(rectangle.first.column)?;
-        info.columns.at(rectangle.last.column)?;
-        let height = rectangle
-            .last
-            .row
-            .checked_sub(rectangle.first.row)
-            .ok_or(Error::Position)? as u64
-            + 1;
-        let width = rectangle
-            .last
-            .column
-            .checked_sub(rectangle.first.column)
-            .ok_or(Error::Position)? as u64
-            + 1;
-        if height * width > self.limits.styles.command_positions {
-            return Err(Error::Limit);
-        }
-        let scratch = usize::try_from(height * width)
-            .ok()
-            .and_then(|area| area.checked_mul(64))
-            .and_then(|n| n.checked_add(4096))
-            .ok_or(Error::Limit)?;
-        let _scratch = self
-            .persistent
-            .memory
-            .reserve(scratch)
-            .map_err(|_| Error::Limit)?;
-        let mut changes = Vec::new();
-        for r in rectangle.first.row..=rectangle.last.row {
-            for c in rectangle.first.column..=rectangle.last.column {
-                if cancel.is_cancelled() {
-                    return Err(Error::Graph("cancelled".into()));
-                }
-                let p = Position::new(r, c);
-                let old = self.style_at(sheet, p)?;
-                let new = if reset {
-                    Style::default()
-                } else {
-                    patch.apply(old)?
-                };
-                if old != new {
-                    changes.push((sheet, p, new));
-                }
-            }
-        }
-        self.install_styles(expected, &changes, cancel)
-    }
-    /// Transactional style-only publication; graph revision and allocations remain untouched.
-    pub(crate) fn install_styles(
-        &mut self,
-        expected: Expected,
-        changes: &[(WorksheetId, Position, Style)],
-        cancel: &CancellationToken,
-    ) -> Result<Expected> {
-        self.check(expected)?;
         if self.is_structured_proof() {
             return Err(Error::InvalidTarget);
         }
@@ -374,33 +490,36 @@ impl Workbook {
         if self.history_active {
             return Err(Error::InvalidTarget);
         }
+        Ok(())
+    }
+    pub fn format_sheet(
+        &mut self,
+        sheet: WorksheetId,
+        expected: Expected,
+        r: Rectangle,
+        patch: StylePatch,
+        reset: bool,
+        cancel: &CancellationToken,
+    ) -> Result<Expected> {
+        self.check(expected)?;
+        self.check_style_rectangle(sheet, r)?;
+        self.formatting_allowed(cancel)?;
         let mut data = self
             .core
             .stage_resource(&self.persistent)
             .map_err(graph_error)?;
-        let mut changed = false;
-        for &(sheet, p, s) in changes {
-            if cancel.is_cancelled() {
-                return Err(Error::Graph("cancelled".into()));
-            }
-            self.axes_at_sheet(sheet, p)?;
-            s.validate()?;
-            let key = sheets::at(sheet, p);
-            let old = data.styles.get(&key).copied().unwrap_or_default();
-            if old == s {
-                continue;
-            }
-            changed = true;
-            if s == Style::default() {
-                data.styles.remove(&key).map_err(|_| Error::Limit)?;
-            } else {
-                data.styles.insert(key, s).map_err(|_| Error::Limit)?;
-            }
-        }
-        if cancel.is_cancelled() {
-            return Err(Error::Graph("cancelled".into()));
-        }
-        if data.styles.len() > self.limits.styles.positions
+        data.styles.work = 0;
+        let changed = data.paint_style(sheet, r, patch, reset, self.limits.styles, cancel)?;
+        self.publish_styles(data, changed, cancel)
+    }
+    fn publish_styles(
+        &mut self,
+        data: pivot_core::model::integration::resources::Reclaimable<persistent::Data>,
+        changed: bool,
+        cancel: &CancellationToken,
+    ) -> Result<Expected> {
+        self.formatting_allowed(cancel)?;
+        if data.styles.bytes() > self.limits.styles.bytes
             || data.stats().estimated_owned_bytes > self.limits.bytes
         {
             return Err(Error::Limit);
@@ -411,5 +530,20 @@ impl Workbook {
             self.state = next;
         }
         Ok(self.expected())
+    }
+}
+
+impl CalculationCapture {
+    pub fn style_at(&self, sheet: WorksheetId, p: Position) -> Result<Style> {
+        let info = self
+            .pinned
+            .sheets
+            .as_ref()
+            .and_then(|s| s.0.iter().find(|s| s.id == sheet))
+            .ok_or(Error::InvalidTarget)?;
+        info.rows.at(p.row)?;
+        info.columns.at(p.column)?;
+        self.pinned
+            .resolved_style(sheet, p, self.style_limits, &Default::default())
     }
 }

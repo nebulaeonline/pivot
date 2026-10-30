@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 64 * 1024 * 1024;
-const MAGIC: &[u8; 8] = b"PIVOTWB9";
+const MAGIC: &[u8; 9] = b"PIVOTWB10";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -493,10 +493,18 @@ impl Document {
             w.n(sheet.column_count.into());
         }
         w.n(projection.styles.len() as u64);
-        for (sheet, p, style) in &projection.styles {
+        for region in &projection.styles {
+            w.id(region.sheet.uuid());
+            w.n(region.property.into());
+            w.n(region.rectangle.first.row.into());
+            w.n(region.rectangle.first.column.into());
+            w.n(region.rectangle.last.row.into());
+            w.n(region.rectangle.last.column.into());
+            w.n(region.value.into());
+        }
+        w.n(projection.style_defaults.len() as u64);
+        for (sheet, style) in &projection.style_defaults {
             w.id(sheet.uuid());
-            w.n(p.row.into());
-            w.n(p.column.into());
             w.bytes(&style.encode());
         }
         w.bytes(&graph);
@@ -591,7 +599,7 @@ impl Document {
                 w.n(0);
             }
         }
-        if w.0.len() > MAX_BYTES - 48 {
+        if w.0.len() > MAX_BYTES - 49 {
             return Err(Error::Limit);
         }
         let mut bytes = MAGIC.to_vec();
@@ -629,23 +637,26 @@ impl Document {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Limit);
         }
-        for version in ["WB1", "WB2", "WB3", "WB4", "WB5", "WB6", "WB7", "WB8"] {
-            if bytes.starts_with(format!("PIVOT{version}").as_bytes()) {
+        for version in [
+            "WB1", "WB2", "WB3", "WB4", "WB5", "WB6", "WB7", "WB8", "WB9",
+        ] {
+            if !bytes.starts_with(MAGIC) && bytes.starts_with(format!("PIVOT{version}").as_bytes())
+            {
                 return Err(Error::Graph(format!(
-                    "unsupported native workbook version {version}; WB9 required"
+                    "unsupported native workbook version {version}; WB10 required"
                 )));
             }
         }
-        if bytes.len() < 48 || &bytes[..8] != MAGIC {
+        if bytes.len() < 49 || !bytes.starts_with(MAGIC) {
             return Err(malformed());
         }
-        if u64::from_le_bytes(bytes[8..16].try_into().unwrap()) != (bytes.len() - 48) as u64
-            || Sha256::digest(&bytes[48..])[..] != bytes[16..48]
+        if u64::from_le_bytes(bytes[9..17].try_into().unwrap()) != (bytes.len() - 49) as u64
+            || Sha256::digest(&bytes[49..])[..] != bytes[17..49]
         {
             return Err(malformed());
         }
         let mut r = Reader {
-            bytes: &bytes[48..],
+            bytes: &bytes[49..],
             at: 0,
         };
         let worksheet = WorksheetId::from_uuid(r.id()?);
@@ -685,22 +696,25 @@ impl Document {
             return Err(malformed());
         }
         let mut styles = Vec::new();
-        let mut style_keys = BTreeSet::new();
         for _ in 0..r.count(limits.styles.positions)? {
             let sheet = WorksheetId::from_uuid(r.id()?);
-            let p = Position::new(r.u32()?, r.u32()?);
-            let style = pivot_workbook::formatting::Style::decode(r.bytes(17)?)?;
-            if !sheet_ids.contains(&sheet)
-                || p.row == 0
-                || p.column == 0
-                || p.row > limits.rows
-                || p.column > limits.columns
-                || style == Default::default()
-                || !style_keys.insert((sheet, p))
-            {
-                return Err(malformed());
-            }
-            styles.push((sheet, p, style));
+            let property = u8::try_from(r.n()?).map_err(|_| malformed())?;
+            let first = Position::new(r.u32()?, r.u32()?);
+            let last = Position::new(r.u32()?, r.u32()?);
+            let value = r.u32()?;
+            styles.push(pivot_workbook::formatting::Region {
+                sheet,
+                property,
+                rectangle: pivot_workbook::Rectangle { first, last },
+                value,
+            });
+        }
+        let mut style_defaults = Vec::new();
+        for _ in 0..r.count(16)? {
+            style_defaults.push((
+                WorksheetId::from_uuid(r.id()?),
+                pivot_workbook::formatting::Style::decode(r.bytes(17)?)?,
+            ));
         }
         let document =
             storage::decode_document(r.bytes(MAX_BYTES)?, self::limits()).map_err(graph_error)?;
@@ -1266,6 +1280,7 @@ impl Document {
         let book = Workbook::restore_portable(
             PortableWorkbook {
                 styles,
+                style_defaults,
                 sheets,
                 worksheet,
                 graph_id: document.graph.model,

@@ -14,7 +14,7 @@ pub(super) struct Data {
     pub(crate) directory: Option<structured::Directory>,
     pub(crate) adapter: Option<Shared<structured::Adapter>>,
     annotations: Index<CellId, structured::StructuredContent>,
-    pub(super) styles: Index<sheets::SheetPosition, formatting::Style>,
+    pub(super) styles: formatting::Store,
     pub(super) positions: Index<sheets::SheetPosition, CellId>,
     pub(super) sheets: Option<Shared<sheets::Directory>>,
     pub(super) records: Index<CellId, Shared<Record>>,
@@ -89,7 +89,7 @@ impl Data {
             adapter: None,
             annotations: Index::new(memory.clone()),
             sheets: None,
-            styles: Index::new(memory.clone()),
+            styles: formatting::Store::new(memory.clone()),
             positions: Index::new(memory.clone()),
             records: Index::new(memory.clone()),
             bindings: Index::new(memory.clone()),
@@ -113,7 +113,7 @@ impl Data {
                 + self.tokens * std::mem::size_of::<Token>()
                 + self.source
                 + self.metadata
-                + self.styles.len() * 128
+                + self.styles.bytes()
                 + self.sheets.as_ref().map_or(0, |s| s.heap_bytes()),
         }
     }
@@ -304,6 +304,7 @@ struct Journal {
     _charge: Charge,
 }
 struct Transaction<'a> {
+    cancel: &'a CancellationToken,
     book: &'a Workbook,
     data: Reclaimable<Data>,
     batch: Batch,
@@ -821,20 +822,26 @@ impl Transaction<'_> {
                     .positions
                     .insert_private(sheets::at(self.book.worksheet, *to), id)
                     .map_err(|_| Error::Limit)?;
-                let source = sheets::at(self.book.worksheet, *from);
-                let destination = sheets::at(self.book.worksheet, *to);
-                let style = self.data.styles.get(&source).copied();
-                self.data.styles.remove(&source).map_err(|_| Error::Limit)?;
-                self.data
-                    .styles
-                    .remove(&destination)
-                    .map_err(|_| Error::Limit)?;
-                if let Some(style) = style {
-                    self.data
-                        .styles
-                        .insert(destination, style)
-                        .map_err(|_| Error::Limit)?;
-                }
+                let style = self.data.resolved_style(
+                    self.book.worksheet,
+                    *from,
+                    self.book.limits.styles,
+                    self.cancel,
+                )?;
+                self.data.snapshot_style(
+                    self.book.worksheet,
+                    *from,
+                    formatting::Style::default(),
+                    self.book.limits.styles,
+                    self.cancel,
+                )?;
+                self.data.snapshot_style(
+                    self.book.worksheet,
+                    *to,
+                    style,
+                    self.book.limits.styles,
+                    self.cancel,
+                )?;
                 let mut record = (**self.data.records.get(&id).unwrap()).clone();
                 record.position = Some(*to);
                 self.data.record(id, record)?;
@@ -973,6 +980,7 @@ fn apply_mode(
         .reserve(work + 4096)
         .map_err(|_| Error::Limit)?;
     let mut tx = Transaction {
+        cancel,
         book,
         data: core.stage_resource(&book.persistent).map_err(graph_error)?,
         batch: core
@@ -986,6 +994,7 @@ fn apply_mode(
             })
             .map_err(graph_error)?,
     };
+    tx.data.styles.work = 0;
     for (ordinal, edit) in edits.iter().enumerate() {
         if cancel.is_cancelled() {
             return Err(Error::Graph("cancelled".into()));
@@ -996,21 +1005,9 @@ fn apply_mode(
     for &(p, style) in styles {
         book.axes_at(p)?;
         style.validate()?;
-        let key = sheets::at(book.worksheet, p);
-        if tx.data.styles.get(&key).copied().unwrap_or_default() != style {
-            styles_changed = true;
-            if style == formatting::Style::default() {
-                tx.data.styles.remove(&key).map_err(|_| Error::Limit)?;
-            } else {
-                tx.data
-                    .styles
-                    .insert(key, style)
-                    .map_err(|_| Error::Limit)?;
-            }
-        }
-    }
-    if tx.data.styles.len() > book.limits.styles.positions {
-        return Err(Error::Limit);
+        styles_changed |=
+            tx.data
+                .snapshot_style(book.worksheet, p, style, book.limits.styles, cancel)?;
     }
     let stats = tx.data.stats();
     for (used, limit, resource) in [
@@ -1182,6 +1179,7 @@ pub(super) fn capture(
     Ok(CalculationCapture {
         expected,
         worksheet: book.worksheet,
+        style_limits: book.limits.styles,
         limit: book.limits.read_records,
         pinned: book.persistent.clone(),
         local_core: core,

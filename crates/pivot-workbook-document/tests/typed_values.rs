@@ -26,7 +26,7 @@ fn wb8_preserves_literal_and_calculated_kinds_and_demand_semantics() {
         .unwrap();
     }
     let bytes = Document::export_document(&b, b.expected()).unwrap().bytes;
-    assert_eq!(&bytes[..8], b"PIVOTWB9");
+    assert_eq!(&bytes[..9], b"PIVOTWB10");
     let (opened, _) = Document::open_document(&bytes, Limits::default(), &rt).unwrap();
     let cap = opened.capture_local(opened.expected()).unwrap();
     let refs = [1, 2, 3].map(|r| cap.cell_at(Position::new(r, 1)).unwrap());

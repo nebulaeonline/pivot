@@ -22,7 +22,7 @@ fn sparse_atomic_style_identity_and_move() {
     assert_eq!(b.expected().graph, initial.graph);
     assert_eq!(b.stats().allocated_nodes, stats.allocated_nodes);
     assert_eq!(b.stats().live_nodes, 0);
-    assert_eq!(b.styled_positions(), 4);
+    assert_eq!(b.style_regions(), 1);
     let styled = b.expected();
     b.format_sheet(sheet, styled, rect(1, 2), bold, false, &Default::default())
         .unwrap();
@@ -91,12 +91,12 @@ fn sparse_atomic_style_identity_and_move() {
         &Default::default(),
     )
     .unwrap();
-    assert_eq!(b.styled_positions(), 0);
+    assert_eq!(b.style_regions(), 10);
 }
 #[test]
 fn blank_clipboard_fill_and_policy_rollback() {
     let mut limits = Limits::default();
-    limits.styles.positions = 2;
+    limits.styles.positions = 11;
     let mut b = Workbook::new("bounds", limits).unwrap();
     let sheet = b.sheets()[0].id;
     let one = Rectangle {
@@ -124,12 +124,12 @@ fn blank_clipboard_fill_and_policy_rollback() {
         &Default::default(),
     )
     .unwrap();
-    assert_eq!(b.styled_positions(), 2);
+    assert_eq!(b.style_regions(), 10);
     assert_eq!(b.stats().allocated_nodes, 0);
     let before = b.expected();
     let three = Rectangle {
-        first: P::new(1, 3),
-        last: P::new(1, 3),
+        first: P::new(3, 3),
+        last: P::new(3, 3),
     };
     assert!(
         b.paste_sheet(
@@ -164,7 +164,7 @@ fn blank_clipboard_fill_and_policy_rollback() {
         &Default::default(),
     )
     .unwrap();
-    assert_eq!(b.styled_positions(), 2);
+    assert_eq!(b.style_regions(), 10);
     assert_eq!(b.stats().allocated_nodes, 0);
     b.paste_sheet(sheet, b.expected(), two, b"123", false, &Default::default())
         .unwrap();
@@ -300,7 +300,7 @@ fn mixed_patch_reset_cycles_and_capture_do_not_change_dependencies() {
             &Default::default(),
         )
         .unwrap();
-        assert_eq!(b.styled_positions(), 0);
+        assert_eq!(b.style_regions(), 10);
     }
     assert_eq!(b.expected().graph, graph);
     assert_eq!(b.stats().allocated_nodes, allocated);

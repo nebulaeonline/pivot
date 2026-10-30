@@ -24,7 +24,7 @@ fn wb9_rounding_instructions_roundtrip_without_format_cut() {
         .unwrap();
     }
     let export = Document::export_document(&b, b.expected()).unwrap();
-    assert_eq!(&export.bytes[..8], b"PIVOTWB9");
+    assert_eq!(&export.bytes[..9], b"PIVOTWB10");
     let (opened, _) = Document::open_document(&export.bytes, Limits::default(), &runtime).unwrap();
     let capture = opened.capture_local(opened.expected()).unwrap();
     for (i, expected) in ["12.6", "-12.6", "-120"].into_iter().enumerate() {

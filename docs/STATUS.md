@@ -4,6 +4,28 @@ Date: 2026-10-29
 
 ## Current direction — spreadsheet features
 
+**Owner hold and standing milestone cadence (2026-10-29).** ADR-0030 is accepted
+and closed. Only the acceptance/documentation update is authorized now; macOS
+updating and the owner's Git commit/push are pending. Do not start another design,
+implementation, validation round or other additional work. The owner will perform
+the commit/push and explicitly indicate when it is OK to proceed.
+
+Follow this sequence for each milestone:
+
+1. Design and initial ADR.
+2. Parent design handoff/review.
+3. Authorized ADR implementation.
+4. Parent implementation comments.
+5. Update documentation with the disposition.
+6. Git commit/push of the completed ADR work.
+7. Explicit owner indication that it is OK to proceed.
+8. Begin the next ADR's design work.
+
+Parent acceptance or a recommendation for the next feature does not bypass the
+commit/push and explicit owner go-ahead. Structural row/column insertion/deletion
+is a suggested next design topic only; no work on it has started or is authorized
+during this hold.
+
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;
 the 32K pilot remains failed/stopped, not accepted. G4–G7 and production history
@@ -97,8 +119,8 @@ positions; content replacement/Clear retains them, Move transfers/resets them, a
 native clipboard/Fill carry them atomically. Styled blanks create no graph cells.
 The initial 4,096 style-position/command bounds are revisable admission policy.
 Exact rendering covers all seven rounding modes and maximum-value percentages
-without intermediate overflow or calculated-value mutation. Current representations
-are WB9/private v7/CB4; older experimental formats are explicitly rejected.
+without intermediate overflow or calculated-value mutation. At that milestone the representations were WB9/private v7/CB4; ADR-0030 below
+supersedes native/session encoding while retaining CB4.
 
 **Calculation rounding: [ADR-0027](adr/0027-calculation-rounding-functions.md)
 accepted and closed by parent review (2026-10-29).** ROUND uses nearest
@@ -168,7 +190,8 @@ identities, 65,536 worksheet rows × 1,024 columns, CSV 1,048,576 fields/16 MiB 
 a 64 MiB native envelope. Existing small WB9 documents remain readable and gain
 the admitted row extent without rebinding existing references. WB9/CB4/private v7
 are retained; additive session metadata reports distinct capacity counters.
-Styles remain limited to 4,096 positions, independently of computational capacity.
+ADR-0029 retained the independent 4,096-position style policy; ADR-0030 below
+supersedes that formatting representation and admission policy.
 
 The production 1,024-cell baseline and staged 10,000/65,536-cell checkpoints ran.
 The original full-size attempt exceeded the 512 MiB compact-corpus peak-memory
@@ -199,29 +222,40 @@ ADR-0028 evidence retains its
 original frozen-source scope; ADR-0029 supersedes its capacity policy only.
 ADR-0023 remains parked at G3.
 
-**Formatting — [ADR-0030](adr/0030-region-formatting.md) design accepted; implementation authorized (2026-10-29).**
-Owner authorized design work and explicitly rejected permanent cell-over-range
-precedence: formatting a selection must change the selected properties on every
-position, including existing individually formatted exceptions. The proposal uses
-latest-action-per-property semantics across cells, rows, columns and rectangles;
-untouched properties remain intact. Sparse disjoint property regions retain current
-assignments rather than formatting history. Explicit defaults and inheritance from
-worksheet defaults remain distinct; neither restores superseded assignments.
+**Region formatting — [ADR-0030](adr/0030-region-formatting.md) accepted and closed by parent implementation review (2026-10-29).**
+Latest successful action wins per chosen property throughout the selection, including
+prior individual exceptions. Sparse disjoint property regions replace per-position
+styles, with 65,536 regions and an 8 MiB style/index budget. Whole-row/column headers,
+full-selection Mixed summaries, worksheet defaults, explicit Reset Formatting and
+Use worksheet defaults are implemented. Exact values, graph-free styled blanks,
+position ownership and complete Copy/Paste/Fill/Move snapshots are preserved.
+Whole-sheet formatting does not enumerate its coordinates or allocate graph cells.
 
-The ADR specifies normalization/indexing, proposed fragment/byte/work quotas,
-atomic operations, viewport/UI behavior, Copy/Fill/Move snapshots, WB10-only
-persistence, private v8 and unchanged CB4, and correctness/performance acceptance.
-Parent accepts initial resource targets subject to measurement. The owner
-withdraws WB9 compatibility: no old reader/conversion/migration; obsolete versions
-are rejected and current fixtures move to WB10. One complete implementation
-milestone is authorized without another design review. Current ADR-0026 behavior
-remains until implementation replaces it. Exact String content such as
-`001234` remains untouched. Structural insertion/deletion follows with deliberate
-stable-reference and region-transformation semantics; ADR-0023 stays parked at G3.
+WB10 is the sole native format, with explicit obsolete-version rejection and no WB9
+reader/conversion/migration. Private v8 and unchanged CB4/frozen hosted v1 apply.
+451 local all-feature test executions and strict Clippy pass. Native Windows x64,
+Linux x64 and macOS ARM64 headless CI passed 13/13 each; attended managed and Native
+AOT suites passed on all three, yielding 24 successful graphical application reports,
+zero final runtime charges and no owned survivors. All 387 original inputs match
+in all nine source copies. A final benchmark-only extension separately passed all
+three native targets with fully fragmented Save/reopen and geometric Apply p95;
+application/library sources are unchanged. Original failures and source scopes remain
+recorded. [Single implementation handoff and measurements](handoffs/2026-10-29-region-formatting.md).
+Parent accepts the normalization correction, resource results, source-qualified
+benchmark-only extension and all supplied validation. No additional validation,
+acceptance packet, reconciliation or AOT rerun is required. Preserve the original
+failed/corrected evidence and the standing short-launcher workflow.
+
+Uniform numeric-table formatting p95 was 0.124/0.299/0.033 ms on Windows/Linux/Mac;
+full-size compact peak stayed below 512 MiB. The maximum 65,536-region checkerboard
+saved/reopened in under 57/34 ms on all targets; normalization remained within the
+original work quota after correcting unnecessary global sorts. Fragmentation remains
+bounded and fails atomically. Strings such as `001234` retain exact content and type.
+Structural insertion/deletion needs a subsequent semantic design and is not included.
+ADR-0023 remains parked at G3; no production history integration is authorized.
 
 Before real users depend on saved workbooks, revisit the compatibility policy and
-define a deliberate support commitment. WB10 will be the sole native format after
-ADR-0030. Until an explicit external
+define a deliberate support commitment. WB10 is the sole native format. Until an explicit external
 compatibility commitment is made, justified experimental format changes may break
 compatibility; do not automatically add old readers or migrations. Historical
 artifacts remain evidence, not current test dependencies.

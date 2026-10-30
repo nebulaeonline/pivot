@@ -7,5 +7,5 @@ public static class WorkbookCapacity
     public const int MaximumColumns = 1_024;
     public const int PositionedCells = 65_536;
     public const int AllocatedIdentities = 262_144;
-    public const int StyledPositions = 4_096;
+    public const int FormatRegions = 65_536;
 }

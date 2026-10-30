@@ -63,6 +63,9 @@ message Request {
   bool csv_recognize_quoted = 36;
   string csv_ticket = 37;
   bool csv_whole_sheet = 38;
+  bool style_inherit = 39;
+  bool worksheet_defaults = 40;
+  bool style_summary = 41;
 }
 message TypedValue {
   oneof kind {
@@ -146,6 +149,12 @@ message Response {
   uint32 allocated_cell_identities = 49;
   uint32 positioned_cell_limit = 50;
   uint32 allocated_cell_identity_limit = 51;
+  bytes summary_style = 52;
+  uint32 mixed_style_fields = 53;
+  uint32 format_regions = 54;
+  uint32 format_region_limit = 55;
+  uint64 format_bytes = 56;
+  bytes worksheet_default_style = 57;
 }
 
 // Domain-accounted allocation traffic; excludes caller/process-wide allocations.

@@ -101,11 +101,11 @@ fn independent_restore_preserves_projection_bound_graph_and_retired_ledgers() {
     );
     // Recompute integrity after malformed logical metadata: validation must still reject it.
     use sha2::{Digest, Sha256};
-    for (offset, length) in [(48, 16), (80, 8), (104, 8)] {
+    for (offset, length) in [(49, 16), (81, 8), (105, 8)] {
         let mut bad = export.bytes.clone();
         bad[offset..offset + length].fill(0);
-        let digest = Sha256::digest(&bad[48..]);
-        bad[16..48].copy_from_slice(&digest);
+        let digest = Sha256::digest(&bad[49..]);
+        bad[17..49].copy_from_slice(&digest);
         assert!(
             pivot_workbook_document::Document::open_document(&bad, Limits::default(), &runtime)
                 .is_err()
@@ -191,7 +191,7 @@ fn sum_document_keeps_bound_geometry_identity_and_member_affinity() {
     .unwrap();
     let formula = book.cell_at(p(1, 4)).unwrap().unwrap();
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&bytes.bytes[..8], b"PIVOTWB9");
+    assert_eq!(&bytes.bytes[..9], b"PIVOTWB10");
     let (mut restored, _) =
         pivot_workbook_document::Document::open_document(&bytes.bytes, Limits::default(), &runtime)
             .unwrap();
@@ -276,13 +276,33 @@ fn wb3_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
         .unwrap()
         .bytes;
     // WB3 fixed worksheet/axis/state header, then length-prefixed graph.
-    let graph_length = u64::from_le_bytes(bytes[120..128].try_into().unwrap()) as usize;
-    let policy = 128 + graph_length;
+    let mut at = 49 + 72;
+    let read = |at: &mut usize| {
+        let n = u64::from_le_bytes(bytes[*at..*at + 8].try_into().unwrap()) as usize;
+        *at += 8;
+        n
+    };
+    let sheets = read(&mut at);
+    for _ in 0..sheets {
+        at += 16;
+        let name = read(&mut at);
+        at += name + 48;
+    }
+    let styles = read(&mut at);
+    at += styles * 64;
+    let defaults = read(&mut at);
+    for _ in 0..defaults {
+        at += 16;
+        let len = read(&mut at);
+        at += len;
+    }
+    let graph_length = read(&mut at);
+    let policy = at + graph_length;
     for (at, value) in [(policy, 2u64), (policy + 8, 8193), (policy + 8 + 8 + 16, 9)] {
         let mut corrupt = bytes.clone();
         corrupt[at..at + 8].copy_from_slice(&value.to_le_bytes());
-        let digest = Sha256::digest(&corrupt[48..]);
-        corrupt[16..48].copy_from_slice(&digest);
+        let digest = Sha256::digest(&corrupt[49..]);
+        corrupt[17..49].copy_from_slice(&digest);
         assert!(
             pivot_workbook_document::Document::open_document(&corrupt, Limits::default(), &runtime)
                 .is_err()
@@ -340,7 +360,7 @@ fn text_roundtrip_preserves_marker_identity_and_old_versions_reject() {
     .unwrap();
     let cell = b.cell_at(p(1, 1)).unwrap().unwrap();
     let exported = pivot_workbook_document::Document::export_document(&b, b.expected()).unwrap();
-    assert_eq!(&exported.bytes[..8], b"PIVOTWB9");
+    assert_eq!(&exported.bytes[..9], b"PIVOTWB10");
     let (restored, checkpoint) = pivot_workbook_document::Document::open_document(
         &exported.bytes,
         Limits::default(),
@@ -362,6 +382,7 @@ fn text_roundtrip_preserves_marker_identity_and_old_versions_reject() {
     }
     for v in *b"123" {
         let mut old = exported.bytes.clone();
+        old.remove(8);
         old[7] = v;
         assert!(
             pivot_workbook_document::Document::open_document(&old, Limits::default(), &runtime)
@@ -454,7 +475,7 @@ fn wb5_preserves_blank_identity_sum_and_checkpoint() {
     assert_eq!(value(&book, p(3, 3)), Ok(3.into()));
     assert_eq!(value(&book, p(4, 3)), Ok(2.into()));
     let saved = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&saved.bytes[..8], b"PIVOTWB9");
+    assert_eq!(&saved.bytes[..9], b"PIVOTWB10");
     let (restored, checkpoint) =
         pivot_workbook_document::Document::open_document(&saved.bytes, Limits::default(), &runtime)
             .unwrap();
@@ -507,8 +528,8 @@ fn wb5_unknown_aggregate_rejects_even_with_a_valid_checksum() {
         .position(|s| s == pattern)
         .unwrap();
     bytes[offset + 8..offset + 16].copy_from_slice(&99u64.to_le_bytes());
-    let digest = Sha256::digest(&bytes[48..]);
-    bytes[16..48].copy_from_slice(&digest);
+    let digest = Sha256::digest(&bytes[49..]);
+    bytes[17..49].copy_from_slice(&digest);
     assert!(
         pivot_workbook_document::Document::open_document(&bytes, Limits::default(), &runtime)
             .is_err()

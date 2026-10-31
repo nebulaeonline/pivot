@@ -24,7 +24,7 @@ Missing build tools remain genuine prerequisites, independent of VM availability
 Choose platform coverage from the changed behavior and architecture exposure;
 do not indefinitely substitute macOS ARM64 for Windows/Linux ARM64 GUI coverage.
 Review each target's most recent managed/AOT GUI receipts when choosing the matrix.
-Owner direction for ADR-0031 requires managed **and Native AOT** GUI execution on
+Owner direction for ADR-0031 and the accepted ADR-0032 validation plan require managed **and Native AOT** GUI execution on
 Windows x64, Linux x64, Windows ARM64, Linux ARM64, macOS ARM64 and macOS x64.
 This milestone covers all six configured targets; future runs choose applicable
 coverage. macOS x64 under Rosetta remains separately identified emulated evidence.
@@ -75,6 +75,11 @@ launcher runs ARM64 managed/AOT, then x64 managed/AOT under Rosetta, with a norm
 consent prompt for every suite. Run one target at a time; shared-host contention
 can distort capacity measurements. Commands are in `artifacts/structure-commands.txt`.
 
+ADR-0032 uses `~/PivotValidation/sort.py`: `python sort.py` on Windows and
+`./sort.py` on Linux/macOS, with commands in `artifacts/sorting-commands.txt`.
+It follows the same managed/AOT ordering and normal local consent. Run only the
+targets currently requested; a failed pilot stops the rollout until inspected.
+
 `python scripts/run_desktop.py` remains the ordinary manual application launcher.
 It strips inherited automation activation/permits and does not run acceptance.
 No normal workbook editing, file picker or clipboard behavior was changed.
@@ -113,6 +118,6 @@ unattended on an active desktop.
 Follow [build output and validation artifact retention](artifact-retention.md):
 keep at most two completed run product sets per RID/suite, discard historical
 compiler caches, and archive older closed evidence with verified manifests.
-Collect results before pruning; keep active runs and live configuration. Check free
+Collect results and verify retained archives before pruning; keep active runs and live configuration. Perform this cleanup at the end of each validation batch, including failed batches once their diagnostics are collected. Record native free-space recovery and archive locations with the batch evidence. Check free
 space before full batches and perform maintenance at milestone close and weekly.
 Historical archives do not create a requirement to rerun accepted tests.

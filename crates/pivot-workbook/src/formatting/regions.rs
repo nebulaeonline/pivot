@@ -196,6 +196,174 @@ pub(crate) struct Store {
     bytes: usize,
 }
 impl Store {
+    pub(crate) fn permute_rows(
+        &mut self,
+        sheet: WorksheetId,
+        rectangle: Rectangle,
+        permutation: &[u32],
+        limits: StyleLimits,
+        budget: usize,
+        cancel: &CancellationToken,
+    ) -> Result<(bool, usize)> {
+        let cap = limits.positions.saturating_mul(5);
+        let transient = self
+            .count
+            .saturating_mul(5)
+            .saturating_add(permutation.len())
+            .min(cap)
+            .max(1)
+            .next_power_of_two();
+        let _scratch = self
+            .memory
+            .reserve(transient * std::mem::size_of::<Entry>() * 3 + permutation.len() * 16 + 8192)
+            .map_err(|_| Error::Limit)?;
+        let mut work = Work::new(budget, cancel);
+        let mut changed = false;
+        for property in 0..10 {
+            let key = MapKey(sheet, property);
+            let Some(old) = self.maps.get(&key).cloned() else {
+                continue;
+            };
+            let mut entries = Vec::new();
+            for &e in &old.entries {
+                work.tick()?;
+                if !overlap(e.rectangle, rectangle)
+                    || (e.rectangle.first.row <= rectangle.first.row
+                        && e.rectangle.last.row >= rectangle.last.row)
+                {
+                    // A constant assignment across the entire permuted row interval is invariant.
+                    entries.push(e);
+                    continue;
+                }
+                let i = intersection(e.rectangle, rectangle);
+                subtract(e.rectangle, rectangle, |r| {
+                    entries.push(Entry { rectangle: r, ..e })
+                });
+                let mut rows = Vec::with_capacity((i.last.row - i.first.row + 1) as usize);
+                for row in i.first.row..=i.last.row {
+                    work.tick()?;
+                    rows.push(permutation[(row - rectangle.first.row) as usize]);
+                }
+                let moves = crate::sorting::sort_move_units(rows.len());
+                for _ in 0..moves {
+                    work.tick()?;
+                }
+                crate::sorting::sort_by(&mut rows, |a, b| {
+                    work.tick()?;
+                    Ok(a.cmp(&b))
+                })?;
+                let mut start = 0;
+                while start < rows.len() {
+                    let mut end = start;
+                    while end + 1 < rows.len() && rows[end] + 1 == rows[end + 1] {
+                        work.tick()?;
+                        end += 1;
+                    }
+                    work.tick()?;
+                    entries.push(Entry {
+                        rectangle: Rectangle {
+                            first: Position::new(rows[start], i.first.column),
+                            last: Position::new(rows[end], i.last.column),
+                        },
+                        ..e
+                    });
+                    if entries.len() > cap {
+                        return Err(Error::Capacity {
+                            resource: "sorting format fragments",
+                            limit: limits.positions,
+                        });
+                    }
+                    start = end + 1;
+                }
+            }
+            for vertical in [false, true] {
+                for _ in 0..crate::sorting::sort_move_units(entries.len()) {
+                    work.tick()?;
+                }
+                crate::sorting::sort_by(&mut entries, |a, b| {
+                    work.tick()?;
+                    let key = |e: Entry| {
+                        let r = e.rectangle;
+                        if vertical {
+                            (e.value, r.first.column, r.last.column, r.first.row)
+                        } else {
+                            (e.value, r.first.row, r.last.row, r.first.column)
+                        }
+                    };
+                    Ok(key(a).cmp(&key(b)))
+                })?;
+                let mut n = 0;
+                for i in 0..entries.len() {
+                    work.tick()?;
+                    let e = entries[i];
+                    if n > 0 {
+                        let previous: &mut Entry = &mut entries[n - 1];
+                        let (a, b) = (previous.rectangle, e.rectangle);
+                        if previous.value == e.value
+                            && if vertical {
+                                a.first.column == b.first.column
+                                    && a.last.column == b.last.column
+                                    && a.last.row + 1 == b.first.row
+                            } else {
+                                a.first.row == b.first.row
+                                    && a.last.row == b.last.row
+                                    && a.last.column + 1 == b.first.column
+                            }
+                        {
+                            previous.rectangle.last = b.last;
+                            continue;
+                        }
+                    }
+                    entries[n] = e;
+                    n += 1;
+                }
+                entries.truncate(n);
+            }
+            let map = Map::build(entries, &mut work)?;
+            let same = if old.entries == map.entries {
+                true
+            } else if old.entries.iter().map(|e| area(e.rectangle)).sum::<u64>()
+                != map.entries.iter().map(|e| area(e.rectangle)).sum::<u64>()
+            {
+                false
+            } else {
+                let mut same = true;
+                for e in &old.entries {
+                    let mut covered = 0;
+                    map.query(e.rectangle, &mut work, |other| {
+                        if e.value == other.value {
+                            covered += area(intersection(e.rectangle, other.rectangle));
+                        }
+                        Ok(())
+                    })?;
+                    if covered != area(e.rectangle) {
+                        same = false;
+                        break;
+                    }
+                }
+                same
+            };
+            if same {
+                continue;
+            }
+            self.count = self.count - old.entries.len() + map.entries.len();
+            self.bytes = self.bytes - old.heap_bytes() + map.heap_bytes();
+            if self.count > limits.positions || self.bytes() > limits.bytes {
+                return Err(Error::Capacity {
+                    resource: "sorting formatting capacity",
+                    limit: limits.positions,
+                });
+            }
+            if map.entries.is_empty() {
+                self.maps.remove(&key).map_err(|_| Error::Limit)?;
+            } else {
+                let map = self.memory.alloc(map).map_err(|_| Error::Limit)?;
+                self.maps.insert(key, map).map_err(|_| Error::Limit)?;
+            }
+            changed = true;
+        }
+        Ok((changed, work.used()))
+    }
     pub(crate) fn structural(
         &mut self,
         sheet: WorksheetId,

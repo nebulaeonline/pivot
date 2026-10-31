@@ -85,9 +85,16 @@ Ranges, GUI, new protocol and production workbook files remain future work.
   permutation, stable identities, fixed rectangular ranges, snapshot typed keys and
   explicit formatting movement. Mandatory sortable-error/operational-failure distinction,
   identity-aware no-ops and visible confirmed range expansion. WB11/CB5 unchanged,
-  private v10 approved. No implementation or platform validation started; separate
-  owner implementation authorization required.
+  private v10 implemented. All six targets passed headless CI and attended managed/AOT
+  acceptance; macOS x64 uses Rosetta. Final local CI, 471 all-feature Rust tests and
+  strict Clippy passed. Original failures are retained and batch cleanup is complete.
+  Accepted and closed by parent implementation review (2026-10-31), including the
+  sparse-index and range-submission corrections and source qualification. No further
+  validation required. See the
+  [implementation handoff](../handoffs/2026-10-31-worksheet-sorting.md) and
+  [semantics](../architecture/worksheet-sorting.md).
   [Design handoff](../handoffs/2026-10-30-worksheet-sorting-design.md).
 
-Filtering remains a later candidate, provisionally ADR-0033, to be decided after
-the sorting design. ADR-0023 remains parked at G3.
+ADR-0033, Worksheet Filtering, is assigned as the next design milestone, on hold for
+the owner's commit/push and explicit next authorization. No filtering design or
+implementation has started. ADR-0023 remains parked at G3.

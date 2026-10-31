@@ -20,6 +20,7 @@ pub mod formatting;
 pub mod history_experiment;
 mod persistent;
 mod sheets;
+pub mod sorting;
 pub mod structure;
 pub use fill::FillDirection;
 pub use sheets::SheetInfo;

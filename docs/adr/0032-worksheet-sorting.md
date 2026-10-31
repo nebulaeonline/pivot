@@ -1,10 +1,13 @@
 # ADR-0032: Worksheet sorting
 
 Date: 2026-10-30.
-Status: **Design approved with clarifications by parent review (2026-10-30).**
+Status: **Accepted and closed by parent implementation review (2026-10-31).**
 
-The owner authorized this design after committing ADR-0031. No feature implementation
-or platform validation is authorized by this proposal. ADR-0031 remains accepted and
+Parent design approval with clarifications was received on 2026-10-30.
+
+The owner authorized implementation after parent design acceptance (2026-10-30),
+including the accepted six-target validation and end-of-batch archival/cache cleanup.
+ADR-0031 remains accepted and
 closed; ADR-0023 remains parked at G3. Follow the milestone cadence in
 [STATUS](../STATUS.md).
 
@@ -13,7 +16,26 @@ snapshot typed keys and stable ordering, explicit formatting policy, charged spa
 candidate and future six-target validation gates (macOS x64 under Rosetta). Retain
 WB11/CB5, use private v10 for the new command, and retain the 33,554,432-unit work
 ceiling and current capacity limits. These are approved implementation contracts,
-not implemented behavior or measured sorting results.
+now accepted with the subsequent implementation and its measurements.
+
+Implementation and validation are complete (2026-10-31). All six configured targets
+passed headless CI and managed/Native AOT GUI acceptance, with original failures
+and isolated retries retained separately. Final local CI passed 13/13; all-feature
+Rust tests and strict Clippy passed. The corrected range-review and expanded-range
+submission behavior passed actual GUI execution on all six targets. Native caches
+and the local Cargo cache are cleaned, with evidence archived and hash-verified.
+See the [implementation handoff](../handoffs/2026-10-31-worksheet-sorting.md) and
+[semantics](../architecture/worksheet-sorting.md). The parent accepts the sparse-index
+memory correction, confirmed expanded-range submission fix, independent oracles,
+resource measurements and source-qualified six-target evidence. The native headless
+runs precede final C# dialog corrections, which passed subsequent local CI and all
+six targets' managed/AOT execution. macOS x64 is Rosetta; timings are observed maxima,
+not percentiles. Retain original failures and successful retries separately.
+No further validation, reconciliation packet or AOT rerun is required.
+
+Stop for the owner's commit/push and explicit next authorization. ADR-0033,
+Worksheet Filtering, is assigned as the next design milestone, on hold until that
+go-ahead. ADR-0023 remains parked at G3.
 
 Three mandatory implementation clarifications apply:
 
@@ -28,8 +50,9 @@ Three mandatory implementation clarifications apply:
    dialog. Give an explicit opportunity to include adjacent populated columns; every
    expansion requires confirmation. Never silently expand or bury the warning in help.
 
-Record this acceptance and stop for the owner's separate implementation authorization.
-Filtering remains only a later candidate, provisionally ADR-0033.
+The owner's separate implementation authorization has now been received.
+ADR-0033, Worksheet Filtering, is the next assigned design milestone, on hold for
+the owner's commit/push and explicit next go-ahead.
 
 ## Scope and user contract
 
@@ -263,8 +286,7 @@ count. Frozen hosted-v1 remains unchanged. No obsolete readers or migrations.
 
 ## Future implementation validation and review gate
 
-No tests or platform execution are part of this design task. After parent review
-and owner implementation authorization:
+The owner has authorized the following implementation validation gates:
 
 - Compare generated small grids against an independent stable row-tuple oracle and
   dense ten-property assignment oracle, including inheritance after default changes.
@@ -297,5 +319,6 @@ and owner implementation authorization:
 Parent review accepts identity-following record movement, fixed rectangular ranges,
 snapshot formula-key semantics, mixed-kind order, explicit formatting policy and the
 bounded sparse architecture, with the three mandatory clarifications above. Feature
-work awaits separate owner authorization. Filtering remains a later candidate,
-provisionally ADR-0033; this acceptance does not authorize it or resume history research.
+work was authorized by the owner and is now accepted and closed. ADR-0033,
+Worksheet Filtering, is the next assigned design milestone, on hold for the owner's
+commit/push and explicit go-ahead. This acceptance does not resume history research.

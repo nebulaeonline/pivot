@@ -46,8 +46,57 @@ impl Footprint for SelectionId {}
 struct Columns(Index<u32, NodeId>);
 impl Footprint for Columns {}
 #[derive(Clone)]
-struct Locations(Index<(SpaceId, u32, u32), ()>);
+enum Locations {
+    One((SpaceId, u32, u32)),
+    Many(Index<(SpaceId, u32, u32), ()>),
+}
 impl Footprint for Locations {}
+impl Locations {
+    fn update(
+        old: Option<Self>,
+        at: (SpaceId, u32, u32),
+        add: bool,
+        memory: &Memory,
+    ) -> Result<Option<Self>, Error> {
+        match old {
+            None => Ok(add.then_some(Self::One(at))),
+            Some(Self::One(previous)) => {
+                if previous == at {
+                    return Ok(add.then_some(Self::One(at)));
+                }
+                if !add {
+                    return Ok(Some(Self::One(previous)));
+                }
+                let mut index = Index::new(memory.clone());
+                index.insert(previous, ())?;
+                index.insert(at, ())?;
+                Ok(Some(Self::Many(index)))
+            }
+            Some(Self::Many(mut index)) => {
+                if add {
+                    index.insert(at, ())?;
+                } else {
+                    index.remove(&at)?;
+                }
+                Ok(match index.len() {
+                    0 => None,
+                    1 => Some(Self::One(*index.iter().next().ok_or(Error::Invalid)?.0)),
+                    _ => Some(Self::Many(index)),
+                })
+            }
+        }
+    }
+    fn visit(&self, mut visit: impl FnMut((SpaceId, u32, u32))) {
+        match self {
+            Self::One(at) => visit(*at),
+            Self::Many(index) => {
+                for (at, _) in index.iter() {
+                    visit(*at)
+                }
+            }
+        }
+    }
+}
 #[derive(Clone)]
 struct Consumers(Index<NodeId, ()>);
 impl Footprint for Consumers {}
@@ -77,8 +126,8 @@ pub(crate) struct State {
     record_writes: usize,
     #[cfg(feature = "history-experiment")]
     record_scans: usize,
-    rows: Index<(SpaceId, u32), Shared<Columns>>,
-    locations: Index<NodeId, Shared<Locations>>,
+    rows: Index<(SpaceId, u32), Columns>,
+    locations: Index<NodeId, Locations>,
     coverage: Index<SpaceId, Shared<Coverage>>,
     descriptors: Index<SelectionId, Option<Rectangle>>,
     consumers: Index<SelectionId, Shared<Consumers>>,
@@ -206,14 +255,20 @@ impl State {
         let coverage = self.coverage.len() as u128;
         h::<Self>() as u128
             + h::<Counters>() as u128
-            + rows
-                * (Index::<(SpaceId, u32), Shared<Columns>>::history_entry_header()
-                    + h::<Columns>()) as u128
+            + rows * Index::<(SpaceId, u32), Columns>::history_entry_header() as u128
             + self.points as u128 * Index::<u32, NodeId>::history_entry_header() as u128
-            + loc
-                * (Index::<NodeId, Shared<Locations>>::history_entry_header() + h::<Locations>())
-                    as u128
-            + self.points as u128 * Index::<(SpaceId, u32, u32), ()>::history_entry_header() as u128
+            + loc * Index::<NodeId, Locations>::history_entry_header() as u128
+            + self
+                .locations
+                .iter()
+                .map(|(_, locations)| match locations {
+                    Locations::One(_) => 0,
+                    Locations::Many(index) => {
+                        index.len() as u128
+                            * Index::<(SpaceId, u32, u32), ()>::history_entry_header() as u128
+                    }
+                })
+                .sum::<u128>()
             + self.descriptors.len() as u128
                 * Index::<SelectionId, Option<Rectangle>>::history_entry_header() as u128
             + consumers
@@ -245,7 +300,7 @@ impl State {
         let mut cols = self
             .rows
             .get(&key)
-            .map(|c| (**c).clone())
+            .cloned()
             .unwrap_or_else(|| Columns(Index::new(self.memory.clone())));
         let old = cols.0.get(&column).copied();
         if old == node {
@@ -253,21 +308,16 @@ impl State {
         }
         for (value, add) in [(old, false), (node, true)] {
             if let Some(value) = value {
-                let mut locations = self
-                    .locations
-                    .get(&value)
-                    .map(|p| (**p).clone())
-                    .unwrap_or_else(|| Locations(Index::new(self.memory.clone())));
-                if add {
-                    locations.0.insert((space, row, column), ())?;
+                let locations = Locations::update(
+                    self.locations.get(&value).cloned(),
+                    (space, row, column),
+                    add,
+                    &self.memory,
+                )?;
+                if let Some(locations) = locations {
+                    self.locations.insert(value, locations)?;
                 } else {
-                    locations.0.remove(&(space, row, column))?;
-                }
-                if locations.0.is_empty() {
                     self.locations.remove(&value)?;
-                } else {
-                    self.locations
-                        .insert(value, self.memory.alloc(locations)?)?;
                 }
             }
         }
@@ -294,7 +344,7 @@ impl State {
         if cols.0.is_empty() {
             self.rows.remove(&key)?;
         } else {
-            self.rows.insert(key, self.memory.alloc(cols)?)?;
+            self.rows.insert(key, cols)?;
         }
         Ok(true)
     }
@@ -434,9 +484,7 @@ impl State {
     pub fn containing_node(&self, node: NodeId) -> Vec<SelectionId> {
         let mut out = std::collections::BTreeSet::new();
         if let Some(locations) = self.locations.get(&node) {
-            for ((space, row, column), _) in locations.0.iter() {
-                out.extend(self.covering(*space, *row, *column));
-            }
+            locations.visit(|(space, row, column)| out.extend(self.covering(space, row, column)));
         }
         out.into_iter().collect()
     }
@@ -728,5 +776,72 @@ impl State {
             .get(&(space, row))
             .and_then(|r| r.0.get(&col))
             .copied()
+    }
+}
+
+#[cfg(test)]
+mod placement_storage_tests {
+    use super::*;
+    #[test]
+    fn singleton_alias_growth_and_collapse_preserve_old_roots_ranges_and_charges() {
+        let memory = Memory::new(8 * 1024 * 1024);
+        let mut state = State::new(memory.clone()).unwrap();
+        let space = SpaceId([1; 16]);
+        let id = SelectionId([2; 16]);
+        let node = NodeId { model: 1, node: 1 };
+        let other = NodeId { model: 1, node: 2 };
+        state
+            .define(
+                id,
+                Rectangle {
+                    space,
+                    first_row: 1,
+                    last_row: 3,
+                    first_column: 1,
+                    last_column: 5,
+                },
+            )
+            .unwrap();
+        state.placement(space, 1, 1, Some(node)).unwrap();
+        state.placement(space, 1, 3, Some(node)).unwrap();
+        state.placement(space, 2, 2, Some(other)).unwrap();
+        let old = state.clone();
+        assert!(matches!(
+            state.locations.get(&node),
+            Some(Locations::Many(_))
+        ));
+        assert_eq!(state.containing_node(node), vec![id]);
+        assert_eq!(
+            state.members(id, &mut 100, &|| false).unwrap(),
+            vec![node, node, other]
+        );
+        state.placement(space, 1, 1, None).unwrap();
+        assert!(matches!(
+            state.locations.get(&node),
+            Some(Locations::One(_))
+        ));
+        assert_eq!(
+            state.members(id, &mut 100, &|| false).unwrap(),
+            vec![node, other]
+        );
+        state.placement(space, 1, 3, None).unwrap();
+        assert!(state.containing_node(node).is_empty());
+        assert_eq!(state.members(id, &mut 100, &|| false).unwrap(), vec![other]);
+        assert_eq!(
+            old.members(id, &mut 100, &|| false).unwrap(),
+            vec![node, node, other]
+        );
+        assert_eq!(old.points().count(), 3);
+        assert_eq!(state.points().count(), 1);
+        assert!(matches!(
+            old.members(id, &mut 0, &|| false),
+            Err(Error::Quota)
+        ));
+        assert!(matches!(
+            old.members(id, &mut 100, &|| true),
+            Err(Error::Cancelled)
+        ));
+        drop((old, state));
+        assert_eq!(memory.stats().charged, 0);
     }
 }

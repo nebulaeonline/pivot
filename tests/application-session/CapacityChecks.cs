@@ -43,12 +43,14 @@ internal static class CapacityChecks
             for(int i=0;i<31;i++){clock.Restart();await s.FormatAsync(s.Revision,P(1),last,new CellStyle(Bold:i%2==0),32);formatTimes.Add(clock.Elapsed.TotalMilliseconds);}
             formatTimes.Sort();Check(formatTimes[29]<=100,"uniform numeric table format p95 objective");
             var formatSummary=await s.ReadStyleSummaryAsync(P(1),last);Check(formatSummary.MixedStyleFields==0&&CellStyle.Decode(formatSummary.SummaryStyle).Bold&&formatSummary.FormatRegions==1,"table format is one region with all values unchanged");
-            var structureTimes=new List<double>();
+            var structureTimes=new List<double>();var structureRustTimes=new List<double>();
             foreach(var action in new[]{(false,false),(false,true),(true,false),(true,true)}) {
                 clock.Restart();var result=await s.StructureAsync(s.Revision,action.Item1,action.Item2,2,1);structureTimes.Add(clock.Elapsed.TotalMilliseconds);
+                structureRustTimes.Add(result.ExecutionNs/1_000_000.0);
                 Check(result.StructureChanged&&result.StructureRetired==0,"insert/delete blank band moves content without replacing identities");
             }
-            Check(structureTimes.All(t=>t<=1000),"compact structural-command objective");
+            await File.WriteAllTextAsync(Path.Combine(output,$"structural-timings-{cells}.json"),JsonSerializer.Serialize(new{cells,shape.Rows,shape.Columns,order=new[]{"insert rows","delete rows","insert columns","delete columns"},wall_ms=structureTimes,rust_ms=structureRustTimes}));
+            Check(structureTimes.All(t=>t<=1000),$"compact structural-command objective ({cells} cells; wall ms: {string.Join(", ",structureTimes)}; Rust ms: {string.Join(", ",structureRustTimes)})");
             clock.Restart();await s.SaveAsync(s.Revision,native);double saveMs=clock.Elapsed.TotalMilliseconds;
             clock.Restart();await s.OpenAsync(s.Revision,native);double reopenMs=clock.Elapsed.TotalMilliseconds;
             Check((await s.ReadAsync(P(1),P(1))).Cells.Single().CellId==first.CellId,"native reopen identity");

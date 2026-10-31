@@ -64,6 +64,12 @@ identities and references remain stable; deleting a referenced target produces
 outgoing values and Blank anchors. Formatting follows the approved band inheritance
 rules, with notice when explicit formatting is clipped at the worksheet edge.
 
+Sort selected rectangular records by ordered column keys, with explicit header
+exclusion and a choice to move formatting or keep it at worksheet positions.
+Scalar references follow moved cell identities; range geometry stays fixed. The
+dialog displays the final range and offers explicit inclusion of adjacent columns.
+[Sorting implementation and validation status](docs/architecture/worksheet-sorting.md).
+
 Workbooks open and save as local `.pivot` files, preserving every sheet, typed
 content, presentation and stable bindings. The current experimental format is WB11; earlier
 experimental workbook versions are rejected.

@@ -1,29 +1,35 @@
 # Pivot implementation status
 
-Date: 2026-10-30
+Date: 2026-10-31
 
 ## Current direction — spreadsheet features
 
-**Current disposition and standing milestone cadence (2026-10-30).** ADR-0031 is
-accepted and closed by parent implementation review. Stable identities, local
-deleted-reference faults and normal operand repair, range affinity, sparse formatting
-and atomic publication are accepted. WB11 is the sole native format; private v9
-and CB5 apply, without obsolete readers or migrations.
+**Current disposition and standing milestone cadence (2026-10-31).**
+[ADR-0032: Worksheet sorting](adr/0032-worksheet-sorting.md) is accepted and closed
+by parent implementation review. Stable multi-key identity-preserving row-segment
+sorting, fixed rectangular range geometry, snapshot typed keys, exact leading-zero
+Strings, sortable completed errors, atomic operational refusal, both formatting
+policies and identity-aware no-ops are accepted. WB11 and CB5 remain unchanged;
+private session v10 applies. No format migration is required.
 
-The parent accepts all six targets' headless/managed/Native AOT evidence, 48 clean
-application reports, 458 all-feature Rust tests, strict Clippy and resource measurements.
-macOS x64 is Rosetta coverage, not native Intel hardware. Structural timings are
-single-observation maxima, not p95. The full native headless matrix predates the C#
-clipboard correction; its later local CI and six-target managed/AOT source
-qualification are accepted. Original failures and successful recoveries stay separate.
-No further validation, reconciliation packet or AOT run is required. See the
-[accepted implementation handoff](handoffs/2026-10-30-row-column-structure.md).
+The parent accepts the sparse-index memory correction and confirmed expanded-range
+submission fix. Original 256 MiB steady/512 MiB peak objectives and resource limits
+remain unchanged. All six targets passed headless CI and managed/Native AOT GUI
+acceptance: 48 clean graphical application reports, zero final runtime charges and
+no surviving owned processes. Final local CI passed 13/13, all-feature Rust tests
+passed 471 and strict Clippy passed. See the
+[accepted implementation handoff](handoffs/2026-10-31-worksheet-sorting.md).
 
-The owner committed ADR-0031 (`43c0b8c`) and explicitly authorized the next design
-on 2026-10-30. [ADR-0032: Worksheet sorting](adr/0032-worksheet-sorting.md) is now
-approved with clarifications by parent review (2026-10-30). Design documentation
-only; no sorting feature work or platform validation has begun. Stop for the owner's
-separate implementation authorization.
+Preserve the accepted source qualification: native headless runs precede final C#
+dialog corrections, which passed subsequent local CI and six-target managed/AOT
+execution. macOS x64 is Rosetta coverage. Sorting timings are observed maxima,
+not percentiles. Retain original failures and successful retries separately.
+End-of-batch archive verification and disposable-cache cleanup are accepted.
+No additional validation, reconciliation packet or AOT rerun is required.
+
+Stop for the owner's commit/push of ADR-0032 and explicit next authorization.
+Continue collecting results, verifying archives and pruning disposable outputs after
+every validation batch under the standing retention policy.
 
 Follow this sequence for each milestone:
 
@@ -36,42 +42,26 @@ Follow this sequence for each milestone:
 7. Explicit owner indication that it is OK to proceed.
 8. Begin the next ADR's design work.
 
-**Current assignment — ADR-0032: Worksheet Sorting (design approved with clarifications).**
-The owner's go-ahead authorizes design only. The parent accepts an explicit atomic row
-permutation preserving cell identities and scalar bindings, fixed rectangular ranges,
-snapshot calculated keys, stable typed ordering and an independent move-formatting
-option. See the [design handoff](handoffs/2026-10-30-worksheet-sorting-design.md).
-Mandatory clarifications: completed calculation errors are sortable values while
-operational capture/evaluation failures abort; final identity placement and explicit
-assignments determine no-ops; the final rectangle, partial-record warning and confirmed
-expansion choice must be visible in the Sort dialog. WB11/CB5 remain unchanged;
-private v10 and the 33,554,432-unit structural-work ceiling are approved. Current
-capacity limits and future six-target managed/AOT gates remain, with macOS x64
-identified as Rosetta. No implementation is authorized by parent design acceptance.
+**Next assigned milestone — ADR-0033: Worksheet Filtering (design-first, on hold).**
+Begin only after the owner's commit/push and explicit go-ahead. Design practical
+filtering by one or more column criteria without deleting, rearranging or rebinding
+cells. Filtering changes which rows are visible, not their worksheet coordinates
+or computational identities. Resolve:
 
-The reviewed assignment follows:
-The central investigation is sorting table records versus rearranging cells: compare
-moving cell identities, exchanging contents at fixed identities and an explicit
-permutation. Analyze CellIds/GraphNodeIds, scalar bindings, range operands, effective
-formula rendering and record-versus-column formatting under ADR-0030 before choosing.
-Avoid silent rebinding and unnecessary identities.
+- Presentation visibility versus document-owned filter state and Save/reopen.
+- Exact typed criteria for Decimal96, String, Boolean, Blank and calculated errors,
+  including multiple-column conditions.
+- Visibility/viewport mapping while hidden rows retain their coordinates and CellIds.
+- Selection, navigation, Copy/Paste, Fill, editing and sorting with filtered rows.
+- Invalidation and refresh after value/formula changes, sorting and row/column edits.
+- Bounded indexing, evaluation and memory without enumerating the virtual worksheet.
+- Familiar header/filter controls, explicit active indicators and Clear Filter.
 
-Define selected-rectangle sorting by one or more column keys, ascending/descending
-directions, stable equal-key ordering and explicit first-row/header exclusion.
-Specify whether row segments move together, mixed Decimal/Boolean/String comparisons, blanks,
-errors and calculated keys. Propose a familiar Sort interface and one atomic sparse
-workbook/graph transformation with captures, stale requests, cancellation and admission
-preserved. Design for 65,536 cells and actual selected data/relevant state rather
-than virtual area; retain current limits unless a concrete change is justified.
-Deliver semantics, identity/reference/formatting tradeoffs, architecture, resource/
-performance expectations and validation including persistence. No obsolete-version
-compatibility work is assigned.
-
-Sorting only: no filtering, hidden rows, structured tables, grouping, merges,
-Undo/Redo or general query subsystem. ADR-0023 stays parked at G3. Filtering is a
-later candidate, provisionally ADR-0033, to be decided after the sorting design.
-The design is accepted with clarifications; implementation remains unstarted and
-requires the owner's separate authorization.
+Return the ADR-0033 design for parent review before implementation. Preserve current
+resource budgets unless the design demonstrates a concrete need to change them.
+Do not combine filtering with sorting implementation, structured tables, deletion,
+Undo/Redo or a general query subsystem. No filtering design or feature work is
+started by ADR-0032 acceptance. ADR-0031 remains accepted and closed.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;

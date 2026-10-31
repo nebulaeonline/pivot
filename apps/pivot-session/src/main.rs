@@ -181,7 +181,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 9 {
+        if q.version != 10 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -439,6 +439,8 @@ impl Session {
             operation,
             Op::Fill
                 | Op::Structure
+                | Op::Sort
+                | Op::SortBounds
                 | Op::CopyBlock
                 | Op::PasteBlock
                 | Op::Apply
@@ -593,6 +595,60 @@ impl Session {
                     self.revision = Uuid::new_v4().to_string()
                 }
                 r.revision = self.revision.clone();
+            }
+            Op::SortBounds => {
+                let suggested = book
+                    .sort_bounds(
+                        sheet.unwrap(),
+                        book.expected(),
+                        Rectangle {
+                            first: pos(q.first.as_ref())?,
+                            last: pos(q.last.as_ref())?,
+                        },
+                        &Default::default(),
+                    )
+                    .map_err(|e| e.to_string())?;
+                r.sort_suggested_first = Some(wire::Position {
+                    row: suggested.first.row,
+                    column: suggested.first.column,
+                });
+                r.sort_suggested_last = Some(wire::Position {
+                    row: suggested.last.row,
+                    column: suggested.last.column,
+                });
+            }
+            Op::Sort => {
+                let outcome = book
+                    .sort_rows(
+                        sheet.unwrap(),
+                        book.expected(),
+                        &pivot_workbook::sorting::Options {
+                            rectangle: Rectangle {
+                                first: pos(q.first.as_ref())?,
+                                last: pos(q.last.as_ref())?,
+                            },
+                            exclude_header: q.sort_exclude_header,
+                            move_formatting: q.sort_move_formatting,
+                            keys: q
+                                .sort_keys
+                                .iter()
+                                .map(|k| pivot_workbook::sorting::Key {
+                                    column: k.column,
+                                    descending: k.descending,
+                                })
+                                .collect(),
+                        },
+                        &Default::default(),
+                    )
+                    .map_err(|e| e.to_string())?;
+                if outcome.changed {
+                    self.revision = Uuid::new_v4().to_string();
+                }
+                r.revision = self.revision.clone();
+                r.sort_changed = outcome.changed;
+                r.sort_moved_rows = outcome.moved_rows as u32;
+                r.sort_moved_cells = outcome.moved_cells as u32;
+                r.sort_work = outcome.work as u64;
             }
             Op::Structure => {
                 use pivot_workbook::structure::{Action, AxisKind, Change};
@@ -1030,7 +1086,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 9,
+            version: 10,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()

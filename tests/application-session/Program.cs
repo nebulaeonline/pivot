@@ -41,6 +41,7 @@ await RoundingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetF
 await FormattingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await RegionChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await StructureChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
+await SortingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await TypedChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await WorksheetChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await FillChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());

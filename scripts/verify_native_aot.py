@@ -119,7 +119,7 @@ def execute(args):
         report = json.loads((ui/'results.json').read_text(encoding='utf-8'))
         if report.get('status') != 'passed':
             raise RuntimeError(f'Desktop acceptance failed: {report.get("error", report)}')
-        for field in ['structure', 'basic_formatting', 'typed_values', 'multiple_worksheets', 'rectangular_fill', 'spreadsheet_aggregates', 'worksheet_binding', 'structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
+        for field in ['sorting', 'structure', 'basic_formatting', 'typed_values', 'multiple_worksheets', 'rectangular_fill', 'spreadsheet_aggregates', 'worksheet_binding', 'structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
             if not report.get(field, '').startswith('passed:'):
                 raise RuntimeError(f'Desktop acceptance field failed: {field}: {report}')
         if report['status'] != 'passed' or report['remaining_charge'] != 0 or report['execution_mode'] != 'native-aot':

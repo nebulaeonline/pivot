@@ -12,6 +12,7 @@ public partial class MainWindow {
   InsertRowsItem.Header=$"Insert {rows:N0} row(s) above";DeleteRowsItem.Header=$"Delete {rows:N0} entire row(s)";
   InsertColumnsItem.Header=$"Insert {columns:N0} column(s) left";DeleteColumnsItem.Header=$"Delete {columns:N0} entire column(s)";
   InsertRowsItem.IsEnabled=DeleteRowsItem.IsEnabled=InsertColumnsItem.IsEnabled=DeleteColumnsItem.IsEnabled=allowed;
+  SortItem.IsEnabled=allowed;
  }
  private async void InsertRowsClick(object? s,RoutedEventArgs e)=>await StructureAsync(false,false);
  private async void DeleteRowsClick(object? s,RoutedEventArgs e)=>await StructureAsync(false,true);

@@ -22,7 +22,7 @@ message Request {
   uint64 id = 2;
   // Opaque exact Expected identity, including session, sheet state and graph revision.
   string revision = 3;
-  enum Operation { UNSPECIFIED = 0; CREATE = 1; APPLY = 2; READ = 3; CAPTURE = 4; CALCULATE = 5; RELEASE = 6; CLOSE = 7; NEW = 8; OPEN = 9; PREPARE_SAVE = 10; SAVE = 11; CLOSE_DOCUMENT = 12; COPY_BLOCK = 13; PASTE_BLOCK = 14; PROOF_START = 15; PROOF_PUBLISH = 16; PROOF_LAYOUT = 17; PROOF_READ = 18; PROOF_EVALUATE = 19; BINDING_START = 20; RESOLVE_FORMULA = 21; APPLY_FORMULA = 22; DUPLICATE_BLOCK = 23; RENAME_PRODUCER = 24; RETIRE_PRODUCER = 25; RECREATE_PRODUCER = 26; PUBLISH_UNAVAILABLE = 27; RENAME_OUTPUT = 28; RETIRE_OUTPUT = 29; RECREATE_OUTPUT = 30; FILL = 31; LIST_SHEETS = 32; ADD_SHEET = 33; RENAME_SHEET = 34; FORMAT = 35; READ_STYLES = 36; PREPARE_CSV_IMPORT = 37; IMPORT_CSV = 38; EXPORT_CSV = 39; CANCEL_CSV_IMPORT = 40; CSV_BOUNDS = 41; STRUCTURE = 42; }
+  enum Operation { UNSPECIFIED = 0; CREATE = 1; APPLY = 2; READ = 3; CAPTURE = 4; CALCULATE = 5; RELEASE = 6; CLOSE = 7; NEW = 8; OPEN = 9; PREPARE_SAVE = 10; SAVE = 11; CLOSE_DOCUMENT = 12; COPY_BLOCK = 13; PASTE_BLOCK = 14; PROOF_START = 15; PROOF_PUBLISH = 16; PROOF_LAYOUT = 17; PROOF_READ = 18; PROOF_EVALUATE = 19; BINDING_START = 20; RESOLVE_FORMULA = 21; APPLY_FORMULA = 22; DUPLICATE_BLOCK = 23; RENAME_PRODUCER = 24; RETIRE_PRODUCER = 25; RECREATE_PRODUCER = 26; PUBLISH_UNAVAILABLE = 27; RENAME_OUTPUT = 28; RETIRE_OUTPUT = 29; RECREATE_OUTPUT = 30; FILL = 31; LIST_SHEETS = 32; ADD_SHEET = 33; RENAME_SHEET = 34; FORMAT = 35; READ_STYLES = 36; PREPARE_CSV_IMPORT = 37; IMPORT_CSV = 38; EXPORT_CSV = 39; CANCEL_CSV_IMPORT = 40; CSV_BOUNDS = 41; STRUCTURE = 42; SORT = 43; SORT_BOUNDS = 44; }
   Operation operation = 4;
   repeated Edit edits = 5;
   Position first = 6;
@@ -70,7 +70,11 @@ message Request {
   bool structure_delete = 43;
   uint32 structure_start = 44;
   uint32 structure_count = 45;
+  bool sort_exclude_header = 46;
+  bool sort_move_formatting = 47;
+  repeated SortKey sort_keys = 48;
 }
+message SortKey { uint32 column = 1; bool descending = 2; }
 message TypedValue {
   oneof kind {
     pivot.v1.Decimal128 decimal = 1;
@@ -164,6 +168,12 @@ message Response {
   uint32 structure_moved = 60;
   uint32 structure_retired = 61;
   uint64 structure_work = 62;
+  bool sort_changed = 63;
+  uint32 sort_moved_rows = 64;
+  uint32 sort_moved_cells = 65;
+  uint64 sort_work = 66;
+  Position sort_suggested_first = 67;
+  Position sort_suggested_last = 68;
 }
 
 // Domain-accounted allocation traffic; excludes caller/process-wide allocations.

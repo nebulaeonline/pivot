@@ -108,7 +108,15 @@ Ranges, GUI, new protocol and production workbook files remain future work.
   [Implementation handoff](../handoffs/2026-10-31-worksheet-filtering.md).
   [Design handoff](../handoffs/2026-10-31-worksheet-filtering-design.md).
 
-ADR-0034, Visible-Only Operations on Filtered Data, is assigned for design first.
-No ADR-0034 design or implementation work has started. Stop for owner commit/push
-and explicit authorization before beginning its design and parent review.
+- [ADR-0034: Visible-only operations on filtered data](0034-visible-only-operations.md)
+  — Design approved with clarifications by parent review (2026-10-31). Independent visible-source Copy
+  and visible-destination Paste; exact row-count matching, per-cell geometric formula
+  translation, bounded CB6 source-row origins and one-use destination review.
+  Ordinary CB5/full-rectangle operations stay intact; approve private v12 with WB12
+  and hosted v1 unchanged. Visible-only Clear/Fill are deferred. No implementation.
+  [Design handoff](../handoffs/2026-10-31-visible-only-operations-design.md).
+
+ADR-0034 design is approved. Native precedence/no fallback, hidden-row direct-write
+integrity and review of the precise destination plan are mandatory invariants.
+Await separate owner implementation authorization before feature work or validation.
 ADR-0023 remains parked at G3.

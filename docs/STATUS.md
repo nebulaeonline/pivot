@@ -80,8 +80,33 @@ LoC remains diagnostic evidence, not a line-count reduction target. No further
 validation, reconciliation packet, AOT rerun or separate housekeeping acceptance is
 required. Preserve original failures and successful recoveries separately.
 
-**Next assigned milestone — ADR-0034: Visible-Only Operations on Filtered Data
-(design first; on hold for owner commit/push and explicit authorization).**
+**Current assignment — ADR-0034: Visible-Only Operations on Filtered Data
+(design approved with clarifications; implementation awaiting owner authorization).**
+The owner committed ADR-0033 (`196dfd2`) and explicitly authorized design work.
+See the [accepted design ADR](adr/0034-visible-only-operations.md) and
+[parent design handoff](handoffs/2026-10-31-visible-only-operations-design.md).
+The parent approves independent Copy Visible Cells and Paste into Visible Rows, exact count/
+width matching, geometric translation from actual per-row origins, a bounded CB6
+image and private v12. WB12/hosted v1 and ordinary CB5/full-rectangle operations stay
+intact. Clear/Fill and arbitrary multi-area selection are deferred. This is an
+accepted design, not shipped behavior; no feature code, format/protocol change, build or
+native/GUI validation run was made in this design phase.
+
+Three mandatory implementation acceptance invariants apply:
+
+1. Reject malformed/unsupported preferred recognized native data without falling
+   back to another native format or TSV. Genuine TSV-only input remains external.
+2. No direct hidden-row content/style writes; ordinary hidden-target resolution
+   and Blank-reference-anchor demand remain permitted canonical binding behavior.
+3. Every Paste Visible reviews actual ordered destination row runs, columns, slot
+   counts and skipped rows; its one-use ticket binds that precise immutable plan,
+   payload, workbook state and qualified visibility generation.
+
+The parent accepts CB6/private v12, native-only images where TSV is unfaithful,
+the unchanged limits, atomic pre-operation mapping and future six-target headless/
+managed/AOT validation. Preserve attended consent, original failures, batch archival/
+cleanup and diagnostic code-size reporting. No implementation or test run follows
+from design acceptance alone.
 Compare alternatives before selecting a transfer contract. Preserve ADR-0033's
 accepted full-rectangle operations and investigate a deliberate visible-only option.
 The design must resolve:
@@ -99,7 +124,8 @@ The design must resolve:
 Do not assume skipping hidden rows in the existing rectangular clipboard path is
 correct. Implementation requires its own parent review and owner authorization.
 No filtering redesign, history integration, table subsystem or broad query language
-is included. No ADR-0034 design/feature work, commit or push was performed.
+is included. Parent design review is complete; implementation remains on hold for
+separate owner authorization. No commit or push was performed.
 ADR-0031 and ADR-0032 remain accepted and closed.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2

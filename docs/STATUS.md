@@ -80,7 +80,7 @@ LoC remains diagnostic evidence, not a line-count reduction target. No further
 validation, reconciliation packet, AOT rerun or separate housekeeping acceptance is
 required. Preserve original failures and successful recoveries separately.
 
-**Current assignment — ADR-0034: Visible-Only Operations on Filtered Data
+**Completed milestone — ADR-0034: Visible-Only Operations on Filtered Data
 (accepted and closed by parent implementation review, 2026-10-31).**
 The owner committed ADR-0033 (`196dfd2`) and explicitly authorized design work.
 See the [accepted design ADR](adr/0034-visible-only-operations.md) and
@@ -101,43 +101,28 @@ The parent accepts the implementation, formatting corrections and submitted evid
 including source qualifications, Rosetta coverage, observed timing maxima, archival
 and diagnostic LoC. No further validation, reconciliation packet or AOT rerun is
 required. Preserve original failures separately from successful corrections.
-ADR-0035: Visible-Only Clear and Fill is assigned for design and parent review next;
-await owner git commit/push and explicit authorization before starting that design.
+ADR-0035: Visible-Only Clear and Fill is assigned for design and parent review next.
+The owner subsequently authorized that design; its current state follows below.
 
-Three mandatory implementation acceptance invariants apply:
+ADR-0034's accepted invariants remain in force: preferred recognized native data
+refuses without fallback; mapped writes never directly target hidden content/styles;
+and every Paste Visible reviews the exact actual destination plan with a one-use
+ticket. Canonical hidden Blank-anchor demand remains permitted reference behavior.
 
-1. Reject malformed/unsupported preferred recognized native data without falling
-   back to another native format or TSV. Genuine TSV-only input remains external.
-2. No direct hidden-row content/style writes; ordinary hidden-target resolution
-   and Blank-reference-anchor demand remain permitted canonical binding behavior.
-3. Every Paste Visible reviews actual ordered destination row runs, columns, slot
-   counts and skipped rows; its one-use ticket binds that precise immutable plan,
-   payload, workbook state and qualified visibility generation.
-
-The parent accepts CB6/private v12, native-only images where TSV is unfaithful,
-the unchanged limits, atomic pre-operation mapping and future six-target headless/
-managed/AOT validation. Preserve attended consent, original failures, batch archival/
-cleanup and diagnostic code-size reporting. No implementation or test run follows
-from design acceptance alone.
-Compare alternatives before selecting a transfer contract. Preserve ADR-0033's
-accepted full-rectangle operations and investigate a deliberate visible-only option.
-The design must resolve:
-
-- Noncontiguous visible-row selections and clipboard representation without new
-  computational range identities.
-- Source order, unequal visible-row counts, hidden destinations and relative/absolute
-  formula translation when row spacing changes.
-- Formatting, Blank anchors, exact typed values, fault provenance and clipboard ownership.
-- Whether visible-only Clear/Fill belong initially or should follow separately.
-- Atomic admission, cancellation, stale visibility maps and exact destination confirmation.
-- CB5/WB12/private v11 interoperability; change formats only for a demonstrated need.
-- Independent correctness, performance and bounded native-platform validation.
-
-Do not assume skipping hidden rows in the existing rectangular clipboard path is
-correct. Implementation requires its own parent review and owner authorization.
-No filtering redesign, history integration, table subsystem or broad query language
-is included. Parent design review is complete; the owner has now separately authorized implementation and validation. No commit or push was performed.
-ADR-0031 and ADR-0032 remain accepted and closed.
+**Current assignment — ADR-0035: Visible-Only Clear and Fill (design only).**
+The owner authorized design after ADR-0034 closeout. See the
+[proposed ADR](adr/0035-visible-only-clear-and-fill.md) and
+[parent design handoff](handoffs/2026-10-31-visible-only-clear-and-fill-design.md).
+The parent approves three Clear modes (Contents, Built-in Formatting, Both), immutable visible-edge
+Fill in four directions, exact actual-row review, one-use tickets and atomic mapped
+writes. Approved limits are 4,096 addressed slots for Clear and 256 including sources
+for Fill, without changing ordinary commands or existing resource budgets. One
+combined milestone has Clear-first/Fill-second internal slices and one final review,
+validation acceptance and owner commit/push boundary. Parent design approval includes
+three mandatory clarifications: canonical content/identity/explicit-style no-ops;
+immutable pre-operation Fill pairs/sources; and one combined content/style publication.
+No feature work or new platform validation has run. Await separate owner implementation
+authorization; ADR-0023 stays parked at G3. ALLOCATE is a separate future proposal.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;

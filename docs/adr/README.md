@@ -122,5 +122,15 @@ integrity and review of the precise destination plan are mandatory invariants.
 The owner authorized implementation, now complete. See the
 [implementation handoff](../handoffs/2026-10-31-visible-only-operations.md). No further
 validation is required. ADR-0035: Visible-Only Clear and Fill is assigned as the next
-design milestone; await owner commit/push and explicit authorization before starting.
+design milestone; the owner subsequently authorized its design (see below).
 ADR-0023 remains parked at G3.
+
+- [ADR-0035: Visible-only Clear and Fill](0035-visible-only-clear-and-fill.md)
+  — Design approved with clarifications by parent review (2026-10-31). Three Clear modes, complete
+  built-in-format reset, four visible source-edge Fill directions, actual-coordinate
+  formulas, exact-row one-use review and one canonical transaction. Approved Clear
+  limit 4,096 slots; Fill 256 including sources. Clear-first/Fill-second slices within
+  one combined milestone. Canonical no-ops, immutable Fill plans and combined
+  content/style publication are mandatory. Implementation awaits separate owner
+  authorization; no feature work or new native validation.
+  [Design handoff](../handoffs/2026-10-31-visible-only-clear-and-fill-design.md).

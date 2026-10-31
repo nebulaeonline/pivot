@@ -17,6 +17,45 @@ fn paint(b: &mut Workbook, r: Rectangle, patch: StylePatch) {
     .unwrap();
 }
 #[test]
+fn replacing_current_maps_does_not_accumulate_historical_storage_bytes() {
+    let mut b = Workbook::new("current formatting storage", Limits::default()).unwrap();
+    for i in 0..256 {
+        paint(
+            &mut b,
+            rect(1 + i * 257, 1, 1, 1),
+            StylePatch {
+                bold: Field::Set(i % 2 == 0),
+                ..Default::default()
+            },
+        );
+    }
+    let bytes = b.style_bytes();
+    assert!(bytes < 32 * 1024);
+    for turn in 0..8 {
+        for i in 0..256 {
+            paint(
+                &mut b,
+                rect(1 + i * 257, 1, 1, 1),
+                StylePatch {
+                    bold: Field::Set((i + turn) % 2 == 0),
+                    ..Default::default()
+                },
+            );
+        }
+        assert_eq!(b.style_bytes(), bytes);
+    }
+    b.format_sheet(
+        b.worksheet(),
+        b.expected(),
+        rect(1, 1, 65536, 1),
+        StylePatch::inherit(),
+        false,
+        &Default::default(),
+    )
+    .unwrap();
+    assert_eq!(b.style_bytes(), 0);
+}
+#[test]
 fn selection_overwrites_all_one_hundred_exceptions_without_touching_other_properties() {
     let mut b = Workbook::new("overwrite", Limits::default()).unwrap();
     let graph = b.expected().graph;

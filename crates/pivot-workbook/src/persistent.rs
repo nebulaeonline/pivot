@@ -1015,14 +1015,14 @@ fn apply_mode(
         }
         tx.edit(edit, expected, ordinal)?;
     }
-    let mut styles_changed = false;
     for &(p, style) in styles {
         book.axes_at(p)?;
         style.validate()?;
-        styles_changed |=
-            tx.data
-                .snapshot_style(book.worksheet, p, style, book.limits.styles, cancel)?;
     }
+    let styles_changed =
+        tx.data
+            .styles
+            .snapshot_points(book.worksheet, styles, book.limits.styles, cancel)?;
     let stats = tx.data.stats();
     for (used, limit, resource) in [
         (

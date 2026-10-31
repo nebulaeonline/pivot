@@ -103,7 +103,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
     {
         ArgumentException.ThrowIfNullOrEmpty(expected);
         if(payload.Length>262144) throw new WorkbookSessionException("Clipboard payload exceeds 256 KiB.");
-        return CallAsync(new Request {Operation=Request.Types.Operation.PasteBlock,Revision=expected,First=first.Clone(),Last=last.Clone(),Clipboard=ByteString.CopyFrom(payload),NativeClipboard=native},cancellation);
+        return CallAsync(new Request {Operation=Request.Types.Operation.PasteBlock,Revision=expected,First=first.Clone(),Last=last.Clone(),Clipboard=ByteString.CopyFrom(payload),NativeClipboard=native,ClipboardKind=NativeClipboardKind(payload,native)},cancellation);
     }
     public Task<Response> StartBindingsAsync(CancellationToken cancellation=default)=>CallAsync(new Request{ComputationalState=ComputationalState,Revision=Revision,Operation=Request.Types.Operation.BindingStart},cancellation);
     public Task<Response> ResolveFormulaAsync(string source,CancellationToken cancellation=default)=>CallAsync(new Request{ComputationalState=ComputationalState,Revision=Revision,Operation=Request.Types.Operation.ResolveFormula,FormulaSource=source},cancellation);
@@ -201,7 +201,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             cancellation.ThrowIfCancellationRequested();
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 11; request.Id = ++sequence;
+            request.Version = 12; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -225,7 +225,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 11 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 12 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
                 foreach(var cell in response.Cells) ValidateResult(cell);
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {

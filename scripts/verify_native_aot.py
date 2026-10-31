@@ -119,7 +119,7 @@ def execute(args):
         report = json.loads((ui/'results.json').read_text(encoding='utf-8'))
         if report.get('status') != 'passed':
             raise RuntimeError(f'Desktop acceptance failed: {report.get("error", report)}')
-        for field in ['filtering', 'sorting', 'structure', 'basic_formatting', 'typed_values', 'multiple_worksheets', 'rectangular_fill', 'spreadsheet_aggregates', 'worksheet_binding', 'structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
+        for field in ['visible_clipboard', 'filtering', 'sorting', 'structure', 'basic_formatting', 'typed_values', 'multiple_worksheets', 'rectangular_fill', 'spreadsheet_aggregates', 'worksheet_binding', 'structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
             if not report.get(field, '').startswith('passed:'):
                 raise RuntimeError(f'Desktop acceptance field failed: {field}: {report}')
         if report['status'] != 'passed' or report['remaining_charge'] != 0 or report['execution_mode'] != 'native-aot':
@@ -135,7 +135,7 @@ def execute(args):
                 raise RuntimeError(f'Peer did not run the actual native image with zero-charge close: {peer}')
             if peer.get('process_architecture') != rid.rsplit('-', 1)[1]:
                 raise RuntimeError('Native AOT peer process architecture does not match selected RID')
-            if mode == 'clipboard-save' and not (peer['native_received'] and peer['cancel_checked']):
+            if mode == 'clipboard-save' and not (peer['native_received'] and peer.get('native_format')=='CB6' and peer['cancel_checked']):
                 raise RuntimeError('Native cross-process clipboard/Cancel-Save evidence missing')
         fixture = (ui/'results.pivot').read_bytes()
         verify_workbook_fixture(fixture)

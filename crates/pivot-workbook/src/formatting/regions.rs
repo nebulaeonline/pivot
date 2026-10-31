@@ -99,6 +99,11 @@ fn subtract(a: Rectangle, b: Rectangle, mut push: impl FnMut(Rectangle)) {
     }
 }
 impl Map {
+    // Shared<T>'s Footprint is zero: the allocation is charged by its owner.
+    // Store admission tracks the underlying current map, not the shared handle.
+    fn storage_bytes(&self) -> usize {
+        Footprint::heap_bytes(self)
+    }
     fn build(mut entries: Vec<Entry>, work: &mut Work<'_>) -> Result<Self> {
         // Unchanged regions were already normalized. Paint coalesces new pieces
         // with their neighbors; avoid sorting every old region in both axes.
@@ -347,7 +352,7 @@ impl Store {
                 continue;
             }
             self.count = self.count - old.entries.len() + map.entries.len();
-            self.bytes = self.bytes - old.heap_bytes() + map.heap_bytes();
+            self.bytes = self.bytes - old.storage_bytes() + map.heap_bytes();
             if self.count > limits.positions || self.bytes() > limits.bytes {
                 return Err(Error::Capacity {
                     resource: "sorting formatting capacity",
@@ -530,7 +535,7 @@ impl Store {
                 continue;
             }
             self.count = self.count - old.entries.len() + map.entries.len();
-            self.bytes = self.bytes - old.heap_bytes() + map.heap_bytes();
+            self.bytes = self.bytes - old.storage_bytes() + map.heap_bytes();
             if self.count > limits.positions || self.bytes() > limits.bytes {
                 return Err(Error::Limit);
             }
@@ -878,7 +883,7 @@ impl Store {
                 limit: limits.positions,
             });
         }
-        let old_bytes = old.map_or(0, |m| m.heap_bytes());
+        let old_bytes = old.map_or(0, |m| m.storage_bytes());
         let bytes = self.bytes - old_bytes + map.heap_bytes();
         if bytes + (self.maps.len() + 1) * 256 + self.defaults.len() * 256 > limits.bytes {
             return Err(Error::Capacity {
@@ -896,5 +901,178 @@ impl Store {
         self.bytes = bytes;
         drop(scratch);
         Ok(true)
+    }
+    pub(crate) fn snapshot_points(
+        &mut self,
+        sheet: WorksheetId,
+        points: &[(Position, Style)],
+        limits: StyleLimits,
+        cancel: &CancellationToken,
+    ) -> Result<bool> {
+        if points.is_empty() {
+            return Ok(false);
+        }
+        if points.len() > 256 {
+            return Err(Error::Limit);
+        }
+        let available = limits
+            .command_work
+            .checked_sub(self.work)
+            .ok_or(Error::Limit)?;
+        let mut work = Work::new(available, cancel);
+        let mut points = points.to_vec();
+        points.sort_by_key(|(p, _)| (p.row, p.column));
+        // Stable sorting preserves mutation order for trusted duplication seams.
+        // Coalesce repeated destinations exactly as sequential style writes do.
+        points.dedup_by(|later, earlier| {
+            if later.0 == earlier.0 {
+                earlier.1 = later.1;
+                true
+            } else {
+                false
+            }
+        });
+        for (_, style) in &points {
+            style.validate()?;
+            work.tick()?;
+        }
+        let mut changed = false;
+        for property in 0u8..10 {
+            let key = MapKey(sheet, property);
+            let old = self.maps.get(&key);
+            let mut changes = Vec::new();
+            for &(p, style) in &points {
+                let value = values(style)[property as usize];
+                let mut same = false;
+                if let Some(old) = old {
+                    old.query(Rectangle { first: p, last: p }, &mut work, |entry| {
+                        same = entry.value == value;
+                        Ok(())
+                    })?;
+                }
+                if !same {
+                    changes.push((p, value));
+                }
+            }
+            if changes.is_empty() {
+                continue;
+            }
+            let old_len = old.map_or(0, |m| m.entries.len());
+            let _scratch = self
+                .memory
+                .reserve(
+                    (old_len + changes.len() * 4 + 1) * std::mem::size_of::<Entry>() * 4 + 8192,
+                )
+                .map_err(|_| Error::Limit)?;
+            let mut entries = Vec::new();
+            if let Some(old) = old {
+                for entry in &old.entries {
+                    work.tick()?;
+                    let r = entry.rectangle;
+                    let first = changes.partition_point(|(p, _)| p.row < r.first.row);
+                    let last = changes.partition_point(|(p, _)| p.row <= r.last.row);
+                    let mut pieces = vec![*entry];
+                    for &(p, _) in &changes[first..last] {
+                        work.tick()?;
+                        if p.column < r.first.column || p.column > r.last.column {
+                            continue;
+                        }
+                        let mut next = Vec::new();
+                        for piece in pieces {
+                            work.tick()?;
+                            let point = Rectangle { first: p, last: p };
+                            if overlap(piece.rectangle, point) {
+                                subtract(piece.rectangle, point, |rectangle| {
+                                    next.push(Entry {
+                                        rectangle,
+                                        value: piece.value,
+                                    })
+                                });
+                            } else {
+                                next.push(piece);
+                            }
+                        }
+                        pieces = next;
+                    }
+                    entries.extend(pieces);
+                }
+            }
+            entries.extend(changes.iter().map(|&(p, value)| Entry {
+                rectangle: Rectangle { first: p, last: p },
+                value,
+            }));
+            for vertical in [false, true] {
+                let mut comparisons = 0;
+                entries.sort_by_key(|e| {
+                    comparisons += 1;
+                    let r = e.rectangle;
+                    if vertical {
+                        (
+                            e.value,
+                            r.first.column,
+                            r.last.column,
+                            r.first.row,
+                            r.last.row,
+                        )
+                    } else {
+                        (
+                            e.value,
+                            r.first.row,
+                            r.last.row,
+                            r.first.column,
+                            r.last.column,
+                        )
+                    }
+                });
+                for _ in 0..comparisons {
+                    work.tick()?;
+                }
+                let mut merged: Vec<Entry> = Vec::new();
+                for entry in entries {
+                    work.tick()?;
+                    if let Some(previous) = merged.last_mut() {
+                        let a = previous.rectangle;
+                        let b = entry.rectangle;
+                        let adjacent = if vertical {
+                            a.first.column == b.first.column
+                                && a.last.column == b.last.column
+                                && a.last.row + 1 == b.first.row
+                        } else {
+                            a.first.row == b.first.row
+                                && a.last.row == b.last.row
+                                && a.last.column + 1 == b.first.column
+                        };
+                        if previous.value == entry.value && adjacent {
+                            previous.rectangle.last = b.last;
+                            continue;
+                        }
+                    }
+                    merged.push(entry);
+                }
+                entries = merged;
+            }
+            let map = Map::build(entries, &mut work)?;
+            let count = self.count - old_len + map.entries.len();
+            let bytes = self.bytes - old.map_or(0, |m| m.storage_bytes()) + map.heap_bytes();
+            if count > limits.positions {
+                return Err(Error::Capacity {
+                    resource: "format property regions",
+                    limit: limits.positions,
+                });
+            }
+            if bytes + (self.maps.len() + 1) * 256 + self.defaults.len() * 256 > limits.bytes {
+                return Err(Error::Capacity {
+                    resource: "format bytes",
+                    limit: limits.bytes,
+                });
+            }
+            let map = self.memory.alloc(map).map_err(|_| Error::Limit)?;
+            self.maps.insert(key, map).map_err(|_| Error::Limit)?;
+            self.count = count;
+            self.bytes = bytes;
+            changed = true;
+        }
+        self.work += work.used();
+        Ok(changed)
     }
 }

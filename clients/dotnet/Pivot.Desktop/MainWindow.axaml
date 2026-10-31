@@ -29,6 +29,8 @@
             <MenuItem x:Name="DeleteColumnsItem" Header="Delete entire columns" Click="DeleteColumnsClick" />
             <Separator />
             <MenuItem x:Name="SortItem" Header="_Sort selected range…" Click="SortClick" />
+            <MenuItem x:Name="CopyVisibleItem" Header="Copy Visible Cells" Click="CopyVisibleClick" />
+            <MenuItem x:Name="PasteVisibleItem" Header="Paste into Visible Rows…" Click="PasteVisibleClick" />
             <MenuItem x:Name="FilterItem" Header="_Filter records…" Click="FilterClick" />
           </MenuItem>
         </Menu>

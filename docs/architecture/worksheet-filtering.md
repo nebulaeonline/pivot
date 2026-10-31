@@ -31,6 +31,10 @@ changing graph revision/computational state. Identical canonical definitions are
 no-ops. Reapply changes presentation only. CB5 and hosted v1 remain unchanged; the
 owned application session uses private v11. Obsolete native versions are rejected.
 
+ADR-0034's owner-authorized [visible clipboard implementation](visible-clipboard.md)
+adds explicit visible-source/destination commands and advances the private session
+to v12. ADR-0033's ordinary full-rectangle behavior remains intact; WB12 is unchanged.
+
 The session runs at most one cancellable filter evaluation, coalescing newer work
 without retaining another queued workbook capture. The job reads one immutable
 capture and its pinned definition. Missing keys use a precomputed Blank baseline;

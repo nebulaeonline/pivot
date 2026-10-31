@@ -4,7 +4,7 @@ use pivot_workbook::filtering::{Condition, Definition, Literal, Operator, Predic
 #[derive(Default)]
 pub(super) struct Presentation {
     map: Option<Visibility>,
-    generation: String,
+    pub(super) generation: String,
     failures: BTreeMap<WorksheetId, String>,
     session: Option<Uuid>,
     job: Option<FilterJob>,
@@ -202,6 +202,7 @@ impl Session {
             return Err("expected-state conflict".into());
         }
         self.filter_confirmation = None;
+        self.visible_confirmation = None;
         let _scratch = self
             .runtime
             .as_ref()
@@ -211,6 +212,7 @@ impl Session {
             .map_err(|_| "operation preview admission")?;
         let operation =
             wire::Request::decode(q.filter_operation.as_slice()).map_err(|e| e.to_string())?;
+        visible::validate_native_kind(&operation)?;
         if operation.revision != self.revision
             || operation.worksheet != q.worksheet
             || !is_bulk(
@@ -345,7 +347,12 @@ impl Presentation {
         self.map = None;
         self.generation = Uuid::new_v4().to_string();
     }
-    fn ensure(&mut self, book: &Workbook, sheet: WorksheetId, retry: bool) -> Result<(), String> {
+    pub(super) fn ensure(
+        &mut self,
+        book: &Workbook,
+        sheet: WorksheetId,
+        retry: bool,
+    ) -> Result<(), String> {
         let expected = book.expected();
         if self.session != Some(expected.session) {
             self.job = None;
@@ -457,7 +464,7 @@ impl Presentation {
         });
         Ok(())
     }
-    fn rows(&self, book: &Workbook, sheet: WorksheetId) -> Result<Vec<u32>, String> {
+    pub(super) fn rows(&self, book: &Workbook, sheet: WorksheetId) -> Result<Vec<u32>, String> {
         if !self.failures.contains_key(&sheet)
             && let Some(map) = &self.map
             && map.worksheet == sheet

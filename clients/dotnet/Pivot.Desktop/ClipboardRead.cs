@@ -8,7 +8,7 @@ namespace Pivot.Desktop;
 internal static class ClipboardRead
 {
     internal readonly record struct Snapshot(bool Exists, bool Native, bool Obsolete,
-        bool TextAdvertised, byte[]? Bytes, string? Text);
+        bool TextAdvertised, byte[]? Bytes, string? Text, uint NativeKind = 0);
     internal readonly record struct Payload(byte[]? Bytes, string? Text);
 
     internal static async Task<Snapshot> CaptureAsync<T>(Func<Task<T?>> ownedRead,
@@ -24,6 +24,7 @@ internal static class ClipboardRead
         Func<bool> current, Action<string>? diagnose = null, Func<Task>? delay = null)
     {
         bool? native = null;
+        uint? nativeKind = null;
         bool textAdvertised = false;
         for (int attempt = 0; attempt < 3; attempt++)
         {
@@ -46,6 +47,11 @@ internal static class ClipboardRead
             if (native.HasValue && native.Value != snapshot.Native)
                 throw new InvalidDataException("Native clipboard changed or is unavailable; copy again.");
             native ??= snapshot.Native;
+            if(snapshot.Native) {
+                if(nativeKind.HasValue&&nativeKind.Value!=snapshot.NativeKind)
+                    throw new InvalidDataException("Preferred native clipboard representation changed; no fallback.");
+                nativeKind??=snapshot.NativeKind;
+            }
             textAdvertised |= snapshot.TextAdvertised;
             if (snapshot.Native && snapshot.Bytes is not null)
                 return new(snapshot.Bytes, "");

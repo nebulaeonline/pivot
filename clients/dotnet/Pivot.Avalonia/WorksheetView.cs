@@ -51,6 +51,7 @@ public sealed partial class WorksheetView : Control
     public event Action? SelectionChanged;
     public Func<Position, bool, bool, Func<bool>, Task<bool>>? SelectionRequested { get; set; }
     public void RestoreView(uint firstRow,uint firstColumn,Position selectedAnchor,Position selectedActive,Position? focus=null) {
+        ClearPasteFeedback();
         ClearFilterFrame();
         structuralFocus=focus?.Clone();
         EndPointerSelection(false);
@@ -217,6 +218,7 @@ public sealed partial class WorksheetView : Control
             IBrush fill=row<0 || col<0 ? Brushes.WhiteSmoke : selected ? Brushes.White : region ? ActiveFocus ? Brushes.AliceBlue : Brushes.WhiteSmoke : Brushes.White;
             if(style.Background is uint bg)fill=new SolidColorBrush(Color.FromUInt32(0xff000000|bg));
             context.DrawRectangle(fill, selected ? new Pen(ActiveFocus ? Brushes.DodgerBlue : Brushes.SlateGray,2) : border,rect);
+            if(row>=0&&col>=0&&visiblePasteFeedback.Contains((r,c)))context.DrawRectangle(null,new Pen(Brushes.SeaGreen,2),rect.Deflate(3));
             string text = ""; IBrush ink = Brushes.Black;
             if (row < 0 && col >= 0) text = Address(new Position { Row = 1, Column = c }).TrimEnd('1');
             else if (row >= 0 && col < 0) text = (row>0&&WorksheetRowAt(row-1) is uint previous&&r>previous+1?"\u22ee ":"")+r.ToString(CultureInfo.InvariantCulture);

@@ -12,6 +12,7 @@ public partial class MainWindow {
   InsertRowsItem.Header=$"Insert {rows:N0} row(s) above";DeleteRowsItem.Header=$"Delete {rows:N0} entire row(s)";
   InsertColumnsItem.Header=$"Insert {columns:N0} column(s) left";DeleteColumnsItem.Header=$"Delete {columns:N0} entire column(s)";
   InsertRowsItem.IsEnabled=DeleteRowsItem.IsEnabled=InsertColumnsItem.IsEnabled=DeleteColumnsItem.IsEnabled=allowed&&Sheet.HasVisibleRows&&FilterBulkReady;
+  CopyVisibleItem.IsEnabled=PasteVisibleItem.IsEnabled=allowed&&draftCell is null&&Sheet.HasVisibleRows&&FilterBulkReady&&session!.FilterStatus is 0 or 1;
   SortItem.IsEnabled=allowed&&Sheet.HasVisibleRows&&FilterBulkReady;FilterItem.IsEnabled=allowed;
  }
  private async void InsertRowsClick(object? s,RoutedEventArgs e)=>await StructureAsync(false,false);

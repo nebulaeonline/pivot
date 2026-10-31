@@ -84,6 +84,12 @@ ADR-0033 uses `~/PivotValidation/flt.py`: `python flt.py` on Windows and
 `./flt.py` on Linux/macOS, with commands in `artifacts/filtering-commands.txt`.
 It follows the same consent, managed/AOT ordering and pilot-first rollout.
 
+ADR-0034 uses `~/PivotValidation/vis.py`: `python vis.py` on Windows and
+`./vis.py` on Linux/macOS, with commands in `artifacts/visible-commands.txt`.
+It follows the same attended consent and pilot-first ordering, including both
+architectures on the Mac. Run only released targets; never retry a failed attempt
+without inspecting its original evidence. CB6 peer reports identify the native format.
+
 `python scripts/run_desktop.py` remains the ordinary manual application launcher.
 It strips inherited automation activation/permits and does not run acceptance.
 No normal workbook editing, file picker or clipboard behavior was changed.

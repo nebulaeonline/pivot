@@ -126,8 +126,12 @@ public partial class MainWindow
             await using(var source=await WorkbookSession.StartAsync(binary)) {
                 await source.PasteBlockAsync(source.Revision,AutomationPosition(2,2),AutomationPosition(2,2),Encoding.UTF8.GetBytes("2\t=B2+1\n3\t=SUM($B$2:B3)"),false);
                 await source.ApplyAsync(source.Revision,[new Edit{At=AutomationPosition(2,4),Text="001.20"},new Edit{At=AutomationPosition(3,4),Text="Invoice"}]);
-                var copied=await source.CopyBlockAsync(source.Revision,AutomationPosition(2,2),AutomationPosition(3,4));
-                var item=new DataTransferItem();item.Set(CellBlockFormat,copied.Clipboard.ToByteArray());item.SetText(copied.ClipboardText);
+                await source.ApplyAsync(source.Revision,[new Edit{At=AutomationPosition(3,2),MoveTo=AutomationPosition(5,2)},new Edit{At=AutomationPosition(3,3),MoveTo=AutomationPosition(5,3)},new Edit{At=AutomationPosition(3,4),MoveTo=AutomationPosition(5,4)}]);
+                await source.SetFilterAsync(source.Revision,new FilterDefinition{First=AutomationPosition(2,2),Last=AutomationPosition(5,4),Conditions={new FilterCondition{Column=2,Predicates={new FilterPredicate{Operator=10}}}}});
+                for(int attempt=0;attempt<200;attempt++){if((await source.ReadFilteredAsync(1,10,1,5)).FilterStatus!=3)break;await Task.Delay(10);}
+                var copied=await source.CopyVisibleAsync(source.Revision,AutomationPosition(2,2),AutomationPosition(5,4));
+                AutomationCheck(copied.VisibleRows.SequenceEqual(new uint[]{2,5}),"cross-process image retains gapped source origins");
+                var item=new DataTransferItem();item.Set(VisibleBlockFormat,copied.Clipboard.ToByteArray());item.SetText(copied.ClipboardText);
                 var transfer=new DataTransfer();transfer.Add(item);await clipboard.SetDataAsync(transfer);
                 await source.DisposeAsync();AutomationCheck(source.FinalCharge==0,"Clipboard retains no source engine");
             }
@@ -201,10 +205,10 @@ public partial class MainWindow
         bool cancelled=false,nativeReceived=false;
         if(mode!="clean") {
             if(mode=="clipboard-save") {
-                using(var data=await Clipboard!.TryGetDataAsync()) nativeReceived=data is not null && data.Contains(CellBlockFormat);
+                using(var data=await Clipboard!.TryGetDataAsync()) nativeReceived=data is not null && data.Contains(VisibleBlockFormat);
                 AutomationCheck(nativeReceived,"Separate process receives private OS format");
                 await SelectAsync(AutomationPosition(25,5));await ClipboardAsync(true);
-                AutomationCheck(Sheet.CellAt(AutomationPosition(25,6))!.Formula=="=E25+1" && Sheet.CellAt(AutomationPosition(26,6))!.Formula=="=SUM($B$2:E26)","Cross-process effective scalar/SUM bindings");
+                AutomationCheck(Sheet.CellAt(AutomationPosition(25,6))!.Formula=="=E25+1" && Sheet.CellAt(AutomationPosition(26,6))!.Formula=="=SUM($B$2:E24)","Cross-process effective scalar/SUM bindings");
             } else {
                 await EditAsync(new Edit{At=AutomationPosition(25,5),Number=WorkbookSession.Encode(2m)});
             }
@@ -223,7 +227,7 @@ public partial class MainWindow
         string? peerGraphicalBackend=PlatformImpl?.GetType().FullName;
         Closed+=(_,_)=>{
             bool pass=session?.FinalCharge==0 && OwnedWindows.Count==0;
-            File.WriteAllText(report,JsonSerializer.Serialize(new PeerReport {graphical_backend=peerGraphicalBackend,status=pass?"passed":"failed",mode=mode,process_id=Environment.ProcessId,rust_process_id=session?.ProcessId,remaining_charge=session?.FinalCharge,path=path,cancel_checked=cancelled,native_received=nativeReceived,dialog_input="programmatic Button.Click routed event",os_keyboard_input=false},ReportJsonContext.Default.PeerReport));
+            File.WriteAllText(report,JsonSerializer.Serialize(new PeerReport {graphical_backend=peerGraphicalBackend,status=pass?"passed":"failed",mode=mode,process_id=Environment.ProcessId,rust_process_id=session?.ProcessId,remaining_charge=session?.FinalCharge,path=path,cancel_checked=cancelled,native_received=nativeReceived,native_format=nativeReceived?"CB6":null,dialog_input="programmatic Button.Click routed event",os_keyboard_input=false},ReportJsonContext.Default.PeerReport));
         };
         Close();
         if(mode!="clean") await ClickCloseChoiceAsync(mode=="clipboard-save"?"Save":"Discard");

@@ -20,6 +20,7 @@ public sealed partial class WorkbookSession {
   request=request.Clone();if(request.Worksheet.Length==0)request.Worksheet=WorksheetId;
   if(request.Revision.Length==0)request.Revision=Revision;
   if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
+  if(request.Operation==Request.Types.Operation.PasteVisible)return await ConfirmAndPasteVisibleAsync(request,cancellation).ConfigureAwait(false);
   bool singleEdit=request.Operation==Request.Types.Operation.Apply&&request.Edits.Count==1&&request.Edits[0].ActionCase!=Edit.ActionOneofCase.MoveTo;
   if(FilterSummary is not null&&FilterBulk(request.Operation)&&!singleEdit&&!IsBindingProof&&!IsProjectionProof){
    string? interaction=CaptureFilterInteractionAsync is { } capture?await capture(cancellation).ConfigureAwait(false):null;

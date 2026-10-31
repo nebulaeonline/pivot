@@ -71,14 +71,15 @@ public partial class MainWindow {
  private FilterDialog? activeFilterDialog;private Window? activeHiddenRowsDialog;
  private void ConfigureFilterSession(WorkbookSession owner){
   owner.ConfirmHiddenRowsAsync=ConfirmHiddenRowsAsync;
+  owner.ConfirmVisiblePasteAsync=ConfirmVisiblePasteAsync;
   owner.CaptureFilterInteractionAsync=cancel=>OnUiAsync(()=>{cancel.ThrowIfCancellationRequested();return Task.FromResult($"{owner.DocumentGeneration}:{owner.WorksheetId}:{interactionVersion}:{displayedFilterGeneration}:{Sheet.SelectionFirst}:{Sheet.SelectionLast}:{Sheet.Selected}");});
   owner.RevalidateFilteredOperationAsync=(operation,cancel)=>OnUiAsync(async()=>{
-   cancel.ThrowIfCancellationRequested();if(operation.Operation!=Request.Types.Operation.PasteBlock)return true;
+   cancel.ThrowIfCancellationRequested();if(operation.Operation is not (Request.Types.Operation.PasteBlock or Request.Types.Operation.PasteVisible))return true;
    if(Clipboard is null)return false;
    var current=await ClipboardRead.CaptureAsync<IAsyncDataTransfer>(Clipboard.TryGetInProcessDataAsync,Clipboard.TryGetDataAsync,async(data,owned)=>{
-    bool native=data?.Contains(CellBlockFormat)==true;bool obsolete=data is not null&&(data.Contains(OldCellBlockFormat)||data.Contains(OldCellBlock2Format)||data.Contains(OldCellBlock3Format)||data.Contains(OldCellBlock4Format));return new ClipboardRead.Snapshot(data is not null,native,obsolete,data?.Contains(DataFormat.Text)==true,native?await data!.TryGetValueAsync(CellBlockFormat):null,native||obsolete||data is null?null:await data.TryGetTextAsync());
+    return await ReadWorksheetClipboardAsync(data,true);
    });
-   cancel.ThrowIfCancellationRequested();return operation.NativeClipboard?current.Native&&current.Bytes is not null&&operation.Clipboard.Span.SequenceEqual(current.Bytes):!current.Native&&!current.Obsolete&&current.Text is not null&&operation.Clipboard.Span.SequenceEqual(System.Text.Encoding.UTF8.GetBytes(current.Text));
+   cancel.ThrowIfCancellationRequested();return operation.NativeClipboard?current.Native&&operation.ClipboardKind==current.NativeKind&&current.Bytes is not null&&operation.Clipboard.Span.SequenceEqual(current.Bytes):!current.Native&&!current.Obsolete&&current.Text is not null&&operation.Clipboard.Span.SequenceEqual(System.Text.Encoding.UTF8.GetBytes(current.Text));
   });
  }
  private async void FilterClick(object? sender,RoutedEventArgs e)=>await ConfigureFilterAsync();

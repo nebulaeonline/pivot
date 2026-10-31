@@ -20,6 +20,9 @@ mod filtering;
 mod filtering_tests;
 mod projections;
 mod structured;
+mod visible;
+#[cfg(test)]
+mod visible_tests;
 
 const MAX_FRAME: usize = 1_048_576;
 const MAX_CELLS: usize = 256;
@@ -39,6 +42,7 @@ struct PendingSave {
 struct Session {
     filter: filtering::Presentation,
     filter_confirmation: Option<filtering::Confirmation>,
+    visible_confirmation: Option<visible::Confirmation>,
     computational_state: String,
     proof: Option<pivot_workbook::projection::State>,
     proof_frame: Option<pivot_workbook::projection::Frame>,
@@ -168,6 +172,7 @@ impl Session {
             captures: BTreeMap::new(),
             filter: Default::default(),
             filter_confirmation: None,
+            visible_confirmation: None,
         })
     }
     fn close(&mut self) -> Result<u64, String> {
@@ -177,6 +182,7 @@ impl Session {
         self.captures.clear();
         self.proof.take();
         self.filter_confirmation = None;
+        self.visible_confirmation = None;
         self.filter = Default::default();
         self.book.take();
         if let Some(runtime) = self.runtime.take() {
@@ -190,7 +196,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 11 {
+        if q.version != 12 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -202,6 +208,13 @@ impl Session {
         {
             return Err("Filters are ordinary worksheet state; clear them before entering an experimental proof.".into());
         }
+        if matches!(
+            operation,
+            Op::CopyVisible | Op::PrepareVisiblePaste | Op::PasteVisible
+        ) {
+            return self.handle_visible(q, r, operation);
+        }
+        visible::validate_native_kind(q)?;
         if operation == Op::PrepareFilteredOperation {
             return self.prepare_filtered_operation(q, r);
         }
@@ -564,6 +577,8 @@ impl Session {
                     .map_err(|e| e.to_string())?;
                 r.clipboard = copied.native;
                 r.clipboard_text = copied.text;
+                r.clipboard_text_available = copied.text_available;
+                r.clipboard_kind = 5;
             }
             Op::PasteBlock => {
                 let rectangle = Rectangle {
@@ -1129,7 +1144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 11,
+            version: 12,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -1155,6 +1170,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 | wire::request::Operation::ReadFiltered
                 | wire::request::Operation::SetFilter
                 | wire::request::Operation::ValidateFilter
+                | wire::request::Operation::CopyVisible
+                | wire::request::Operation::PrepareVisiblePaste
+                | wire::request::Operation::PasteVisible
                 | wire::request::Operation::GetFilter)
         ) {
             session.runtime.as_ref().map(|runtime| {
@@ -1164,6 +1182,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Ok(wire::request::Operation::ReadFiltered
                             | wire::request::Operation::SetFilter
                             | wire::request::Operation::ValidateFilter
+                            | wire::request::Operation::CopyVisible
+                            | wire::request::Operation::PrepareVisiblePaste
+                            | wire::request::Operation::PasteVisible
                             | wire::request::Operation::GetFilter)
                     ) {
                         MAX_FRAME * 4
@@ -1296,6 +1317,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     | wire::request::Operation::ReadStyles
                     | wire::request::Operation::ReadFiltered
                     | wire::request::Operation::Calculate
+                    | wire::request::Operation::CopyVisible
+                    | wire::request::Operation::PrepareVisiblePaste
+                    | wire::request::Operation::PasteVisible
                     | wire::request::Operation::GetFilter)
             )
         {
@@ -1328,7 +1352,7 @@ mod protocol_version_tests {
     #[test]
     fn incompatible_peers_reject_before_creating_state() {
         let mut session = Session::default();
-        for version in 0..6 {
+        for version in 0..12 {
             let request = wire::Request {
                 version,
                 operation: wire::request::Operation::Create as i32,

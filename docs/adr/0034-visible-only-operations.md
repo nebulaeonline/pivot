@@ -1,8 +1,7 @@
 # ADR-0034: Visible-only operations on filtered data
 
 Date: 2026-10-31.
-Status: **Design approved with clarifications by parent review (2026-10-31).
-Implementation requires separate owner authorization; no implementation or validation run started.**
+Status: **Accepted and closed by parent implementation review (2026-10-31).**
 
 The parent accepts the independent commands, exact shape matching, actual-coordinate
 formula translation, bounded CB6 plus current CB5, private v12, unchanged WB12/hosted
@@ -306,6 +305,16 @@ review and initial Copy/Paste-only scope, subject to the three invariants above.
 The current resource limits and six-target future validation plan are accepted;
 no budget increase, implicit mode fallback or migration is approved. Clear, Fill,
 Cut/Move, arbitrary multi-area selection, tables, history and filter redesign remain
-outside scope. Wait for separate owner implementation authorization. No feature
-code, workbook/protocol change, build, GUI launch or native validation was performed
-in this phase. ADR-0023 remains parked at G3.
+outside scope. The owner subsequently authorized implementation; implementation and
+six-target validation are complete. See [implementation semantics](../architecture/visible-clipboard.md).
+See the [implementation handoff](../handoffs/2026-10-31-visible-only-operations.md).
+The parent accepts the implementation, all three invariants, shared-style accounting
+and property-batched staging corrections, CB5/CB6 and private v12 with unchanged WB12,
+hosted v1 and resource limits. Six-target evidence, source qualifications, Rosetta
+coverage, observed maxima, archival and diagnostic LoC are accepted. No additional
+validation, reconciliation packet or AOT rerun is required. Preserve original failures
+and successful corrections separately.
+
+ADR-0035: Visible-Only Clear and Fill is assigned as the next design milestone,
+subject to owner commit/push and explicit authorization before design begins.
+ADR-0023 remains parked at G3.

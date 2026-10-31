@@ -29,6 +29,7 @@ internal static class ClipboardReadChecks
         payload=await ClipboardRead.AcquireAsync(()=>Task.FromResult(++calls<2 ? default : Text("")),()=>true,delay:NoDelay);
         Check(calls==2&&payload.Text=="","missing snapshot can become a valid empty String");
         await Reject(Native(null),Text("=1+2"));
+        await Reject(new ClipboardRead.Snapshot(true,true,false,false,null,null,6),new ClipboardRead.Snapshot(true,true,false,true,[1],"wrong fallback",5));
         await Reject(Text(null),Native([1]));
         await Reject(new ClipboardRead.Snapshot(true,false,true,true,null,"001234"));
         await Reject(Text(null));

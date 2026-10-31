@@ -81,7 +81,7 @@ validation, reconciliation packet, AOT rerun or separate housekeeping acceptance
 required. Preserve original failures and successful recoveries separately.
 
 **Current assignment — ADR-0034: Visible-Only Operations on Filtered Data
-(design approved with clarifications; implementation awaiting owner authorization).**
+(accepted and closed by parent implementation review, 2026-10-31).**
 The owner committed ADR-0033 (`196dfd2`) and explicitly authorized design work.
 See the [accepted design ADR](adr/0034-visible-only-operations.md) and
 [parent design handoff](handoffs/2026-10-31-visible-only-operations-design.md).
@@ -89,8 +89,20 @@ The parent approves independent Copy Visible Cells and Paste into Visible Rows, 
 width matching, geometric translation from actual per-row origins, a bounded CB6
 image and private v12. WB12/hosted v1 and ordinary CB5/full-rectangle operations stay
 intact. Clear/Fill and arbitrary multi-area selection are deferred. This is an
-accepted design, not shipped behavior; no feature code, format/protocol change, build or
-native/GUI validation run was made in this design phase.
+accepted design with owner-authorized implementation now complete. The explicit
+commands, CB6 source origins, private v12, atomic mapped writes and destination
+review are implemented. See [implementation semantics](architecture/visible-clipboard.md).
+Local 13-step CI, 488 all-feature Rust tests and strict Clippy pass. All six targets
+passed headless and attended managed/AOT GUI checks (48 application reports, zero
+final charges and no owned survivors); macOS x64 runs under Rosetta. See the
+[implementation handoff](handoffs/2026-10-31-visible-only-operations.md) for source
+qualifications, receipts, resource observations, cleanup and per-project LoC.
+The parent accepts the implementation, formatting corrections and submitted evidence,
+including source qualifications, Rosetta coverage, observed timing maxima, archival
+and diagnostic LoC. No further validation, reconciliation packet or AOT rerun is
+required. Preserve original failures separately from successful corrections.
+ADR-0035: Visible-Only Clear and Fill is assigned for design and parent review next;
+await owner git commit/push and explicit authorization before starting that design.
 
 Three mandatory implementation acceptance invariants apply:
 
@@ -124,8 +136,7 @@ The design must resolve:
 Do not assume skipping hidden rows in the existing rectangular clipboard path is
 correct. Implementation requires its own parent review and owner authorization.
 No filtering redesign, history integration, table subsystem or broad query language
-is included. Parent design review is complete; implementation remains on hold for
-separate owner authorization. No commit or push was performed.
+is included. Parent design review is complete; the owner has now separately authorized implementation and validation. No commit or push was performed.
 ADR-0031 and ADR-0032 remain accepted and closed.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2

@@ -78,6 +78,11 @@ Worksheet filters preserve typed criteria and hide whole rows without changing c
 coordinates, identities or calculation membership. Hidden-row bulk operations use
 explicit full-range confirmation. [Filtering implementation and validation status](docs/architecture/worksheet-filtering.md).
 
+Copy Visible Cells and Paste into Visible Rows are separate explicit commands.
+Paste reviews the actual worksheet rows before an atomic mapped write; formulas
+translate from each cell's original coordinates. Exact Strings, including leading
+zeros, remain intact. [Visible clipboard implementation and validation status](docs/architecture/visible-clipboard.md).
+
 CSV import creates a new unsaved workbook; CSV export writes calculated values
 from the selection or active sheet. Text is the default import mode. Optional
 Numbers and Booleans mode preserves quoted Strings and leading-zero integer

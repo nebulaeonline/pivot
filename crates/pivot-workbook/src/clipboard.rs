@@ -9,11 +9,18 @@ const MAX_SOURCE: usize = 128 * 1024;
 const MAX_TOKENS: usize = 16_384;
 const MAX_REFERENCES: usize = 8192;
 const MAGIC: &[u8] = b"PIVOTCB5";
+const VISIBLE_MAGIC: &[u8] = b"PIVOTCB6";
 
 #[derive(Debug)]
 pub struct ClipboardBlock {
     pub native: Vec<u8>,
     pub text: String,
+    pub text_available: bool,
+}
+/// Ordered direct-write footprint; visibility qualification belongs to the session.
+pub struct VisibleDestination<'a> {
+    pub rectangle: Rectangle,
+    pub rows: &'a [u32],
 }
 #[derive(Clone)]
 enum Slot {
@@ -29,11 +36,24 @@ enum Slot {
     },
 }
 struct Image {
+    source_rows: Option<Vec<u32>>,
     first: Position,
     height: u32,
     width: u32,
     slots: Vec<Slot>,
     styles: Vec<formatting::Style>,
+}
+
+fn valid_rows(rows: &[u32]) -> Result<()> {
+    if rows.is_empty()
+        || rows.len() > 256
+        || rows[0] == 0
+        || *rows.last().unwrap() > crate::MAX_ROWS
+        || rows.windows(2).any(|r| r[0] >= r[1])
+    {
+        return Err(invalid());
+    }
+    Ok(())
 }
 fn invalid() -> Error {
     Error::Graph("invalid or unsupported clipboard block".into())
@@ -211,9 +231,30 @@ impl Reader<'_> {
 }
 impl Image {
     fn encode(&self) -> Result<ClipboardBlock> {
-        let mut native = MAGIC.to_vec();
+        let text_available = self.source_rows.is_none()
+            || !self.slots.iter().any(|slot| match slot {
+                Slot::Text(text) | Slot::Formula { source: text, .. } => {
+                    text.contains(['\r', '\n', '\t'])
+                }
+                _ => false,
+            });
+        let mut native = if self.source_rows.is_some() {
+            VISIBLE_MAGIC
+        } else {
+            MAGIC
+        }
+        .to_vec();
         for v in [self.first.row, self.first.column, self.height, self.width] {
             n(&mut native, v);
+        }
+        if let Some(rows) = &self.source_rows {
+            valid_rows(rows)?;
+            if rows.len() != self.height as usize || rows[0] != self.first.row {
+                return Err(invalid());
+            }
+            for row in rows {
+                n(&mut native, *row);
+            }
         }
         let mut output = String::new();
         let mut source_work = 0;
@@ -299,6 +340,9 @@ impl Image {
                     }
                 }
             }
+            if !text_available {
+                output.clear();
+            }
             if native.len() + output.len() > MAX_BYTES
                 || source_work > MAX_SOURCE
                 || token_work > MAX_TOKENS
@@ -310,6 +354,7 @@ impl Image {
         Ok(ClipboardBlock {
             native,
             text: output,
+            text_available,
         })
     }
     fn decode(bytes: &[u8]) -> Result<Self> {
@@ -317,9 +362,11 @@ impl Image {
             return Err(Error::Limit);
         }
         let mut r = Reader { bytes, at: 0 };
-        if r.take(MAGIC.len())? != MAGIC {
+        let magic = r.take(MAGIC.len())?;
+        if magic != MAGIC && magic != VISIBLE_MAGIC {
             return Err(invalid());
         }
+        let visible = magic == VISIBLE_MAGIC;
         let first = Position::new(r.n()?, r.n()?);
         let height = r.n()?;
         let width = r.n()?;
@@ -334,6 +381,16 @@ impl Image {
         if last.row > crate::MAX_ROWS || last.column > crate::MAX_COLUMNS {
             return Err(invalid());
         }
+        let source_rows = if visible {
+            let rows = (0..height).map(|_| r.n()).collect::<Result<Vec<_>>>()?;
+            valid_rows(&rows)?;
+            if rows[0] != first.row {
+                return Err(invalid());
+            }
+            Some(rows)
+        } else {
+            None
+        };
         let mut slots = Vec::new();
         let mut styles = Vec::new();
         for _ in 0..height * width {
@@ -419,6 +476,7 @@ impl Image {
             return Err(invalid());
         }
         let image = Self {
+            source_rows,
             first,
             height,
             width,
@@ -478,6 +536,7 @@ impl Image {
             }
         }
         Ok(Self {
+            source_rows: None,
             first: Position::new(1, 1),
             height: rows.len() as u32,
             width: width.unwrap() as u32,
@@ -487,6 +546,57 @@ impl Image {
     }
 }
 impl Workbook {
+    pub fn clipboard_shape(
+        &self,
+        expected: Expected,
+        bytes: &[u8],
+        native: bool,
+    ) -> Result<(u32, u32)> {
+        self.check(expected)?;
+        let _scratch = self
+            .persistent
+            .memory
+            .reserve(8 * 1024 * 1024)
+            .map_err(|_| Error::Limit)?;
+        let image = if native {
+            Image::decode(bytes)?
+        } else {
+            Image::tsv(std::str::from_utf8(bytes).map_err(|_| invalid())?)?
+        };
+        Ok((image.height, image.width))
+    }
+    pub fn copy_visible_sheet(
+        &self,
+        sheet: WorksheetId,
+        expected: Expected,
+        rows: &[u32],
+        first_column: u32,
+        last_column: u32,
+        cancel: &CancellationToken,
+    ) -> Result<ClipboardBlock> {
+        self.request_view(sheet)?
+            .copy_rows(expected, rows, first_column, last_column, true, cancel)
+    }
+    pub fn paste_visible_sheet(
+        &mut self,
+        sheet: WorksheetId,
+        expected: Expected,
+        destination: VisibleDestination<'_>,
+        bytes: &[u8],
+        native: bool,
+        cancel: &CancellationToken,
+    ) -> Result<Rectangle> {
+        self.mutate_sheet(sheet, |view| {
+            view.paste_planned(
+                expected,
+                destination.rectangle,
+                bytes,
+                native,
+                cancel,
+                Some(destination.rows),
+            )
+        })
+    }
     /// Exact addressed destination from the immutable payload, for operation review.
     pub fn paste_extent(
         &self,
@@ -533,10 +643,39 @@ impl Workbook {
     }
     /// Copy from exactly one immutable generation; returned bytes own no source roots.
     pub fn copy_block(&self, expected: Expected, rectangle: Rectangle) -> Result<ClipboardBlock> {
+        area(rectangle.first, rectangle.last)?;
+        self.copy_rows(
+            expected,
+            &(rectangle.first.row..=rectangle.last.row).collect::<Vec<_>>(),
+            rectangle.first.column,
+            rectangle.last.column,
+            false,
+            &CancellationToken::default(),
+        )
+    }
+    fn copy_rows(
+        &self,
+        expected: Expected,
+        rows: &[u32],
+        first_column: u32,
+        last_column: u32,
+        visible: bool,
+        cancel: &CancellationToken,
+    ) -> Result<ClipboardBlock> {
         self.check(expected)?;
-        self.axes_at(rectangle.first)?;
-        self.axes_at(rectangle.last)?;
-        let (height, width) = area(rectangle.first, rectangle.last)?;
+        valid_rows(rows)?;
+        let first = Position::new(rows[0], first_column);
+        let last = Position::new(*rows.last().unwrap(), last_column);
+        self.axes_at(first)?;
+        self.axes_at(last)?;
+        if last_column < first_column {
+            return Err(Error::Position);
+        }
+        let height = rows.len() as u32;
+        let width = last_column - first_column + 1;
+        if u64::from(height) * u64::from(width) > 256 {
+            return Err(Error::Limit);
+        }
         let _scratch = self
             .core
             .stage()
@@ -546,8 +685,11 @@ impl Workbook {
             .map_err(|_| Error::Limit)?;
         let capture = self.capture_local(expected)?;
         let mut slots = Vec::new();
-        for row in rectangle.first.row..=rectangle.last.row {
-            for column in rectangle.first.column..=rectangle.last.column {
+        for &row in rows {
+            if cancel.is_cancelled() {
+                return Err(Error::Graph("cancelled".into()));
+            }
+            for column in first_column..=last_column {
                 let content = capture
                     .pinned_content(Position::new(row, column))?
                     .map(|c| c.content);
@@ -571,14 +713,14 @@ impl Workbook {
             }
         }
         Image {
-            first: rectangle.first,
+            source_rows: visible.then(|| rows.to_vec()),
+            first,
             height,
             width,
-            styles: (rectangle.first.row..=rectangle.last.row)
-                .flat_map(|r| {
-                    (rectangle.first.column..=rectangle.last.column)
-                        .map(move |c| Position::new(r, c))
-                })
+            styles: rows
+                .iter()
+                .copied()
+                .flat_map(|r| (first_column..=last_column).map(move |c| Position::new(r, c)))
                 .map(|p| self.style_at(self.worksheet, p))
                 .collect::<Result<Vec<_>>>()?,
             slots,
@@ -593,6 +735,17 @@ impl Workbook {
         bytes: &[u8],
         native: bool,
         cancel: &CancellationToken,
+    ) -> Result<Rectangle> {
+        self.paste_planned(expected, rectangle, bytes, native, cancel, None)
+    }
+    fn paste_planned(
+        &mut self,
+        expected: Expected,
+        rectangle: Rectangle,
+        bytes: &[u8],
+        native: bool,
+        cancel: &CancellationToken,
+        destination_rows: Option<&[u32]>,
     ) -> Result<Rectangle> {
         self.check(expected)?;
         self.axes_at(rectangle.first)?;
@@ -620,24 +773,40 @@ impl Workbook {
         {
             return Err(Error::Graph("Structured formula paste requires explicit typed authoring; the rectangle was not changed.".into()));
         }
-        let (height, width) = area(rectangle.first, rectangle.last)?;
-        if (height, width) != (1, 1) && (height, width) != (image.height, image.width) {
-            return Err(invalid());
-        }
-        let last = Position::new(
-            rectangle
-                .first
-                .row
-                .checked_add(image.height - 1)
-                .ok_or(Error::Position)?,
-            rectangle
-                .first
-                .column
-                .checked_add(image.width - 1)
-                .ok_or(Error::Position)?,
-        );
+        let last = if let Some(rows) = destination_rows {
+            valid_rows(rows)?;
+            if rows.len() != image.height as usize
+                || rows[0] != rectangle.first.row
+                || *rows.last().unwrap() != rectangle.last.row
+                || rectangle
+                    .last
+                    .column
+                    .checked_sub(rectangle.first.column)
+                    .and_then(|v| v.checked_add(1))
+                    != Some(image.width)
+            {
+                return Err(invalid());
+            }
+            rectangle.last
+        } else {
+            let (height, width) = area(rectangle.first, rectangle.last)?;
+            if (height, width) != (1, 1) && (height, width) != (image.height, image.width) {
+                return Err(invalid());
+            }
+            Position::new(
+                rectangle
+                    .first
+                    .row
+                    .checked_add(image.height - 1)
+                    .ok_or(Error::Position)?,
+                rectangle
+                    .first
+                    .column
+                    .checked_add(image.width - 1)
+                    .ok_or(Error::Position)?,
+            )
+        };
         self.axes_at(last)?;
-        let dr = i64::from(rectangle.first.row) - i64::from(image.first.row);
         let dc = i64::from(rectangle.first.column) - i64::from(image.first.column);
         let mut edits = Vec::new();
         let mut styles = Vec::new();
@@ -645,10 +814,22 @@ impl Workbook {
         let mut token_work = 0;
         let mut reference_work = 0;
         for (i, slot) in image.slots.into_iter().enumerate() {
+            if cancel.is_cancelled() {
+                return Err(Error::Graph("cancelled".into()));
+            }
             let position = Position::new(
-                rectangle.first.row + i as u32 / image.width,
+                destination_rows.map_or(rectangle.first.row + i as u32 / image.width, |rows| {
+                    rows[i / image.width as usize]
+                }),
                 rectangle.first.column + i as u32 % image.width,
             );
+            let source_row = image
+                .source_rows
+                .as_ref()
+                .map_or(image.first.row + i as u32 / image.width, |rows| {
+                    rows[i / image.width as usize]
+                });
+            let dr = i64::from(position.row) - i64::from(source_row);
             if native {
                 styles.push((position, image.styles[i]));
             }

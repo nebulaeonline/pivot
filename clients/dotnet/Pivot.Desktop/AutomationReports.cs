@@ -28,6 +28,7 @@ internal sealed class DesktopReport
     public string? structure {get;init;}
     public string? sorting {get;init;}
     public string? filtering {get;init;}
+    public string? visible_clipboard {get;init;}
     public string? region_formatting {get;init;}
     public string? basic_formatting {get;init;}
     public string? csv {get;init;}
@@ -69,6 +70,7 @@ internal sealed class PeerReport
     public string path { get; init; } = "";
     public bool cancel_checked { get; init; }
     public bool native_received { get; init; }
+    public string? native_format { get; init; }
     public string dialog_input { get; init; } = "programmatic Button.Click routed event";
     public bool os_keyboard_input { get; init; }
 }

@@ -313,7 +313,7 @@ impl Workbook {
     }
     /// An explicit request scope, not a retained active-sheet setting or another engine.
     /// Graph/domain identity and every persistent root are shared until commit.
-    fn request_view(&self, id: WorksheetId) -> Result<Self> {
+    pub(crate) fn request_view(&self, id: WorksheetId) -> Result<Self> {
         let sheet = self.sheet_info(id)?;
         Ok(Self {
             #[cfg(feature = "history-experiment")]
@@ -333,7 +333,7 @@ impl Workbook {
             limits: self.limits,
         })
     }
-    fn mutate_sheet<T>(
+    pub(crate) fn mutate_sheet<T>(
         &mut self,
         id: WorksheetId,
         call: impl FnOnce(&mut Self) -> Result<T>,

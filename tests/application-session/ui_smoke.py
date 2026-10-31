@@ -39,7 +39,7 @@ try:
             peer = json.loads((output/f'results.{mode}.json').read_text(encoding='utf-8'))
             if peer['status'] != 'passed' or peer['remaining_charge'] != 0:
                 raise SystemExit(json.dumps(peer, indent=2))
-            if mode == 'clipboard-save' and not (peer['native_received'] and peer['cancel_checked']):
+            if mode == 'clipboard-save' and not (peer['native_received'] and peer.get('native_format')=='CB6' and peer['cancel_checked']):
                 raise SystemExit('Cross-process clipboard / close-cancel evidence missing')
 
         if not report.get("structured_projection", "").startswith("passed:"): raise SystemExit("Structured projection acceptance missing")
@@ -49,6 +49,7 @@ try:
         if not report.get("spreadsheet_aggregates", "").startswith("passed:"): raise SystemExit("Spreadsheet aggregate acceptance missing")
 
         if not report.get("structure", "").startswith("passed:"): raise SystemExit("Structural acceptance missing")
+        if not report.get("visible_clipboard", "").startswith("passed:"): raise SystemExit("Visible clipboard acceptance missing")
         if not report.get("filtering", "").startswith("passed:"): raise SystemExit("Filtering acceptance missing")
         if not report.get("sorting", "").startswith("passed:"): raise SystemExit("Sorting acceptance missing")
         if not report.get("region_formatting", "").startswith("passed:"): raise SystemExit("Region formatting acceptance missing")

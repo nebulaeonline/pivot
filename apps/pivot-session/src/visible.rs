@@ -1,15 +1,15 @@
 //! Exact mapped destinations, independent of the ordinary rectangular clipboard guard.
 use super::*;
 pub(super) struct Confirmation {
-    ticket: String,
-    operation: Vec<u8>,
-    expected: pivot_workbook::Expected,
-    generation: String,
-    rows: Vec<u32>,
-    rectangle: Rectangle,
-    _charge: pivot_core::model::integration::resources::Charge,
+    pub(super) ticket: String,
+    pub(super) operation: Vec<u8>,
+    pub(super) expected: pivot_workbook::Expected,
+    pub(super) generation: String,
+    pub(super) rows: Vec<u32>,
+    pub(super) rectangle: Rectangle,
+    pub(super) _charge: pivot_core::model::integration::resources::Charge,
 }
-fn canonical(q: &wire::Request) -> Vec<u8> {
+pub(super) fn canonical(q: &wire::Request) -> Vec<u8> {
     let mut q = q.clone();
     q.version = 0;
     q.id = 0;
@@ -35,7 +35,10 @@ pub(super) fn validate_native_kind(q: &wire::Request) -> Result<(), String> {
     Ok(())
 }
 impl Session {
-    fn visible_rows(&mut self, q: &wire::Request) -> Result<(WorksheetId, Vec<u32>), String> {
+    pub(super) fn visible_rows(
+        &mut self,
+        q: &wire::Request,
+    ) -> Result<(WorksheetId, Vec<u32>), String> {
         if self.proof.is_some() {
             return Err("Visible commands require an ordinary worksheet".into());
         }
@@ -122,6 +125,19 @@ impl Session {
         op: wire::request::Operation,
     ) -> Result<(), String> {
         use wire::request::Operation as O;
+        if op == O::CancelVisibleEdit {
+            if self
+                .visible_confirmation
+                .as_ref()
+                .is_some_and(|p| p.ticket == q.filter_confirmation)
+            {
+                self.visible_confirmation = None;
+            }
+            return Ok(());
+        }
+        if matches!(op, O::PrepareVisibleEdit | O::ClearVisible | O::FillVisible) {
+            return self.handle_visible_edit(q, r, op);
+        }
         if op == O::CopyVisible {
             let (sheet, visible) = self.visible_rows(q)?;
             let first = pos(q.first.as_ref())?;

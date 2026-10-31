@@ -21,6 +21,7 @@ mod filtering_tests;
 mod projections;
 mod structured;
 mod visible;
+mod visible_edit;
 #[cfg(test)]
 mod visible_tests;
 
@@ -196,7 +197,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 12 {
+        if q.version != 13 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -210,7 +211,13 @@ impl Session {
         }
         if matches!(
             operation,
-            Op::CopyVisible | Op::PrepareVisiblePaste | Op::PasteVisible
+            Op::CancelVisibleEdit
+                | Op::CopyVisible
+                | Op::PrepareVisiblePaste
+                | Op::PasteVisible
+                | Op::PrepareVisibleEdit
+                | Op::ClearVisible
+                | Op::FillVisible
         ) {
             return self.handle_visible(q, r, operation);
         }
@@ -1144,7 +1151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 12,
+            version: 13,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -1171,6 +1178,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 | wire::request::Operation::SetFilter
                 | wire::request::Operation::ValidateFilter
                 | wire::request::Operation::CopyVisible
+                | wire::request::Operation::PrepareVisibleEdit
+                | wire::request::Operation::ClearVisible
+                | wire::request::Operation::FillVisible
                 | wire::request::Operation::PrepareVisiblePaste
                 | wire::request::Operation::PasteVisible
                 | wire::request::Operation::GetFilter)
@@ -1183,6 +1193,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             | wire::request::Operation::SetFilter
                             | wire::request::Operation::ValidateFilter
                             | wire::request::Operation::CopyVisible
+                            | wire::request::Operation::PrepareVisibleEdit
+                            | wire::request::Operation::ClearVisible
+                            | wire::request::Operation::FillVisible
                             | wire::request::Operation::PrepareVisiblePaste
                             | wire::request::Operation::PasteVisible
                             | wire::request::Operation::GetFilter)
@@ -1318,6 +1331,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     | wire::request::Operation::ReadFiltered
                     | wire::request::Operation::Calculate
                     | wire::request::Operation::CopyVisible
+                    | wire::request::Operation::PrepareVisibleEdit
+                    | wire::request::Operation::ClearVisible
+                    | wire::request::Operation::FillVisible
                     | wire::request::Operation::PrepareVisiblePaste
                     | wire::request::Operation::PasteVisible
                     | wire::request::Operation::GetFilter)
@@ -1352,7 +1368,7 @@ mod protocol_version_tests {
     #[test]
     fn incompatible_peers_reject_before_creating_state() {
         let mut session = Session::default();
-        for version in 0..12 {
+        for version in 0..13 {
             let request = wire::Request {
                 version,
                 operation: wire::request::Operation::Create as i32,

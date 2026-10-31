@@ -1,12 +1,14 @@
 # ALLOCATE: exact, conservation-preserving allocation
 
 Date: 2026-10-31.
-Status: **Proposal captured for future design; not approved or scheduled for implementation.**
+Status: **Assigned as the starting proposal for ADR-0036 design by parent review
+(2026-10-31); owner design authorization and parent design approval remain outstanding.**
 
 Recorded at the owner's request from a sidebar with the parent GPT while ADR-0035
-is under review. This does not interrupt ADR-0035, assign an ADR number, change
-ordinary arithmetic, or authorize feature work. The [original sidebar](allocate-sidebar.txt)
-is preserved verbatim alongside this summary; examples below remain illustrative.
+was under review. The later ADR-0035 acceptance assigns this proposal to ADR-0036
+design next; that assignment does not authorize starting design or implementation
+before the owner-controlled cadence, or change ordinary arithmetic. This document
+records the captured proposal; examples below remain illustrative.
 
 ## Motivation
 
@@ -59,8 +61,9 @@ precision behind formatting as a substitute for settled results.
 
 ## Questions for a future ADR
 
-- Final function signature, argument order, defaults and terminology; whether precision
-  is expressed as decimal places or an explicit settlement unit.
+- Final function signature, argument order and terminology, evaluated against
+  alternatives. Settlement precision must be explicit and required; no implicit
+  two-decimal default is permitted.
 - Valid recipient count/index bounds, integer validation, one-based ordering and
   behavior for zero recipients, invalid indices, nonnumeric inputs and errors.
 - Negative totals and signed zero: define exact, symmetric or otherwise explicitly
@@ -92,3 +95,26 @@ hidden history. A fixed tie order does not promise fairness over repeated alloca
 Potential uses include invoice discounts, shared expenses, tax amounts, payroll and
 cash reconciliation. This proposal records intent, not accounting policy or a change
 to Pivot's canonical numeric, reference, filtering or history semantics.
+
+## Parent follow-up: required precision and next assignment
+
+The parent assigns ADR-0036: Exact, Conservation-Preserving Allocation for design
+and parent review after owner commit/push and explicit authorization. The starting
+proposal lives here in `docs/proposals/allocate.md`; the review's reference to
+`docs/architecture/allocate.md` identifies this existing document, not a separate file.
+No move, duplicate proposal, ADR-0036 draft or implementation is created at closeout.
+
+The owner's follow-up and parent response require `decimal_places` (the fourth
+argument in the illustrative interface). Zero means whole units, 2 hundredths,
+3 thousandths and 4 ten-thousandths. Do not silently assume 2. The total must already
+be exactly representable at that precision: `ALLOCATE(10.005,3,1,2)` must error rather
+than silently discard the fractional cent. The overall signature remains subject
+to design review; the requirement for explicit precision does not.
+
+The first milestone considers equal-weight scalar allocation and deterministic
+recipient ordering, with exact unit multiples and conservation across a complete
+consistent recipient set. Specify negatives/signed zero, all invalid inputs,
+overflow/admission, deterministic parity and compatibility; compare scalar and
+multi-output alternatives. Independent calls cannot prove users supplied every
+recipient exactly once. Weighted allocations, spills, rotation, persistent allocation
+groups, financial reporting and automatic formula repair are deferred.

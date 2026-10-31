@@ -1075,4 +1075,204 @@ impl Store {
         self.work += work.used();
         Ok(changed)
     }
+
+    pub(crate) fn reset_rows(
+        &mut self,
+        sheet: WorksheetId,
+        rows: &[u32],
+        first: u32,
+        last: u32,
+        limits: StyleLimits,
+        cancel: &CancellationToken,
+    ) -> Result<bool> {
+        let mut work = Work::new(
+            limits
+                .command_work
+                .checked_sub(self.work)
+                .ok_or(Error::Limit)?,
+            cancel,
+        );
+        let mut runs: Vec<Rectangle> = Vec::new();
+        for &row in rows {
+            work.tick()?;
+            if let Some(r) = runs.last_mut()
+                && r.last.row + 1 == row
+            {
+                r.last.row = row;
+            } else {
+                runs.push(Rectangle {
+                    first: Position::new(row, first),
+                    last: Position::new(row, last),
+                });
+            }
+        }
+        let mut changed = false;
+        let defaults = values(Style::default());
+        for property in 0u8..10 {
+            let key = MapKey(sheet, property);
+            let old = self.maps.get(&key);
+            let mut changes = Vec::new();
+            for &r in &runs {
+                let mut covered = 0u64;
+                if let Some(old) = old {
+                    old.query(r, &mut work, |e| {
+                        if e.value == defaults[property as usize] {
+                            covered += area(intersection(r, e.rectangle));
+                        }
+                        Ok(())
+                    })?;
+                }
+                if covered != area(r) {
+                    changes.push(r);
+                }
+            }
+            if changes.is_empty() {
+                continue;
+            }
+            let old_len = old.map_or(0, |m| m.entries.len());
+            let _scratch = self
+                .memory
+                .reserve(
+                    (old_len + rows.len() * (last - first + 1) as usize * 4 + 1)
+                        * std::mem::size_of::<Entry>()
+                        * 4
+                        + 8192,
+                )
+                .map_err(|_| Error::Limit)?;
+            let mut entries = Vec::new();
+            if let Some(old) = old {
+                for &e in &old.entries {
+                    work.tick()?;
+                    let r = e.rectangle;
+                    let begin = changes.partition_point(|c| c.last.row < r.first.row);
+                    let end = changes.partition_point(|c| c.first.row <= r.last.row);
+                    if begin == end || r.last.column < first || r.first.column > last {
+                        entries.push(e);
+                        continue;
+                    }
+                    if r.first.column < first {
+                        entries.push(Entry {
+                            rectangle: Rectangle {
+                                first: r.first,
+                                last: Position::new(r.last.row, first - 1),
+                            },
+                            ..e
+                        });
+                    }
+                    if r.last.column > last {
+                        entries.push(Entry {
+                            rectangle: Rectangle {
+                                first: Position::new(r.first.row, last + 1),
+                                last: r.last,
+                            },
+                            ..e
+                        });
+                    }
+                    let left = r.first.column.max(first);
+                    let right = r.last.column.min(last);
+                    let mut row = r.first.row;
+                    for cut in &changes[begin..end] {
+                        work.tick()?;
+                        let start = cut.first.row.max(r.first.row);
+                        let finish = cut.last.row.min(r.last.row);
+                        if row < start {
+                            entries.push(Entry {
+                                rectangle: Rectangle {
+                                    first: Position::new(row, left),
+                                    last: Position::new(start - 1, right),
+                                },
+                                ..e
+                            });
+                        }
+                        row = finish + 1;
+                    }
+                    if row <= r.last.row {
+                        entries.push(Entry {
+                            rectangle: Rectangle {
+                                first: Position::new(row, left),
+                                last: Position::new(r.last.row, right),
+                            },
+                            ..e
+                        });
+                    }
+                }
+            }
+            entries.extend(changes.iter().map(|&rectangle| Entry {
+                rectangle,
+                value: defaults[property as usize],
+            }));
+            for vertical in [false, true] {
+                let mut comparisons = 0;
+                entries.sort_by_key(|e| {
+                    comparisons += 1;
+                    let r = e.rectangle;
+                    if vertical {
+                        (
+                            e.value,
+                            r.first.column,
+                            r.last.column,
+                            r.first.row,
+                            r.last.row,
+                        )
+                    } else {
+                        (
+                            e.value,
+                            r.first.row,
+                            r.last.row,
+                            r.first.column,
+                            r.last.column,
+                        )
+                    }
+                });
+                for _ in 0..comparisons {
+                    work.tick()?;
+                }
+                let mut merged: Vec<Entry> = Vec::new();
+                for entry in entries {
+                    work.tick()?;
+                    if let Some(previous) = merged.last_mut() {
+                        let a = previous.rectangle;
+                        let b = entry.rectangle;
+                        let adjacent = if vertical {
+                            a.first.column == b.first.column
+                                && a.last.column == b.last.column
+                                && a.last.row + 1 == b.first.row
+                        } else {
+                            a.first.row == b.first.row
+                                && a.last.row == b.last.row
+                                && a.last.column + 1 == b.first.column
+                        };
+                        if previous.value == entry.value && adjacent {
+                            previous.rectangle.last = b.last;
+                            continue;
+                        }
+                    }
+                    merged.push(entry);
+                }
+                entries = merged;
+            }
+            let map = Map::build(entries, &mut work)?;
+            let count = self.count - old_len + map.entries.len();
+            let bytes = self.bytes - old.map_or(0, |m| m.storage_bytes()) + map.heap_bytes();
+            if count > limits.positions {
+                return Err(Error::Capacity {
+                    resource: "format property regions",
+                    limit: limits.positions,
+                });
+            }
+            if bytes + (self.maps.len() + 1) * 256 + self.defaults.len() * 256 > limits.bytes {
+                return Err(Error::Capacity {
+                    resource: "format bytes",
+                    limit: limits.bytes,
+                });
+            }
+            let map = self.memory.alloc(map).map_err(|_| Error::Limit)?;
+            self.maps.insert(key, map).map_err(|_| Error::Limit)?;
+            self.count = count;
+            self.bytes = bytes;
+            changed = true;
+        }
+        self.work += work.used();
+        Ok(changed)
+    }
 }

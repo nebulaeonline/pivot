@@ -2,7 +2,7 @@ use super::*;
 use wire::request::Operation as O;
 fn request(s: &Session, op: O) -> wire::Request {
     wire::Request {
-        version: 12,
+        version: 13,
         operation: op as i32,
         revision: s.revision.clone(),
         computational_state: s.computational_state.clone(),
@@ -149,5 +149,79 @@ fn changed_payload_generation_and_shape_never_authorize_another_write() {
     let mut preview = request(&s, O::PrepareVisiblePaste);
     preview.filter_operation = q.encode_to_vec();
     assert!(call(&mut s, preview).is_err());
+    assert_eq!(s.close().unwrap(), 0);
+}
+
+fn prepare_edit(s: &mut Session, q: &wire::Request) -> wire::Response {
+    let mut p = request(s, O::PrepareVisibleEdit);
+    p.filter_operation = q.encode_to_vec();
+    call(s, p).unwrap()
+}
+#[test]
+fn clear_fill_review_exact_plan_single_use_and_degenerate_noop() {
+    let mut s = fixture();
+    let mut q = request(&s, O::ClearVisible);
+    q.clear_mode = 2;
+    let plan = prepare_edit(&mut s, &q);
+    assert_eq!(plan.visible_rows, [2, 5]);
+    assert_eq!(plan.visible_skipped_rows, 2);
+    let before = s.book.as_ref().unwrap().expected();
+    q.filter_confirmation = plan.filter_confirmation;
+    call(&mut s, q.clone()).unwrap();
+    assert_ne!(s.book.as_ref().unwrap().expected(), before);
+    assert_eq!(s.book.as_ref().unwrap().expected().graph, before.graph);
+    assert!(call(&mut s, q).is_err());
+    let mut q = request(&s, O::FillVisible);
+    q.fill_direction = 2;
+    q.first = Some(location(Position::new(2, 1)));
+    q.last = Some(location(Position::new(2, 2)));
+    let before = s.book.as_ref().unwrap().expected();
+    let plan = prepare_edit(&mut s, &q);
+    q.filter_confirmation = plan.filter_confirmation;
+    call(&mut s, q).unwrap();
+    assert_eq!(s.book.as_ref().unwrap().expected(), before);
+    let mut q = request(&s, O::ClearVisible);
+    q.clear_mode = 3;
+    let plan = prepare_edit(&mut s, &q);
+    q.filter_confirmation = plan.filter_confirmation;
+    q.clear_mode = 1;
+    assert!(call(&mut s, q).is_err());
+    assert_eq!(s.book.as_ref().unwrap().expected(), before);
+    assert_eq!(s.close().unwrap(), 0);
+}
+#[test]
+fn changing_filter_invalidates_prepared_clear_and_source_edge() {
+    let mut s = fixture();
+    let mut q = request(&s, O::FillVisible);
+    q.fill_direction = 2;
+    let plan = prepare_edit(&mut s, &q);
+    q.filter_confirmation = plan.filter_confirmation;
+    let reapply = request(&s, O::ReapplyFilter);
+    call(&mut s, reapply).unwrap();
+    settle(&mut s);
+    let before = s.book.as_ref().unwrap().expected();
+    assert!(call(&mut s, q).is_err());
+    assert_eq!(s.book.as_ref().unwrap().expected(), before);
+    let mut q = request(&s, O::ClearVisible);
+    q.clear_mode = 0;
+    let mut prepare = request(&s, O::PrepareVisibleEdit);
+    prepare.filter_operation = q.encode_to_vec();
+    assert!(call(&mut s, prepare).is_err());
+    assert_eq!(s.close().unwrap(), 0);
+}
+
+#[test]
+fn explicit_cancel_releases_only_the_matching_review_ticket() {
+    let mut s = fixture();
+    let mut q = request(&s, O::ClearVisible);
+    q.clear_mode = 3;
+    let plan = prepare_edit(&mut s, &q);
+    let mut cancel = request(&s, O::CancelVisibleEdit);
+    cancel.filter_confirmation = "unrelated".into();
+    call(&mut s, cancel.clone()).unwrap();
+    assert!(s.visible_confirmation.is_some());
+    cancel.filter_confirmation = plan.filter_confirmation;
+    call(&mut s, cancel).unwrap();
+    assert!(s.visible_confirmation.is_none());
     assert_eq!(s.close().unwrap(), 0);
 }

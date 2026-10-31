@@ -201,7 +201,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             cancellation.ThrowIfCancellationRequested();
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 12; request.Id = ++sequence;
+            request.Version = 13; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -225,7 +225,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 12 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 13 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
                 foreach(var cell in response.Cells) ValidateResult(cell);
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {

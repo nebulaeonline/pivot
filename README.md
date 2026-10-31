@@ -40,6 +40,11 @@ remember each sheet's selection and scroll position. Cross-sheet formulas such a
 `=Revenue!B2-Costs!B2` share one dependency graph. Renaming a sheet updates formula
 presentation while keeping its bindings intact.
 
+Edit also offers explicit visible-only Clear (Contents, Built-in Formatting, or Both)
+and four-direction Fill. They review actual affected rows and preserve hidden cells;
+Clear addresses up to 4,096 visible slots, Fill up to 256 including its source edge.
+See [visible Clear/Fill semantics](docs/architecture/visible-edit.md).
+
 Functions include `SUM`, `MIN`, `MAX`, `AVERAGE` and `COUNT`, with rectangular ranges,
 multiple arguments and nested calls: `=SUM('January Sales'!A1:B20, C1:C20, 5)`.
 Comparisons and `IF`, `AND`, `OR`, `NOT`, `LEN`, `MID` and `&` support conditional

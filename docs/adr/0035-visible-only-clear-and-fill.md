@@ -1,8 +1,7 @@
 # ADR-0035: Visible-only Clear and Fill
 
 Date: 2026-10-31.
-Status: **Design approved with clarifications by parent review (2026-10-31).
-Implementation requires separate owner authorization.**
+Status: **Accepted and closed by parent implementation review (2026-10-31).**
 
 ## Context
 
@@ -10,8 +9,8 @@ ADR-0034 is accepted and closed. Its temporary actual-row plans and exact-operat
 review provide a foundation for explicit visible-only editing. This ADR proposes
 Clear and four-direction Fill without changing ordinary Clear, Fill, shortcuts,
 selection geometry or calculation membership. The owner authorized design after the
-ADR-0034 documentation closeout. No feature implementation or platform execution is
-authorized by this record. ADR-0023 remains parked at G3.
+ADR-0034 documentation closeout. The owner subsequently authorized feature implementation and the approved validation
+plan. ADR-0023 remains parked at G3.
 
 Current Clear sets the active cell's content to Blank, retains its positioned identity
 and does not change formatting. Ordinary Fill takes the selected rectangle's top,
@@ -244,10 +243,11 @@ values only, clear broader regions or raise limits to make it pass.
 ### Private protocol and persistence
 
 The parent approves private session v13 with typed PREPARE_VISIBLE_EDIT, CLEAR_VISIBLE and
-FILL_VISIBLE operations, plus a required ClearMode enum (Contents, Built-in Formatting,
+FILL_VISIBLE operations (54/55/56), plus matching-ticket CANCEL_VISIBLE_EDIT (57)
+for abandoned preview cleanup and a required ClearMode enum (Contents, Built-in Formatting,
 Both; unspecified rejected). Reuse typed FillDirection and bounded row-plan metadata
-where meaningful, with explicit source/destination counts and run descriptions. Reserve
-actual field/opcode numbers during implementation; do not overload Paste payloads,
+where meaningful, with explicit source/destination counts and run descriptions. Use
+required ClearMode field 55; do not overload Paste payloads,
 change APPLY's 256-edit cap or let old binaries interpret these as ordinary commands.
 
 Core Rust owns row plans and canonical mutation; C# routes commands and exact review,
@@ -356,8 +356,27 @@ macOS x64 is Rosetta and observed maxima are not percentiles. Retain original fa
 source qualifications, verified batch archival and per-project diagnostic cloc.
 
 See the [parent design handoff](../handoffs/2026-10-31-visible-only-clear-and-fill-design.md).
-No implementation or new platform validation has run. Await separate owner implementation
-authorization. Parent implementation comments, acceptance-doc updates, owner commit/push
-and explicit next-work authorization retain the standing cadence. ADR-0023 remains
-parked at G3. The ALLOCATE proposal remains separate and unscheduled.
+The owner-authorized implementation and six-target headless/managed/AOT validation are
+complete. See [implementation handoff](../handoffs/2026-10-31-visible-only-clear-and-fill.md).
+The parent accepts all three clarifications, complete built-in resets, immutable
+actual-coordinate Fill, graph-free formatting, exact one-use reviews and combined
+publication. The dedicated Clear seam, accumulated property-map work and absent-anchor
+batch-reservation correction are accepted without changing the 4,096/256 slot limits
+or any other admission budget. Private v13 is accepted with WB12, hosted v1 and CB5/CB6
+unchanged.
+
+Six-target headless/managed/AOT evidence, the corrected Windows ARM64 run, 48 successful
+graphical reports, 497 all-feature tests, strict Clippy and independent checks are
+accepted. Retain the selected-runtime-file source qualification without claiming whole
+snapshot byte identity, supplementary test-only coverage, Rosetta designation, observed
+core maxima rather than percentiles/end-to-end latency, and charged memory rather than
+RSS. Verified archives, cache pruning and diagnostic LoC are accepted. Preserve original
+failures and successful recoveries separately, including the older unverified Linux
+directory. No additional validation, reconciliation packet or Native AOT rerun is required.
+
+ADR-0036: Exact, Conservation-Preserving Allocation is assigned next for design and
+parent review, using the [existing proposal](../proposals/allocate.md). Settlement
+precision must be explicit and required; do not assume two decimal places or silently
+round an unrepresentable total. Await owner commit/push and explicit authorization
+before starting that design. ADR-0023 remains parked at G3.
 

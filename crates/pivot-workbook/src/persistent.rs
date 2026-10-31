@@ -917,7 +917,7 @@ fn apply(
     edits: &[Edit],
     cancel: &CancellationToken,
 ) -> Result<Expected> {
-    apply_mode(book, expected, edits, cancel, false, &[])
+    apply_mode(book, expected, edits, cancel, false, &[], None)
 }
 fn apply_mode(
     book: &mut Workbook,
@@ -926,6 +926,7 @@ fn apply_mode(
     cancel: &CancellationToken,
     reject_cycles: bool,
     styles: &[(Position, formatting::Style)],
+    clear: Option<(&[u32], u32, u32, bool)>,
 ) -> Result<Expected> {
     let _profile = profile::scope(11);
     book.check(expected)?;
@@ -943,7 +944,13 @@ fn apply_mode(
     }
     {
         let _profile = profile::scope(8);
-        book.preflight(edits)?;
+        if clear.is_some() {
+            if edits.len() > 4096 || edits.iter().any(|e| !matches!(e, Edit::Clear(_))) {
+                return Err(Error::Limit);
+            }
+        } else {
+            book.preflight(edits)?;
+        }
     }
     if cancel.is_cancelled() {
         return Err(Error::Graph("cancelled".into()));
@@ -962,7 +969,9 @@ fn apply_mode(
                 work = work.saturating_add(source.len().saturating_mul(512));
             }
             Edit::SetFormula { source, tokens, .. } => {
-                units = units.saturating_add(tokens.len());
+                // Each syntactic reference can demand an absent Blank anchor:
+                // add + Blank definition + placement, not just one batch operation.
+                units = units.saturating_add(tokens.len().saturating_mul(3));
                 text = text.saturating_add(source.len());
                 work = work
                     .saturating_add(source.len().saturating_mul(512))
@@ -1019,10 +1028,20 @@ fn apply_mode(
         book.axes_at(p)?;
         style.validate()?;
     }
-    let styles_changed =
+    let mut styles_changed =
         tx.data
             .styles
             .snapshot_points(book.worksheet, styles, book.limits.styles, cancel)?;
+    if let Some((rows, first, last, true)) = clear {
+        styles_changed |= tx.data.styles.reset_rows(
+            book.worksheet,
+            rows,
+            first,
+            last,
+            book.limits.styles,
+            cancel,
+        )?;
+    }
     let stats = tx.data.stats();
     for (used, limit, resource) in [
         (
@@ -1045,8 +1064,20 @@ fn apply_mode(
             return Err(Error::Capacity { resource, limit });
         }
     }
-    if tx.same() && !styles_changed {
-        return Ok(expected);
+    if tx.same() {
+        if !styles_changed {
+            return Ok(expected);
+        }
+        if clear.is_some() {
+            // Presentation-only Clear must not install even an empty graph batch.
+            if cancel.is_cancelled() {
+                return Err(Error::Graph("cancelled".into()));
+            }
+            let next = book.state.checked_add(1).ok_or(Error::Exhausted)?;
+            book.persistent = tx.data.freeze();
+            book.state = next;
+            return Ok(book.expected());
+        }
     }
     for position in tx.journal.positions.iter() {
         let node = tx.data.positions.get(position).and_then(|id| {
@@ -1486,5 +1517,25 @@ pub(super) fn apply_styled(
     cancel: &CancellationToken,
     reject_cycles: bool,
 ) -> Result<Expected> {
-    apply_mode(book, expected, edits, cancel, reject_cycles, styles)
+    apply_mode(book, expected, edits, cancel, reject_cycles, styles, None)
+}
+
+pub(super) fn clear_visible(
+    book: &mut Workbook,
+    expected: Expected,
+    edits: &[Edit],
+    rows: &[u32],
+    columns: (u32, u32),
+    reset: bool,
+    cancel: &CancellationToken,
+) -> Result<Expected> {
+    apply_mode(
+        book,
+        expected,
+        edits,
+        cancel,
+        false,
+        &[],
+        Some((rows, columns.0, columns.1, reset)),
+    )
 }

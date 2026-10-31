@@ -1,7 +1,8 @@
 # ADR-0035 — visible-only Clear and Fill design handoff
 
 2026-10-31. Design approved with clarifications by parent review. No feature work or
-new native validation has run. Implementation awaits separate owner authorization.
+new native validation was run for design review. The owner subsequently authorized
+implementation and the approved validation plan; see [implementation semantics](../architecture/visible-edit.md).
 ADR-0034 is accepted and closed; the owner authorized this design.
 
 The parent approves the 4,096-slot Clear / 256-slot Fill contract and one combined
@@ -109,6 +110,10 @@ is requested by this design.
 ## Parent disposition and next step
 
 Design approved with the three clarifications above. Implementation remains held
-until the owner's separate authorization. No additional design packet or ADR split
-is needed. Follow the owner-controlled implementation/review/docs/commit-push cadence;
-ADR-0023 remains parked at G3. ALLOCATE remains an independent future proposal.
+for design acceptance alone. The owner subsequently authorized it; implementation
+and six-target validation are now complete; see the
+[implementation handoff](2026-10-31-visible-only-clear-and-fill.md). Parent implementation
+review subsequently accepted and closed ADR-0035 (2026-10-31). No additional design packet or ADR split is needed. Follow the
+owner-controlled implementation/review/docs/commit-push cadence;
+ADR-0023 remains parked at G3. ALLOCATE is assigned to ADR-0036 design next, awaiting
+owner commit/push and explicit authorization.

@@ -23,6 +23,7 @@ mod persistent;
 mod sheets;
 pub mod sorting;
 pub mod structure;
+pub mod visible_edit;
 pub use fill::FillDirection;
 pub use sheets::SheetInfo;
 #[doc(hidden)]

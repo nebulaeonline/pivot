@@ -123,6 +123,17 @@ receipts remain historical evidence, not authorization to run old GUI commands
 unattended on an active desktop.
 
 
+## ADR-0035 visible Clear/Fill qualification
+
+The accepted plan covers all six configured headless targets and attended managed/AOT
+GUI suites; macOS x64 is Rosetta. Once prepared, the short local launcher is `cfl.py`
+in `~/PivotValidation` (`python cfl.py` in Windows graphical PowerShell, `./cfl.py` in
+Linux/macOS graphical terminals). Run only released targets, with normal local consent.
+Commands are saved in `artifacts/visible-edit-commands.txt`. Final receipts must include
+`visible_edit` acceptance along with existing feature checks. No SSH GUI launch or
+consent bypass is authorized. Preserve original failures and archive/verify before
+pruning each completed validation batch; refresh per-project cloc at milestone close.
+
 ## Artifact retention
 
 Follow [build output and validation artifact retention](artifact-retention.md):

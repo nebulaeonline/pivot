@@ -28,6 +28,7 @@ internal sealed class DesktopReport
     public string? structure {get;init;}
     public string? sorting {get;init;}
     public string? filtering {get;init;}
+    public string? visible_edit {get;init;}
     public string? visible_clipboard {get;init;}
     public string? region_formatting {get;init;}
     public string? basic_formatting {get;init;}

@@ -109,9 +109,9 @@ refuses without fallback; mapped writes never directly target hidden content/sty
 and every Paste Visible reviews the exact actual destination plan with a one-use
 ticket. Canonical hidden Blank-anchor demand remains permitted reference behavior.
 
-**Current assignment — ADR-0035: Visible-Only Clear and Fill (design only).**
+**Completed milestone — ADR-0035: Visible-Only Clear and Fill (accepted and closed by parent implementation review, 2026-10-31).**
 The owner authorized design after ADR-0034 closeout. See the
-[proposed ADR](adr/0035-visible-only-clear-and-fill.md) and
+[design-approved ADR](adr/0035-visible-only-clear-and-fill.md) and
 [parent design handoff](handoffs/2026-10-31-visible-only-clear-and-fill-design.md).
 The parent approves three Clear modes (Contents, Built-in Formatting, Both), immutable visible-edge
 Fill in four directions, exact actual-row review, one-use tickets and atomic mapped
@@ -121,8 +121,35 @@ combined milestone has Clear-first/Fill-second internal slices and one final rev
 validation acceptance and owner commit/push boundary. Parent design approval includes
 three mandatory clarifications: canonical content/identity/explicit-style no-ops;
 immutable pre-operation Fill pairs/sources; and one combined content/style publication.
-No feature work or new platform validation has run. Await separate owner implementation
-authorization; ADR-0023 stays parked at G3. ALLOCATE is a separate future proposal.
+The owner separately authorized implementation. Clear and Fill core/session/desktop
+paths are implemented. Local 13-step CI, 497 all-feature tests, strict Clippy, real
+Clear/Fill IPC and supplementary in-memory routed UI checks pass. All six native
+headless targets passed 13-step CI, including the corrected Windows ARM64 retry and
+macOS x64 under Rosetta. All six attended managed/AOT GUI targets pass: 48 successful
+application reports, zero final charges and no owned survivors. All new native
+resource corpora pass unchanged gates;
+source hashes, original failures and verified cleanup receipts are retained.
+Code size is 88,600 lines across 383 source files, +1,420 versus ADR-0034.
+See the [implementation handoff](handoffs/2026-10-31-visible-only-clear-and-fill.md)
+for receipt selection, source qualifications, resource/LoC tables and retention.
+The parent accepts all three clarifications, the shared batch reservation correction,
+unchanged budgets, source qualifications, Rosetta coverage, observed maxima/charged
+memory, retained failures, archival and diagnostic LoC. No additional validation,
+reconciliation packet or Native AOT rerun is required. ADR-0023 stays parked at G3.
+
+**Next assigned milestone — ADR-0036: Exact, Conservation-Preserving Allocation.**
+Begin with design and parent review only after owner commit/push and explicit
+next-work authorization. Use the existing [ALLOCATE proposal](proposals/allocate.md)
+(the review's architecture-path reference resolves to this proposals file). Required
+settlement precision has no implicit two-decimal default; reject totals that cannot
+be represented at the requested precision without silently rounding the obligation.
+Evaluate equal-weight scalar allocation, deterministic recipient indices, exact
+conservation for a complete consistent recipient set, negatives/signed zero,
+validation/overflow/admission, scalar versus multi-output alternatives, compatibility
+and independent/parity gates. Independent scalar calls cannot prove group completeness.
+Weighted allocation, spills, rotation, persistent group state, financial reporting
+and automatic repair remain outside the initial scope. This records the assignment;
+no ADR-0036 design or implementation work has started.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;

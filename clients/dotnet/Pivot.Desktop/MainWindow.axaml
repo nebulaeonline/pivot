@@ -31,6 +31,17 @@
             <MenuItem x:Name="SortItem" Header="_Sort selected range…" Click="SortClick" />
             <MenuItem x:Name="CopyVisibleItem" Header="Copy Visible Cells" Click="CopyVisibleClick" />
             <MenuItem x:Name="PasteVisibleItem" Header="Paste into Visible Rows…" Click="PasteVisibleClick" />
+            <MenuItem x:Name="ClearVisibleRoot" Header="Clear Visible Cells">
+              <MenuItem Header="Clear Visible Contents…" Tag="Contents" Click="ClearVisibleClick" />
+              <MenuItem Header="Clear Visible Formatting (Built-in Defaults)…" Tag="Formatting" Click="ClearVisibleClick" />
+              <MenuItem Header="Clear Visible Contents and Formatting…" Tag="Both" Click="ClearVisibleClick" />
+            </MenuItem>
+            <MenuItem x:Name="FillVisibleRoot" Header="Fill Visible Cells">
+              <MenuItem Header="Down…" Tag="Down" Click="FillVisibleClick" />
+              <MenuItem Header="Up…" Tag="Up" Click="FillVisibleClick" />
+              <MenuItem Header="Right…" Tag="Right" Click="FillVisibleClick" />
+              <MenuItem Header="Left…" Tag="Left" Click="FillVisibleClick" />
+            </MenuItem>
             <MenuItem x:Name="FilterItem" Header="_Filter records…" Click="FilterClick" />
           </MenuItem>
         </Menu>

@@ -72,6 +72,7 @@ public partial class MainWindow {
  private void ConfigureFilterSession(WorkbookSession owner){
   owner.ConfirmHiddenRowsAsync=ConfirmHiddenRowsAsync;
   owner.ConfirmVisiblePasteAsync=ConfirmVisiblePasteAsync;
+  owner.ConfirmVisibleEditAsync=ConfirmVisibleEditAsync;
   owner.CaptureFilterInteractionAsync=cancel=>OnUiAsync(()=>{cancel.ThrowIfCancellationRequested();return Task.FromResult($"{owner.DocumentGeneration}:{owner.WorksheetId}:{interactionVersion}:{displayedFilterGeneration}:{Sheet.SelectionFirst}:{Sheet.SelectionLast}:{Sheet.Selected}");});
   owner.RevalidateFilteredOperationAsync=(operation,cancel)=>OnUiAsync(async()=>{
    cancel.ThrowIfCancellationRequested();if(operation.Operation is not (Request.Types.Operation.PasteBlock or Request.Types.Operation.PasteVisible))return true;

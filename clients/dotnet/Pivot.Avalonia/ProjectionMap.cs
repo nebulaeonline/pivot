@@ -11,12 +11,13 @@ public sealed partial class WorksheetView
     public bool MissingProjectedRecord {get;private set;}
     public event Action? ProjectedSelectionChanged;
     public Func<ProjectionTarget,Task>? ProjectionRequested {get;set;}
-    public uint TotalVisualRows=>(ProjectionFrame is null ? (uint)Pivot.Client.WorkbookCapacity.MaximumRows : 1024u)+(uint)(ProjectionFrame?.Placements.Count??0)*(Math.Max(1,ProjectionFrame?.RecordCount??0)+2);
+    public uint TotalVisualRows=>(ProjectionFrame is null ? (uint)(filterRows?.Length??Pivot.Client.WorkbookCapacity.MaximumRows) : 1024u)+(uint)(ProjectionFrame?.Placements.Count??0)*(Math.Max(1,ProjectionFrame?.RecordCount??0)+2);
     private ProofRow? MappedRow(int row)=>ProjectionFrame is { } f && f.FirstVisualRow==FirstRow && row>=0 && row<f.Rows.Count ? f.Rows[row] : null;
-    private int OrdinaryIndex(uint row)=>ProjectionFrame is null ? (int)row-(int)FirstRow : ProjectionFrame.FirstVisualRow==FirstRow ? ProjectionFrame.Rows.ToList().FindIndex(r=>r.Kind==0 && r.OrdinaryRow==row) : -1;
-    public uint VisualRow(uint ordinary)=>ordinary+(uint)(ProjectionFrame?.Placements.Count(p=>p.AfterRow<ordinary)??0)*(Math.Max(1,ProjectionFrame?.RecordCount??0)+2);
+    private int OrdinaryIndex(uint row)=>ProjectionFrame is null ? FilterIndex(row) : ProjectionFrame.FirstVisualRow==FirstRow ? ProjectionFrame.Rows.ToList().FindIndex(r=>r.Kind==0 && r.OrdinaryRow==row) : -1;
+    public uint VisualRow(uint ordinary)=>FilterVisualRow(ordinary)+(uint)(ProjectionFrame?.Placements.Count(p=>p.AfterRow<ordinary)??0)*(Math.Max(1,ProjectionFrame?.RecordCount??0)+2);
     public void SetProofFrame(ProofFrame? frame)
     {
+        if(frame is not null)ClearFilterFrame();
         bool mode=ProjectionFrame is not null;
         var old=ProjectionFrame;
         var anchor=old is not null && old.FirstVisualRow==FirstRow ? old.Rows.FirstOrDefault() : old is null && frame is not null ? new ProofRow{Kind=0,OrdinaryRow=FirstRow} : null;

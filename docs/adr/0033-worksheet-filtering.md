@@ -1,8 +1,21 @@
 # ADR-0033: Worksheet filtering
 
 Date: 2026-10-31.
-Status: **Design approved with clarifications by parent review (2026-10-31).
-Implementation requires separate owner authorization.**
+Status: **Accepted and closed by parent implementation review (2026-10-31).**
+
+The parent accepts the implementation and all three design clarifications,
+mapped-viewport diagnostic and exact-payload corrections, WB12/private v11,
+unchanged CB5/hosted v1, unchanged resource limits and source-qualified six-target
+validation. Original failures and successful recoveries remain separate. Native
+headless snapshots other than Linux x64 precede the final viewport corrections;
+Linux x64 headless, final local CI and all final managed/AOT suites include them.
+macOS x64 is Rosetta; timings are observed maxima, not percentiles. Tool discovery
+does not establish undocumented per-build compiler selection. Archives, cleanup
+and the diagnostic per-project LoC baseline are accepted. No further validation,
+reconciliation packet or AOT rerun is required.
+
+See the [implementation handoff](../handoffs/2026-10-31-worksheet-filtering.md)
+for selected evidence, source qualifications, resource observations and cleanup.
 
 The parent accepts persisted typed definitions, derived whole-row visibility,
 coherent coordinate mapping, automatic refresh, structural NeedsReview, full-rectangle
@@ -23,7 +36,8 @@ remain unchanged. Three mandatory acceptance invariants apply:
    styles and counts coherently against the same workbook/filter generations.
 
 These are future implementation requirements, not tested filtering behavior.
-Stop for separate owner implementation authorization under the standing cadence.
+The owner separately authorized implementation and validation (2026-10-31).
+Preserve the standing milestone cadence and end-of-batch archival/cache cleanup.
 
 The owner authorized this design after committing ADR-0032 (`fbe50a1`). Sorting
 remains accepted and closed. ADR-0023 remains parked at G3. The owner reports build
@@ -340,7 +354,10 @@ The parent accepts document-owned definitions plus derived visibility, whole-row
 scope, exact typed predicates, automatic refresh/fail-open presentation, conservative
 structure suspension, explicit full-rectangle bulk actions, WB12/private v11 and
 bounded definition admission with the three mandatory clarifications above. Future
-six-target headless/managed/AOT gates are accepted; macOS x64 is Rosetta. Discover
-actual Windows toolsets during implementation validation. Stop for separate owner
-implementation authorization. No feature, format/protocol change or test run follows
-from design acceptance alone; ADR-0023 remains parked at G3.
+six-target headless/managed/AOT gates are accepted; macOS x64 is Rosetta. The owner
+separately authorized implementation and validation, now completed and recorded in
+the implementation handoff with actual toolset receipts and source qualifications.
+Parent implementation review accepts and closes this milestone. Stop for owner
+commit/push and explicit authorization before ADR-0034 design work. The next assigned
+design concerns deliberate visible-only operations on filtered data; it must not
+weaken accepted full-rectangle operations. ADR-0023 remains parked at G3.

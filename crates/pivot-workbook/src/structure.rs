@@ -676,6 +676,7 @@ impl Workbook {
             });
         }
         let next = self.state.checked_add(1).ok_or(Error::Exhausted)?;
+        data.review_filter_after_structure(sheet)?;
         let stats = data.stats();
         if stats.estimated_owned_bytes > self.limits.bytes
             || stats.source_bytes > self.limits.total_source_bytes

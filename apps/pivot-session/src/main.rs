@@ -15,6 +15,9 @@ use std::{
 use uuid::Uuid;
 
 mod csv;
+mod filtering;
+#[cfg(test)]
+mod filtering_tests;
 mod projections;
 mod structured;
 
@@ -34,6 +37,8 @@ struct PendingSave {
 }
 #[derive(Default)]
 struct Session {
+    filter: filtering::Presentation,
+    filter_confirmation: Option<filtering::Confirmation>,
     computational_state: String,
     proof: Option<pivot_workbook::projection::State>,
     proof_frame: Option<pivot_workbook::projection::Frame>,
@@ -161,6 +166,8 @@ impl Session {
             book: None,
             revision: String::new(),
             captures: BTreeMap::new(),
+            filter: Default::default(),
+            filter_confirmation: None,
         })
     }
     fn close(&mut self) -> Result<u64, String> {
@@ -169,6 +176,8 @@ impl Session {
         self.csv_import.take();
         self.captures.clear();
         self.proof.take();
+        self.filter_confirmation = None;
+        self.filter = Default::default();
         self.book.take();
         if let Some(runtime) = self.runtime.take() {
             let memory = runtime.memory();
@@ -181,10 +190,34 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 10 {
+        if q.version != 11 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
+        if matches!(operation, Op::ProofStart | Op::BindingStart)
+            && self
+                .book
+                .as_ref()
+                .is_some_and(|b| b.filters().next().is_some())
+        {
+            return Err("Filters are ordinary worksheet state; clear them before entering an experimental proof.".into());
+        }
+        if operation == Op::PrepareFilteredOperation {
+            return self.prepare_filtered_operation(q, r);
+        }
+        let single_edit = operation == Op::Apply
+            && q.edits.len() == 1
+            && !matches!(q.edits[0].action, Some(wire::edit::Action::MoveTo(_)));
+        if filtering::is_bulk(operation)
+            && (!single_edit || !q.filter_confirmation.is_empty())
+            && self.book.is_some()
+        {
+            if q.revision != self.revision {
+                r.conflict = true;
+                return Err("expected-state conflict".into());
+            }
+            self.guard_filtered_operation(q)?;
+        }
         if matches!(
             operation,
             Op::PrepareCsvImport
@@ -429,6 +462,16 @@ impl Session {
                 }
             }
             return Ok(());
+        }
+        if matches!(
+            operation,
+            Op::SetFilter
+                | Op::ReadFiltered
+                | Op::ReapplyFilter
+                | Op::ValidateFilter
+                | Op::GetFilter
+        ) {
+            return self.handle_filter(q, r, operation);
         }
         let book = self.book.as_mut().ok_or("create workbook first")?;
         if !matches!(operation, Op::Calculate | Op::Release) && q.revision != self.revision {
@@ -1086,14 +1129,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 10,
+            version: 11,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
         };
         let start = Instant::now();
         let before = (
-            session.book.as_ref().map(|b| b.expected()),
+            session
+                .book
+                .as_ref()
+                .map(|b| (b.expected().session, b.expected().graph)),
             session.proof.as_ref().map(|p| p.epoch),
             session
                 .book
@@ -1104,12 +1150,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // per-cell formatted strings and the additional encoded presentation bytes.
         let presentation_lease = if matches!(
             wire::request::Operation::try_from(q.operation),
-            Ok(wire::request::Operation::Read | wire::request::Operation::ReadStyles)
+            Ok(wire::request::Operation::Read
+                | wire::request::Operation::ReadStyles
+                | wire::request::Operation::ReadFiltered
+                | wire::request::Operation::SetFilter
+                | wire::request::Operation::ValidateFilter
+                | wire::request::Operation::GetFilter)
         ) {
-            session
-                .runtime
-                .as_ref()
-                .map(|runtime| runtime.memory().reserve(MAX_FRAME))
+            session.runtime.as_ref().map(|runtime| {
+                runtime.memory().reserve(
+                    if matches!(
+                        wire::request::Operation::try_from(q.operation),
+                        Ok(wire::request::Operation::ReadFiltered
+                            | wire::request::Operation::SetFilter
+                            | wire::request::Operation::ValidateFilter
+                            | wire::request::Operation::GetFilter)
+                    ) {
+                        MAX_FRAME * 4
+                    } else {
+                        MAX_FRAME
+                    },
+                )
+            })
         } else {
             None
         };
@@ -1122,7 +1184,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             r.error = e;
         }
         let after = (
-            session.book.as_ref().map(|b| b.expected()),
+            session
+                .book
+                .as_ref()
+                .map(|b| (b.expected().session, b.expected().graph)),
             session.proof.as_ref().map(|p| p.epoch),
             session
                 .book
@@ -1174,6 +1239,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 };
             }
         }
+        if let Some(book) = &session.book
+            && let Ok(id) = Uuid::parse_str(&r.worksheet)
+        {
+            session.filter.requalify(book, WorksheetId::from_uuid(id));
+            if let Err(e) = session
+                .filter
+                .describe(book, WorksheetId::from_uuid(id), &mut r)
+                && r.error.is_empty()
+            {
+                r.error = e;
+            }
+        }
         r.path = session
             .location
             .as_ref()
@@ -1212,6 +1289,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
         }
         r.execution_ns = start.elapsed().as_nanos() as u64;
+        if r.encoded_len() > MAX_FRAME - 128
+            && matches!(
+                wire::request::Operation::try_from(q.operation),
+                Ok(wire::request::Operation::Read
+                    | wire::request::Operation::ReadStyles
+                    | wire::request::Operation::ReadFiltered
+                    | wire::request::Operation::Calculate
+                    | wire::request::Operation::GetFilter)
+            )
+        {
+            r.cells.clear();
+            r.styles.clear();
+            r.filter_definition = None;
+            r.filter_rows.clear();
+            r.error="Response exceeds the existing frame limit; request fewer cells. The workbook remains open.".into();
+        }
         let start = Instant::now();
         let _ = r.encode_to_vec();
         r.serialization_ns = start.elapsed().as_nanos() as u64;

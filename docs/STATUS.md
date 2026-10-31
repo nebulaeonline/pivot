@@ -10,7 +10,9 @@ by parent implementation review. Stable multi-key identity-preserving row-segmen
 sorting, fixed rectangular range geometry, snapshot typed keys, exact leading-zero
 Strings, sortable completed errors, atomic operational refusal, both formatting
 policies and identity-aware no-ops are accepted. WB11 and CB5 remain unchanged;
-private session v10 applies. No format migration is required.
+private session v10 applies to that accepted milestone. Current ADR-0033
+implementation uses WB12/private v11 with CB5/hosted v1 unchanged and is now
+accepted and closed by parent implementation review.
 
 The parent accepts the sparse-index memory correction and confirmed expanded-range
 submission fix. Original 256 MiB steady/512 MiB peak objectives and resource limits
@@ -29,7 +31,7 @@ No additional validation, reconciliation packet or AOT rerun is required.
 
 The owner committed ADR-0032 (`fbe50a1`) and explicitly authorized ADR-0033 design
 on 2026-10-31. Parent review approved the filtering design with three clarifications;
-implementation requires separate owner authorization.
+the owner has now separately authorized implementation and validation.
 Continue collecting results, verifying archives and pruning disposable outputs after
 every validation batch under the standing retention policy.
 
@@ -44,41 +46,61 @@ Follow this sequence for each milestone:
 7. Explicit owner indication that it is OK to proceed.
 8. Begin the next ADR's design work.
 
-**Current assignment — ADR-0033: Worksheet Filtering (design approved with clarifications).**
-See the [design ADR](adr/0033-worksheet-filtering.md) and
-[parent handoff](handoffs/2026-10-31-worksheet-filtering-design.md). Design practical
-filtering by one or more column criteria without deleting, rearranging or rebinding
-cells. Filtering changes which rows are visible, not their worksheet coordinates
-or computational identities. Resolve:
+**ADR-0033: Worksheet Filtering — accepted and closed (2026-10-31).**
+See the [ADR](adr/0033-worksheet-filtering.md),
+[implementation handoff](handoffs/2026-10-31-worksheet-filtering.md) and
+[implementation semantics](architecture/worksheet-filtering.md).
+Persisted typed definitions derive whole-row visibility without deleting, moving
+or rebinding cells. Exact-operation confirmations retain full rectangular effects.
+Structural NeedsReview persists transactionally; operational suspension is transient.
+Pending/failed views show all rows and block commands requiring qualified counts.
+Reapply retries without repairing or rebinding. WB12/private v11 apply; CB5 and
+hosted v1 remain unchanged. No resource limit was raised.
 
-- Presentation visibility versus document-owned filter state and Save/reopen.
-- Exact typed criteria for Decimal96, String, Boolean, Blank and calculated errors,
-  including multiple-column conditions.
-- Visibility/viewport mapping while hidden rows retain their coordinates and CellIds.
-- Selection, navigation, Copy/Paste, Fill, editing and sorting with filtered rows.
-- Invalidation and refresh after value/formula changes, sorting and row/column edits.
-- Bounded indexing, evaluation and memory without enumerating the virtual worksheet.
-- Familiar header/filter controls, explicit active indicators and Clear Filter.
+All six targets passed headless CI 13/13 and managed/Native AOT GUI acceptance:
+48 successful application reports, 48 zero final runtime charges and no surviving
+owned processes. macOS x64 is Rosetta. Earlier native headless snapshots precede
+final viewport serialization corrections; Linux x64 headless, final local CI 13/13
+and all final GUI suites contain them. The fixes preserve exact submitted decimal
+parts and independent editable errors, including invalid formulas and deleted
+references. Original failures remain separate from successful retries.
+Milestone reporting now includes the per-project [LoC breakdown](code-size.md).
+End-of-batch archive verification and cache cleanup follow the retention policy.
 
-Parent design review is complete. Preserve current
-resource budgets unless the design demonstrates a concrete need to change them.
-Do not combine filtering with sorting implementation, structured tables, deletion,
-Undo/Redo or a general query subsystem. The owner's subsequent authorization covers
-this design only. No feature work, format/protocol changes, builds or platform tests
-have started. The parent accepts persisted typed definitions, derived whole-row
-visibility, full-rectangle bulk actions, automatic refresh, structural NeedsReview,
-WB12/private v11, unchanged CB5/hosted v1, 1 MiB definition admission and future
-six-target headless/managed/AOT gates. Mandatory clarifications: operational refresh
-failure is transient and does not independently dirty/mutate definitions; confirmations
-bind the complete actual operation footprint/payload/counts/generations; pending and
-failed views are visibly unfiltered with qualified-count operations blocked and
-coherent map/frame/count publication. Reapply does not implicitly repair or rebind.
-Stop for separate owner implementation authorization under the standing cadence.
+The Windows VMs report matching VS 17.14.44 / MSVC 19.44.35229 profiles. ROBPC's
+default latest-installation probe selects VS 18.11; selecting its VS 2022 developer
+prompt pins the intended matching toolchain. Discovery is not proof of a particular
+build's selected compiler environment; retained receipts preserve that distinction.
+
+The parent accepts the three mandatory clarifications, mapped-viewport corrections,
+exact payload parity, original resource limits and the source-qualified validation.
+Final local CI passed 13/13, all-feature Rust tests passed 480 and strict Clippy
+passed. Archives, cleanup and the 85,652-line/366-file LoC baseline are accepted;
+LoC remains diagnostic evidence, not a line-count reduction target. No further
+validation, reconciliation packet, AOT rerun or separate housekeeping acceptance is
+required. Preserve original failures and successful recoveries separately.
+
+**Next assigned milestone — ADR-0034: Visible-Only Operations on Filtered Data
+(design first; on hold for owner commit/push and explicit authorization).**
+Compare alternatives before selecting a transfer contract. Preserve ADR-0033's
+accepted full-rectangle operations and investigate a deliberate visible-only option.
+The design must resolve:
+
+- Noncontiguous visible-row selections and clipboard representation without new
+  computational range identities.
+- Source order, unequal visible-row counts, hidden destinations and relative/absolute
+  formula translation when row spacing changes.
+- Formatting, Blank anchors, exact typed values, fault provenance and clipboard ownership.
+- Whether visible-only Clear/Fill belong initially or should follow separately.
+- Atomic admission, cancellation, stale visibility maps and exact destination confirmation.
+- CB5/WB12/private v11 interoperability; change formats only for a demonstrated need.
+- Independent correctness, performance and bounded native-platform validation.
+
+Do not assume skipping hidden rows in the existing rectangular clipboard path is
+correct. Implementation requires its own parent review and owner authorization.
+No filtering redesign, history integration, table subsystem or broad query language
+is included. No ADR-0034 design/feature work, commit or push was performed.
 ADR-0031 and ADR-0032 remain accepted and closed.
-
-The owner reports updated Windows build tools on both Windows x64 and ARM64 VMs.
-Future validation must record actual discovered toolset versions; no version or
-qualification result is inferred from this notice.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;

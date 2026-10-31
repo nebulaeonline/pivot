@@ -49,6 +49,7 @@ try:
         if not report.get("spreadsheet_aggregates", "").startswith("passed:"): raise SystemExit("Spreadsheet aggregate acceptance missing")
 
         if not report.get("structure", "").startswith("passed:"): raise SystemExit("Structural acceptance missing")
+        if not report.get("filtering", "").startswith("passed:"): raise SystemExit("Filtering acceptance missing")
         if not report.get("sorting", "").startswith("passed:"): raise SystemExit("Sorting acceptance missing")
         if not report.get("region_formatting", "").startswith("passed:"): raise SystemExit("Region formatting acceptance missing")
         if not report.get("basic_formatting", "").startswith("passed:"): raise SystemExit("Basic formatting acceptance missing")

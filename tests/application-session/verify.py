@@ -16,7 +16,7 @@ metadata = json.loads(subprocess.check_output(['cargo','metadata','--format-vers
 binary = Path(metadata['target_directory'])/'release'/('pivot-session.exe' if os.name == 'nt' else 'pivot-session')
 subprocess.run(['dotnet','build','tests/application-session/ApplicationSession.csproj','-c','Release','--disable-build-servers','-warnaserror'], cwd=ROOT, check=True)
 subprocess.run(['dotnet','tests/application-session/bin/Release/net10.0/ApplicationSession.dll',str(binary),str(args.output_dir/'results.json')], cwd=ROOT, check=True, timeout=180)
-subprocess.run(['cargo','build','--locked','--release','-p','pivot-workbook-document','--example','capacity','--example','capacity_graphs','--example','regions','--example','structure','--example','sorting'],cwd=ROOT,check=True)
+subprocess.run(['cargo','build','--locked','--release','-p','pivot-workbook-document','--example','capacity','--example','capacity_graphs','--example','regions','--example','structure','--example','sorting','--example','filtering'],cwd=ROOT,check=True)
 examples=Path(metadata['target_directory'])/'release/examples'
 suffix='.exe' if os.name=='nt' else ''
 commands=[('identity-capacity',[str(examples/('capacity'+suffix)),'identities',str(args.output_dir/'identity-capacity.pivot')])]
@@ -26,6 +26,8 @@ commands += [('format-regions-'+str(n),[str(examples/('regions'+suffix)),str(n),
 commands += [('structure-'+str(n)+('-styles' if styles else ''),[str(examples/('structure'+suffix)),str(n),str(args.output_dir/('structure-'+str(n)+str(styles)+'.pivot'))]+(['styles'] if styles else [])) for n in [1024,10000,65536] for styles in [False,True]]
 commands += [('sorting-'+str(n)+'-'+kind,[str(examples/('sorting'+suffix)),str(n),str(args.output_dir/('sorting-'+str(n)+'-'+kind+'.pivot')),kind]) for n in [1024,10000,65536] for kind in ['numeric','styles']]
 commands += [('sorting-'+str(n)+'-'+kind,[str(examples/('sorting'+suffix)),str(n),str(args.output_dir/('sorting-'+str(n)+'-'+kind+'.pivot')),kind]) for n,kind in [(10000,'ten'),(10000,'sparse'),(65536,'sparse')]]
+commands += [('filtering-'+str(n)+'-'+kind,[str(examples/('filtering'+suffix)),str(n),str(args.output_dir/('filtering-'+str(n)+'-'+kind+'.pivot')),kind]) for n in [1024,10000,65536] for kind in ['numeric','text']]
+commands += [('filtering-'+str(n)+'-'+kind,[str(examples/('filtering'+suffix)),str(n),str(args.output_dir/('filtering-'+str(n)+'-'+kind+'.pivot')),kind]) for n,kind in [(10000,'ten'),(65536,'sparse'),(65536,'blank')]]
 for name,command in commands:
     with (args.output_dir/(name+'.log')).open('w',encoding='utf-8') as log:
         subprocess.run(command,cwd=ROOT,check=True,stdout=log,stderr=subprocess.STDOUT,timeout=180)

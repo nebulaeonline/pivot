@@ -173,7 +173,15 @@ def aot_prerequisites(rid,env):
   except (ValueError,KeyError):ready=False
   sdk_root=Path(env.get('ProgramFiles(x86)','C:/Program Files (x86)'))/'Windows Kits/10/Lib'
   libraries=list(sdk_root.glob('*/um/'+rid.rsplit('-',1)[1]+'/kernel32.lib'))
-  return {'ready':ready and bool(libraries),'required_component':component,'compiler':probe,'windows_sdk_libraries':[str(p) for p in libraries]}
+  versions=[]
+  if ready:
+   for instance in json.loads(probe['stdout'].lstrip('\ufeff')):
+    install=Path(instance['installationPath']);default=install/'VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt'
+    version=default.read_text(encoding='utf-8-sig').strip() if default.is_file() else None
+    host='arm64' if platform.machine().lower() in ['arm64','aarch64'] else 'x64'
+    compiler=install/'VC/Tools/MSVC'/version/('bin/Host'+host)/rid.rsplit('-',1)[1]/'cl.exe' if version else None
+    versions.append({'installation_version':instance.get('installationVersion'),'default_msvc_toolset':version,'host_architecture':host,'compiler_version_probe':query([str(compiler),'/Bv'],env=env) if compiler is not None and compiler.is_file() else None})
+  return {'ready':ready and bool(libraries),'required_component':component,'compiler':probe,'toolset_versions':versions,'windows_sdk_libraries':[str(p) for p in libraries]}
  compiler=query(['clang','--version'],env=env)
  ready=compiler['exit_code']==0
  result={'ready':ready,'compiler':compiler}

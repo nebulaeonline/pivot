@@ -3,7 +3,9 @@
 [ADR-0028](../adr/0028-csv-import-export.md) adds CSV interchange with quotation
 provenance and configurable numeric inference. Stored String values may contain
 CR, LF and tabs for CSV data; direct entry retains its single-line restrictions.
-Current native WB11, CB5 and Fill preserve those stored values. Other control characters
+Current native WB12, CB5 and Fill preserve those stored values. Filtering adds persisted
+criteria without converting String content; see [worksheet filtering](worksheet-filtering.md).
+Other control characters
 and Unicode line/paragraph separators retain their existing rejection policy.
 The sections below preserve earlier milestone history and representation names.
 

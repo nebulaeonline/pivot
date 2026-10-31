@@ -41,6 +41,8 @@ review evidence. Revisit archive lifetime if it becomes a measured storage probl
 - **After each feature milestone:** archive closed evidence outside the hot window,
   remove duplicate source/build copies, and record the space recovered. Preserve the
   active feature and pins. Use the existing feature handoff; no cleanup acceptance packet.
+  Record the per-project [code-size breakdown](code-size.md) with cloc once on the
+  canonical checkout and include it in that handoff; retain its inputs/raw output.
 - **Weekly during active development:** check this workspace and each used native
   validation volume. Apply the same pruning/archival policy; do not accumulate copies
   just because another platform has more disk space.

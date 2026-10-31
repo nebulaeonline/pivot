@@ -72,6 +72,7 @@ public partial class MainWindow
 
     private async void ExportCsvClick(object? sender, RoutedEventArgs e) => await FileActionAsync(async () => {
         if (session!.DocumentId.Length == 0) return;
+        if(!FilterBulkReady){StatusLabel.Text="CSV export needs a qualified filter view. Reapply or Clear Filter.";return;}
         bool hasContent = (await session.CsvBoundsAsync()).CsvHasContent;
         var dialog = new Window { Title = "Export CSV", Width = 550, Height = 280, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var panel = new StackPanel { Margin = new Thickness(16), Spacing = 14 };

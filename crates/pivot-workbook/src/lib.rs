@@ -15,6 +15,7 @@ pub mod csv;
 pub const MAX_ROWS: u32 = 65_536;
 pub const MAX_COLUMNS: u32 = 1024;
 mod fill;
+pub mod filtering;
 pub mod formatting;
 #[cfg(feature = "history-experiment")]
 pub mod history_experiment;

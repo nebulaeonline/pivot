@@ -487,6 +487,50 @@ impl Image {
     }
 }
 impl Workbook {
+    /// Exact addressed destination from the immutable payload, for operation review.
+    pub fn paste_extent(
+        &self,
+        sheet: WorksheetId,
+        expected: Expected,
+        rectangle: Rectangle,
+        bytes: &[u8],
+        native: bool,
+    ) -> Result<Rectangle> {
+        self.check(expected)?;
+        self.axes_at_sheet(sheet, rectangle.first)?;
+        self.axes_at_sheet(sheet, rectangle.last)?;
+        let _lease = self
+            .persistent
+            .memory
+            .reserve(8 * 1024 * 1024)
+            .map_err(|_| Error::Limit)?;
+        let image = if native {
+            Image::decode(bytes)?
+        } else {
+            Image::tsv(std::str::from_utf8(bytes).map_err(|_| invalid())?)?
+        };
+        let shape = area(rectangle.first, rectangle.last)?;
+        if shape != (1, 1) && shape != (image.height, image.width) {
+            return Err(invalid());
+        }
+        let last = Position::new(
+            rectangle
+                .first
+                .row
+                .checked_add(image.height - 1)
+                .ok_or(Error::Position)?,
+            rectangle
+                .first
+                .column
+                .checked_add(image.width - 1)
+                .ok_or(Error::Position)?,
+        );
+        self.axes_at_sheet(sheet, last)?;
+        Ok(Rectangle {
+            first: rectangle.first,
+            last,
+        })
+    }
     /// Copy from exactly one immutable generation; returned bytes own no source roots.
     pub fn copy_block(&self, expected: Expected, rectangle: Rectangle) -> Result<ClipboardBlock> {
         self.check(expected)?;

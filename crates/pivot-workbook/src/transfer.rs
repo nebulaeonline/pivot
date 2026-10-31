@@ -21,6 +21,7 @@ pub struct SheetRecord {
     pub column_count: u32,
 }
 pub struct PortableWorkbook {
+    pub filters: Vec<(WorksheetId, filtering::Definition)>,
     pub styles: Vec<formatting::Region>,
     pub style_defaults: Vec<(WorksheetId, formatting::Style)>,
     pub sheets: Vec<SheetRecord>,
@@ -159,6 +160,7 @@ impl Workbook {
             })
             .collect();
         Ok(PortableWorkbook {
+            filters: self.filters().map(|(id, d)| (id, d.clone())).collect(),
             styles: self.regions().collect(),
             style_defaults: self.worksheet_defaults().collect(),
             sheets: self
@@ -548,6 +550,31 @@ impl Workbook {
         }
         data.styles
             .restore(&image.style_defaults, &image.styles, limits.styles)?;
+        let mut filter_sheets = BTreeSet::new();
+        let mut filter_bytes = 0usize;
+        for (sheet, definition) in &image.filters {
+            let info = image
+                .sheets
+                .iter()
+                .find(|s| s.id == *sheet)
+                .ok_or(Error::InvalidTarget)?;
+            if !filter_sheets.insert(*sheet) {
+                return Err(Error::InvalidTarget);
+            }
+            definition.validate(info.row_count, info.column_count)?;
+            filter_bytes = filter_bytes
+                .checked_add(filtering::definition_bytes(definition))
+                .ok_or(Error::Limit)?;
+            if filter_bytes > filtering::MAX_DEFINITION_BYTES {
+                return Err(Error::Limit);
+            }
+            let mut definition = definition.clone();
+            definition.conditions.sort_by_key(|c| c.column);
+            let shared = data.memory.alloc(definition).map_err(|_| Error::Limit)?;
+            data.filters
+                .insert_private(*sheet, shared)
+                .map_err(|_| Error::Limit)?;
+        }
         let mut cells = BTreeSet::new();
         let mut ids = BTreeSet::new();
         let live_slots: BTreeSet<_> = image

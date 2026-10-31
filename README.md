@@ -71,8 +71,12 @@ dialog displays the final range and offers explicit inclusion of adjacent column
 [Sorting implementation and validation status](docs/architecture/worksheet-sorting.md).
 
 Workbooks open and save as local `.pivot` files, preserving every sheet, typed
-content, presentation and stable bindings. The current experimental format is WB11; earlier
+content, presentation and stable bindings. The current experimental format is WB12; earlier
 experimental workbook versions are rejected.
+
+Worksheet filters preserve typed criteria and hide whole rows without changing cell
+coordinates, identities or calculation membership. Hidden-row bulk operations use
+explicit full-range confirmation. [Filtering implementation and validation status](docs/architecture/worksheet-filtering.md).
 
 CSV import creates a new unsaved workbook; CSV export writes calculated values
 from the selection or active sheet. Text is the default import mode. Optional
@@ -158,6 +162,7 @@ cross-language decimal/protocol checks and real process communication. See
 
 - [Decimal and expression semantics](docs/architecture/expressions-and-decimals.md)
 - [Build output and artifact retention](docs/artifact-retention.md)
+- [Milestone code-size reports](docs/code-size.md)
 - [Architecture decisions](docs/adr/README.md)
 - [Development review records](docs/handoffs/)
 

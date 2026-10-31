@@ -41,7 +41,7 @@ fn wb10_preserves_explicit_defaults_inheritance_exact_text_and_old_capture() {
     .unwrap();
     assert!(old.style_at(sheet, P::new(1, 1)).unwrap().bold);
     let saved = Document::export_document(&b, b.expected()).unwrap();
-    assert!(saved.bytes.starts_with(b"PIVOTWB11"));
+    assert!(saved.bytes.starts_with(b"PIVOTWB12"));
     let mut restored = Document::open_document(&saved.bytes, Limits::default(), &rt)
         .unwrap()
         .0;

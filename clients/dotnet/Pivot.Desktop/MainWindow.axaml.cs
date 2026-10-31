@@ -40,6 +40,7 @@ public partial class MainWindow : Window
         TimingLabel.IsVisible = Environment.GetEnvironmentVariable("PIVOT_DIAGNOSTICS") == "1" || Environment.GetEnvironmentVariable("PIVOT_UI_SMOKE_REPORT") is not null;
         SetEditing(false);
         InitializeProofInteractions();
+        Sheet.FilterColumnRequested+=column=>_ = ConfigureFilterAsync(column);
         Sheet.SelectionChanged += () => { ++interactionVersion; SelectCell(); };
         Sheet.ViewportChanged += () => { ++interactionVersion; frameReady = false; PositionEditor(); _ = RefreshAsync(); };
         Sheet.SelectionRequested = async (at, extend, edit, current) => {
@@ -127,6 +128,7 @@ public partial class MainWindow : Window
         try {
             var input=clipboardEditor ?? (draftCell is null ? null : inlineEditing ? CellEditor : FormulaEntry);
             if (input==CellEditor && draftCell is null) input=null;
+            if(input is null&&(!Sheet.HasVisibleRows||!FilterBulkReady)){StatusLabel.Text="Bulk clipboard actions need a qualified filter view. Wait, Reapply or Clear Filter.";return;}
             if (!paste) {
                 if(input is not null) {
                     string selected=input.SelectedText ?? "";
@@ -215,6 +217,7 @@ public partial class MainWindow : Window
             string path = RustExecutablePath();
             if (!File.Exists(path)) throw new FileNotFoundException("Rust session executable missing. Start with scripts/run_desktop.py or set PIVOT_SESSION_PATH.");
             session = await WorkbookSession.StartAsync(path);
+            ConfigureFilterSession(session);
             if (shuttingDown) { await session.DisposeAsync(); return; }
             if(Environment.GetEnvironmentVariable("PIVOT_BINDING_PROOF")=="1") await session.StartBindingsAsync();
             else if(Environment.GetEnvironmentVariable("PIVOT_PROJECTION_PROOF")=="1") await session.StartProofAsync();
@@ -301,20 +304,26 @@ public partial class MainWindow : Window
     });
     private void SetEditing(bool enabled) {
         UpdateFillMenu();
-        ClearButton.IsEnabled = MoveButton.IsEnabled = FormulaEntry.IsEnabled = CellEditor.IsEnabled = enabled && !shuttingDown && !fileAction && Sheet.ProjectedSelection is null;
+        bool bulkReady=FilterBulkReady;
+        CopyCellsButton.IsEnabled=PasteCellsButton.IsEnabled=enabled&&Sheet.HasVisibleRows&&(bulkReady||draftCell is not null);
+        FilterBar.IsEnabled=enabled&&!shuttingDown&&!fileAction;
+        FormatFields.IsEnabled=enabled&&Sheet.HasVisibleRows&&bulkReady;MoveButton.IsEnabled=enabled&&Sheet.HasVisibleRows&&bulkReady;
+        ClearButton.IsEnabled = FormulaEntry.IsEnabled = CellEditor.IsEnabled = enabled && Sheet.HasVisibleRows && !shuttingDown && !fileAction && Sheet.ProjectedSelection is null;
         WorksheetBar.IsVisible=session is not null && !session.IsBindingProof && !session.IsProjectionProof;
         WorksheetBar.IsEnabled=enabled&&!shuttingDown&&!fileAction;
         BindingPanel.IsVisible=session?.IsBindingProof==true;BindingPanel.IsEnabled=enabled&&!shuttingDown&&!fileAction;
         ProofPanel.IsVisible=session?.IsProjectionProof==true;ProofPanel.IsEnabled=enabled && !shuttingDown && !fileAction;
         // Pointer capture survives the asynchronous commit preceding a selection.
-        Sheet.IsEnabled=(enabled || editing) && !shuttingDown && !fileAction;
+        Sheet.IsEnabled=(enabled || editing) && Sheet.HasVisibleRows && !shuttingDown && !fileAction;
     }
     private void SelectCell()
     {
         UpdateFillMenu();
         if(ShowProjectedSelection())return;
+        if(!Sheet.HasVisibleRows){AddressLabel.Text="";SelectionLabel.Text="No visible worksheet rows. Clear Filter or review its criteria.";if(draftCell is null){synchronizing=true;FormulaEntry.Text="";synchronizing=false;}return;}
         AddressLabel.Text = Pivot.Avalonia.WorksheetView.Address(Sheet.Selected);
         SelectionLabel.Text=$"Selection {Pivot.Avalonia.WorksheetView.Address(Sheet.SelectionFirst)}:{Pivot.Avalonia.WorksheetView.Address(Sheet.SelectionLast)} · Active {AddressLabel.Text} · Copy/Paste target selection · Edit/Clear/Move target active cell only";
+        uint hidden=Sheet.HiddenRows(Sheet.SelectionFirst.Row,Sheet.SelectionLast.Row);if(hidden!=0)SelectionLabel.Text+=$" · Includes {hidden:N0} filtered-out rows";
         if(Sheet.SelectedCell is {SourceProducer.Length:>0} binding) SelectionLabel.Text+=$" · Bound {binding.SourceProducerName}.{binding.SourceOutputName} · Producer {binding.SourceProducer} · Output {binding.SourceOutput}";
         if (draftCell is not null) { PositionEditor(); return; }
         synchronizing = true;
@@ -333,6 +342,7 @@ public partial class MainWindow : Window
     private async Task RefreshAsync()
     {
         if (session is null || shuttingDown) return;
+        if(displayedRevision!=session.Revision)frameReady=false;
         refresh?.Cancel(); refresh?.Dispose(); refresh = new CancellationTokenSource();
         var cancellation = refresh.Token; long request = ++displayRequest;
         EnsureWorksheetViews();
@@ -344,11 +354,18 @@ public partial class MainWindow : Window
             if(!session.IsProjectionProof && Sheet.ProjectionFrame is not null)Sheet.SetProofFrame(null);
             var first=new Position{Row=Sheet.FirstRow,Column=Sheet.FirstColumn};
             var last=new Position{Row=Math.Min(Sheet.TotalVisualRows,Sheet.FirstRow+(uint)Sheet.VisibleRows-1),Column=Sheet.FirstColumn+9};
-            var frame = session.IsProjectionProof ? await session.ReadProofAsync(first,last,cancellation) : await session.ReadAsync(new Position { Row = Sheet.FirstRow, Column = Sheet.FirstColumn },
-                new Position { Row = Math.Min(WorkbookCapacity.MaximumRows, Sheet.FirstRow + (uint)Sheet.VisibleRows - 1), Column = Sheet.FirstColumn + 9 }, cancellation);
+            var frame = session.IsProjectionProof ? await session.ReadProofAsync(first,last,cancellation)
+                : session.IsBindingProof ? await session.ReadAsync(new Position { Row = Sheet.FirstRow, Column = Sheet.FirstColumn },new Position { Row = Math.Min(WorkbookCapacity.MaximumRows, Sheet.FirstRow + (uint)Sheet.VisibleRows - 1), Column = Sheet.FirstColumn + 9 }, cancellation)
+                : await session.ReadFilteredAsync(Sheet.FirstRow,(uint)Sheet.VisibleRows,Sheet.FirstColumn,Sheet.FirstColumn+9,cancellation);
             if (shuttingDown || view!=worksheetViewEpoch || documentGeneration!=session.DocumentGeneration || document!=session.DocumentId || worksheet!=session.WorksheetId || (!session.IsProjectionProof && (frame.Worksheet!=worksheet || frame.Cells.Any(c=>c.Worksheet!=worksheet))) || request != displayRequest || frame.Revision != session.Revision || frame.ComputationalState!=session.ComputationalState) return;
+            if(!session.IsProjectionProof&&!session.IsBindingProof&&frame.FilterGeneration!=session.FilterGeneration)return;
             if(frame.ProofView is { } proof && (proof.Epoch!=session.ProofEpoch || proof.Presentation!=session.ProofPresentation))return;
             Sheet.SetProofFrame(frame.ProofView);if(request!=displayRequest)return;
+            if(!session.IsProjectionProof&&!session.IsBindingProof){
+                if(draftCell is not null&&!editing&&frame.FilterVisibleMask.Length==8192&&(frame.FilterVisibleMask.Span[(int)(draftCell.Row-1)/8]&(1<<((int)(draftCell.Row-1)%8)))==0){filterPublicationDeferred=true;filterViewPending=true;FilterStatusLabel.Text="Finish or cancel the editor before filter visibility changes.";return;}
+                if(displayedFilterGeneration!=frame.FilterGeneration){++interactionVersion;++clipboardRequest;displayedFilterGeneration=frame.FilterGeneration;}
+                Sheet.SetFilterFrame(frame);ShowFilterStatus(frame);
+            }
             var dispatch = Stopwatch.StartNew();
             Sheet.SetCells(frame.Cells); Sheet.SetStyles(frame.Styles); frameReady = true; displayedRevision = frame.Revision; displayedGeneration = frame.Generation;
             StatusLabel.Text = $"Ready · {frame.Cells.Count} populated cells · {frame.Cells.Count(c => c.Error.Length > 0)} formula errors";
@@ -356,6 +373,7 @@ public partial class MainWindow : Window
             UpdateWorksheetTabs();SelectCell(); UpdateDocument();
             lastUiApply = dispatch.Elapsed.TotalMilliseconds;
             TimingLabel.Text = $"Viewport round trip {session.LastRoundTrip.TotalMilliseconds:F2} ms · Rust {session.LastRustExecutionNs / 1e6:F2} ms · encode C# {session.LastClientSerialization.TotalMilliseconds:F2} / Rust {session.LastRustSerializationNs / 1e6:F2} ms · UI apply {dispatch.Elapsed.TotalMilliseconds:F2} ms (paint measured separately)";
+            if(frame.FilterStatus==3){_ = RefreshPendingFilterAsync(session,session.WorksheetId,session.DocumentGeneration,request);}
             var painted = await Sheet.PaintCompletion.WaitAsync(TimeSpan.FromSeconds(5), cancellation);
             if (request == displayRequest && !shuttingDown) { lastPaintDelay = painted.TotalMilliseconds; lastVisibleUpdate = visible.Elapsed.TotalMilliseconds; }
         } catch (OperationCanceledException) { }
@@ -406,7 +424,7 @@ public partial class MainWindow : Window
     private void BeginCellEdit(bool replace, string text = "")
     {
         if (Sheet.ProjectedSelection is not null) {StatusLabel.Text="Projected records are read-only.";return;}
-        if (session is null || editing || fileAction || shuttingDown || !frameReady || displayedRevision.Length == 0 || session.DocumentId.Length == 0) return;
+        if (session is null || !Sheet.HasVisibleRows || editing || fileAction || shuttingDown || !frameReady || displayedRevision.Length == 0 || session.DocumentId.Length == 0) return;
         Sheet.EndPointerSelection(false); CaptureDraft(); inlineEditing = true;
         synchronizing = true;
         if (replace) { FormulaEntry.Text = text; draftReplace = true; }
@@ -417,6 +435,7 @@ public partial class MainWindow : Window
     private void CancelDraft()
     {
         ++interactionVersion; ++clipboardRequest; draftCell = null; inlineEditing = false; PositionEditor(); SelectCell(); UpdateDocument(); Sheet.Focus();
+        if(filterPublicationDeferred){filterPublicationDeferred=false;_ = RefreshAsync();}
     }
     private async Task<bool> CommitAsync()
     {
@@ -431,6 +450,7 @@ public partial class MainWindow : Window
     private async Task<bool> SelectAsync(Position at, bool extend=false, Func<bool>? current=null)
     {
         if (editing || fileAction || shuttingDown || !await CommitAsync()) return false;
+        if(!Sheet.RowIsShown(at.Row)){StatusLabel.Text="That address is filtered out. Clear Filter to reveal it.";return false;}
         if(current is not null && !current()) return false;
         Sheet.Select(at,extend);
         uint firstRow = Sheet.FirstRow, firstColumn = Sheet.FirstColumn;
@@ -442,7 +462,7 @@ public partial class MainWindow : Window
     private async Task NavigateAsync(int rows, int columns, bool extend=false)
     {
         var at = Sheet.Selected;
-        await SelectAsync(new Position { Row=(uint)Math.Clamp((int)at.Row+rows,1,WorkbookCapacity.MaximumRows), Column=(uint)Math.Clamp((int)at.Column+columns,1,1024) },extend);
+        await SelectAsync(new Position { Row=Sheet.StepVisibleRow(at.Row,rows), Column=(uint)Math.Clamp((int)at.Column+columns,1,1024) },extend);
     }
     private async void GridKeyDown(object? sender, KeyEventArgs e)
     {
@@ -464,7 +484,7 @@ public partial class MainWindow : Window
             e.Handled=true;
             var at=Sheet.Selected;
             bool whole=e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
-            if(e.Key is Key.Home or Key.End) await SelectAsync(new Position {Row=whole ? (e.Key==Key.Home ? 1u : (uint)WorkbookCapacity.MaximumRows) : at.Row, Column=e.Key==Key.Home ? 1u : 1024u},e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            if(e.Key is Key.Home or Key.End) await SelectAsync(new Position {Row=whole ? Sheet.ClosestVisibleRow(e.Key==Key.Home ? 1u : (uint)WorkbookCapacity.MaximumRows,e.Key==Key.Home) : at.Row, Column=e.Key==Key.Home ? 1u : 1024u},e.KeyModifiers.HasFlag(KeyModifiers.Shift));
             else await NavigateAsync(e.Key==Key.PageUp ? -Sheet.VisibleRows : Sheet.VisibleRows,0,e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         }
         else if (e.Key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Tab) {
@@ -512,6 +532,7 @@ public partial class MainWindow : Window
     {
         await CapacityAutomationAsync(report);
         await SortingAutomationAsync(report);
+        await FilteringAutomationAsync(report);
         await StructureAutomationAsync(report);
         await CsvAutomationAsync(report);
         await FillAutomationAsync(report);
@@ -824,7 +845,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { graphical_backend=PlatformImpl?.GetType().FullName, status="passed", sorting="passed: actual Sort dialog, explicit adjacent-data expansion, stable multikey record permutation, header exclusion, both formatting policies, exact leading-zero Strings, scalar bindings and WB11 reopen", structure="passed: row/column menus, stable identities, local lazy reference faults, unchanged editor provenance, operand repair, CB5/Fill, clipping notice, focused band selection and WB11 persistence", region_formatting="passed: selection-wide property overwrite, full-selection Mixed, row/column headers, worksheet defaults, explicit reset/inherit and WB10 reopen", capacity="passed: 65,536-row address, select, scroll, edit, Fill, native clipboard, WB10 reopen and capacity diagnostics", csv="passed: quoted inference controls, all-quoted choices, leading zeros, Blank/empty String, calculated export and native lifecycle", basic_formatting="passed: exact Rust display, Format pane/mixed patches, graph-free styled blanks, editor exactness, native clipboard and WB10 reopen", typed_values="passed: typed literal/results, Unicode LEN, lazy IF, editor provenance, native clipboard translation and WB8 Save/reopen", multiple_worksheets="passed: Add/Rename/tabs, commit on switch, quoted effective names, stale frame rejection, per-sheet view state and WB7 Save/reopen", rectangular_fill="passed: routed four-direction menu/shortcuts, typed edge translation, identity/no-op, editor exclusion, unchanged clipboard and WB5 save/reopen", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { graphical_backend=PlatformImpl?.GetType().FullName, status="passed", filtering="passed: typed exact criteria, confirmed expansion, coherent original-row viewport, navigation, hidden-row operation tickets, changed clipboard cancellation, automatic refresh, structural review, zero visible rows and WB12 reopen", sorting="passed: actual Sort dialog, explicit adjacent-data expansion, stable multikey record permutation, header exclusion, both formatting policies, exact leading-zero Strings, scalar bindings and WB11 reopen", structure="passed: row/column menus, stable identities, local lazy reference faults, unchanged editor provenance, operand repair, CB5/Fill, clipping notice, focused band selection and WB11 persistence", region_formatting="passed: selection-wide property overwrite, full-selection Mixed, row/column headers, worksheet defaults, explicit reset/inherit and WB10 reopen", capacity="passed: 65,536-row address, select, scroll, edit, Fill, native clipboard, WB10 reopen and capacity diagnostics", csv="passed: quoted inference controls, all-quoted choices, leading zeros, Blank/empty String, calculated export and native lifecycle", basic_formatting="passed: exact Rust display, Format pane/mixed patches, graph-free styled blanks, editor exactness, native clipboard and WB10 reopen", typed_values="passed: typed literal/results, Unicode LEN, lazy IF, editor provenance, native clipboard translation and WB8 Save/reopen", multiple_worksheets="passed: Add/Rename/tabs, commit on switch, quoted effective names, stale frame rejection, per-sheet view state and WB7 Save/reopen", rectangular_fill="passed: routed four-direction menu/shortcuts, typed edge translation, identity/no-op, editor exclusion, unchanged clipboard and WB5 save/reopen", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
         allowClose = true; Close();
     }
 }

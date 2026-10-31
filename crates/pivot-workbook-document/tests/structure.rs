@@ -39,7 +39,7 @@ fn structural_coordinates_fault_provenance_and_rejection_roundtrip_without_rebin
         )
         .unwrap();
         let export = Document::export_document(&b, b.expected()).unwrap();
-        assert!(export.bytes.starts_with(b"PIVOTWB11"));
+        assert!(export.bytes.starts_with(b"PIVOTWB12"));
         let mut restored = Document::open_document(&export.bytes, Limits::default(), &rt)
             .unwrap()
             .0;

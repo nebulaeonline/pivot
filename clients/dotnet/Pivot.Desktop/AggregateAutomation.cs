@@ -32,7 +32,7 @@ public partial class MainWindow {
   }finally{if(previous is null)await clipboard.ClearAsync();else await clipboard.SetTextAsync(previous);}
   await SelectAsync(AutomationPosition(3,2));AutomationImage(Path.ChangeExtension(report,"aggregates.png"));
   string root=Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath();string path=Path.Combine(root,"pivot-aggregate-ui-"+Guid.NewGuid()+".pivot");
-  AutomationCheck(await SaveDocumentAsync(true,path),"Aggregate document saves");AutomationCheck(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..9])=="PIVOTWB11","UI writes WB11");
+  AutomationCheck(await SaveDocumentAsync(true,path),"Aggregate document saves");AutomationCheck(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..9])=="PIVOTWB12","UI writes WB11");
   await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path,discard:true);await RefreshAsync();AutomationCheck(!s.IsDirty&&WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(4,2))!.Value)==3,"WB5 UI reopen preserves blank semantics");
   await s.NewAsync(s.Revision,discard:true);CancelDraft();clipboardEditor=null;shortcutModifiers=KeyModifiers.None;Sheet.Scroll(1-(int)Sheet.FirstRow,1-(int)Sheet.FirstColumn);await RefreshAsync();Sheet.Focus();
  }

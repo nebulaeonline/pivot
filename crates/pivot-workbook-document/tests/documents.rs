@@ -191,7 +191,7 @@ fn sum_document_keeps_bound_geometry_identity_and_member_affinity() {
     .unwrap();
     let formula = book.cell_at(p(1, 4)).unwrap().unwrap();
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&bytes.bytes[..9], b"PIVOTWB11");
+    assert_eq!(&bytes.bytes[..9], b"PIVOTWB12");
     let (mut restored, _) =
         pivot_workbook_document::Document::open_document(&bytes.bytes, Limits::default(), &runtime)
             .unwrap();
@@ -360,7 +360,7 @@ fn text_roundtrip_preserves_marker_identity_and_old_versions_reject() {
     .unwrap();
     let cell = b.cell_at(p(1, 1)).unwrap().unwrap();
     let exported = pivot_workbook_document::Document::export_document(&b, b.expected()).unwrap();
-    assert_eq!(&exported.bytes[..9], b"PIVOTWB11");
+    assert_eq!(&exported.bytes[..9], b"PIVOTWB12");
     let (restored, checkpoint) = pivot_workbook_document::Document::open_document(
         &exported.bytes,
         Limits::default(),
@@ -475,7 +475,7 @@ fn wb5_preserves_blank_identity_sum_and_checkpoint() {
     assert_eq!(value(&book, p(3, 3)), Ok(3.into()));
     assert_eq!(value(&book, p(4, 3)), Ok(2.into()));
     let saved = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&saved.bytes[..9], b"PIVOTWB11");
+    assert_eq!(&saved.bytes[..9], b"PIVOTWB12");
     let (restored, checkpoint) =
         pivot_workbook_document::Document::open_document(&saved.bytes, Limits::default(), &runtime)
             .unwrap();

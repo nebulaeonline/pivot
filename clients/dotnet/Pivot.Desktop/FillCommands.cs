@@ -6,7 +6,7 @@ using Avalonia.Interactivity;
 using Pivot.Protocol.Application.V1;
 namespace Pivot.Desktop;
 public partial class MainWindow {
- private bool CanFill => session is not null && session.DocumentId.Length!=0 && frameReady && displayedRevision==session.Revision && draftCell is null && !editing && !fileAction && !shuttingDown && !Sheet.IsSelecting && Sheet.ProjectedSelection is null;
+ private bool CanFill => Sheet.HasVisibleRows && FilterBulkReady && session is not null && session.DocumentId.Length!=0 && frameReady && displayedRevision==session.Revision && draftCell is null && !editing && !fileAction && !shuttingDown && !Sheet.IsSelecting && Sheet.ProjectedSelection is null;
  private void UpdateFillMenu(){
   if(FillDownItem is null)return;
   string reason=draftCell is not null ? "Finish or cancel the cell edit before Fill." : !CanFill ? "Fill needs a ready ordinary worksheet selection; finish pending operations or dragging." : "Fill selected rectangle (up to 256 positions); source edge is copied, not a series.";

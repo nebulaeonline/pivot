@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 64 * 1024 * 1024;
-const MAGIC: &[u8; 9] = b"PIVOTWB11";
+const MAGIC: &[u8; 9] = b"PIVOTWB12";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -510,6 +510,38 @@ impl Document {
             w.id(sheet.uuid());
             w.bytes(&style.encode());
         }
+        w.n(projection.filters.len() as u64);
+        for (sheet, d) in &projection.filters {
+            w.id(sheet.uuid());
+            w.pos(d.rectangle.first);
+            w.pos(d.rectangle.last);
+            w.n(u64::from(d.exclude_header));
+            w.n(u64::from(d.needs_review));
+            w.n(d.conditions.len() as u64);
+            for c in &d.conditions {
+                w.n(c.column.into());
+                w.n(u64::from(c.either));
+                w.n(c.predicates.len() as u64);
+                for p in &c.predicates {
+                    w.n(p.operator as u64);
+                    match &p.literal {
+                        None => w.n(0),
+                        Some(filtering::Literal::Decimal(v)) => {
+                            w.n(1);
+                            w.dec(DecimalInput::from_decimal(*v));
+                        }
+                        Some(filtering::Literal::Text(v)) => {
+                            w.n(2);
+                            w.text(v);
+                        }
+                        Some(filtering::Literal::Boolean(v)) => {
+                            w.n(3);
+                            w.n(u64::from(*v));
+                        }
+                    }
+                }
+            }
+        }
         w.bytes(&graph);
         w.n(1); // Explicit coordinate-area / checked row-major SUM policy.
         w.n(projection.graph.identities.len() as u64);
@@ -647,7 +679,7 @@ impl Document {
                 .map(|b| *b as char)
                 .collect();
             return Err(Error::Graph(format!(
-                "unsupported native workbook version WB{version}; WB11 required"
+                "unsupported native workbook version WB{version}; WB12 required"
             )));
         }
         if bytes.len() < 49 || !bytes.starts_with(MAGIC) {
@@ -718,6 +750,77 @@ impl Document {
                 WorksheetId::from_uuid(r.id()?),
                 pivot_workbook::formatting::Style::decode(r.bytes(17)?)?,
             ));
+        }
+        let mut filters = Vec::new();
+        let mut filter_ids = BTreeSet::new();
+        let mut filter_bytes = 0usize;
+        let start = r.at;
+        for _ in 0..r.count(16)? {
+            let sheet = WorksheetId::from_uuid(r.id()?);
+            let info = sheets
+                .iter()
+                .find(|s| s.id == sheet)
+                .ok_or_else(malformed)?;
+            if !filter_ids.insert(sheet) {
+                return Err(malformed());
+            }
+            let rectangle = Rectangle {
+                first: r.pos()?,
+                last: r.pos()?,
+            };
+            let header = r.n()?;
+            let review = r.n()?;
+            if header > 1 || review > 1 {
+                return Err(malformed());
+            }
+            let mut conditions = Vec::new();
+            for _ in 0..r.count(1024)? {
+                let column = r.u32()?;
+                let either = r.n()?;
+                if either > 1 {
+                    return Err(malformed());
+                }
+                let mut predicates = Vec::new();
+                for _ in 0..r.count(2)? {
+                    let operator = filtering::Operator::try_from(
+                        u8::try_from(r.n()?).map_err(|_| malformed())?,
+                    )?;
+                    let literal = match r.n()? {
+                        0 => None,
+                        1 => Some(filtering::Literal::Decimal(r.dec()?.value())),
+                        2 => Some(filtering::Literal::Text(r.text()?)),
+                        3 => {
+                            let b = r.n()?;
+                            if b > 1 {
+                                return Err(malformed());
+                            }
+                            Some(filtering::Literal::Boolean(b != 0))
+                        }
+                        _ => return Err(malformed()),
+                    };
+                    if r.at - start > filtering::MAX_DEFINITION_BYTES {
+                        return Err(malformed());
+                    }
+                    predicates.push(filtering::Predicate { operator, literal });
+                }
+                conditions.push(filtering::Condition {
+                    column,
+                    either: either != 0,
+                    predicates,
+                });
+            }
+            let definition = filtering::Definition {
+                rectangle,
+                exclude_header: header != 0,
+                needs_review: review != 0,
+                conditions,
+            };
+            definition.validate(info.row_count, info.column_count)?;
+            filter_bytes += definition.storage_bytes();
+            if filter_bytes > filtering::MAX_DEFINITION_BYTES {
+                return Err(malformed());
+            }
+            filters.push((sheet, definition));
         }
         let document =
             storage::decode_document(r.bytes(MAX_BYTES)?, self::limits()).map_err(graph_error)?;
@@ -1322,6 +1425,7 @@ impl Document {
             .collect();
         let book = Workbook::restore_portable(
             PortableWorkbook {
+                filters,
                 styles,
                 style_defaults,
                 sheets,

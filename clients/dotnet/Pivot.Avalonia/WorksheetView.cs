@@ -51,6 +51,7 @@ public sealed partial class WorksheetView : Control
     public event Action? SelectionChanged;
     public Func<Position, bool, bool, Func<bool>, Task<bool>>? SelectionRequested { get; set; }
     public void RestoreView(uint firstRow,uint firstColumn,Position selectedAnchor,Position selectedActive,Position? focus=null) {
+        ClearFilterFrame();
         structuralFocus=focus?.Clone();
         EndPointerSelection(false);
         FirstRow=Math.Clamp(firstRow,1,(uint)WorkbookCapacity.MaximumRows+1-(uint)VisibleRows);FirstColumn=Math.Clamp(firstColumn,1,1025-Columns);
@@ -64,7 +65,7 @@ public sealed partial class WorksheetView : Control
         dragTimer.Tick += (_, _) => UpdateDrag();
         DetachedFromVisualTree += (_, _) => EndPointerSelection(false);
         SizeChanged += (_, _) => {
-            FirstRow = Math.Min(FirstRow, TotalVisualRows + 1 - (uint)VisibleRows);
+            FirstRow = Math.Min(FirstRow, Math.Max(TotalVisualRows,(uint)VisibleRows) + 1 - (uint)VisibleRows);
             cells.Clear();styles.Clear(); ViewportChanged?.Invoke();
         };
     }
@@ -79,7 +80,7 @@ public sealed partial class WorksheetView : Control
     }
     public void Scroll(int rows, int columns = 0)
     {
-        uint r = (uint)Math.Clamp((int)FirstRow + rows, 1, (int)TotalVisualRows + 1 - VisibleRows);
+        uint r = (uint)Math.Clamp((int)FirstRow + rows, 1, Math.Max((int)TotalVisualRows,VisibleRows) + 1 - VisibleRows);
         uint c = (uint)Math.Clamp((int)FirstColumn + columns, 1, 1025 - Columns);
         if (r == FirstRow && c == FirstColumn) return;
         FirstRow = r; FirstColumn = c; cells.Clear();styles.Clear(); InvalidateVisual(); ViewportChanged?.Invoke();
@@ -95,18 +96,20 @@ public sealed partial class WorksheetView : Control
         int index=(int)Math.Floor(point.Y/HeightPerCell)-1;
         uint row;
         if(ProjectionFrame is not null){var mapped=MappedRow(index);if(mapped is null || mapped.Kind!=0)return null;row=mapped.OrdinaryRow;}
-        else row=(uint)Math.Clamp((int)FirstRow+index,1,WorkbookCapacity.MaximumRows);
+        else {var mapped=WorksheetRowAt(index);if(mapped is null)return null;row=mapped.Value;}
         return new Position{Row=row,Column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,1024)};
     }
     protected override async void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
         var point=e.GetPosition(this);
+        if(e.GetCurrentPoint(this).Properties.IsLeftButtonPressed&&FilterHeaderClick(point)){e.Handled=true;return;}
         if(e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && ProjectionFrame is null && point.X>=0 && point.Y>=0 && point.X<Header+Columns*WidthPerCell && point.Y<(VisibleRows+1)*HeightPerCell && (point.X<Header || point.Y<HeightPerCell)) {
             EndPointerSelection(false);e.Handled=true;
             long headerGesture=++gesture;
             bool rows=point.X<Header,columns=point.Y<HeightPerCell;
-            uint row=(uint)Math.Clamp((int)FirstRow+(int)Math.Floor(point.Y/HeightPerCell)-1,1,WorkbookCapacity.MaximumRows);
+            if(rows&&point.Y>=HeightPerCell&&WorksheetRowAt((int)Math.Floor(point.Y/HeightPerCell)-1) is null)return;
+            uint row=WorksheetRowAt((int)Math.Floor(point.Y/HeightPerCell)-1)??Selected.Row;
             uint column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,WorkbookCapacity.MaximumColumns);
             bool extendHeader=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
             uint firstRow=columns?1:extendHeader?Math.Min(Anchor.Row,row):row,lastRow=columns?WorkbookCapacity.MaximumRows:extendHeader?Math.Max(Anchor.Row,row):row;
@@ -205,6 +208,7 @@ public sealed partial class WorksheetView : Control
             double y = (row + 1) * HeightPerCell;
             var rect = new Rect(x, y, col < 0 ? Header : WidthPerCell, HeightPerCell);
             uint r = FirstRow + (uint)Math.Max(row, 0), c = FirstColumn + (uint)Math.Max(col, 0);
+            if(row>=0 && ProjectionFrame is null){var mapped=WorksheetRowAt(row);if(mapped is null){context.DrawRectangle(Brushes.WhiteSmoke,border,rect);continue;}r=mapped.Value;}
             if(row>=0 && RenderProjection(context,row,col,rect))continue;
             if(row>=0 && ProjectionFrame is not null)r=MappedRow(row)!.OrdinaryRow;
             bool selected = row >= 0 && col >= 0 && r == focused.Row && c == focused.Column;
@@ -215,7 +219,7 @@ public sealed partial class WorksheetView : Control
             context.DrawRectangle(fill, selected ? new Pen(ActiveFocus ? Brushes.DodgerBlue : Brushes.SlateGray,2) : border,rect);
             string text = ""; IBrush ink = Brushes.Black;
             if (row < 0 && col >= 0) text = Address(new Position { Row = 1, Column = c }).TrimEnd('1');
-            else if (row >= 0 && col < 0) text = r.ToString(CultureInfo.InvariantCulture);
+            else if (row >= 0 && col < 0) text = (row>0&&WorksheetRowAt(row-1) is uint previous&&r>previous+1?"\u22ee ":"")+r.ToString(CultureInfo.InvariantCulture);
             else if (row >= 0 && col >= 0 && cells.TryGetValue((r, c), out var cell)) {
                 if (cell.Error.Length > 0) { text = cell.ErrorCode=="ReferenceDeleted"?"#REF!":"#ERROR"; ink = Brushes.Firebrick; }
                 else if (cell.ContentCase == Cell.ContentOneofCase.Text) text = cell.Text;
@@ -224,13 +228,16 @@ public sealed partial class WorksheetView : Control
             if(style.Foreground is uint fg)ink=new SolidColorBrush(Color.FromUInt32(0xff000000|fg));
             var typeface=new Typeface("Inter",style.Italic?FontStyle.Italic:FontStyle.Normal,style.Bold?FontWeight.Bold:FontWeight.Normal);
             var formatted=new FormattedText(text,CultureInfo.InvariantCulture,FlowDirection.LeftToRight,typeface,13,ink);
+            bool filterHeader=row>=0&&col>=0&&FilterSummary is {ExcludeHeader:true,NeedsReview:false,First:{ } filterFirst}&&r==filterFirst.Row&&c>=filterFirst.Column&&c<=FilterSummary.Last.Column;
             int align=style.Alignment;
             if(align==0 && row>=0 && col>=0 && cells.TryGetValue((r,c),out var content))
                 align=content.Error.Length>0?1:content.Result?.KindCase==TypedValue.KindOneofCase.Decimal?3:content.Result?.KindCase==TypedValue.KindOneofCase.Boolean?2:1;
-            double left=align==3?Math.Max(x+5,x+rect.Width-5-formatted.Width):align==2?Math.Max(x+5,x+(rect.Width-formatted.Width)/2):x+5;
-            using (context.PushClip(rect.Deflate(3))) context.DrawText(formatted,new Point(left,y+4));
+            double contentWidth=rect.Width-(filterHeader?18:0);
+            double left=align==3?Math.Max(x+5,x+contentWidth-5-formatted.Width):align==2?Math.Max(x+5,x+(contentWidth-formatted.Width)/2):x+5;
+            using (context.PushClip(new Rect(rect.X,rect.Y,contentWidth,rect.Height).Deflate(3))) context.DrawText(formatted,new Point(left,y+4));
+            if(filterHeader){var mark=new FormattedText("\u25be",CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Inter"),12,FilterSummary!.Columns.Contains(c)?Brushes.SlateBlue:Brushes.Gray);context.DrawText(mark,new Point(rect.Right-16,rect.Y+4));}
         }
-        if(HasRegion && ProjectionFrame is null) {
+        if(HasRegion && ProjectionFrame is null && !HasFilterMap) {
             var begin=CellBounds(first); var end=CellBounds(last);
             using(context.PushClip(new Rect(Header,HeightPerCell,Columns*WidthPerCell,VisibleRows*HeightPerCell)))
                 context.DrawRectangle(null,new Pen(ActiveFocus ? Brushes.DodgerBlue : Brushes.SlateGray,1),new Rect(begin.TopLeft,end.BottomRight));

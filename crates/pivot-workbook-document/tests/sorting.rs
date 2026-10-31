@@ -77,7 +77,7 @@ fn wb11_and_cb5_preserve_sorted_identities_ranges_exact_strings_and_fault_proven
     )
     .unwrap();
     let bytes = Document::export_document(&b, b.expected()).unwrap().bytes;
-    assert!(bytes.starts_with(b"PIVOTWB11"));
+    assert!(bytes.starts_with(b"PIVOTWB12"));
     let mut reopened = Document::open_document(&bytes, Limits::default(), &rt)
         .unwrap()
         .0;

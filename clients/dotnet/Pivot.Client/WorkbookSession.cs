@@ -179,7 +179,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
         }
     }
 
-    private async Task<Response> CallAsync(Request request, CancellationToken cancellation)
+    private async Task<Response> SendAsync(Request request, CancellationToken cancellation)
     {
         // Capture sheet context before queueing; tab switches cannot redirect this request.
         if(request.Worksheet.Length==0)request.Worksheet=WorksheetId;
@@ -201,7 +201,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             cancellation.ThrowIfCancellationRequested();
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 10; request.Id = ++sequence;
+            request.Version = 11; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -225,7 +225,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 10 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 11 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
                 foreach(var cell in response.Cells) ValidateResult(cell);
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {
@@ -238,6 +238,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             LastRustSerializationNs = response.SerializationNs;
             if (request.Operation is not (Request.Types.Operation.Calculate or Request.Types.Operation.Release or Request.Types.Operation.ProofEvaluate))
                 Volatile.Write(ref revision, response.Revision);
+            FilterSummary=response.FilterSummary?.Clone();FilterStatus=response.FilterStatus;FilterGeneration=response.FilterGeneration;FilterError=response.FilterError;
             IsProjectionProof=response.ProofMode;IsBindingProof=response.BindingMode;ComputationalState=response.ComputationalState;ProofEpoch=response.ProofEpoch;ProofPresentation=response.ProofPresentation;
             bool documentChanged=DocumentId!=response.DocumentId || (response.Error.Length==0 && request.Operation is (Request.Types.Operation.Create or Request.Types.Operation.New or Request.Types.Operation.Open or Request.Types.Operation.CloseDocument));
             if(documentChanged)DocumentGeneration++;

@@ -29,10 +29,11 @@
             <MenuItem x:Name="DeleteColumnsItem" Header="Delete entire columns" Click="DeleteColumnsClick" />
             <Separator />
             <MenuItem x:Name="SortItem" Header="_Sort selected range…" Click="SortClick" />
+            <MenuItem x:Name="FilterItem" Header="_Filter records…" Click="FilterClick" />
           </MenuItem>
         </Menu>
-        <Button Content="Copy" Click="CopyClick" ToolTip.Tip="Copy selected text, or the selected rectangle (up to 256 cells)" />
-        <Button Content="Paste" Click="PasteClick" ToolTip.Tip="Paste text into the editor or atomically paste a rectangle" />
+        <Button x:Name="CopyCellsButton" Content="Copy" Click="CopyClick" ToolTip.Tip="Copy selected text, or the selected rectangle (up to 256 cells)" />
+        <Button x:Name="PasteCellsButton" Content="Paste" Click="PasteClick" ToolTip.Tip="Paste text into the editor or atomically paste a rectangle" />
         <Menu VerticalAlignment="Center">
           <MenuItem x:Name="FillRoot" Header="_Fill" SubmenuOpened="FillOpened">
             <MenuItem x:Name="FillDownItem" Header="Fill _Down" Tag="Down" Click="FillClick" />
@@ -59,6 +60,14 @@
         <Button Content="Unavailable" Click="BindingUnavailableClick" />
         <Button Content="Rename source" Click="BindingRenameClick" />
         <Button Content="Duplicate to B12" Click="BindingDuplicateClick" />
+      </StackPanel>
+      <StackPanel x:Name="FilterBar" IsVisible="False" Spacing="5">
+        <TextBlock x:Name="FilterStatusLabel" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Review filter…" Click="FilterClick" />
+          <Button x:Name="ReapplyFilterButton" Content="Reapply" Click="ReapplyFilterClick" />
+          <Button x:Name="ClearFilterButton" Content="Clear Filter" Click="ClearFilterClick" />
+        </StackPanel>
       </StackPanel>
       <TextBlock Text="Pivot" FontSize="22" FontWeight="Bold" />
       <Grid x:Name="WorksheetBar" ColumnDefinitions="*,Auto,160,Auto" ColumnSpacing="6">

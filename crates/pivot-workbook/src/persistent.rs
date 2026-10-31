@@ -15,6 +15,7 @@ pub(super) struct Data {
     pub(crate) adapter: Option<Shared<structured::Adapter>>,
     annotations: Index<CellId, structured::StructuredContent>,
     pub(super) styles: formatting::Store,
+    pub(super) filters: Index<WorksheetId, Shared<filtering::Definition>>,
     pub(super) positions: Index<sheets::SheetPosition, CellId>,
     pub(super) sheets: Option<Shared<sheets::Directory>>,
     pub(super) records: Index<CellId, Shared<Record>>,
@@ -105,6 +106,7 @@ impl Data {
             annotations: Index::new(memory.clone()),
             sheets: None,
             styles: formatting::Store::new(memory.clone()),
+            filters: Index::new(memory.clone()),
             positions: Index::new(memory.clone()),
             records: Index::new(memory.clone()),
             bindings: Index::new(memory.clone()),
@@ -129,6 +131,13 @@ impl Data {
                 + self.source
                 + self.metadata
                 + self.styles.bytes()
+                + self
+                    .filters
+                    .iter()
+                    .map(|(_, d)| {
+                        std::mem::size_of::<filtering::Definition>() + d.heap_bytes() + 128
+                    })
+                    .sum::<usize>()
                 + self.sheets.as_ref().map_or(0, |s| s.heap_bytes()),
         }
     }

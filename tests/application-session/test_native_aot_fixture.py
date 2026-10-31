@@ -9,7 +9,7 @@ from verify_native_aot import verify_workbook_fixture
 class WorkbookFixtureTests(unittest.TestCase):
     def fixture(self):
         payload=b'independent fixture payload'
-        return b'PIVOTWB11'+len(payload).to_bytes(8,'little')+hashlib.sha256(payload).digest()+payload
+        return b'PIVOTWB12'+len(payload).to_bytes(8,'little')+hashlib.sha256(payload).digest()+payload
     def test_current_format(self):
         verify_workbook_fixture(self.fixture())
     def test_obsolete_formats(self):

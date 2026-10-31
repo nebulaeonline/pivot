@@ -24,7 +24,7 @@ Missing build tools remain genuine prerequisites, independent of VM availability
 Choose platform coverage from the changed behavior and architecture exposure;
 do not indefinitely substitute macOS ARM64 for Windows/Linux ARM64 GUI coverage.
 Review each target's most recent managed/AOT GUI receipts when choosing the matrix.
-Owner direction for ADR-0031 and the accepted ADR-0032 validation plan require managed **and Native AOT** GUI execution on
+Owner direction and the accepted ADR-0031/0032/0033 validation plans require managed **and Native AOT** GUI execution on
 Windows x64, Linux x64, Windows ARM64, Linux ARM64, macOS ARM64 and macOS x64.
 This milestone covers all six configured targets; future runs choose applicable
 coverage. macOS x64 under Rosetta remains separately identified emulated evidence.
@@ -79,6 +79,10 @@ ADR-0032 uses `~/PivotValidation/sort.py`: `python sort.py` on Windows and
 `./sort.py` on Linux/macOS, with commands in `artifacts/sorting-commands.txt`.
 It follows the same managed/AOT ordering and normal local consent. Run only the
 targets currently requested; a failed pilot stops the rollout until inspected.
+
+ADR-0033 uses `~/PivotValidation/flt.py`: `python flt.py` on Windows and
+`./flt.py` on Linux/macOS, with commands in `artifacts/filtering-commands.txt`.
+It follows the same consent, managed/AOT ordering and pilot-first rollout.
 
 `python scripts/run_desktop.py` remains the ordinary manual application launcher.
 It strips inherited automation activation/permits and does not run acceptance.

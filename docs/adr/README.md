@@ -95,6 +95,15 @@ Ranges, GUI, new protocol and production workbook files remain future work.
   [semantics](../architecture/worksheet-sorting.md).
   [Design handoff](../handoffs/2026-10-30-worksheet-sorting-design.md).
 
-ADR-0033, Worksheet Filtering, is assigned as the next design milestone, on hold for
-the owner's commit/push and explicit next authorization. No filtering design or
-implementation has started. ADR-0023 remains parked at G3.
+- [ADR-0033: Worksheet filtering](0033-worksheet-filtering.md) — Design approved with
+  clarifications by parent review (2026-10-31). Persist
+  typed definitions, derive row visibility without moving identities, explicitly
+  confirm hidden-row bulk actions, and review filters after structural edits.
+  Require transient operational suspension without document mutation, exact complete-
+  footprint confirmations and coherent visibility with bulk actions blocked while
+  pending/failed. WB12/private v11 and bounded metadata admission are approved,
+  not implemented. Future six-target validation gates accepted.
+  [Design handoff](../handoffs/2026-10-31-worksheet-filtering-design.md).
+
+Filtering implementation requires separate owner go-ahead.
+ADR-0023 remains parked at G3.

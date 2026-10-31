@@ -27,7 +27,9 @@ not percentiles. Retain original failures and successful retries separately.
 End-of-batch archive verification and disposable-cache cleanup are accepted.
 No additional validation, reconciliation packet or AOT rerun is required.
 
-Stop for the owner's commit/push of ADR-0032 and explicit next authorization.
+The owner committed ADR-0032 (`fbe50a1`) and explicitly authorized ADR-0033 design
+on 2026-10-31. Parent review approved the filtering design with three clarifications;
+implementation requires separate owner authorization.
 Continue collecting results, verifying archives and pruning disposable outputs after
 every validation batch under the standing retention policy.
 
@@ -42,8 +44,9 @@ Follow this sequence for each milestone:
 7. Explicit owner indication that it is OK to proceed.
 8. Begin the next ADR's design work.
 
-**Next assigned milestone — ADR-0033: Worksheet Filtering (design-first, on hold).**
-Begin only after the owner's commit/push and explicit go-ahead. Design practical
+**Current assignment — ADR-0033: Worksheet Filtering (design approved with clarifications).**
+See the [design ADR](adr/0033-worksheet-filtering.md) and
+[parent handoff](handoffs/2026-10-31-worksheet-filtering-design.md). Design practical
 filtering by one or more column criteria without deleting, rearranging or rebinding
 cells. Filtering changes which rows are visible, not their worksheet coordinates
 or computational identities. Resolve:
@@ -57,11 +60,25 @@ or computational identities. Resolve:
 - Bounded indexing, evaluation and memory without enumerating the virtual worksheet.
 - Familiar header/filter controls, explicit active indicators and Clear Filter.
 
-Return the ADR-0033 design for parent review before implementation. Preserve current
+Parent design review is complete. Preserve current
 resource budgets unless the design demonstrates a concrete need to change them.
 Do not combine filtering with sorting implementation, structured tables, deletion,
-Undo/Redo or a general query subsystem. No filtering design or feature work is
-started by ADR-0032 acceptance. ADR-0031 remains accepted and closed.
+Undo/Redo or a general query subsystem. The owner's subsequent authorization covers
+this design only. No feature work, format/protocol changes, builds or platform tests
+have started. The parent accepts persisted typed definitions, derived whole-row
+visibility, full-rectangle bulk actions, automatic refresh, structural NeedsReview,
+WB12/private v11, unchanged CB5/hosted v1, 1 MiB definition admission and future
+six-target headless/managed/AOT gates. Mandatory clarifications: operational refresh
+failure is transient and does not independently dirty/mutate definitions; confirmations
+bind the complete actual operation footprint/payload/counts/generations; pending and
+failed views are visibly unfiltered with qualified-count operations blocked and
+coherent map/frame/count publication. Reapply does not implicitly repair or rebind.
+Stop for separate owner implementation authorization under the standing cadence.
+ADR-0031 and ADR-0032 remain accepted and closed.
+
+The owner reports updated Windows build tools on both Windows x64 and ARM64 VMs.
+Future validation must record actual discovered toolset versions; no version or
+qualification result is inferred from this notice.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;

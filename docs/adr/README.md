@@ -140,5 +140,17 @@ ADR-0023 remains parked at G3.
 ADR-0036: Exact, Conservation-Preserving Allocation is assigned as the next design
 milestone, using the [ALLOCATE proposal](../proposals/allocate.md). Required precision,
 exact representability and conservation for a complete consistent recipient set are
-mandatory. Await owner commit/push and explicit authorization before creating the ADR
-and design handoff. ADR-0023 remains parked at G3.
+mandatory. The owner subsequently authorized design; the proposed ADR and handoff
+follow below. ADR-0023 remains parked at G3.
+
+- [ADR-0036: Exact, conservation-preserving allocation](0036-exact-conservation-preserving-allocation.md)
+  — Design approved with three clarifications by parent review (2026-10-31). Equal-weight scalar ALLOCATE
+  with required precision, strict Decimal arguments, u32 indices, deterministic
+  residuals, exact settlement units and group-wide representability/exact-SUM guard.
+  Fixed 192-bit scratch; propose opcode 19 with WB12/private v13/CB5/CB6 unchanged.
+  Six-target headless/parity scope approved; actual SUM, group-wide refusal and
+  completeness-boundary coverage are mandatory. Numeric-only changes need no new
+  attended GUI/AOT round; reassess if sensitive paths change. Implementation awaits
+  separate owner authorization. Weighted allocation is an unassigned nice-to-have;
+  next direction and any subsequent ADR assignment wait until after ADR-0036.
+  [Design handoff](../handoffs/2026-10-31-exact-allocation-design.md).

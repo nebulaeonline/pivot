@@ -137,19 +137,27 @@ unchanged budgets, source qualifications, Rosetta coverage, observed maxima/char
 memory, retained failures, archival and diagnostic LoC. No additional validation,
 reconciliation packet or Native AOT rerun is required. ADR-0023 stays parked at G3.
 
-**Next assigned milestone — ADR-0036: Exact, Conservation-Preserving Allocation.**
-Begin with design and parent review only after owner commit/push and explicit
-next-work authorization. Use the existing [ALLOCATE proposal](proposals/allocate.md)
-(the review's architecture-path reference resolves to this proposals file). Required
-settlement precision has no implicit two-decimal default; reject totals that cannot
-be represented at the requested precision without silently rounding the obligation.
-Evaluate equal-weight scalar allocation, deterministic recipient indices, exact
-conservation for a complete consistent recipient set, negatives/signed zero,
-validation/overflow/admission, scalar versus multi-output alternatives, compatibility
-and independent/parity gates. Independent scalar calls cannot prove group completeness.
-Weighted allocation, spills, rotation, persistent group state, financial reporting
-and automatic repair remain outside the initial scope. This records the assignment;
-no ADR-0036 design or implementation work has started.
+**Current assignment — ADR-0036: Exact, Conservation-Preserving Allocation (design only).**
+The owner authorized design after ADR-0035 closeout. See the
+[proposed ADR](adr/0036-exact-conservation-preserving-allocation.md),
+[parent design handoff](handoffs/2026-10-31-exact-allocation-design.md) and starting
+[proposal](proposals/allocate.md). Propose four required Decimal arguments, one-based
+u32 recipient indices, precision 0..28, deterministic low-index residual units,
+normalized signed results, fixed 192-bit integer scratch and group-wide representability
+plus exact-SUM admission. The largest proper partial sum must fit at the normalized
+shares' common scale; the final total may normalize. Strict operands (including Blank
+refusal), this admission rule and validation scope are approved by parent design review.
+Propose typed opcode 19 with WB12/private v13/hosted v1/CB5/CB6 unchanged; all-six-RID
+headless parity, with no new attended GUI round absent UI/AOT-sensitive changes.
+Three mandatory clarifications require actual production SUM in different orders,
+index-independent group refusal with correct error classification, and an explicit
+complete/consistent recipient-set boundary without hidden registration or index repair.
+No feature implementation, new benchmark or platform run has occurred. Await separate
+owner implementation authorization. Weighted allocation is an unassigned nice-to-have;
+wait for parent direction after ADR-0036 before assigning a next milestone or ADR number. Weighted
+allocation, spills, rotation, persistent groups, reporting, automatic repair and
+history remain outside scope. Independent scalar calls do not certify user group
+completeness. ADR-0023 remains parked at G3.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;

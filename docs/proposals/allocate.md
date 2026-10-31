@@ -2,7 +2,8 @@
 
 Date: 2026-10-31.
 Status: **Assigned as the starting proposal for ADR-0036 design by parent review
-(2026-10-31); owner design authorization and parent design approval remain outstanding.**
+(2026-10-31); ADR-0036 design approved with three clarifications, implementation
+awaits separate owner authorization.**
 
 Recorded at the owner's request from a sidebar with the parent GPT while ADR-0035
 was under review. The later ADR-0035 acceptance assigns this proposal to ADR-0036
@@ -118,3 +119,24 @@ overflow/admission, deterministic parity and compatibility; compare scalar and
 multi-output alternatives. Independent calls cannot prove users supplied every
 recipient exactly once. Weighted allocations, spills, rotation, persistent allocation
 groups, financial reporting and automatic formula repair are deferred.
+
+## Owner-authorized design follow-up
+
+The owner subsequently authorized ADR-0036 design. See the
+[proposed ADR](../adr/0036-exact-conservation-preserving-allocation.md) and
+[design handoff](../handoffs/2026-10-31-exact-allocation-design.md). They propose concrete
+strict-operand, u32 index, sign/zero, fixed-integer and exact-reconciliation admission
+rules for parent review. The required precision clarification remains in force.
+This proposal is retained as provenance; the linked design is not implementation
+approval. No feature work or new platform execution has started.
+
+## Parent design acceptance
+
+The parent approved ADR-0036 with mandatory production-SUM coverage in different
+orders, index-independent group validity/refusal and an explicit complete/consistent
+recipient-set boundary. Strict Decimal arguments, required precision, deterministic
+residuals, fixed 192-bit arithmetic and the proper-partial-sum guard are accepted.
+No numeric-only attended GUI/AOT round is required; reassess if sensitive paths change.
+No implementation is authorized by this design acceptance. Weighted allocation remains
+an unassigned nice-to-have, outside current scope. Wait for parent direction after
+ADR-0036 before assigning any next milestone or ADR number.

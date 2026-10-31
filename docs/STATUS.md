@@ -19,8 +19,11 @@ qualification are accepted. Original failures and successful recoveries stay sep
 No further validation, reconciliation packet or AOT run is required. See the
 [accepted implementation handoff](handoffs/2026-10-30-row-column-structure.md).
 
-Stop for the owner's commit/push and explicit next go-ahead. Parent acceptance does
-not authorize starting the next milestone. No commit/push or next design has started.
+The owner committed ADR-0031 (`43c0b8c`) and explicitly authorized the next design
+on 2026-10-30. [ADR-0032: Worksheet sorting](adr/0032-worksheet-sorting.md) is now
+approved with clarifications by parent review (2026-10-30). Design documentation
+only; no sorting feature work or platform validation has begun. Stop for the owner's
+separate implementation authorization.
 
 Follow this sequence for each milestone:
 
@@ -33,8 +36,20 @@ Follow this sequence for each milestone:
 7. Explicit owner indication that it is OK to proceed.
 8. Begin the next ADR's design work.
 
-**Next assignment — ADR-0032: Worksheet Sorting (design first, on hold).** Prepare
-the design for parent review only after the owner's commit/push and explicit go-ahead.
+**Current assignment — ADR-0032: Worksheet Sorting (design approved with clarifications).**
+The owner's go-ahead authorizes design only. The parent accepts an explicit atomic row
+permutation preserving cell identities and scalar bindings, fixed rectangular ranges,
+snapshot calculated keys, stable typed ordering and an independent move-formatting
+option. See the [design handoff](handoffs/2026-10-30-worksheet-sorting-design.md).
+Mandatory clarifications: completed calculation errors are sortable values while
+operational capture/evaluation failures abort; final identity placement and explicit
+assignments determine no-ops; the final rectangle, partial-record warning and confirmed
+expansion choice must be visible in the Sort dialog. WB11/CB5 remain unchanged;
+private v10 and the 33,554,432-unit structural-work ceiling are approved. Current
+capacity limits and future six-target managed/AOT gates remain, with macOS x64
+identified as Rosetta. No implementation is authorized by parent design acceptance.
+
+The reviewed assignment follows:
 The central investigation is sorting table records versus rearranging cells: compare
 moving cell identities, exchanging contents at fixed identities and an explicit
 permutation. Analyze CellIds/GraphNodeIds, scalar bindings, range operands, effective
@@ -55,7 +70,8 @@ compatibility work is assigned.
 Sorting only: no filtering, hidden rows, structured tables, grouping, merges,
 Undo/Redo or general query subsystem. ADR-0023 stays parked at G3. Filtering is a
 later candidate, provisionally ADR-0033, to be decided after the sorting design.
-Recording this assignment does not begin design or implementation.
+The design is accepted with clarifications; implementation remains unstarted and
+requires the owner's separate authorization.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;

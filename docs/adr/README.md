@@ -80,8 +80,14 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 
 - [ADR-0031: Insert and delete worksheet rows and columns](0031-row-column-structure.md) — Accepted and closed by parent implementation review (2026-10-30), including the clipboard correction and source-qualified six-target headless/managed/AOT evidence. macOS x64 is Rosetta; structural timings are single-observation maxima. WB11 only, private v9, CB5. No further validation required. See the [implementation handoff](../handoffs/2026-10-30-row-column-structure.md).
 
-Next assignment: **ADR-0032 — Worksheet Sorting, design first**, held until the
-owner's commit/push and explicit go-ahead. Investigate record sorting versus cell
-rearrangement, stable identities/references and formatting before selecting a design.
-No ADR-0032 design or implementation has started. Filtering is a later candidate,
-provisionally ADR-0033, to be decided after the sorting design.
+- [ADR-0032: Worksheet sorting](0032-worksheet-sorting.md) — Design approved with
+  clarifications by parent review (2026-10-30). Atomic record
+  permutation, stable identities, fixed rectangular ranges, snapshot typed keys and
+  explicit formatting movement. Mandatory sortable-error/operational-failure distinction,
+  identity-aware no-ops and visible confirmed range expansion. WB11/CB5 unchanged,
+  private v10 approved. No implementation or platform validation started; separate
+  owner implementation authorization required.
+  [Design handoff](../handoffs/2026-10-30-worksheet-sorting-design.md).
+
+Filtering remains a later candidate, provisionally ADR-0033, to be decided after
+the sorting design. ADR-0023 remains parked at G3.

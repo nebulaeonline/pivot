@@ -21,6 +21,16 @@ Missing build tools remain genuine prerequisites, independent of VM availability
 
 ## Deliberate local desktop tests
 
+Choose platform coverage from the changed behavior and architecture exposure;
+do not indefinitely substitute macOS ARM64 for Windows/Linux ARM64 GUI coverage.
+Review each target's most recent managed/AOT GUI receipts when choosing the matrix.
+Owner direction for ADR-0031 requires managed **and Native AOT** GUI execution on
+Windows x64, Linux x64, Windows ARM64, Linux ARM64, macOS ARM64 and macOS x64.
+This milestone covers all six configured targets; future runs choose applicable
+coverage. macOS x64 under Rosetta remains separately identified emulated evidence.
+Keep short target-local launchers and the
+normal interactive consent policy on every selected target.
+
 ```sh
 python scripts/ci.py --desktop
 python tests/application-session/ui_smoke.py --output-dir artifacts/application-ui
@@ -58,6 +68,12 @@ ADR-0030 uses `~/PivotValidation/fmt.py`: `python fmt.py` on Windows, `./fmt.py`
 on Linux/macOS. It runs the prepared managed suite then Native AOT, keeping the
 ordinary consent prompt for each and refusing duplicate/failed attempts. The short
 commands are also in `artifacts/formatting-commands.txt`.
+
+ADR-0031 uses `~/PivotValidation/rows.py`: `python rows.py` on Windows and
+`./rows.py` on Linux/macOS. Windows/Linux run managed then Native AOT. The Mac
+launcher runs ARM64 managed/AOT, then x64 managed/AOT under Rosetta, with a normal
+consent prompt for every suite. Run one target at a time; shared-host contention
+can distort capacity measurements. Commands are in `artifacts/structure-commands.txt`.
 
 `python scripts/run_desktop.py` remains the ordinary manual application launcher.
 It strips inherited automation activation/permits and does not run acceptance.

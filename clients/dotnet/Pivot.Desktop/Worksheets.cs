@@ -10,7 +10,7 @@ namespace Pivot.Desktop;
 
 public partial class MainWindow
 {
-    private sealed record WorksheetViewState(uint Row,uint Column,Position Anchor,Position Active);
+    private sealed record WorksheetViewState(uint Row,uint Column,Position Anchor,Position Active,Position? Focus=null);
     private readonly Dictionary<string,WorksheetViewState> worksheetViews=[];
     private string worksheetDocument="",worksheetTabSignature="";
     private long worksheetViewEpoch;
@@ -21,14 +21,14 @@ public partial class MainWindow
         Sheet.RestoreView(1,1,new(){Row=1,Column=1},new(){Row=1,Column=1});
     }
     private void RememberWorksheetView() {
-        if(session is not null && session.WorksheetId.Length!=0)worksheetViews[session.WorksheetId]=new(Sheet.FirstRow,Sheet.FirstColumn,Sheet.Anchor,Sheet.Selected);
+        if(session is not null && session.WorksheetId.Length!=0)worksheetViews[session.WorksheetId]=new(Sheet.FirstRow,Sheet.FirstColumn,Sheet.Anchor,Sheet.SelectionActive,Sheet.SelectionFocus);
     }
     private async Task ChangeWorksheetAsync(string id) {
         if(session is null)return;
         RememberWorksheetView();session.SelectWorksheet(id);
         ++worksheetViewEpoch;++interactionVersion;++clipboardRequest;++displayRequest;refresh?.Cancel();frameReady=false;
         var state=worksheetViews.GetValueOrDefault(id)??new(1,1,new(){Row=1,Column=1},new(){Row=1,Column=1});
-        Sheet.RestoreView(state.Row,state.Column,state.Anchor,state.Active);
+        Sheet.RestoreView(state.Row,state.Column,state.Anchor,state.Active,state.Focus);
         worksheetTabSignature="";UpdateWorksheetTabs();await RefreshAsync();Sheet.Focus();
     }
     private async Task SwitchWorksheetAsync(string id) {

@@ -27,7 +27,8 @@ static class RangeChecks
   await s.ApplyAsync(s.Revision,[N(1024,6,4)]);Check(await Value(s,6,9)==4,"Sparse member insertion");
   var fileClock=Stopwatch.StartNew();var prepared=await s.PrepareSaveAsync(s.Revision,file);double prepareMs=fileClock.Elapsed.TotalMilliseconds;await s.ApplyAsync(s.Revision,[N(3,1,5)]);fileClock.Restart();await s.CommitSaveAsync(prepared.Revision,prepared.SaveTicket);double commitMs=fileClock.Elapsed.TotalMilliseconds;Check(s.IsDirty,"Range Save S while editing T");
   var reader=await WorkbookSession.StartAsync(binary);fileClock.Restart();await reader.OpenAsync(reader.Revision,file,discard:true);double openMs=fileClock.Elapsed.TotalMilliseconds;Check(await Value(reader,2,4)==47&&await Value(s,2,4)==22,"WB3 restores saved selection generation, not current T");
-  Check(At(await reader.ReadAsync(P(2,4),P(2,4)),2,4).Formula==" =A1+sum(A3:A1) ","Original range source survives move/reopen");
+  Check(At(await reader.ReadAsync(P(2,4),P(2,4)),2,4).Formula==" =A5+sum(A3:A1) ","Effective scalar address follows moved identity; range spelling survives reopen");
+  Check(At(await reader.ReadAsync(P(2,4),P(2,4)),2,4).AuthoredFormula==" =A1+sum(A3:A1) ","Authored source remains exact provenance");
   await reader.ApplyAsync(reader.Revision,[N(2,1,9)]);Check(await Value(reader,2,4)==56,"Reopened coordinate-area membership updates without rebind");
   Check((await reader.ReadAsync(P(7,9),P(8,9))).Cells.All(c=>c.Error.Length>0),"Range drafts survive WB3");
   await reader.DisposeAsync();Check(reader.FinalCharge==0,"Reopened SUM cleanup");

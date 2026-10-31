@@ -383,6 +383,7 @@ impl Default for Limits {
 }
 /// Typed references are stable IDs, including allocated retired IDs. No name rebinding.
 pub enum Edit {
+    ReframeSelection(selection::SelectionId, selection::Rectangle),
     RetiredSelection(selection::SelectionId),
     Selection(selection::SelectionId, selection::Rectangle),
     Placement(selection::SpaceId, u32, u32, Option<NodeId>),
@@ -1113,6 +1114,13 @@ impl Graph {
                 | Edit::Retire(id) => {
                     invalidation_sources.insert(*id);
                 }
+                Edit::ReframeSelection(id, _) => {
+                    for graph in [&*self, &*candidate] {
+                        if let Some(state) = &graph.selections {
+                            invalidation_sources.extend(state.consumers_of(*id));
+                        }
+                    }
+                }
                 Edit::Placement(space, row, column, _) => {
                     for graph in [&*self, &*candidate] {
                         if let Some(state) = &graph.selections {
@@ -1125,6 +1133,10 @@ impl Graph {
                 _ => (),
             }
             match edit {
+                Edit::ReframeSelection(id, rectangle) => {
+                    candidate.edit_selection(|state| state.reframe(id, rectangle))?;
+                    topology = true;
+                }
                 Edit::RetiredSelection(id) => {
                     #[cfg(feature = "history-experiment")]
                     candidate.history_claim_selection(id)?;

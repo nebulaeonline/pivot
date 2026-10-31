@@ -118,7 +118,8 @@ public partial class MainWindow : Window
     private static readonly DataFormat<byte[]> OldCellBlockFormat = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v1" : "application/x-pivot-cell-block-v1");
     private static readonly DataFormat<byte[]> OldCellBlock2Format = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v2" : "application/x-pivot-cell-block-v2");
     private static readonly DataFormat<byte[]> OldCellBlock3Format = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v3" : "application/x-pivot-cell-block-v3");
-    private static readonly DataFormat<byte[]> CellBlockFormat = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v4" : "application/x-pivot-cell-block-v4");
+    private static readonly DataFormat<byte[]> OldCellBlock4Format = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v4" : "application/x-pivot-cell-block-v4");
+    private static readonly DataFormat<byte[]> CellBlockFormat = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "org.pivot.cell-block-v5" : "application/x-pivot-cell-block-v5");
     private async Task ClipboardAsync(bool paste, Func<Task<string?>>? readText = null, Action<string>? diagnose = null)
     {
         if (session is null || editing || fileAction || shuttingDown || Clipboard is null) {diagnose?.Invoke("blocked at entry");return;}
@@ -149,25 +150,22 @@ public partial class MainWindow : Window
             string? value;
             if(readText is not null) value=await readText();
             else {
-                bool typed=false;
-                using(var data=await Clipboard.TryGetDataAsync()) {
-                    diagnose?.Invoke($"clipboard snapshot available={data is not null}");
-                    if(input is null && data is not null && (data.Contains(OldCellBlockFormat) || data.Contains(OldCellBlock2Format) || data.Contains(OldCellBlock3Format)) && !data.Contains(CellBlockFormat)) throw new InvalidDataException("Unsupported Pivot clipboard version; copy again using this version.");
-                    typed=input is null && data is not null && data.Contains(CellBlockFormat);
-                    if(typed) {native=await data!.TryGetValueAsync(CellBlockFormat);value="";}
-                    else value=data is null ? null : await data.TryGetTextAsync();
-                    diagnose?.Invoke($"read native={typed}; bytesAvailable={native is not null}; textAvailable={value is not null}");
+                Task<ClipboardRead.Snapshot> ReadSnapshot() {
+                    // The API verifies current clipboard ownership. Avoid an OLE
+                    // round trip for our own data; never dispose clipboard-owned data.
+                    return ClipboardRead.CaptureAsync<IAsyncDataTransfer>(Clipboard.TryGetInProcessDataAsync,Clipboard.TryGetDataAsync,async (data,owned)=>{
+                        bool typed=input is null && data is not null && data.Contains(CellBlockFormat);
+                        bool obsolete=input is null && data is not null && (data.Contains(OldCellBlockFormat) || data.Contains(OldCellBlock2Format) || data.Contains(OldCellBlock3Format) || data.Contains(OldCellBlock4Format));
+                        diagnose?.Invoke($"clipboard owned={owned}");
+                        return new(data is not null,typed,obsolete,data?.Contains(DataFormat.Text)==true,
+                            typed ? await data!.TryGetValueAsync(CellBlockFormat) : null,
+                            typed || obsolete || data is null ? null : await data.TryGetTextAsync());
+                    });
                 }
-                // A provider can advertise its private format before its bytes are readable.
-                // Retry reads only, with each snapshot disposed; never downgrade to text or replay an edit.
-                for(int retry=0;typed && native is null && retry<2;retry++) {
-                    await Task.Delay(20);
-                    if(request!=clipboardRequest || interaction!=interactionVersion) {diagnose?.Invoke("native read invalidated");return;}
-                    using var retryData=await Clipboard.TryGetDataAsync();
-                    if(retryData is null || !retryData.Contains(CellBlockFormat)) throw new InvalidDataException("Native clipboard changed or is unavailable; copy again.");
-                    native=await retryData.TryGetValueAsync(CellBlockFormat);
-                }
-                if(typed && native is null) throw new InvalidDataException("Native clipboard data is unavailable; copy again.");
+                var acquired=await ClipboardRead.AcquireAsync(ReadSnapshot,
+                    ()=>request==clipboardRequest && interaction==interactionVersion && !editing && !fileAction && !shuttingDown,
+                    diagnose);
+                native=acquired.Bytes;value=acquired.Text;
             }
             if (request!=clipboardRequest || interaction!=interactionVersion || value is null || editing || fileAction || shuttingDown || session.Revision!=revision
                 || Sheet.Selected.Row!=target.Row || Sheet.Selected.Column!=target.Column
@@ -513,6 +511,7 @@ public partial class MainWindow : Window
     private async Task SmokeAsync(string report)
     {
         await CapacityAutomationAsync(report);
+        await StructureAutomationAsync(report);
         await CsvAutomationAsync(report);
         await FillAutomationAsync(report);
         await AggregateAutomationAsync(report);
@@ -602,15 +601,34 @@ public partial class MainWindow : Window
         // Preserve the user clipboard where it contains text; non-text formats are not copied by this check.
         string? previousClipboard=await nativeClipboard.TryGetTextAsync();
         await SelectAsync(P(9,4));BeginCellEdit(true,"=1+2");Check(await CommitAsync(),"Clipboard source formula");
-        await ClipboardAsync(false);Check(await nativeClipboard.TryGetTextAsync()=="=1+2","Cell copy preserves original formula source");
+        string cellCopyTrace="";
+        await ClipboardAsync(false,diagnose:phase=>cellCopyTrace+="; "+phase);
+        await AutomationExpectClipboardTextAsync(nativeClipboard,"=1+2","Cell copy preserves original formula source",
+            ()=>cellCopyTrace+$"; editor={clipboardEditor?.Name}; draft={draftCell is not null}; editing={editing}; status={StatusLabel.Text}");
         await SelectAsync(P(9,5));await ClipboardAsync(true);
         Check(draftCell is null && !CellEditor.IsVisible && Sheet.Selected.Row==9 && Sheet.Selected.Column==5,"Cell paste commits without entering editor or moving selection");
         Check(Sheet.CellAt(P(9,5))?.Value is not null,"Native paste produces destination value: "+StatusLabel.Text+"; frameReady="+frameReady+"; editor="+(clipboardEditor?.Name ?? "none"));
         Check(WorkbookSession.Decode(Sheet.CellAt(P(9,5))!.Value)==3m && session!.IsDirty,"Pasted source calculates through Rust and marks dirty");
-        BeginCellEdit(false);CellEditor.SelectionStart=1;CellEditor.SelectionEnd=2;
-        await ClipboardAsync(false);Check(await nativeClipboard.TryGetTextAsync()=="1","Editor copies selected substring");
-        await nativeClipboard.SetTextAsync("5");await ClipboardAsync(true);
-        Check(FormulaEntry.Text=="=5+2","Editor paste replaces selected substring");CancelDraft();
+        BeginCellEdit(false);
+        // Let native focus/layout work finish before establishing the synthetic
+        // selection. Clipboard awaits may otherwise be the first dispatcher yield.
+        await global::Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(()=>{},global::Avalonia.Threading.DispatcherPriority.Background);
+        await WaitFor(()=>ReferenceEquals(FocusManager?.GetFocusedElement(),CellEditor));
+        CellEditor.SelectionStart=1;CellEditor.SelectionEnd=2;
+        string EditorClipboardState()=>$"editor={clipboardEditor?.Name}; focus={FocusManager?.GetFocusedElement()?.GetType().Name}; selection={CellEditor.SelectionStart}:{CellEditor.SelectionEnd}; caret={CellEditor.CaretIndex}; expectedSource={CellEditor.Text=="=1+2"}; selectedOne={CellEditor.SelectedText=="1"}";
+        string pasteTrace=EditorClipboardState();
+        Check(CellEditor.SelectedText=="1"&&ReferenceEquals(clipboardEditor??(inlineEditing?CellEditor:FormulaEntry),CellEditor),"Editor copy selection and routing; "+pasteTrace);
+        Task VerifyPublishedText(string expectedText,string phase)=>AutomationExpectClipboardTextAsync(nativeClipboard,
+            expectedText,phase,()=>pasteTrace+"; "+EditorClipboardState());
+        // Native publication can lag the write. Retry bounded reads only: never
+        // repeat a copy, paste or edit to obtain an acceptance pass.
+        await ClipboardAsync(false,diagnose:phase=>pasteTrace+="; copy: "+phase);
+        await VerifyPublishedText("1","Editor copies selected substring");
+        await nativeClipboard.SetTextAsync("5");
+        await VerifyPublishedText("5","Editor replacement text is published to native clipboard");
+        Check(CellEditor.SelectionStart==1&&CellEditor.SelectionEnd==2,"Editor selection remains intact before paste; "+EditorClipboardState());
+        await ClipboardAsync(true,diagnose:phase=>pasteTrace+="; "+phase);
+        Check(FormulaEntry.Text=="=5+2","Editor paste replaces selected substring; "+pasteTrace+$"; editorMatches={CellEditor.Text=="=5+2"}; sourceLength={FormulaEntry.Text?.Length}; selectionAfter={CellEditor.SelectionStart}:{CellEditor.SelectionEnd}; status={StatusLabel.Text}");CancelDraft();
         var primary=OperatingSystem.IsMacOS()?KeyModifiers.Meta:KeyModifiers.Control;
         var shortcut=new KeyEventArgs{RoutedEvent=InputElement.KeyDownEvent,Key=global::Avalonia.Input.Key.C,KeyModifiers=primary};
         Sheet.RaiseEvent(shortcut);Check(shortcut.Handled,"Platform primary copy shortcut is intercepted");
@@ -664,7 +682,7 @@ public partial class MainWindow : Window
         Check(draftCell is null && Sheet.CellAt(P(8,4))!.Error.Length>0,"Invalid formula paste commits editable Rust formula draft");
         await ClipboardAsync(true,()=>Task.FromResult<string?>(""));
         Check(draftCell is null && Sheet.CellAt(P(8,4))!.ContentCase==Cell.ContentOneofCase.Blank,"Empty paste clears cell immediately");
-        await ClipboardAsync(false);Check(await nativeClipboard.TryGetTextAsync()=="","Copying a blank cell clears stale clipboard text");
+        await ClipboardAsync(false);await AutomationExpectClipboardTextAsync(nativeClipboard,"","Copying a blank cell clears stale clipboard text");
         string beforeCancelledRead=session.Revision;
         await ClipboardAsync(true,()=>Task.FromCanceled<string?>(new CancellationToken(true)));
         Check(session.Revision==beforeCancelledRead && draftCell is null,"Cancelled clipboard operation causes no edit");
@@ -805,7 +823,7 @@ public partial class MainWindow : Window
             image.Render(this); image.Save(Path.ChangeExtension(report,".png"), PngBitmapEncoderOptions.Default);
         }
         await session!.DisposeAsync(); Check(session.FinalCharge==0,"UI session cleanup");
-        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { graphical_backend=PlatformImpl?.GetType().FullName, status="passed", region_formatting="passed: selection-wide property overwrite, full-selection Mixed, row/column headers, worksheet defaults, explicit reset/inherit and WB10 reopen", capacity="passed: 65,536-row address, select, scroll, edit, Fill, native clipboard, WB10 reopen and capacity diagnostics", csv="passed: quoted inference controls, all-quoted choices, leading zeros, Blank/empty String, calculated export and native lifecycle", basic_formatting="passed: exact Rust display, Format pane/mixed patches, graph-free styled blanks, editor exactness, native clipboard and WB10 reopen", typed_values="passed: typed literal/results, Unicode LEN, lazy IF, editor provenance, native clipboard translation and WB8 Save/reopen", multiple_worksheets="passed: Add/Rename/tabs, commit on switch, quoted effective names, stale frame rejection, per-sheet view state and WB7 Save/reopen", rectangular_fill="passed: routed four-direction menu/shortcuts, typed edge translation, identity/no-op, editor exclusion, unchanged clipboard and WB5 save/reopen", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
+        await File.WriteAllTextAsync(report, JsonSerializer.Serialize(new DesktopReport { graphical_backend=PlatformImpl?.GetType().FullName, status="passed", structure="passed: row/column menus, stable identities, local lazy reference faults, unchanged editor provenance, operand repair, CB5/Fill, clipping notice, focused band selection and WB11 persistence", region_formatting="passed: selection-wide property overwrite, full-selection Mixed, row/column headers, worksheet defaults, explicit reset/inherit and WB10 reopen", capacity="passed: 65,536-row address, select, scroll, edit, Fill, native clipboard, WB10 reopen and capacity diagnostics", csv="passed: quoted inference controls, all-quoted choices, leading zeros, Blank/empty String, calculated export and native lifecycle", basic_formatting="passed: exact Rust display, Format pane/mixed patches, graph-free styled blanks, editor exactness, native clipboard and WB10 reopen", typed_values="passed: typed literal/results, Unicode LEN, lazy IF, editor provenance, native clipboard translation and WB8 Save/reopen", multiple_worksheets="passed: Add/Rename/tabs, commit on switch, quoted effective names, stale frame rejection, per-sheet view state and WB7 Save/reopen", rectangular_fill="passed: routed four-direction menu/shortcuts, typed edge translation, identity/no-op, editor exclusion, unchanged clipboard and WB5 save/reopen", spreadsheet_aggregates="passed: actual inline MIN/MAX/AVERAGE/COUNT, blank/zero transitions, strict SUM, typed no-values, native copy and WB5 save/reopen", worksheet_binding="passed: real inline structured formulas, publication without definition changes, typed faults, rename/no-op editing, mixed A1 duplication, unchanged OS clipboard and non-savable close lifecycle", structured_projection="passed: bounded read-only bands, stable ordinary geometry, keyed stale-target rejection, detached total invocation and explicit non-savable discard/cancel lifecycle", worksheet_text="passed: inline text entry/escape, no-op editing, strict scalar/SUM errors, mixed native/TSV paste and WB5 save/reopen", startup_to_ready_ms=startupReadyMs, backend="real Rust", viewport_rows=Sheet.VisibleRows, viewport_columns=10, maximum_viewport_cells=200, remaining_charge=session.FinalCharge, arrow_edit="passed: four directions commit numeric/formula drafts, unchanged F2 preserves binding, bounds clamp, invalid numeric stays put, modified arrows/formula bar retain text editing", clipboard_checklist="passed: deterministic five-group coverage with separate OS clipboard process and actual close Save/Discard/Cancel/clean flows; physical input and native pickers excluded", rectangular_clipboard="passed: native typed rectangle and external TSV, Rust scalar/SUM transformation, destination highlighting, shape rollback and malformed-native no-fallback", rectangular_selection="passed: routed drag/shift extension, anchor/active bounds, capture cancellation, two-axis auto-scroll, Home/End/Page navigation, resize/refresh/focus preservation, no workbook mutation or computational selections, editor transition and late clipboard protection", direct_paste="passed: immediate numeric/formula/empty paste, dependent recalculation, rejected numeric correction, invalid formula draft, active-editor insertion, delayed selection/revision cancellation and conflict preservation", clipboard_focus="passed: native clipboard cell/source and substring round trips, platform shortcut interception/text suppression, native rectangular transfer and editor table rejection, inactive focus and caret option", in_place_editing="passed: routed keyboard/type entry, draft/refresh, F2/no-op versus explicit rebind, Enter/Tab/Escape/Delete, navigation, selection commit, stale/rejected retention, active-draft Save/reopen", timings=timings, note="Rendered-frame timing includes coalescing and UI scheduling, not physical display presentation." }, ReportJsonContext.Default.DesktopReport));
         allowClose = true; Close();
     }
 }

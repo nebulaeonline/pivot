@@ -1,14 +1,26 @@
 # Pivot implementation status
 
-Date: 2026-10-29
+Date: 2026-10-30
 
 ## Current direction — spreadsheet features
 
-**Owner hold and standing milestone cadence (2026-10-29).** ADR-0030 is accepted
-and closed. Only the acceptance/documentation update is authorized now; macOS
-updating and the owner's Git commit/push are pending. Do not start another design,
-implementation, validation round or other additional work. The owner will perform
-the commit/push and explicitly indicate when it is OK to proceed.
+**Current disposition and standing milestone cadence (2026-10-30).** ADR-0031 is
+accepted and closed by parent implementation review. Stable identities, local
+deleted-reference faults and normal operand repair, range affinity, sparse formatting
+and atomic publication are accepted. WB11 is the sole native format; private v9
+and CB5 apply, without obsolete readers or migrations.
+
+The parent accepts all six targets' headless/managed/Native AOT evidence, 48 clean
+application reports, 458 all-feature Rust tests, strict Clippy and resource measurements.
+macOS x64 is Rosetta coverage, not native Intel hardware. Structural timings are
+single-observation maxima, not p95. The full native headless matrix predates the C#
+clipboard correction; its later local CI and six-target managed/AOT source
+qualification are accepted. Original failures and successful recoveries stay separate.
+No further validation, reconciliation packet or AOT run is required. See the
+[accepted implementation handoff](handoffs/2026-10-30-row-column-structure.md).
+
+Stop for the owner's commit/push and explicit next go-ahead. Parent acceptance does
+not authorize starting the next milestone. No commit/push or next design has started.
 
 Follow this sequence for each milestone:
 
@@ -21,10 +33,29 @@ Follow this sequence for each milestone:
 7. Explicit owner indication that it is OK to proceed.
 8. Begin the next ADR's design work.
 
-Parent acceptance or a recommendation for the next feature does not bypass the
-commit/push and explicit owner go-ahead. Structural row/column insertion/deletion
-is a suggested next design topic only; no work on it has started or is authorized
-during this hold.
+**Next assignment — ADR-0032: Worksheet Sorting (design first, on hold).** Prepare
+the design for parent review only after the owner's commit/push and explicit go-ahead.
+The central investigation is sorting table records versus rearranging cells: compare
+moving cell identities, exchanging contents at fixed identities and an explicit
+permutation. Analyze CellIds/GraphNodeIds, scalar bindings, range operands, effective
+formula rendering and record-versus-column formatting under ADR-0030 before choosing.
+Avoid silent rebinding and unnecessary identities.
+
+Define selected-rectangle sorting by one or more column keys, ascending/descending
+directions, stable equal-key ordering and explicit first-row/header exclusion.
+Specify whether row segments move together, mixed Decimal/Boolean/String comparisons, blanks,
+errors and calculated keys. Propose a familiar Sort interface and one atomic sparse
+workbook/graph transformation with captures, stale requests, cancellation and admission
+preserved. Design for 65,536 cells and actual selected data/relevant state rather
+than virtual area; retain current limits unless a concrete change is justified.
+Deliver semantics, identity/reference/formatting tradeoffs, architecture, resource/
+performance expectations and validation including persistence. No obsolete-version
+compatibility work is assigned.
+
+Sorting only: no filtering, hidden rows, structured tables, grouping, merges,
+Undo/Redo or general query subsystem. ADR-0023 stays parked at G3. Filtering is a
+later candidate, provisionally ADR-0033, to be decided after the sorting design.
+Recording this assignment does not begin design or implementation.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;
@@ -180,7 +211,9 @@ reported explicitly without claiming success, rollback or unchanged destination.
 No file-broker rewrite is assigned. Retain original failure evidence and follow
 the accepted artifact-retention policy.
 [Single implementation handoff and validation evidence](handoffs/2026-10-29-csv-import-export.md).
-Row/column insertion/deletion and sorting/filtering remain roadmap suggestions.
+At this milestone, row/column insertion/deletion and sorting/filtering remained
+roadmap suggestions. ADR-0031 subsequently delivered structural editing; ADR-0032
+sorting design is now assigned but held as described above.
 ADR-0023 remains parked at G3.
 
 **Production workbook capacity: [ADR-0029](adr/0029-production-workbook-capacity.md)
@@ -231,8 +264,9 @@ Use worksheet defaults are implemented. Exact values, graph-free styled blanks,
 position ownership and complete Copy/Paste/Fill/Move snapshots are preserved.
 Whole-sheet formatting does not enumerate its coordinates or allocate graph cells.
 
-WB10 is the sole native format, with explicit obsolete-version rejection and no WB9
-reader/conversion/migration. Private v8 and unchanged CB4/frozen hosted v1 apply.
+At ADR-0030, WB10 was the sole native format, with explicit obsolete-version rejection
+and no WB9 reader/conversion/migration. Private v8 and CB4 applied; ADR-0031 below
+supersedes those experimental formats. Frozen hosted v1 remains unchanged.
 451 local all-feature test executions and strict Clippy pass. Native Windows x64,
 Linux x64 and macOS ARM64 headless CI passed 13/13 each; attended managed and Native
 AOT suites passed on all three, yielding 24 successful graphical application reports,
@@ -251,11 +285,40 @@ full-size compact peak stayed below 512 MiB. The maximum 65,536-region checkerbo
 saved/reopened in under 57/34 ms on all targets; normalization remained within the
 original work quota after correcting unnecessary global sorts. Fragmentation remains
 bounded and fails atomically. Strings such as `001234` retain exact content and type.
-Structural insertion/deletion needs a subsequent semantic design and is not included.
+Structural insertion/deletion was outside ADR-0030 and was subsequently delivered
+by ADR-0031.
 ADR-0023 remains parked at G3; no production history integration is authorized.
 
+## ADR-0031 — row and column structure: accepted and closed
+
+Parent implementation review accepts and closes ADR-0031 (2026-10-30). Complete-row/
+column insertion/deletion preserves surviving identities and scalar bindings, protects
+computational tails including Blank anchors, and retires deleted identities without
+reuse. Deleted operands produce local `ReferenceDeleted` / `#REF!`; normal operand
+editing repairs them, while new occupants never cause automatic rebinding. Range
+affinity, stable SelectionIds, cross-sheet behavior, sparse formatting inheritance,
+explicit defaults, actual-clipping notices and complete-state no-ops are accepted
+under one atomic workbook/graph publication.
+
+The ARM64-discovered clipboard correction is accepted with ownership/disposal,
+native-format refusal, stale-interaction checks and non-replay behavior intact.
+All six designated targets passed headless CI and attended managed/Native AOT GUI
+acceptance: 48 successful application reports, zero final runtime charges and no
+owned survivors. Parent accepts the later C# clipboard source qualification, 458
+all-feature Rust tests, strict Clippy and independent correctness oracles.
+The compact corpus retained about 251.2 MiB with four old roots and peaked at about
+489.36 MiB through Save/reopen, within unchanged 256/512 MiB objectives. Structural
+command maxima are single observations, not percentiles; macOS x64 is Rosetta,
+not native Intel coverage. Original failures and successful recoveries remain separate.
+[Accepted implementation handoff and evidence](handoffs/2026-10-30-row-column-structure.md).
+
+WB11-only, private v9 and CB5 are accepted; obsolete readers and migrations are not
+required. No further validation cycle, reconciliation packet or AOT run is required.
+Stop for the owner's commit/push and explicit go-ahead before beginning the assigned
+ADR-0032 sorting design. ADR-0023 remains parked at G3.
+
 Before real users depend on saved workbooks, revisit the compatibility policy and
-define a deliberate support commitment. WB10 is the sole native format. Until an explicit external
+define a deliberate support commitment. WB11 is the sole native format. Until an explicit external
 compatibility commitment is made, justified experimental format changes may break
 compatibility; do not automatically add old readers or migrations. Historical
 artifacts remain evidence, not current test dependencies.

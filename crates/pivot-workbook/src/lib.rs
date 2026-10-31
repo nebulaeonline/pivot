@@ -20,6 +20,7 @@ pub mod formatting;
 pub mod history_experiment;
 mod persistent;
 mod sheets;
+pub mod structure;
 pub use fill::FillDirection;
 pub use sheets::SheetInfo;
 #[doc(hidden)]
@@ -343,33 +344,72 @@ fn graph_error(e: impl std::fmt::Display) -> Error {
     Error::Graph(e.to_string())
 }
 
-#[derive(Debug, PartialEq, Eq)]
 struct Record {
     worksheet: WorksheetId,
     position: Option<Position>,
+    payload: pivot_core::model::integration::resources::Shared<RecordPayload>,
+}
+#[derive(Debug, PartialEq, Eq)]
+struct RecordPayload {
     content: Option<Content>,
+}
+impl std::ops::Deref for Record {
+    type Target = RecordPayload;
+    fn deref(&self) -> &Self::Target {
+        &self.payload
+    }
+}
+impl PartialEq for Record {
+    fn eq(&self, other: &Self) -> bool {
+        self.worksheet == other.worksheet
+            && self.position == other.position
+            && self.content == other.content
+    }
+}
+impl Eq for Record {}
+impl std::fmt::Debug for Record {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Record")
+            .field("worksheet", &self.worksheet)
+            .field("position", &self.position)
+            .field("content", &self.content)
+            .finish()
+    }
+}
+impl Record {
+    fn new(
+        memory: &pivot_core::model::integration::resources::Memory,
+        worksheet: WorksheetId,
+        position: Option<Position>,
+        content: Option<Content>,
+    ) -> Result<Self> {
+        Ok(Self {
+            worksheet,
+            position,
+            payload: memory
+                .alloc(RecordPayload { content })
+                .map_err(|_| Error::Limit)?,
+        })
+    }
+    fn set_content(
+        &mut self,
+        memory: &pivot_core::model::integration::resources::Memory,
+        content: Option<Content>,
+    ) -> Result<()> {
+        self.payload = memory
+            .alloc(RecordPayload { content })
+            .map_err(|_| Error::Limit)?;
+        Ok(())
+    }
 }
 impl Clone for Record {
     fn clone(&self) -> Self {
         #[cfg(feature = "scaling-experiment")]
-        pivot_core::experiment_profile::copy(
-            std::mem::size_of::<Self>()
-                + match &self.content {
-                    Some(Content::Formula { source, tokens }) => {
-                        source.len() + tokens.len() * std::mem::size_of::<Token>()
-                    }
-                    Some(Content::TextFormula(f)) => {
-                        f.original_source.len()
-                            + f.tokens.len() * std::mem::size_of::<Token>()
-                            + f.references.len() * std::mem::size_of::<FormulaReference>()
-                    }
-                    _ => 0,
-                },
-        );
+        pivot_core::experiment_profile::copy(std::mem::size_of::<Self>());
         Self {
             worksheet: self.worksheet,
             position: self.position,
-            content: self.content.clone(),
+            payload: self.payload.clone(),
         }
     }
 }

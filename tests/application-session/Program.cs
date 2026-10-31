@@ -4,6 +4,12 @@ using System.Text.Json;
 using Pivot.Client;
 using Pivot.Protocol.Application.V1;
 
+await ClipboardReadChecks.Run();
+if(args.Length==1&&args[0]=="--clipboard-read-checks") {
+    Console.WriteLine("Clipboard read checks: PASS (delayed text/native, exact Strings, empty text, obsolete/type changes, bounded exhaustion and stale interactions)");
+    return;
+}
+
 static Position P(uint row, uint col) => new() { Row = row, Column = col };
 static Edit N(uint row, uint col, decimal value) => new() { At = P(row,col), Number = WorkbookSession.Encode(value) };
 static Edit F(uint row, uint col, string source) => new() { At = P(row,col), Formula = source };
@@ -34,6 +40,7 @@ await CsvChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPa
 await RoundingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await FormattingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await RegionChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
+await StructureChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await TypedChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await WorksheetChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await FillChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());

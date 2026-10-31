@@ -180,6 +180,14 @@ impl Batch {
         }
         self.push(Edit::Invalid(id, source.into(), error), source.len())
     }
+    /// Trusted structural candidate only; ordinary definition keeps its conflict guard.
+    pub fn reframe_selection(
+        &mut self,
+        id: selection::SelectionId,
+        rectangle: selection::Rectangle,
+    ) -> Result<(), ModelError> {
+        self.push(Edit::ReframeSelection(id, rectangle), 128)
+    }
     pub fn restore_retired_selection(
         &mut self,
         id: selection::SelectionId,

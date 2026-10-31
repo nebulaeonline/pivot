@@ -30,7 +30,10 @@ public sealed partial class WorksheetView : Control
     public uint FirstColumn { get; private set; } = 1;
     public int VisibleRows => Math.Clamp((int)(Bounds.Height / HeightPerCell) - 1, 1, Rows);
     private Position active = new() { Row=1, Column=1 }, anchor = new() { Row=1, Column=1 };
-    public Position Selected => active.Clone();
+    private Position? structuralFocus;
+    public Position Selected => (structuralFocus??active).Clone();
+    public Position SelectionActive=>active.Clone();
+    public Position? SelectionFocus=>structuralFocus?.Clone();
     public Position Anchor => anchor.Clone();
     public Position SelectionFirst => new() { Row=Math.Min(anchor.Row,active.Row), Column=Math.Min(anchor.Column,active.Column) };
     public Position SelectionLast => new() { Row=Math.Max(anchor.Row,active.Row), Column=Math.Max(anchor.Column,active.Column) };
@@ -41,12 +44,14 @@ public sealed partial class WorksheetView : Control
     private bool dragReady, selectionPending;
     private long gesture;
     private Position previousAnchor = new() { Row=1,Column=1 }, previousActive = new() { Row=1,Column=1 };
+    private Position? previousStructuralFocus;
     public bool IsSelecting => dragPointer is not null;
     public bool IsSelectionPending => selectionPending;
     public event Action? ViewportChanged;
     public event Action? SelectionChanged;
     public Func<Position, bool, bool, Func<bool>, Task<bool>>? SelectionRequested { get; set; }
-    public void RestoreView(uint firstRow,uint firstColumn,Position selectedAnchor,Position selectedActive) {
+    public void RestoreView(uint firstRow,uint firstColumn,Position selectedAnchor,Position selectedActive,Position? focus=null) {
+        structuralFocus=focus?.Clone();
         EndPointerSelection(false);
         FirstRow=Math.Clamp(firstRow,1,(uint)WorkbookCapacity.MaximumRows+1-(uint)VisibleRows);FirstColumn=Math.Clamp(firstColumn,1,1025-Columns);
         anchor=new(){Row=Math.Clamp(selectedAnchor.Row,1,WorkbookCapacity.MaximumRows),Column=Math.Clamp(selectedAnchor.Column,1,1024)};
@@ -120,7 +125,7 @@ public sealed partial class WorksheetView : Control
         if(ProjectionTargetAt(point) is { } projected){EndPointerSelection(false);e.Handled=true;if(ProjectionRequested is not null)await ProjectionRequested(projected);return;}
         var ordinary=PositionAt(point);if(ordinary is null)return;
         EndPointerSelection(false);
-        previousAnchor=Anchor; previousActive=Selected;
+        previousAnchor=Anchor; previousActive=SelectionActive;previousStructuralFocus=SelectionFocus;
         long current=++gesture;
         dragPointer=e.Pointer; dragPoint=point; dragReady=false;
         e.Pointer.Capture(this); Focus(); e.Handled=true;
@@ -167,14 +172,19 @@ public sealed partial class WorksheetView : Control
         dragPointer=null; dragReady=false; dragTimer.Stop();
         if(!allowPending) { ++gesture; selectionPending=false; }
         pointer?.Capture(null);
-        if(restore) { anchor=previousAnchor.Clone(); active=previousActive.Clone(); InvalidateVisual(); SelectionChanged?.Invoke(); Reveal(active); }
+        if(restore) { anchor=previousAnchor.Clone(); active=previousActive.Clone();structuralFocus=previousStructuralFocus?.Clone(); InvalidateVisual(); SelectionChanged?.Invoke(); Reveal(Selected); }
+    }
+    public void SelectStructuralBand(Position first,Position last,Position focus) {
+        if(first.Row<1||first.Column<1||last.Row>WorkbookCapacity.MaximumRows||last.Column>WorkbookCapacity.MaximumColumns||first.Row>last.Row||first.Column>last.Column||focus.Row<first.Row||focus.Row>last.Row||focus.Column<first.Column||focus.Column>last.Column)throw new ArgumentOutOfRangeException(nameof(focus));
+        anchor=first.Clone();active=last.Clone();structuralFocus=focus.Clone();InvalidateVisual();SelectionChanged?.Invoke();
     }
     public void Select(Position at, bool extend=false)
     {
+        bool hadStructuralFocus=structuralFocus is not null;structuralFocus=null;
         if(at.Row is <1 or >WorkbookCapacity.MaximumRows || at.Column is <1 or >1024) throw new ArgumentOutOfRangeException(nameof(at));
         if(ProjectedSelection is not null){ProjectedSelection=null;MissingProjectedRecord=false;ProjectedSelectionChanged?.Invoke();}
         if(!extend) anchor=at.Clone();
-        if(active.Row==at.Row && active.Column==at.Column && extend) return;
+        if(active.Row==at.Row && active.Column==at.Column && extend && !hadStructuralFocus) return;
         active=at.Clone(); InvalidateVisual(); SelectionChanged?.Invoke();
     }
     public Rect CellBounds(Position at) => new(Header + ((int)at.Column - FirstColumn) * WidthPerCell,
@@ -189,7 +199,7 @@ public sealed partial class WorksheetView : Control
         base.Render(context);
         var border = new Pen(Brushes.LightGray, 1);
         context.FillRectangle(Brushes.White, new Rect(Bounds.Size));
-        var first=SelectionFirst; var last=SelectionLast;
+        var first=SelectionFirst; var last=SelectionLast;var focused=Selected;
         for (int row = -1; row < VisibleRows; row++) for (int col = -1; col < Columns; col++) {
             double x = col < 0 ? 0 : Header + col * WidthPerCell;
             double y = (row + 1) * HeightPerCell;
@@ -197,7 +207,7 @@ public sealed partial class WorksheetView : Control
             uint r = FirstRow + (uint)Math.Max(row, 0), c = FirstColumn + (uint)Math.Max(col, 0);
             if(row>=0 && RenderProjection(context,row,col,rect))continue;
             if(row>=0 && ProjectionFrame is not null)r=MappedRow(row)!.OrdinaryRow;
-            bool selected = row >= 0 && col >= 0 && r == active.Row && c == active.Column;
+            bool selected = row >= 0 && col >= 0 && r == focused.Row && c == focused.Column;
             bool region = row >= 0 && col >= 0 && r>=first.Row && r<=last.Row && c>=first.Column && c<=last.Column;
             var style=row>=0&&col>=0 ? StyleAt(new Position{Row=r,Column=c}) : new CellStyle();
             IBrush fill=row<0 || col<0 ? Brushes.WhiteSmoke : selected ? Brushes.White : region ? ActiveFocus ? Brushes.AliceBlue : Brushes.WhiteSmoke : Brushes.White;
@@ -207,7 +217,7 @@ public sealed partial class WorksheetView : Control
             if (row < 0 && col >= 0) text = Address(new Position { Row = 1, Column = c }).TrimEnd('1');
             else if (row >= 0 && col < 0) text = r.ToString(CultureInfo.InvariantCulture);
             else if (row >= 0 && col >= 0 && cells.TryGetValue((r, c), out var cell)) {
-                if (cell.Error.Length > 0) { text = "#ERROR"; ink = Brushes.Firebrick; }
+                if (cell.Error.Length > 0) { text = cell.ErrorCode=="ReferenceDeleted"?"#REF!":"#ERROR"; ink = Brushes.Firebrick; }
                 else if (cell.ContentCase == Cell.ContentOneofCase.Text) text = cell.Text;
                 else if (cell.ContentCase != Cell.ContentOneofCase.Blank) text = cell.FormattedNumber.Length>0 ? cell.FormattedNumber : WorkbookSession.DisplayValue(cell);
             }

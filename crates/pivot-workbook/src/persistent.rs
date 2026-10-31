@@ -30,20 +30,35 @@ impl Key for Position {}
 impl Key for CellId {}
 impl Footprint for CellId {}
 impl Footprint for Binding {}
+fn fault_bytes(tokens: &[Token]) -> usize {
+    tokens
+        .iter()
+        .map(|t| {
+            if let Token::Typed(pivot_core::typed::Op::ReferenceDeleted(s), _) = t {
+                s.capacity()
+            } else {
+                0
+            }
+        })
+        .sum()
+}
 fn content_size(content: &Option<Content>) -> (usize, usize, usize) {
     match content {
         Some(Content::LiteralText(text)) => (0, text.len(), 0),
         Some(Content::StructuredFormula(f)) => (f.tokens().len(), f.source().len(), 0),
-        Some(Content::Formula { source, tokens }) => (tokens.len(), source.len(), 0),
+        Some(Content::Formula { source, tokens }) => {
+            (tokens.len(), source.len(), fault_bytes(tokens))
+        }
         Some(Content::TextFormula(f)) => (
             f.tokens.len(),
             f.original_source.len(),
-            f.references.len() * std::mem::size_of::<FormulaReference>(),
+            f.references.len() * std::mem::size_of::<FormulaReference>() + fault_bytes(&f.tokens),
         ),
         _ => (0, 0, 0),
     }
 }
-impl Footprint for Record {
+impl Footprint for Record {}
+impl Footprint for RecordPayload {
     fn heap_bytes(&self) -> usize {
         match &self.content {
             Some(Content::LiteralText(text)) => text.capacity(),
@@ -136,8 +151,11 @@ impl Data {
         }
         #[cfg(feature = "history-experiment")]
         {
-            let old = self.records.get(&id).map_or(0, |r| (**r).heap_bytes());
-            self.history_payload = self.history_payload - old + record.heap_bytes();
+            let old = self
+                .records
+                .get(&id)
+                .map_or(0, |r| (*r.payload).heap_bytes());
+            self.history_payload = self.history_payload - old + (*record.payload).heap_bytes();
         }
         let shared = self.memory.alloc(record).map_err(|_| Error::Limit)?;
         self.records
@@ -251,7 +269,7 @@ fn cell_ref(book: &Workbook, id: CellId) -> CellRef {
 fn view_heap(record: &Record) -> usize {
     match &record.content {
         Some(Content::StructuredFormula(f)) => f.source().len() + std::mem::size_of_val(f.tokens()),
-        _ => record.heap_bytes(),
+        _ => (*record.payload).heap_bytes(),
     }
 }
 fn owned_content(record: &Record) -> Option<Content> {
@@ -354,14 +372,13 @@ impl Transaction<'_> {
         self.journal
             .positions
             .insert(sheets::at(worksheet, position));
-        self.data.record(
-            id,
-            Record {
-                worksheet,
-                position: Some(position),
-                content: Some(Content::Blank),
-            },
+        let record = Record::new(
+            &self.data.memory,
+            worksheet,
+            Some(position),
+            Some(Content::Blank),
         )?;
+        self.data.record(id, record)?;
         self.data
             .positions
             .insert_private(sheets::at(worksheet, position), id)
@@ -396,14 +413,8 @@ impl Transaction<'_> {
                 .insert(sheets::at(self.book.worksheet, position));
         }
         let worksheet = self.data.records.get(&id).unwrap().worksheet;
-        self.data.record(
-            id,
-            Record {
-                worksheet,
-                position,
-                content: Some(content),
-            },
-        )
+        let record = Record::new(&self.data.memory, worksheet, position, Some(content))?;
+        self.data.record(id, record)
     }
     fn resolve(
         &mut self,
@@ -864,14 +875,8 @@ impl Transaction<'_> {
                     .positions
                     .remove(&sheets::at(self.book.worksheet, *position))
                     .map_err(|_| Error::Limit)?;
-                self.data.record(
-                    id,
-                    Record {
-                        worksheet: self.book.worksheet,
-                        position: None,
-                        content: None,
-                    },
-                )?;
+                let record = Record::new(&self.data.memory, self.book.worksheet, None, None)?;
+                self.data.record(id, record)?;
                 self.data.live -= 1;
             }
         }
@@ -1336,6 +1341,18 @@ pub(super) fn validate(book: &Workbook, expected: Expected) -> Result<Vec<Diagno
         }
         if let Some(Content::TextFormula(f)) = &record.content {
             for reference in &f.references {
+                if f.tokens.iter().any(|t| {
+                    crate::structure::origin_of(t)
+                        .ok()
+                        .flatten()
+                        .is_some_and(|o| {
+                            o.kind == 1
+                                && o.target == reference.target.cell.uuid()
+                                && o.worksheet == reference.target.worksheet
+                        })
+                }) {
+                    continue;
+                }
                 if p.records
                     .get(&reference.target.cell)
                     .unwrap()

@@ -33,6 +33,17 @@ public partial class MainWindow
             await Task.Delay(10);
         }
     }
+    private static async Task AutomationExpectClipboardTextAsync(IClipboard clipboard,string? expected,
+        string message,Func<string>? state=null)
+    {
+        var clock=Stopwatch.StartNew();string? observed;
+        do {
+            observed=await clipboard.TryGetTextAsync();
+            if(observed==expected)return;
+            await Task.Delay(20);
+        }while(clock.Elapsed<TimeSpan.FromSeconds(1));
+        throw new InvalidOperationException(message+$"; expectedLength={expected?.Length}; observedLength={observed?.Length}; "+state?.Invoke());
+    }
     private void AutomationImage(string path)
     {
         using var image=new RenderTargetBitmap(new PixelSize((int)Bounds.Width,(int)Bounds.Height));
@@ -93,13 +104,17 @@ public partial class MainWindow
             await session.ApplyAsync(session.Revision,[new Edit{At=AutomationPosition(12,2),Number=WorkbookSession.Encode(99m)}]);await RefreshAsync();
             await SelectAsync(AutomationPosition(12,1));await ClipboardStepAsync(true,"12-paste");
             AutomationCheck(RequiredCell(12,2).ContentCase==Cell.ContentOneofCase.Blank,"Blank overwrites occupied destination");
+            var obsoleteItem=new DataTransferItem();obsoleteItem.Set(OldCellBlock4Format,new byte[]{1});obsoleteItem.SetText("001234");
+            var obsoleteTransfer=new DataTransfer();obsoleteTransfer.Add(obsoleteItem);await clipboard.SetDataAsync(obsoleteTransfer);
+            string obsoleteRevision=session.Revision;await ClipboardStepAsync(true,"obsolete-cb4");
+            AutomationCheck(session.Revision==obsoleteRevision && StatusLabel.Text?.Contains("Unsupported Pivot clipboard version")==true,"Obsolete CB4 is rejected without interpreting its text fallback");
             AutomationImage(Path.ChangeExtension(report,"checklist.png"));
             await session.NewAsync(session.Revision,discard:true);await RefreshAsync();
             await session.ApplyAsync(session.Revision,[new Edit{At=AutomationPosition(1,1),Number=WorkbookSession.Encode(10m)},new Edit{At=AutomationPosition(1,2),Formula="=A1+1"}]);await RefreshAsync();
             await SelectAsync(AutomationPosition(1,1));MoveTarget.Text="A5";MoveClick(null,new RoutedEventArgs());
             await AutomationWaitAsync(()=>!editing && Sheet.CellAt(AutomationPosition(5,1)) is not null);
             await SelectAsync(AutomationPosition(1,2));await ClipboardStepAsync(false,"13-copy");await SelectAsync(AutomationPosition(2,2));await ClipboardStepAsync(true,"14-paste");
-            AutomationCheck(RequiredCell(2,2).Formula=="=A6+1" && RequiredCell(1,2).Formula=="=A1+1","UI move then copy uses effective binding");
+            AutomationCheck(RequiredCell(2,2).Formula=="=A6+1" && RequiredCell(1,2).Formula=="=A5+1" && RequiredCell(1,2).AuthoredFormula=="=A1+1","UI move then copy uses effective binding and preserves authored provenance");
             await session.NewAsync(session.Revision,discard:true);await RefreshAsync();
             await session.ApplyAsync(session.Revision,[new Edit{At=AutomationPosition(2,2),Formula="= A2 + $A2 + A$2 + $A$2"}]);await RefreshAsync();
             await SelectAsync(AutomationPosition(2,2));await ClipboardStepAsync(false,"15-copy");await SelectAsync(AutomationPosition(5,4));await ClipboardStepAsync(true,"16-paste");

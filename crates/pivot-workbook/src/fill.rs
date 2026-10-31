@@ -152,6 +152,48 @@ impl Workbook {
             Some(Content::Formula { source, tokens }) => (source, tokens),
             Some(Content::StructuredFormula(f)) => (f.source().into(), f.tokens().to_vec()),
         };
+        if !bound.iter().any(|t| matches!(t, Token::Output(_))) {
+            let (text, faults) = crate::structure::render(
+                &text,
+                &bound,
+                &capture.pinned,
+                self.sheets(),
+                self.limits.source_bytes,
+            )?;
+            let effective = clipboard::references(&text)?
+                .0
+                .into_iter()
+                .map(|r| Position::new(r.row, r.column))
+                .collect::<Vec<_>>();
+            let (source, tokens, references) = clipboard::transform_mode(
+                &text,
+                &effective,
+                i64::from(at.row) - i64::from(from.row),
+                i64::from(at.column) - i64::from(from.column),
+                self.rows.length,
+                self.columns.length,
+                false,
+            )?;
+            work.source(source.len())?;
+            work.tokens += tokens;
+            work.references += references;
+            work.check()?;
+            let (mut tokens, _, diagnostic) = Self::lower_text_axes(
+                &self.rows,
+                &self.columns,
+                &expression::parse_spreadsheet(&source),
+                None,
+            );
+            if diagnostic.is_some() {
+                return Err(Error::InvalidDraft);
+            }
+            crate::structure::attach_faults(&mut tokens, &faults, true)?;
+            return Ok(Edit::SetFormula {
+                position: at,
+                source,
+                tokens,
+            });
+        }
         let text = sheets::render_source(&text, &bound, self.sheets(), self.limits.source_bytes)?;
         work.source(text.len())?;
         work.tokens += bound.len();

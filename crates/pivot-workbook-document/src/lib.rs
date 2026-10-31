@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 64 * 1024 * 1024;
-const MAGIC: &[u8; 9] = b"PIVOTWB10";
+const MAGIC: &[u8; 9] = b"PIVOTWB11";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -89,7 +89,9 @@ impl Writer {
         self.n(arity as u64);
         match op {
             pivot_core::typed::Op::Boolean(b) => self.n(u64::from(*b)),
-            pivot_core::typed::Op::String(s) => self.text(s),
+            pivot_core::typed::Op::String(s) | pivot_core::typed::Op::ReferenceDeleted(s) => {
+                self.text(s)
+            }
             _ => (),
         }
     }
@@ -297,6 +299,7 @@ impl<'a> Reader<'a> {
                 _ => return Err(malformed()),
             }),
             1 => Op::String(self.text()?),
+            18 => Op::ReferenceDeleted(self.text()?),
             _ => Op::from_code(code).ok_or_else(malformed)?,
         };
         if !op.valid_arity(arity) {
@@ -637,15 +640,15 @@ impl Document {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Limit);
         }
-        for version in [
-            "WB1", "WB2", "WB3", "WB4", "WB5", "WB6", "WB7", "WB8", "WB9",
-        ] {
-            if !bytes.starts_with(MAGIC) && bytes.starts_with(format!("PIVOT{version}").as_bytes())
-            {
-                return Err(Error::Graph(format!(
-                    "unsupported native workbook version {version}; WB10 required"
-                )));
-            }
+        if bytes.starts_with(b"PIVOTWB") && !bytes.starts_with(MAGIC) {
+            let version: String = bytes[7..]
+                .iter()
+                .take_while(|b| b.is_ascii_digit())
+                .map(|b| *b as char)
+                .collect();
+            return Err(Error::Graph(format!(
+                "unsupported native workbook version WB{version}; WB11 required"
+            )));
         }
         if bytes.len() < 49 || !bytes.starts_with(MAGIC) {
             return Err(malformed());
@@ -1017,7 +1020,25 @@ impl Document {
                             }
                         }
                         let mut refs = f.references.iter();
-                        for (syntax, bound) in syntax.iter().zip(&f.tokens) {
+                        for (index, (syntax, bound)) in syntax.iter().zip(&f.tokens).enumerate() {
+                            if pivot_workbook::structure::structural_syntax(
+                                syntax,
+                                bound,
+                                index.checked_sub(1).and_then(|i| f.tokens.get(i)),
+                            )? {
+                                if matches!(syntax, Token::At(_)) {
+                                    let r = refs.next().ok_or_else(malformed)?;
+                                    let o = pivot_workbook::structure::origin_of(bound)?
+                                        .ok_or_else(malformed)?;
+                                    if r.target.cell.uuid() != o.target
+                                        || r.target.worksheet != o.worksheet
+                                        || r.node.uuid() != o.node
+                                    {
+                                        return Err(malformed());
+                                    }
+                                }
+                                continue;
+                            }
                             match syntax {
                                 Token::QualifierAt { span, .. } => {
                                     if !matches!(bound,Token::Qualifier{worksheet,span:s} if sheet_ids.contains(worksheet) && span==s)
@@ -1039,7 +1060,12 @@ impl Document {
                                         ..
                                     } = bound
                                     {
-                                        if kind != k || first != a || last != b || span != s {
+                                        if kind != k
+                                            || (first.row <= last.row) != (a.row <= b.row)
+                                            || (first.column <= last.column)
+                                                != (a.column <= b.column)
+                                            || span != s
+                                        {
                                             return Err(malformed());
                                         }
                                     } else {
@@ -1081,6 +1107,23 @@ impl Document {
                     .position(|n| *n == node.uuid())
                     .ok_or_else(malformed)?;
                 for t in tokens {
+                    if let Some(o) = pivot_workbook::structure::origin_of(t)? {
+                        if o.kind == 1 {
+                            let id = CellId::from_uuid(o.target);
+                            let r = records.get(&id).ok_or_else(malformed)?;
+                            if r.position.is_some()
+                                || r.worksheet != o.worksheet
+                                || portable.get(&id).map(|n| n.uuid()) != Some(o.node)
+                            {
+                                return Err(malformed());
+                            }
+                        }
+                        if o.kind == 2
+                            && selection_map.get(&SelectionId(*o.target.as_bytes())) != Some(&None)
+                        {
+                            return Err(malformed());
+                        }
+                    }
                     if matches!(t, Token::Qualifier { .. }) {
                         continue;
                     }

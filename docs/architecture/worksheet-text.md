@@ -3,15 +3,21 @@
 [ADR-0028](../adr/0028-csv-import-export.md) adds CSV interchange with quotation
 provenance and configurable numeric inference. Stored String values may contain
 CR, LF and tabs for CSV data; direct entry retains its single-line restrictions.
-Native WB9, CB4 and Fill preserve those stored values. Other control characters
+Current native WB11, CB5 and Fill preserve those stored values. Other control characters
 and Unicode line/paragraph separators retain their existing rejection policy.
 The sections below preserve earlier milestone history and representation names.
 
-Current source: [ADR-0025](../adr/0025-typed-spreadsheet-values.md) makes literal and
-calculated strings genuine graph values. Boolean/String results, WB8, private v6
-and CB3 supersede the original numeric-marker representation described below.
+The accepted [ADR-0031](../adr/0031-row-column-structure.md) adds stable row/column
+transformations and local `#REF!` operands without reinterpreting String content.
+Authored source remains provenance; effective formula text follows live coordinates
+or displays the deleted-reference fault. Unchanged editor commits preserve provenance;
+normal operand edits repair faults. WB11/private v9/CB5 supersede earlier formats.
+
+At [ADR-0025](../adr/0025-typed-spreadsheet-values.md), literal and
+calculated strings became genuine graph values. Boolean/String results, WB8, private v6
+and CB3 superseded the original numeric-marker representation described below.
 An apostrophe alone now creates an empty String; clear creates Blank.
-Implementation and scoped validation are complete; parent implementation review is pending.
+That implementation and its scoped validation were accepted and closed.
 
 ADR-0018 is accepted; the bounded implementation passes Windows/Linux/native Mac
 managed and Native AOT validation. Implementation and escape-overhead clarification are accepted; the milestone is closed. [Semantics](../adr/0018-document-owned-worksheet-text.md),

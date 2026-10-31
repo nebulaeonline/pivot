@@ -27,7 +27,7 @@ internal static class TypedChecks {
    try{await s.PasteBlockAsync(s.Revision,P(20),P(20),obsolete,true);throw new Exception("obsolete clipboard accepted");}catch(WorkbookSessionException){}Check(s.Revision==before,"obsolete native clipboard atomic refusal");
    string root=Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath();Directory.CreateDirectory(root);
    string path=Path.Combine(root,"typed-"+Guid.NewGuid()+".pivot");
-   await s.SaveAsync(s.Revision,path);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..9])=="PIVOTWB10","WB8");
+   await s.SaveAsync(s.Revision,path);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..9])=="PIVOTWB11","WB8");
    byte[] old=await File.ReadAllBytesAsync(path);old[7]=(byte)'7';string oldPath=path+".wb7";await File.WriteAllBytesAsync(oldPath,old);before=s.Revision;
    try{await s.OpenAsync(before,oldPath);throw new Exception("WB7 accepted");}catch(WorkbookSessionException){}Check(s.Revision==before&&!s.IsDirty,"WB7 refusal preserves clean workbook");
    await s.OpenAsync(s.Revision,path);

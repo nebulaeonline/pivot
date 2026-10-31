@@ -29,7 +29,7 @@ public partial class MainWindow {
         var clipboard=Clipboard ?? throw new InvalidOperationException("Clipboard unavailable");
         string? previousClipboard=await clipboard.TryGetTextAsync();
         try {await clipboard.SetTextAsync("binding-copy-sentinel");await ClipboardAsync(false);
-            AutomationCheck(await clipboard.TryGetTextAsync()=="binding-copy-sentinel","Unsupported OS Copy leaves clipboard unchanged");
+            await AutomationExpectClipboardTextAsync(clipboard,"binding-copy-sentinel","Unsupported OS Copy leaves clipboard unchanged");
         }finally{if(previousClipboard is null)await clipboard.ClearAsync();else await clipboard.SetTextAsync(previousClipboard);}
         await s.DuplicateBlockAsync(AutomationPosition(1,1),AutomationPosition(1,1),AutomationPosition(12,2),AutomationPosition(12,2));
         await s.ApplyAsync(s.Revision,[new Edit{At=AutomationPosition(12,3),Number=WorkbookSession.Encode(7)}]);

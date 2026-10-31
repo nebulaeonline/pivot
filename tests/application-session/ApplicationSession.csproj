@@ -4,4 +4,5 @@
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../../clients/dotnet/Pivot.Client/Pivot.Client.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../../clients/dotnet/Pivot.Desktop/ClipboardRead.cs" Link="ClipboardRead.cs" /></ItemGroup>
 </Project>

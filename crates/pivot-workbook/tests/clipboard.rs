@@ -321,7 +321,7 @@ fn tampered_native_shape_types_annotations_and_trailing_bytes_reject_atomically(
         variants.push(bad);
         let mut bad = bytes.clone();
         let len = bad.len();
-        bad[len - 4..].copy_from_slice(&0u32.to_le_bytes());
+        bad[len - 8..len - 4].copy_from_slice(&0u32.to_le_bytes());
         variants.push(bad);
         let mut bad = bytes.clone();
         bad.push(0);
@@ -462,6 +462,11 @@ fn copied_rejected_state_is_preserved_until_explicit_resubmission() {
         assert_eq!(f.original_source, "=$B$2+1");
         assert!(f.diagnostic.is_some());
         assert!(f.tokens.is_empty() && f.references.is_empty());
+        assert_eq!(
+            book.display_formula(book.cell_at(p(4, 4)).unwrap().unwrap().reference)
+                .unwrap(),
+            Some("=$B$2+1".into())
+        );
         assert!(
             book.capture_local(book.expected())
                 .unwrap()

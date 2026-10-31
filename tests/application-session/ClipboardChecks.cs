@@ -43,7 +43,7 @@ static class ClipboardChecks
    await target.PasteBlockAsync(target.Revision,P(20,2),P(20,2),rejected,true);
    Check(At(await target.ReadAsync(P(20,2),P(20,2)),20,2).Error.Length>0,"Copied rejected text cannot auto-promote despite valid syntax");
    string root=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"pivot-clipboard-"+Guid.NewGuid());Directory.CreateDirectory(root);string path=Path.Combine(root,"clipboard.pivot");
-   await target.SaveAsync(target.Revision,path);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..9])=="PIVOTWB10","WB5 format");
+   await target.SaveAsync(target.Revision,path);Check(Encoding.ASCII.GetString((await File.ReadAllBytesAsync(path))[..9])=="PIVOTWB11","WB5 format");
    await target.OpenAsync(target.Revision,path,discard:true);
    Check(At(await target.ReadAsync(P(20,2),P(20,2)),20,2).Error.Length>0,"WB3 preserves constrained rejected draft state");
    Check(At(await target.ReadAsync(P(8,7),P(8,7)),8,7).Formula=="=SUM($B$2:F8)","WB3 restores dollar-axis source and selection binding");

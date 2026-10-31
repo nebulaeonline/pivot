@@ -141,6 +141,9 @@ pub(crate) fn validate_scope(
                     return Err(Error::InvalidTarget);
                 }
             }
+            Token::Typed(pivot_core::typed::Op::ReferenceDeleted(_), 0) => {
+                pending.take();
+            }
             Token::Sum { rectangle, .. } => {
                 if rectangle.space.0 != *pending.take().unwrap_or(owner).uuid().as_bytes() {
                     return Err(Error::InvalidTarget);
@@ -373,16 +376,25 @@ impl Workbook {
             .reserve(8192)
             .map_err(|_| Error::Limit)?;
         match &record.content {
-            Some(Content::TextFormula(f)) => render_source(
+            Some(Content::TextFormula(f)) if f.diagnostic.is_some() => {
+                Ok(Some(f.original_source.clone()))
+            }
+            Some(Content::TextFormula(f)) => crate::structure::render(
                 &f.original_source,
                 &f.tokens,
+                &self.persistent,
                 self.sheets(),
                 self.limits.source_bytes,
             )
-            .map(Some),
-            Some(Content::Formula { source, tokens }) => {
-                render_source(source, tokens, self.sheets(), self.limits.source_bytes).map(Some)
-            }
+            .map(|v| Some(v.0)),
+            Some(Content::Formula { source, tokens }) => crate::structure::render(
+                source,
+                tokens,
+                &self.persistent,
+                self.sheets(),
+                self.limits.source_bytes,
+            )
+            .map(|v| Some(v.0)),
             _ => Ok(None),
         }
     }

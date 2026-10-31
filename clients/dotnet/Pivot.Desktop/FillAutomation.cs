@@ -32,7 +32,7 @@ public partial class MainWindow {
   await SelectAsync(AutomationPosition(2,2));BeginCellEdit(false);string editorRevision=s.Revision;UpdateFillMenu();AutomationCheck(!FillDownItem.IsEnabled,"Fill disabled during inline edit");
   await FillAsync(Request.Types.FillDirection.Down);AutomationCheck(draftCell is not null&&s.Revision==editorRevision,"Fill does not commit/discard draft");CancelDraft();
   await SelectAsync(AutomationPosition(2,2));await SelectAsync(AutomationPosition(4,4),true);AutomationImage(Path.ChangeExtension(report,"fill.png"));
-  AutomationCheck(text==await clipboard.TryGetTextAsync(),"Fill leaves OS clipboard unchanged");
+  await AutomationExpectClipboardTextAsync(clipboard,text,"Fill leaves OS clipboard unchanged");
   string root=Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),path=Path.Combine(root,"pivot-fill-ui-"+Guid.NewGuid()+".pivot");
   AutomationCheck(await SaveDocumentAsync(true,path),"Fill saves WB5");await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path,discard:true);await RefreshAsync();AutomationCheck(!s.IsDirty&&Sheet.CellAt(AutomationPosition(2,2))?.Value is not null,"Fill WB5 reopens");
   await s.NewAsync(s.Revision,discard:true);CancelDraft();shortcutModifiers=KeyModifiers.None;await RefreshAsync();Sheet.Focus();

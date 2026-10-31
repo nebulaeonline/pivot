@@ -5,6 +5,7 @@ pub const MAX_TEXT_BYTES: usize = 4096;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Op {
     Boolean(bool),
+    ReferenceDeleted(String),
     String(String),
     If,
     And,
@@ -26,6 +27,7 @@ pub enum Op {
 impl Op {
     pub fn code(&self) -> u8 {
         match self {
+            Self::ReferenceDeleted(_) => 18,
             Self::Boolean(_) => 0,
             Self::String(_) => 1,
             Self::If => 2,
@@ -48,6 +50,7 @@ impl Op {
     }
     pub fn from_code(code: u8) -> Option<Self> {
         Some(match code {
+            18 => Self::ReferenceDeleted(String::new()),
             2 => Self::If,
             3 => Self::And,
             4 => Self::Or,
@@ -83,6 +86,12 @@ impl Op {
     }
     pub fn valid_arity(&self, n: usize) -> bool {
         match self {
+            Self::ReferenceDeleted(origin) => {
+                n == 0
+                    && origin.len() <= 256
+                    && origin.len().is_multiple_of(2)
+                    && origin.bytes().all(|b| b.is_ascii_hexdigit())
+            }
             Self::Boolean(_) => n == 0,
             Self::String(s) => n == 0 && s.len() <= MAX_TEXT_BYTES,
             Self::If | Self::Mid => n == 3,
@@ -92,7 +101,7 @@ impl Op {
         }
     }
     pub fn heap_bytes(&self) -> usize {
-        if let Self::String(s) = self {
+        if let Self::String(s) | Self::ReferenceDeleted(s) = self {
             s.capacity()
         } else {
             0
@@ -101,6 +110,7 @@ impl Op {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
+    ReferenceDeleted,
     TypeMismatch,
     InvalidArgument,
     TextTooLong,
@@ -183,6 +193,7 @@ pub fn apply(op: &Op, args: &[V]) -> Result<V, Error> {
         return Err(Error::InvalidArgument);
     }
     Ok(match op {
+        Op::ReferenceDeleted(_) => return Err(Error::ReferenceDeleted),
         Op::Boolean(b) => V::Boolean(*b),
         Op::String(s) => V::String(s.clone()),
         Op::If => args[if condition(&args[0])? { 1 } else { 2 }].clone(),

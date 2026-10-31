@@ -21,6 +21,14 @@
             <MenuItem Header="Export CSV…" Click="ExportCsvClick" />
           </MenuItem>
         </Menu>
+        <Menu VerticalAlignment="Center">
+          <MenuItem x:Name="StructureRoot" Header="_Edit rows/columns" SubmenuOpened="StructureOpened">
+            <MenuItem x:Name="InsertRowsItem" Header="Insert rows above" Click="InsertRowsClick" />
+            <MenuItem x:Name="DeleteRowsItem" Header="Delete entire rows" Click="DeleteRowsClick" />
+            <MenuItem x:Name="InsertColumnsItem" Header="Insert columns left" Click="InsertColumnsClick" />
+            <MenuItem x:Name="DeleteColumnsItem" Header="Delete entire columns" Click="DeleteColumnsClick" />
+          </MenuItem>
+        </Menu>
         <Button Content="Copy" Click="CopyClick" ToolTip.Tip="Copy selected text, or the selected rectangle (up to 256 cells)" />
         <Button Content="Paste" Click="PasteClick" ToolTip.Tip="Paste text into the editor or atomically paste a rectangle" />
         <Menu VerticalAlignment="Center">

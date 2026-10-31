@@ -58,8 +58,14 @@ prior exceptions, while untouched properties remain intact. Reset Formatting and
 Use worksheet defaults distinguish explicit built-in defaults from inheritance.
 Native copy/paste and Fill carry effective style snapshots with content.
 
+Insert or delete selected rows and columns as one atomic operation. Surviving cell
+identities and references remain stable; deleting a referenced target produces
+`#REF!`, which can be repaired by editing the broken operand. Insertion protects
+outgoing values and Blank anchors. Formatting follows the approved band inheritance
+rules, with notice when explicit formatting is clipped at the worksheet edge.
+
 Workbooks open and save as local `.pivot` files, preserving every sheet, typed
-content, presentation and stable bindings. The current experimental format is WB10; earlier
+content, presentation and stable bindings. The current experimental format is WB11; earlier
 experimental workbook versions are rejected.
 
 CSV import creates a new unsaved workbook; CSV export writes calculated values

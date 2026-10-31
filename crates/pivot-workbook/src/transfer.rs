@@ -80,17 +80,28 @@ impl Workbook {
             return Err(Error::Graph("cancelled document projection".into()));
         }
         let selection_bytes = self.core.selection_metrics().identities.saturating_mul(256);
+        // Admit owned transfer/codec copies, not the persistent indexes they replace.
+        // GraphImage materialization has its own simultaneous core reservation.
+        // Two cell/node representations cover logical and storage images; the
+        // remaining fixed allowance covers verification maps, names and wire data.
+        // Variable text/token/style payloads retain the conservative 8-copy bound.
+        let stats = self.persistent.stats();
+        let fixed = std::mem::size_of::<(CellId, GraphNodeId, CellRecord)>() * 2
+            + std::mem::size_of::<transfer::Node>() * 2
+            + 512;
+        let payload = stats
+            .estimated_owned_bytes
+            .saturating_sub(self.persistent.records.len().saturating_mul(256))
+            .saturating_sub(self.persistent.positions.len().saturating_mul(64));
         let lease = self
             .core
             .allocation_domain()
             .map_err(graph_error)?
             .reserve(
-                self.persistent
-                    .stats()
-                    .estimated_owned_bytes
+                payload
                     .saturating_mul(8)
                     .saturating_add(selection_bytes)
-                    .saturating_add(self.persistent.records.len().saturating_mul(1024))
+                    .saturating_add(self.persistent.records.len().saturating_mul(fixed))
                     .saturating_add(65536),
             )
             .map_err(|_| Error::Limit)?;
@@ -289,10 +300,19 @@ impl Workbook {
                     }
                     let mut references = f.references.iter();
                     for token in &f.tokens {
-                        if let Token::Cell(target) = token {
+                        let target = match token {
+                            Token::Cell(target) => Some(*target),
+                            _ => crate::structure::origin_of(token)?
+                                .filter(|o| o.kind == 1)
+                                .map(|o| CellRef {
+                                    worksheet: o.worksheet,
+                                    cell: CellId::from_uuid(o.target),
+                                }),
+                        };
+                        if let Some(target) = target {
                             let r = references.next().ok_or_else(bad)?;
                             let target_slot = *slots.get(&target.cell).ok_or_else(bad)?;
-                            if r.target != *target
+                            if r.target != target
                                 || r.target.worksheet != image.cells[target_slot].2.worksheet
                                 || r.node != image.cells[target_slot].1
                                 || r.span.start >= r.span.end
@@ -309,6 +329,27 @@ impl Workbook {
                 }
                 Content::StructuredFormula(_) => return Err(bad()),
             };
+            for token in tokens {
+                if let Some(o) = crate::structure::origin_of(token)? {
+                    if o.kind == 1 {
+                        let slot = *slots.get(&CellId::from_uuid(o.target)).ok_or_else(bad)?;
+                        let (_, node, r) = &image.cells[slot];
+                        if r.position.is_some()
+                            || r.worksheet != o.worksheet
+                            || node.uuid() != o.node
+                        {
+                            return Err(bad());
+                        }
+                    }
+                    if o.kind == 2
+                        && selections.get(&pivot_core::model::selection::SelectionId(
+                            *o.target.as_bytes(),
+                        )) != Some(&None)
+                    {
+                        return Err(bad());
+                    }
+                }
+            }
             sheets::validate_scope(record.worksheet, source, tokens, self.sheets())?;
             let translated: Vec<_> = tokens
                 .iter()
@@ -519,6 +560,16 @@ impl Workbook {
         if live_slots.len() != image.graph.scalar_skeleton.nodes.len() {
             return Err(Error::InvalidTarget);
         }
+        // Complete graph import before allocating persistent cell/index copies.
+        // Its bounded transient materialization must not overlap those copies;
+        // both candidates remain private until the entire restore succeeds.
+        let imported = runtime
+            .import_selections_admitted(
+                image.graph,
+                &CancellationToken::default(),
+                limits.document_admission(),
+            )
+            .map_err(graph_error)?;
         for (slot, (id, node, r)) in image.cells.iter().enumerate() {
             match &r.content {
                 Some(Content::TextFormula(f)) => sheets::validate_scope(
@@ -564,11 +615,7 @@ impl Workbook {
             }
             data.record(
                 *id,
-                Record {
-                    worksheet: r.worksheet,
-                    position: r.position,
-                    content: r.content.clone(),
-                },
+                Record::new(&data.memory, r.worksheet, r.position, r.content.clone())?,
             )?;
         }
         let stats = data.stats();
@@ -579,13 +626,6 @@ impl Workbook {
         {
             return Err(Error::Limit);
         }
-        let imported = runtime
-            .import_selections_admitted(
-                image.graph,
-                &CancellationToken::default(),
-                limits.document_admission(),
-            )
-            .map_err(graph_error)?;
         for ((id, portable, _), runtime_id) in image.cells.into_iter().zip(imported.nodes) {
             data.bindings
                 .insert_private(

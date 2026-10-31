@@ -110,7 +110,7 @@ fn blank_clipboard_fill_and_policy_rollback() {
     b.format_sheet(sheet, b.expected(), one, patch, false, &Default::default())
         .unwrap();
     let block = b.copy_sheet(sheet, b.expected(), one).unwrap();
-    assert!(block.native.starts_with(b"PIVOTCB4"));
+    assert!(block.native.starts_with(b"PIVOTCB5"));
     let two = Rectangle {
         first: P::new(1, 2),
         last: P::new(1, 2),

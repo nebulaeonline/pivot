@@ -196,6 +196,186 @@ pub(crate) struct Store {
     bytes: usize,
 }
 impl Store {
+    pub(crate) fn structural(
+        &mut self,
+        sheet: WorksheetId,
+        change: crate::structure::Change,
+        limit: u32,
+        limits: StyleLimits,
+        cancel: &CancellationToken,
+    ) -> Result<(bool, bool, usize)> {
+        use crate::structure::{Action, AxisKind};
+        let _scratch = self
+            .memory
+            .reserve(self.count.saturating_mul(240) + 4096)
+            .map_err(|_| Error::Limit)?;
+        let mut work = Work::new(crate::structure::MAX_WORK, cancel);
+        let mut changed = false;
+        let mut clipped = false;
+        let profile = match change.action {
+            Action::Insert => Some(change.start.saturating_sub(1).max(1)),
+            Action::Delete => {
+                if change.start + change.count <= limit {
+                    Some(limit)
+                } else {
+                    change.start.checked_sub(1).filter(|x| *x > 0)
+                }
+            }
+        };
+        for property in 0..10 {
+            let key = MapKey(sheet, property);
+            let Some(old) = self.maps.get(&key).cloned() else {
+                continue;
+            };
+            let axis = |r: Rectangle| match change.axis {
+                AxisKind::Rows => (r.first.row, r.last.row),
+                AxisKind::Columns => (r.first.column, r.last.column),
+            };
+            let band = |r: Rectangle, a: u32, b: u32| match change.axis {
+                AxisKind::Rows => Rectangle {
+                    first: Position::new(a, r.first.column),
+                    last: Position::new(b, r.last.column),
+                },
+                AxisKind::Columns => Rectangle {
+                    first: Position::new(r.first.row, a),
+                    last: Position::new(r.last.row, b),
+                },
+            };
+            let mut entries = Vec::new();
+            for &e in &old.entries {
+                work.tick()?;
+                let (a, b) = axis(e.rectangle);
+                match change.action {
+                    Action::Insert => {
+                        if b >= change.start.max(limit - change.count + 1) {
+                            clipped = true;
+                        }
+                        if a < change.start {
+                            entries.push(Entry {
+                                rectangle: band(e.rectangle, a, b.min(change.start - 1)),
+                                ..e
+                            });
+                        }
+                        if b >= change.start {
+                            let first = a.max(change.start) + change.count;
+                            if first <= limit {
+                                entries.push(Entry {
+                                    rectangle: band(
+                                        e.rectangle,
+                                        first,
+                                        (b + change.count).min(limit),
+                                    ),
+                                    ..e
+                                });
+                            }
+                        }
+                    }
+                    Action::Delete => {
+                        if let Some((a, b)) = change.range(a, b, limit) {
+                            entries.push(Entry {
+                                rectangle: band(e.rectangle, a, b),
+                                ..e
+                            });
+                        }
+                    }
+                }
+                if profile.is_some_and(|p| a <= p && p <= b) {
+                    let (first, last) = match change.action {
+                        Action::Insert => (change.start, change.start + change.count - 1),
+                        Action::Delete => (limit - change.count + 1, limit),
+                    };
+                    entries.push(Entry {
+                        rectangle: band(e.rectangle, first, last),
+                        ..e
+                    });
+                }
+            }
+            // Axis-local normalization after mapping; representation is current
+            // assignments, never a log of inserted/deleted rows.
+            for vertical in [false, true] {
+                let mut comparisons = 0;
+                entries.sort_by_key(|e| {
+                    comparisons += 1;
+                    let r = e.rectangle;
+                    if vertical {
+                        (e.value, r.first.column, r.last.column, r.first.row)
+                    } else {
+                        (e.value, r.first.row, r.last.row, r.first.column)
+                    }
+                });
+                for _ in 0..comparisons {
+                    work.tick()?;
+                }
+                let mut n = 0;
+                for i in 0..entries.len() {
+                    work.tick()?;
+                    let e = entries[i];
+                    if n > 0 {
+                        let p: &mut Entry = &mut entries[n - 1];
+                        let a = p.rectangle;
+                        let b = e.rectangle;
+                        if p.value == e.value
+                            && if vertical {
+                                a.first.column == b.first.column
+                                    && a.last.column == b.last.column
+                                    && a.last.row + 1 == b.first.row
+                            } else {
+                                a.first.row == b.first.row
+                                    && a.last.row == b.last.row
+                                    && a.last.column + 1 == b.first.column
+                            }
+                        {
+                            p.rectangle.last = b.last;
+                            continue;
+                        }
+                    }
+                    entries[n] = e;
+                    n += 1;
+                }
+                entries.truncate(n);
+            }
+            let map = Map::build(entries, &mut work)?;
+            let same = if old.entries == map.entries {
+                true
+            } else if old.entries.iter().map(|e| area(e.rectangle)).sum::<u64>()
+                != map.entries.iter().map(|e| area(e.rectangle)).sum::<u64>()
+            {
+                false
+            } else {
+                let mut same = true;
+                for e in &old.entries {
+                    let mut covered = 0;
+                    map.query(e.rectangle, &mut work, |other| {
+                        if e.value == other.value {
+                            covered += area(intersection(e.rectangle, other.rectangle));
+                        }
+                        Ok(())
+                    })?;
+                    if covered != area(e.rectangle) {
+                        same = false;
+                        break;
+                    }
+                }
+                same
+            };
+            if same {
+                continue;
+            }
+            self.count = self.count - old.entries.len() + map.entries.len();
+            self.bytes = self.bytes - old.heap_bytes() + map.heap_bytes();
+            if self.count > limits.positions || self.bytes() > limits.bytes {
+                return Err(Error::Limit);
+            }
+            if map.entries.is_empty() {
+                self.maps.remove(&key).map_err(|_| Error::Limit)?;
+            } else {
+                let map = self.memory.alloc(map).map_err(|_| Error::Limit)?;
+                self.maps.insert(key, map).map_err(|_| Error::Limit)?;
+            }
+            changed = true;
+        }
+        Ok((changed, clipped, work.used()))
+    }
     pub(crate) fn viewport(
         &self,
         sheet: WorksheetId,

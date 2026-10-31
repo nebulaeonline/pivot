@@ -25,7 +25,7 @@ fn small_wb10_gains_sparse_row_admission_without_rebinding() {
     let bytes = Document::export_document(&old, old.expected())
         .unwrap()
         .bytes;
-    assert_eq!(&bytes[..9], b"PIVOTWB10");
+    assert_eq!(&bytes[..9], b"PIVOTWB11");
     let (mut restored, _) = Document::open_document(&bytes, Limits::default(), &rt).unwrap();
     assert_eq!(
         restored.cell_at(p(1, 1)).unwrap().unwrap().reference,

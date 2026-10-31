@@ -20,10 +20,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def verify_workbook_fixture(fixture):
     """Read-only current-format envelope check, also usable on retained evidence."""
-    if (len(fixture) < 49 or fixture[:9] != b'PIVOTWB10'
+    if (len(fixture) < 49 or fixture[:9] != b'PIVOTWB11'
             or int.from_bytes(fixture[9:17], 'little') != len(fixture) - 49
             or hashlib.sha256(fixture[49:]).digest() != fixture[17:49]):
-        raise RuntimeError('Saved WB10 fixture is invalid')
+        raise RuntimeError('Saved WB11 fixture is invalid')
 
 
 def host_rid():
@@ -117,7 +117,9 @@ def execute(args):
             (output/'clipboard-lock.json').write_text(json.dumps(lock, indent=2)+'\n', encoding='utf-8')
             run('desktop-ui', [str(executable)], env=env, timeout=180)
         report = json.loads((ui/'results.json').read_text(encoding='utf-8'))
-        for field in ['basic_formatting', 'typed_values', 'multiple_worksheets', 'rectangular_fill', 'spreadsheet_aggregates', 'worksheet_binding', 'structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
+        if report.get('status') != 'passed':
+            raise RuntimeError(f'Desktop acceptance failed: {report.get("error", report)}')
+        for field in ['structure', 'basic_formatting', 'typed_values', 'multiple_worksheets', 'rectangular_fill', 'spreadsheet_aggregates', 'worksheet_binding', 'structured_projection', 'worksheet_text', 'rectangular_clipboard', 'rectangular_selection', 'direct_paste', 'clipboard_focus', 'in_place_editing', 'clipboard_checklist', 'arrow_edit']:
             if not report.get(field, '').startswith('passed:'):
                 raise RuntimeError(f'Desktop acceptance field failed: {field}: {report}')
         if report['status'] != 'passed' or report['remaining_charge'] != 0 or report['execution_mode'] != 'native-aot':

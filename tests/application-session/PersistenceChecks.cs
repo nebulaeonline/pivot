@@ -32,7 +32,8 @@ static class PersistenceChecks
   var restored=await second.ReadAsync(P(1,1),P(3,3));
   Check(restored.Cells.Single(c=>c.At.Row==2&&c.At.Column==1).CellId==stable,"Cell identity survives independent process");
   Check(WorkbookSession.Decode(restored.Cells.Single(c=>c.At.Row==1&&c.At.Column==2).Value)==3.23m,"Moved historical binding must not rebind to reused A1");
-  Check(restored.Cells.Single(c=>c.At.Row==1&&c.At.Column==2).Formula==" =A1+2 ","Original text exact");
+  var restoredFormula=restored.Cells.Single(c=>c.At.Row==1&&c.At.Column==2);
+  Check(restoredFormula.Formula==" =A2+2 "&&restoredFormula.AuthoredFormula==" =A1+2 ","Effective moved address and exact authored provenance");
   Check(restored.Cells.Single(c=>c.At.Row==1&&c.At.Column==3).Error.Length>0,"Invalid draft survives");
   Check(restored.Cells.Single(c=>c.At.Row==3&&c.At.Column==1).Number is {Negative:true,Scale:4},"Exact signed zero");
   Check(WorkbookSession.Decode(restored.Cells.Single(c=>c.At.Row==3&&c.At.Column==2).Number)==decimal.MaxValue,"96-bit coefficient");

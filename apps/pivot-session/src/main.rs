@@ -81,6 +81,7 @@ fn set_value(cell: &mut wire::Cell, value: pivot_types::PivotValue) {
 fn error_code(error: &pivot_workbook::CellError) -> String {
     use pivot_workbook::CellError as E;
     match error {
+        E::Typed(pivot_core::typed::Error::ReferenceDeleted) => "ReferenceDeleted",
         E::Typed(pivot_core::typed::Error::TypeMismatch) => "TypeMismatch",
         E::Typed(pivot_core::typed::Error::InvalidArgument) => "InvalidArgument",
         E::Typed(pivot_core::typed::Error::TextTooLong) => "TextTooLong",
@@ -180,7 +181,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 8 {
+        if q.version != 9 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -437,6 +438,7 @@ impl Session {
         let sheet = if matches!(
             operation,
             Op::Fill
+                | Op::Structure
                 | Op::CopyBlock
                 | Op::PasteBlock
                 | Op::Apply
@@ -591,6 +593,39 @@ impl Session {
                     self.revision = Uuid::new_v4().to_string()
                 }
                 r.revision = self.revision.clone();
+            }
+            Op::Structure => {
+                use pivot_workbook::structure::{Action, AxisKind, Change};
+                let outcome = book
+                    .restructure(
+                        sheet.unwrap(),
+                        book.expected(),
+                        Change {
+                            axis: if q.structure_columns {
+                                AxisKind::Columns
+                            } else {
+                                AxisKind::Rows
+                            },
+                            action: if q.structure_delete {
+                                Action::Delete
+                            } else {
+                                Action::Insert
+                            },
+                            start: q.structure_start,
+                            count: q.structure_count,
+                        },
+                        &Default::default(),
+                    )
+                    .map_err(|e| e.to_string())?;
+                if outcome.changed {
+                    self.revision = Uuid::new_v4().to_string();
+                }
+                r.revision = self.revision.clone();
+                r.structure_changed = outcome.changed;
+                r.formatting_clipped = outcome.formatting_clipped;
+                r.structure_moved = outcome.moved as u32;
+                r.structure_retired = outcome.retired as u32;
+                r.structure_work = outcome.work as u64;
             }
             Op::ReadStyles => {
                 let first = pos(q.first.as_ref())?;
@@ -995,7 +1030,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 8,
+            version: 9,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()

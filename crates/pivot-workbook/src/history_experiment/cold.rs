@@ -789,14 +789,8 @@ impl Workbook {
                 (None, None)
             };
             let runtime = core.history_cold_node(ordinal).map_err(graph_error)?;
-            data.record(
-                cell,
-                Record {
-                    worksheet,
-                    position,
-                    content: value,
-                },
-            )?;
+            let record = Record::new(&data.memory, worksheet, position, value)?;
+            data.record(cell, record)?;
             data.bindings
                 .insert_private(
                     cell,

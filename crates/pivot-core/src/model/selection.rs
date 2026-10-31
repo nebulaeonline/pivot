@@ -126,6 +126,33 @@ impl State {
             memory,
         })
     }
+    pub fn reframe(&mut self, id: SelectionId, rectangle: Rectangle) -> Result<(), Error> {
+        if !rectangle.valid() {
+            return Err(Error::Invalid);
+        }
+        let old = self.descriptor(id).ok_or(Error::Invalid)?;
+        if old == rectangle {
+            return Ok(());
+        }
+        let mut coverage = (**self.coverage.get(&old.space).ok_or(Error::Invalid)?).clone();
+        coverage.root = interval_remove(&self.memory, &coverage.root, (old.first_row, id))?;
+        if coverage.root.is_none() {
+            self.coverage.remove(&old.space)?;
+        } else {
+            self.coverage
+                .insert(old.space, self.memory.alloc(coverage)?)?;
+        }
+        let mut coverage = self
+            .coverage
+            .get(&rectangle.space)
+            .map(|c| (**c).clone())
+            .unwrap_or_default();
+        coverage.root = interval_insert(&self.memory, &coverage.root, id, rectangle)?;
+        self.coverage
+            .insert(rectangle.space, self.memory.alloc(coverage)?)?;
+        self.descriptors.insert(id, Some(rectangle))?;
+        Ok(())
+    }
     pub fn define(&mut self, id: SelectionId, rectangle: Rectangle) -> Result<(), Error> {
         if id.0 == [0; 16] || !rectangle.valid() {
             return Err(Error::Invalid);

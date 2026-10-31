@@ -8,7 +8,7 @@ pub const MAX_BYTES: usize = 256 * 1024;
 const MAX_SOURCE: usize = 128 * 1024;
 const MAX_TOKENS: usize = 16_384;
 const MAX_REFERENCES: usize = 8192;
-const MAGIC: &[u8] = b"PIVOTCB4";
+const MAGIC: &[u8] = b"PIVOTCB5";
 
 #[derive(Debug)]
 pub struct ClipboardBlock {
@@ -25,6 +25,7 @@ enum Slot {
         source: String,
         effective: Vec<Position>,
         rejected: bool,
+        faults: Vec<String>,
     },
 }
 struct Image {
@@ -56,7 +57,7 @@ fn area(first: Position, last: Position) -> Result<(u32, u32)> {
     }
     Ok((height, width))
 }
-fn references(source: &str) -> Result<(Vec<ReferenceSyntax>, usize)> {
+pub(crate) fn references(source: &str) -> Result<(Vec<ReferenceSyntax>, usize)> {
     references_mode(source, false)
 }
 fn references_mode(source: &str, proof: bool) -> Result<(Vec<ReferenceSyntax>, usize)> {
@@ -110,7 +111,7 @@ fn references_mode(source: &str, proof: bool) -> Result<(Vec<ReferenceSyntax>, u
     refs.sort_by_key(|r| r.span.start);
     Ok((refs, work))
 }
-fn address(p: Position, r: &ReferenceSyntax) -> String {
+pub(crate) fn address(p: Position, r: &ReferenceSyntax) -> String {
     let mut column = p.column;
     let mut letters = Vec::new();
     while column > 0 {
@@ -258,6 +259,7 @@ impl Image {
                     source,
                     effective,
                     rejected,
+                    faults,
                 } => {
                     native.push(if *rejected { 3 } else { 2 });
                     text(&mut native, source);
@@ -265,6 +267,12 @@ impl Image {
                     for p in effective {
                         n(&mut native, p.row);
                         n(&mut native, p.column);
+                    }
+                    n(&mut native, faults.len() as u32);
+                    for origin in faults {
+                        crate::structure::FaultOrigin::decode(origin)?;
+                        text(&mut native, origin);
+                        source_work += origin.len();
                     }
                     let rendered = if *rejected {
                         source.clone()
@@ -366,6 +374,22 @@ impl Image {
                     for _ in 0..count {
                         effective.push(Position::new(r.n()?, r.n()?));
                     }
+                    let fault_count = r.n()? as usize;
+                    if fault_count > MAX_TOKENS {
+                        return Err(invalid());
+                    }
+                    let mut faults = Vec::new();
+                    for _ in 0..fault_count {
+                        let origin = r.text()?;
+                        crate::structure::FaultOrigin::decode(&origin)?;
+                        faults.push(origin);
+                    }
+                    if (tag == 3 && !faults.is_empty())
+                        || (tag == 2
+                            && faults.len() != crate::structure::literal_fault_spans(&source).len())
+                    {
+                        return Err(invalid());
+                    }
                     if tag == 3 {
                         // A constrained, intentionally non-executable state, never an asserted parser diagnostic.
                         if count != 0 {
@@ -385,6 +409,7 @@ impl Image {
                         source,
                         effective,
                         rejected: tag == 3,
+                        faults,
                     }
                 }
                 _ => return Err(invalid()),
@@ -445,6 +470,7 @@ impl Image {
                             source,
                             effective: Vec::new(),
                             rejected: false,
+                            faults: Vec::new(),
                         },
                         _ => unreachable!(),
                     },
@@ -478,129 +504,26 @@ impl Workbook {
         let mut slots = Vec::new();
         for row in rectangle.first.row..=rectangle.last.row {
             for column in rectangle.first.column..=rectangle.last.column {
-                let cell = capture.pinned_content(Position::new(row, column))?;
-                let content = match cell.map(|c| c.content) {
+                let content = capture
+                    .pinned_content(Position::new(row, column))?
+                    .map(|c| c.content);
+                let slot=match content {
+                    None|Some(Content::Blank)=>Slot::Blank,
+                    Some(Content::Boolean(v))=>Slot::Boolean(v),Some(Content::LiteralText(v))=>Slot::Text(v),Some(Content::Decimal(v))=>Slot::Number(v),
                     Some(Content::StructuredFormula(_))=>return Err(Error::Graph("Structured formulas cannot use OS Copy/Cut; use same-document Duplicate instead.".into())),
-                    Some(Content::Formula { source, tokens }) => {
-                        if tokens.iter().any(|t| matches!(t, Token::Output(_))) {
-                            return Err(Error::Graph("Structured formulas cannot use OS Copy/Cut; use same-document Duplicate instead.".into()));
+                    Some(content)=>{
+                        let (source,tokens,rejected)=match &content {Content::Formula{source,tokens}=>(source.as_str(),tokens.as_slice(),false),Content::TextFormula(f)=>(f.original_source.as_str(),f.tokens.as_slice(),f.diagnostic.is_some()),_=>return Err(invalid())};
+                        if tokens.iter().any(|t|matches!(t,Token::Output(_))){return Err(Error::Graph("Structured formulas cannot use OS Copy/Cut; use same-document Duplicate instead.".into()));}
+                        if tokens.iter().any(|t|matches!(t,Token::Cell(target) if capture.pinned.records.get(&target.cell).is_none_or(|r|r.position.is_none()))){return Err(Error::Graph("Cannot copy a retired or unplaced bound target.".into()));}
+                        if rejected {Slot::Formula{source:source.into(),effective:Vec::new(),rejected:true,faults:Vec::new()}}
+                        else {
+                            let (source,faults)=crate::structure::render(source,tokens,&capture.pinned,self.sheets(),self.limits.source_bytes)?;
+                            let effective=references(&source)?.0.into_iter().map(|r|Position::new(r.row,r.column)).collect();
+                            Slot::Formula{source,effective,rejected:false,faults}
                         }
-                        let (syntax, spans, diagnostic) = Workbook::lower_text_bounds(
-                            self.rows.length,
-                            self.columns.length,
-                            &expression::parse_spreadsheet(&source),
-                        );
-                        if diagnostic.is_some() || syntax.len() != tokens.len() {
-                            return Err(invalid());
-                        }
-                        let mut submitted = spans.into_iter();
-                        let mut references = Vec::new();
-                        for (syntax, bound) in syntax.iter().zip(tokens.iter()) {
-                            match (syntax, bound) {
-                                (Token::QualifierAt{span,..},Token::Qualifier{span:s,..}) if span==s=>(),
-                                (Token::At(_), Token::Cell(target)) => {
-                                    let (span, submitted_position) =
-                                        submitted.next().ok_or_else(invalid)?;
-                                    let node = capture
-                                        .pinned
-                                        .bindings
-                                        .get(&target.cell)
-                                        .ok_or_else(invalid)?
-                                        .portable;
-                                    references.push(FormulaReference {
-                                        span,
-                                        submitted_position,
-                                        target: *target,
-                                        node,
-                                    });
-                                }
-                                (
-                                    Token::SumAt { kind, first, last, span },
-                                    Token::Sum {
-                                        kind:k,
-                                        first: a,
-                                        last: b,
-                                        span: s,
-                                        ..
-                                    },
-                                ) if kind==k && first == a && last == b && span == s => (),
-                                (a, b) if a == b => (),
-                                _ => return Err(invalid()),
-                            }
-                        }
-                        Some(Content::TextFormula(TextFormula {
-                            original_source: source,
-                            tokens,
-                            references,
-                            diagnostic: None,
-                            transaction_base: expected,
-                            edit_ordinal: 0,
-                            resolved_graph: expected.graph,
-                        }))
                     }
-                    content => content,
                 };
-                slots.push(match content {
-                    Some(Content::Boolean(value)) => Slot::Boolean(value),
-                    Some(Content::LiteralText(value)) => Slot::Text(value),
-                    None | Some(Content::Blank) => Slot::Blank,
-                    Some(Content::Decimal(value)) => Slot::Number(value),
-                    Some(Content::Formula { .. } | Content::StructuredFormula(_)) => return Err(invalid()),
-                    Some(Content::TextFormula(f)) => {
-                        let mut annotations = Vec::new();
-                        if f.diagnostic.is_none() {
-                            for reference in &f.references {
-                                let p = capture
-                                    .pinned
-                                    .records
-                                    .get(&reference.target.cell)
-                                    .and_then(|r| r.position)
-                                    .ok_or_else(||Error::Graph(format!("Cannot copy R{row}C{column}: a bound target is retired or unplaced.")))?;
-                                annotations.push((reference.span.start, p));
-                            }
-                            let (refs, _) = references(&f.original_source)?;
-                            let mut ranges = f.tokens.iter().filter_map(|t| {
-                                if let Token::Sum { first, last, .. } = t {
-                                    Some((*first, *last))
-                                } else {
-                                    None
-                                }
-                            });
-                            let parsed = expression::parse_spreadsheet(&f.original_source)
-                                .map_err(|_| invalid())?;
-                            let mut stack = vec![&parsed];
-                            while let Some(expr) = stack.pop() {
-                                match expr {
-                                    Expr::SumRange {
-                                        first_reference,
-                                        last_reference,
-                                        ..
-                                    } => {
-                                        let (first, last) = ranges.next().ok_or_else(invalid)?;
-                                        annotations.push((first_reference.span.start, first));
-                                        annotations.push((last_reference.span.start, last));
-                                    }
-                                    Expr::AggregateCall { arguments, .. } => stack.extend(arguments.iter().rev().map(|a| a.expression())),
-            Expr::Unary { operand, .. } => stack.push(operand),
-                                    Expr::Binary { left, right, .. } => {
-                                        stack.push(right);
-                                        stack.push(left);
-                                    }
-                                    _ => (),
-                                }
-                            }
-                            annotations.sort_by_key(|(span, _)| *span);
-                            if annotations.len() != refs.len() {
-                                return Err(invalid());
-                            }
-                        }
-                        Slot::Formula {
-                            source: if f.diagnostic.is_some() {f.original_source.clone()} else {sheets::render_source(&f.original_source,&f.tokens,self.sheets(),self.limits.source_bytes)?},
-                            effective: annotations.into_iter().map(|(_, p)| p).collect(),
-                            rejected: f.diagnostic.is_some(),
-                        }
-                    }
-                });
+                slots.push(slot);
             }
         }
         Image {
@@ -700,6 +623,7 @@ impl Workbook {
                     source,
                     effective,
                     rejected,
+                    faults,
                 } => {
                     let source = if native && !rejected {
                         let (source, tokens, refs) = transform(
@@ -751,7 +675,24 @@ impl Workbook {
                                 )));
                             }
                         }
-                        Edit::SetFormulaText { position, source }
+                        if native && !faults.is_empty() {
+                            let (mut tokens, _, diagnostic) = Self::lower_text_bounds(
+                                self.rows.length,
+                                self.columns.length,
+                                &expression::parse_spreadsheet(&source),
+                            );
+                            if diagnostic.is_some() {
+                                return Err(invalid());
+                            }
+                            crate::structure::attach_faults(&mut tokens, &faults, true)?;
+                            Edit::SetFormula {
+                                position,
+                                source,
+                                tokens,
+                            }
+                        } else {
+                            Edit::SetFormulaText { position, source }
+                        }
                     }
                 }
             });

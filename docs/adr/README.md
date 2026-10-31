@@ -77,3 +77,11 @@ Ranges, GUI, new protocol and production workbook files remain future work.
 - [ADR-0029: Production workbook capacity and identity scalability](0029-production-workbook-capacity.md) — Accepted and closed by parent implementation review (2026-10-29), including source-qualified native evidence and separately reported identity-memory cost.
 
 - [ADR-0030: Row, column and rectangular-range formatting](0030-region-formatting.md) — Accepted and closed by parent implementation review (2026-10-29), including the normalization correction, native validation and separately qualified benchmark-only extension. WB10 only, private v8 and unchanged CB4.
+
+- [ADR-0031: Insert and delete worksheet rows and columns](0031-row-column-structure.md) — Accepted and closed by parent implementation review (2026-10-30), including the clipboard correction and source-qualified six-target headless/managed/AOT evidence. macOS x64 is Rosetta; structural timings are single-observation maxima. WB11 only, private v9, CB5. No further validation required. See the [implementation handoff](../handoffs/2026-10-30-row-column-structure.md).
+
+Next assignment: **ADR-0032 — Worksheet Sorting, design first**, held until the
+owner's commit/push and explicit go-ahead. Investigate record sorting versus cell
+rearrangement, stable identities/references and formatting before selecting a design.
+No ADR-0032 design or implementation has started. Filtering is a later candidate,
+provisionally ADR-0033, to be decided after the sorting design.

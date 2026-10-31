@@ -39,7 +39,7 @@ fn sparse_styles_roundtrip_and_old_formats_refused() {
     let graph = b.expected().graph;
     let count = b.stats().allocated_nodes;
     let bytes = Document::export_document(&b, b.expected()).unwrap().bytes;
-    assert_eq!(&bytes[..9], b"PIVOTWB10");
+    assert_eq!(&bytes[..9], b"PIVOTWB11");
     let (opened, _) = Document::open_document(&bytes, Limits::default(), &runtime).unwrap();
     assert_eq!(opened.style_regions(), 3);
     assert_eq!(opened.stats().allocated_nodes, count);

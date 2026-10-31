@@ -432,6 +432,20 @@ impl Parser<'_> {
                     span: start..self.pos,
                 }
             }
+            Some(b'#')
+                if self.spreadsheet
+                    && self
+                        .source
+                        .as_bytes()
+                        .get(self.pos..self.pos + 5)
+                        .is_some_and(|s| s.eq_ignore_ascii_case(b"#REF!")) =>
+            {
+                self.pos += 5;
+                Expr::Typed {
+                    op: crate::typed::Op::ReferenceDeleted(String::new()),
+                    arguments: Vec::new(),
+                }
+            }
             Some(b'"') if self.spreadsheet => {
                 self.pos += 1;
                 let mut value = String::new();

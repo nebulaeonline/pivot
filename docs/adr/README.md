@@ -176,3 +176,12 @@ follow below. ADR-0023 remains parked at G3.
   structural timing failures; their cause remains unresolved. Source qualification,
   observed resource maxima, diagnostic LoC and verified cleanup are documented.
   [Implementation review](../handoffs/2026-11-01-range-based-weighted-allocation.md).
+
+- [ADR-0039: Named Windows, data binding and document composition](0039-named-windows-and-document-composition.md)
+  — Architecture accepted with three clarifications (2026-11-01): concrete geometry
+  usability qualification, explanatory lossless Text-conversion refusals, and declared
+  InputId authority for every invocation route. Independent Window scopes,
+  explicit ownership/producer generations, source-authoritative references, section
+  geometry, bounded Text, immutable document capture and headless layout/PDF boundary.
+  Design only; no feature or platform execution. See the
+  [design handoff](../handoffs/2026-11-01-named-windows-design.md).

@@ -2,6 +2,24 @@
 
 Date: 2026-11-01
 
+## ADR-0039 — architecture accepted with three clarifications
+
+[Named Windows, data binding and document composition](adr/0039-named-windows-and-document-composition.md)
+defines stable independent Window scopes, Grid/Text content and bound/unbound
+ownership, coherent producer publication, explicit external refresh, source-authoritative
+formula references, section geometry, guarded Text conversion, document pagination,
+typed invocation and immutable headless rendering capture. See the
+[design handoff](handoffs/2026-11-01-named-windows-design.md).
+This is design work only. No feature implementation, platform tests or PDF backend
+selection was performed. The 2026-11-01 review accepts the architecture subject to
+concrete invoice geometry qualification, explanatory lossless Text-conversion refusals
+and strict InputId authority across every invocation route. Normal-layout geometry
+refusals require revisiting the model, not user workarounds. Admission ceilings remain
+provisional. Preserve the six-scope order, starting with unbound Grid identity and
+references; feature implementation requires separate authorization.
+ADR-0038 remains accepted and closed with its unresolved Windows ARM64
+cold-build qualification; no historical result is reclassified by this design.
+
 ## Current direction — spreadsheet features
 
 **Current disposition and standing milestone cadence (2026-10-31).**

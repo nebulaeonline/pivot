@@ -114,3 +114,12 @@ Implementation acceptance preserves the documented exact-SUM, association, meter
 arity and validation guarantees, including the test-only Linux ARM64 correction and
 selected-source qualifications. Range-based weights are a separate future design;
 this scalar contract and its bounds remain unchanged.
+
+The design-approved [ADR-0038 range extension](../adr/0038-range-based-weighted-allocation.md)
+is design-only. Its separate range syntax, strict Blank policy and spatial membership
+do not change this implemented scalar-list function or claim that range support exists.
+
+ADR-0038's range design is approved with four clarifications, but remains unimplemented.
+It adds no range support to this scalar function. The separate range contract requires
+position-preserving collection, bounded dependency transitions, authorized operands
+and an explicit native-format boundary; see the linked ADR for the full disposition.

@@ -170,3 +170,14 @@ ADR-0037 is accepted and closed. This proposal is retained as technical provenan
 The next design direction, ADR-0038, concerns ordered range-based weights with explicit
 Blank-position and recipient-association semantics, reusing the accepted arithmetic.
 No range design or implementation is included in this proposal update.
+
+ADR-0038 now records a proposed [range-based design](../adr/0038-range-based-weighted-allocation.md),
+with a separate range function, vector ordering, strict Blank positions and explicit
+representation/resource decisions. See the
+[design review](../handoffs/2026-11-01-range-based-weighted-allocation-design.md).
+No range implementation accompanies this proposal.
+
+ADR-0038 design is approved with four clarifications: positional multiplicity, bounded
+invalid-geometry dependencies and reliable restoration, range-operand authority, and
+an explicit WB13-only compatibility cut. The linked ADR records the approved contract
+and six-target headless/managed/AOT qualification scope. No implementation has started.

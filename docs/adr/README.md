@@ -165,7 +165,12 @@ follow below. ADR-0023 remains parked at G3.
   macOS x64 is Rosetta. Diagnostic LoC and verified cleanup are complete.
   [Implementation review](../handoffs/2026-11-01-weighted-allocation.md).
 
-Next design direction: **ADR-0038 — Range-Based Weighted Allocation**. Investigate
-ordered range operands, Blank positions without skipped/renumbered recipients,
-association/structural semantics, bounded execution and required representations while
-reusing ADR-0037 arithmetic. No ADR-0038 design or implementation is included yet.
+- [ADR-0038: Range-based weighted allocation](0038-range-based-weighted-allocation.md)
+  — Design approved with four clarifications (2026-11-01). Separate range function,
+  1..64 physical positions in one row/column, strict Blank/type policy and captured
+  spatial association. Preserve positional multiplicity; bound invalid geometry and
+  restore/cycle-check dependencies; validate operand authority; apply WB13-only with
+  no WB12 reader/migration. Tags 8/9 and retained private/hosted/clipboard versions need
+  codec audit. Independent adapter charging and all-six-target headless/managed/AOT
+  scope are approved. No implementation or platform run.
+  [Design review](../handoffs/2026-11-01-range-based-weighted-allocation-design.md).

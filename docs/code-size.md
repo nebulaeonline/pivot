@@ -39,3 +39,7 @@ ADR-0037: **90,859 code lines across 400 files**, +1,400 lines versus ADR-0036.
 The final [per-project report](../artifacts/loc/ADR-0037/20261101T113816456043Z/report.md)
 includes the test-fixture correction; the earlier 90,855-line count remains historical.
 See the [implementation review](handoffs/2026-11-01-weighted-allocation.md).
+
+ADR-0038 implementation measurement: **92,351 code lines across 406 files**, +1,492
+lines versus ADR-0037. See the [per-project report](../artifacts/loc/ADR-0038/20261101T143646793437Z/report.md)
+and [implementation handoff](handoffs/2026-11-01-range-based-weighted-allocation.md).

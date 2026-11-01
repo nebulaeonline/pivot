@@ -462,12 +462,39 @@ impl Transaction<'_> {
                 }
                 _ => (),
             }
-            if let Token::Sum { span, .. } | Token::SumAt { span, .. } = token
+            if let Token::WeightRange { span, .. }
+            | Token::WeightRangeAt { span, .. }
+            | Token::Sum { span, .. }
+            | Token::SumAt { span, .. } = token
                 && (span.start >= span.end || source.get(span.clone()).is_none())
             {
                 return Err(Error::InvalidTarget);
             }
             let t = match token {
+                Token::WeightRangeAt { first, last, span } => {
+                    let worksheet = qualified.take().unwrap_or(self.book.worksheet);
+                    self.book.sheet_info(worksheet)?.rows.at(first.row)?;
+                    self.book.sheet_info(worksheet)?.columns.at(last.column)?;
+                    let rectangle = pivot_core::model::selection::Rectangle {
+                        space: pivot_core::model::selection::SpaceId(*worksheet.uuid().as_bytes()),
+                        first_row: first.row.min(last.row),
+                        last_row: first.row.max(last.row),
+                        first_column: first.column.min(last.column),
+                        last_column: first.column.max(last.column),
+                    };
+                    let id = pivot_core::model::selection::SelectionId(*Uuid::new_v4().as_bytes());
+                    let id = self
+                        .batch
+                        .intern_selection(id, rectangle)
+                        .map_err(graph_error)?;
+                    Token::WeightRange {
+                        id,
+                        rectangle,
+                        first: *first,
+                        last: *last,
+                        span: span.clone(),
+                    }
+                }
                 Token::SumAt {
                     kind,
                     first,
@@ -497,7 +524,14 @@ impl Transaction<'_> {
                         span: span.clone(),
                     }
                 }
-                Token::Sum {
+                Token::WeightRange {
+                    id,
+                    rectangle,
+                    first,
+                    last,
+                    ..
+                }
+                | Token::Sum {
                     id,
                     rectangle,
                     first,
@@ -574,6 +608,7 @@ impl Transaction<'_> {
                     };
                     ResolvedToken::Node(adapter)
                 }
+                Token::WeightRange { id, .. } => ResolvedToken::Range(*id),
                 Token::Sum { kind, id, .. } => {
                     if *kind == pivot_core::expression::AggregateKind::Sum {
                         ResolvedToken::Sum(*id)
@@ -590,6 +625,7 @@ impl Transaction<'_> {
                 Token::Control(c) => ResolvedToken::Control(*c),
                 Token::Binary(op) => ResolvedToken::Binary(*op),
                 Token::At(_)
+                | Token::WeightRangeAt { .. }
                 | Token::SumAt { .. }
                 | Token::QualifierAt { .. }
                 | Token::Qualifier { .. } => unreachable!(),

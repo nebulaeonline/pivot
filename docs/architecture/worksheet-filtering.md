@@ -25,7 +25,7 @@ contains predicates are literal. Text input defaults to String, preserving leadi
 zeros; Decimal input is validated by Rust's exact entry parser. Blank, empty String
 and completed errors remain distinct. Typed negatives exclude other kinds.
 
-Definitions and structural NeedsReview persist in WB12; derived maps and operational
+Definitions and structural NeedsReview persist in current WB13; derived maps and operational
 failures do not. Configuring/clearing a definition changes document metadata without
 changing graph revision/computational state. Identical canonical definitions are
 no-ops. Reapply changes presentation only. CB5 and hosted v1 remain unchanged; the
@@ -33,7 +33,8 @@ owned application session uses private v11. Obsolete native versions are rejecte
 
 ADR-0034's owner-authorized [visible clipboard implementation](visible-clipboard.md)
 adds explicit visible-source/destination commands and advances the private session
-to v12. ADR-0033's ordinary full-rectangle behavior remains intact; WB12 is unchanged.
+to v12. ADR-0033's ordinary full-rectangle behavior remains intact. The native container
+subsequently advances to WB13 under ADR-0038; filter metadata encoding is unchanged.
 
 The session runs at most one cancellable filter evaluation, coalescing newer work
 without retaining another queued workbook capture. The job reads one immutable

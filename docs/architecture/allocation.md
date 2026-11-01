@@ -35,8 +35,8 @@ is bounded by 256 bytes and limb visits by 1,024 per call; compiler stack frames
 and the existing evaluator argument stack are outside that accounting. Production
 SUM, division, rounding, formatting and resource limits are unchanged.
 
-Typed opcode 19 uses the existing WB12, private session v13, hosted v1 and CB5/CB6
-encodings. No protocol version or canonical value type changes. Readers that do
+Typed opcode 19 retains its representation in current WB13, private session v13,
+hosted v1 and CB5/CB6. No protocol version or canonical value type changes. Readers that do
 not recognize the opcode must refuse execution under existing validation rules.
 
 See [ADR-0036](../adr/0036-exact-conservation-preserving-allocation.md) for the

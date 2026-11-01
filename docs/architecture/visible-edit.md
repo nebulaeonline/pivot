@@ -44,7 +44,8 @@ writes occur; ordinary binding may demand hidden Blank anchors and hidden depend
 may recalculate. Filter refresh follows the complete canonical write set.
 
 Private session v13 adds typed Prepare/Clear/Fill and matching-ticket Cancel operations;
-WB12, hosted v1, CB5/CB6 and existing resource limits are unchanged. Core mask/identity/
+The current WB13 container retains the metadata; hosted v1, CB5/CB6 and existing
+resource limits are unchanged. Core mask/identity/
 style/rollback/formula tests, real IPC and in-memory routed-menu checks supplement all
 six successful headless and attended managed/AOT suites. See the
 [implementation handoff](../handoffs/2026-10-31-visible-only-clear-and-fill.md) for

@@ -16,6 +16,7 @@ pub enum Op {
     Round,
     Allocate,
     AllocateWeighted,
+    AllocateWeightedRange,
     RoundUp,
     RoundDown,
     Concat,
@@ -29,6 +30,7 @@ pub enum Op {
 impl Op {
     pub fn code(&self) -> u8 {
         match self {
+            Self::AllocateWeightedRange => 21,
             Self::AllocateWeighted => 20,
             Self::Allocate => 19,
             Self::ReferenceDeleted(_) => 18,
@@ -54,6 +56,7 @@ impl Op {
     }
     pub fn from_code(code: u8) -> Option<Self> {
         Some(match code {
+            21 => Self::AllocateWeightedRange,
             20 => Self::AllocateWeighted,
             19 => Self::Allocate,
             18 => Self::ReferenceDeleted(String::new()),
@@ -84,6 +87,7 @@ impl Op {
             "NOT" => Self::Not,
             "LEN" => Self::Len,
             "MID" => Self::Mid,
+            "ALLOCATEWEIGHTEDRANGE" => Self::AllocateWeightedRange,
             "ALLOCATEWEIGHTED" => Self::AllocateWeighted,
             "ALLOCATE" => Self::Allocate,
             "ROUND" => Self::Round,
@@ -102,6 +106,7 @@ impl Op {
             }
             Self::Boolean(_) => n == 0,
             Self::String(s) => n == 0 && s.len() <= MAX_TEXT_BYTES,
+            Self::AllocateWeightedRange => n == 4,
             Self::AllocateWeighted => (4..=67).contains(&n),
             Self::Allocate => n == 4,
             Self::If | Self::Mid => n == 3,
@@ -142,7 +147,7 @@ pub fn condition(value: &V) -> Result<bool, Error> {
 }
 pub(crate) fn validate_argument(op: &Op, index: usize, value: &V) -> Result<(), Error> {
     match op {
-        Op::AllocateWeighted => {
+        Op::AllocateWeighted | Op::AllocateWeightedRange => {
             let V::Decimal(n) = value else {
                 return Err(Error::TypeMismatch);
             };
@@ -250,7 +255,7 @@ fn apply_scalar(op: &Op, args: &[V]) -> Result<V, Error> {
         Op::And => V::Boolean(args.iter().try_fold(true, |v, a| Ok(v && condition(a)?))?),
         Op::Or => V::Boolean(args.iter().try_fold(false, |v, a| Ok(v || condition(a)?))?),
         Op::Not => V::Boolean(!condition(&args[0])?),
-        Op::AllocateWeighted => return Err(Error::InvalidArgument),
+        Op::AllocateWeighted | Op::AllocateWeightedRange => return Err(Error::InvalidArgument),
         Op::Allocate => {
             // Preserve local argument validation order even for direct typed callers.
             for (i, v) in args.iter().enumerate() {

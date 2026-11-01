@@ -272,6 +272,7 @@ impl Graph {
                         BoundToken::Typed(..)
                             | BoundToken::Control(_)
                             | BoundToken::Sum(_)
+                            | BoundToken::Range(_)
                             | BoundToken::Aggregate(_, _)
                     )
                 })
@@ -287,6 +288,7 @@ impl Graph {
                             BoundToken::Node(n) => transfer::SelectionToken::Node(
                                 *slots.get(n).ok_or(Error::InvalidTransfer)?,
                             ),
+                            BoundToken::Range(id) => transfer::SelectionToken::Range(*id),
                             BoundToken::Aggregate(kind, id) => {
                                 transfer::SelectionToken::Aggregate(*kind, *id)
                             }

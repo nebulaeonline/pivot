@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 64 * 1024 * 1024;
-const MAGIC: &[u8; 9] = b"PIVOTWB12";
+const MAGIC: &[u8; 9] = b"PIVOTWB13";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -120,6 +120,10 @@ impl Writer {
                     self.n(*kind as u64);
                     self.id(Uuid::from_bytes(id.0));
                 }
+                SelectionToken::Range(id) => {
+                    self.n(8);
+                    self.id(Uuid::from_bytes(id.0));
+                }
                 SelectionToken::Sum(id) => {
                     self.n(2);
                     self.id(Uuid::from_bytes(id.0));
@@ -157,6 +161,21 @@ impl Writer {
                 Token::Control(c) => {
                     self.n(6);
                     self.n(c.code().into());
+                }
+                Token::WeightRange {
+                    id,
+                    rectangle,
+                    first,
+                    last,
+                    span,
+                } => {
+                    self.n(9);
+                    self.id(Uuid::from_bytes(id.0));
+                    self.rectangle(*rectangle);
+                    self.pos(*first);
+                    self.pos(*last);
+                    self.n(span.start as u64);
+                    self.n(span.end as u64);
                 }
                 Token::Sum {
                     kind,
@@ -204,6 +223,7 @@ impl Writer {
                 Token::QualifierAt { .. }
                 | Token::Output(_)
                 | Token::At(_)
+                | Token::WeightRangeAt { .. }
                 | Token::SumAt { .. } => {
                     unreachable!("validated ordinary document formulas are bound")
                 }
@@ -312,6 +332,7 @@ impl<'a> Reader<'a> {
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
             out.push(match self.n()? {
+                8 => SelectionToken::Range(SelectionId(*self.id()?.as_bytes())),
                 7 => {
                     let (op, n) = self.typed_op()?;
                     SelectionToken::Typed(op, n)
@@ -358,6 +379,13 @@ impl<'a> Reader<'a> {
                 }
                 7 => Token::Qualifier {
                     worksheet: WorksheetId::from_uuid(self.id()?),
+                    span: self.count(4096)?..self.count(4096)?,
+                },
+                9 => Token::WeightRange {
+                    id: SelectionId(*self.id()?.as_bytes()),
+                    rectangle: self.rectangle()?,
+                    first: self.pos()?,
+                    last: self.pos()?,
                     span: self.count(4096)?..self.count(4096)?,
                 },
                 4 | 5 => {
@@ -679,7 +707,7 @@ impl Document {
                 .map(|b| *b as char)
                 .collect();
             return Err(Error::Graph(format!(
-                "unsupported native workbook version WB{version}; WB12 required"
+                "unsupported native workbook version WB{version}; WB13 required"
             )));
         }
         if bytes.len() < 49 || !bytes.starts_with(MAGIC) {
@@ -1149,6 +1177,25 @@ impl Document {
                                         return Err(malformed());
                                     }
                                 }
+                                Token::WeightRangeAt { first, last, span } => {
+                                    if let Token::WeightRange {
+                                        first: a,
+                                        last: b,
+                                        span: s,
+                                        ..
+                                    } = bound
+                                    {
+                                        if (first.row <= last.row) != (a.row <= b.row)
+                                            || (first.column <= last.column)
+                                                != (a.column <= b.column)
+                                            || span != s
+                                        {
+                                            return Err(malformed());
+                                        }
+                                    } else {
+                                        return Err(malformed());
+                                    }
+                                }
                                 Token::SumAt {
                                     kind,
                                     first,
@@ -1231,6 +1278,25 @@ impl Document {
                         continue;
                     }
                     selection_tokens.push(match t {
+                        Token::WeightRange {
+                            id,
+                            rectangle,
+                            first,
+                            last,
+                            span,
+                        } => {
+                            if selection_map.get(id) != Some(&Some(*rectangle))
+                                || rectangle.first_row != first.row.min(last.row)
+                                || rectangle.last_row != first.row.max(last.row)
+                                || rectangle.first_column != first.column.min(last.column)
+                                || rectangle.last_column != first.column.max(last.column)
+                                || span.start >= span.end
+                                || source.get(span.clone()).is_none()
+                            {
+                                return Err(malformed());
+                            }
+                            SelectionToken::Range(*id)
+                        }
                         Token::Sum {
                             kind,
                             id,
@@ -1281,6 +1347,7 @@ impl Document {
                         | Token::QualifierAt { .. }
                         | Token::Output(_)
                         | Token::At(_)
+                        | Token::WeightRangeAt { .. }
                         | Token::SumAt { .. } => {
                             return Err(malformed());
                         }
@@ -1291,6 +1358,7 @@ impl Document {
                         t,
                         SelectionToken::Typed(..)
                             | SelectionToken::Control(_)
+                            | SelectionToken::Range(_)
                             | SelectionToken::Sum(_)
                             | SelectionToken::Aggregate(_, _)
                     )
@@ -1341,7 +1409,9 @@ impl Document {
                             | Token::Control(_)
                             | Token::Output(_)
                             | Token::At(_)
+                            | Token::WeightRangeAt { .. }
                             | Token::SumAt { .. }
+                            | Token::WeightRange { .. }
                             | Token::Sum { .. } => {
                                 return Err(malformed());
                             }
@@ -1370,10 +1440,15 @@ impl Document {
                 Content::Formula { tokens, .. } => tokens,
                 _ => return Err(malformed()),
             };
-            if !tokens
-                .iter()
-                .any(|t| matches!(t, Token::Typed(..) | Token::Control(_) | Token::Sum { .. }))
-            {
+            if !tokens.iter().any(|t| {
+                matches!(
+                    t,
+                    Token::Typed(..)
+                        | Token::Control(_)
+                        | Token::WeightRange { .. }
+                        | Token::Sum { .. }
+                )
+            }) {
                 return Err(malformed());
             }
         }
@@ -1631,7 +1706,7 @@ mod weighted_codec_tests {
                 assert!(decoded.is_err());
             }
         }
-        for (code, arity) in [(20, 4097), (21, 4), (255, 4)] {
+        for (code, arity) in [(20, 4097), (21, 3), (21, 5), (22, 4), (255, 4)] {
             let mut writer = Writer(Vec::new());
             writer.n(code);
             writer.n(arity);

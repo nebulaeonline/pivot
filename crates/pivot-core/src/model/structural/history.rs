@@ -74,6 +74,7 @@ impl Graph {
                                     transfer::ResolvedToken::Control(c) => BoundToken::Control(*c),
                                     transfer::ResolvedToken::Binary(op) => BoundToken::Binary(*op),
                                     transfer::ResolvedToken::Sum(s) => BoundToken::Sum(*s),
+                                    transfer::ResolvedToken::Range(s) => BoundToken::Range(*s),
                                     transfer::ResolvedToken::Aggregate(k, s) => {
                                         BoundToken::Aggregate(*k, *s)
                                     }

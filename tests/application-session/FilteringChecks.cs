@@ -37,7 +37,7 @@ internal static class FilteringChecks {
   s.ConfirmHiddenRowsAsync=(q,p,c)=>{Check(p.FilterFootprints.Single().Last.Row==65536,"structure confirmation covers shifted rows, not only the inserted band");return Task.FromResult(true);};
   await s.StructureAsync(s.Revision,false,false,1,1);frame=await Frame(s);Check(frame.FilterStatus==2&&frame.FilterSummary.NeedsReview,"structure persists NeedsReview");
   before=s.Revision;await s.ReapplyFilterAsync();Check(s.Revision==before&&s.FilterSummary!.NeedsReview,"Reapply does not repair or rebind NeedsReview");
-  string path=Path.Combine(output,"filtered.pivot");await s.SaveAsync(s.Revision,path);Check((await File.ReadAllBytesAsync(path)).AsSpan(0,9).SequenceEqual("PIVOTWB12"u8),"WB12 current format");
+  string path=Path.Combine(output,"filtered.pivot");await s.SaveAsync(s.Revision,path);Check((await File.ReadAllBytesAsync(path)).AsSpan(0,9).SequenceEqual("PIVOTWB13"u8),"WB12 current format");
   await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path);frame=await Frame(s);Check(frame.FilterStatus==2&&!s.IsDirty,"NeedsReview saved; operational state not fabricated");
   await s.SetFilterAsync(s.Revision,null);
   await s.NewAsync(s.Revision,discard:true);

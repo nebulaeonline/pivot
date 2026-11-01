@@ -193,25 +193,37 @@ validation, numeric-only GUI/AOT scope, resource results, fixture correction, or
 failure/retry distinction, selected-file source qualification and diagnostic code size.
 ADR-0023 remains parked at G3.
 
-**ADR-0038: Range-Based Weighted Allocation — design approved with four clarifications (2026-11-01).**
+**ADR-0038: Range-Based Weighted Allocation — accepted and closed with qualification (2026-11-01).**
 See the [ADR](adr/0038-range-based-weighted-allocation.md) and
 [design review](handoffs/2026-11-01-range-based-weighted-allocation-design.md).
 ALLOCATEWEIGHTEDRANGE(total,index,places,range) uses one literal row/column range of
 1..64 physical positions, strict Decimal weights and explicit index/precision. Blank
 retains its position and causes TypeMismatch; zero is explicit, visibility irrelevant.
 Captured spatial SelectionId/structural behavior and unchanged ADR-0037 arithmetic apply.
+Implementation review accepts the four design clarifications, arithmetic/resource
+contracts, qualified validation, code-size reporting and verified retention. No further
+validation is required for ADR-0038. The Windows ARM64 cold-build timing issue remains
+an explicit unresolved engineering issue; original failures retain their Failed status.
 
 Four requirements are mandatory: preserve missing/repeated-identity slots without
 compaction; bound rejected geometry while retaining subscriptions and restoring/cycle-
 validating dependencies on valid transitions; enforce range operand authority rather
 than arity alone; and keep the approved WB13-only cut explicit, with no WB12 reader or
-migration. Tags 8/9 and operation 21 require the full encoder/decoder audit. Private
-v13/hosted v1/CB5/CB6 may remain only if existing fields preserve the required authority.
+migration. Operation 21 and tags 8/9 are implemented with strict operand authority.
+The codec audit retains private v13/hosted v1/CB5/CB6 because their existing fields
+preserve source, effective endpoints and fault authority.
 Independent 8-KiB adapter charging, actual index-node metering and one task/capture/
 cancellation context are accepted; allocator reservations and global limits stay fixed.
 All six targets require headless, managed GUI and Native AOT qualification, with macOS
-x64 identified as Rosetta. No feature implementation, new benchmark or platform run has
-occurred. Licensing, keyed groups, arrays/spills, repair, fairness state, visible-only
+x64 identified as Rosetta. ROBPC headless CI passed 13/13 and all-feature tests passed
+525. All six targets have passing headless CI evidence, with Windows ARM64 explicitly
+qualified as retained-build-cache CI after three preserved cold-build structural timing
+failures. Their cause remains unexplained; see the [qualification](performance/range-weighted-allocation.md).
+All six targets passed managed/AOT GUI: 12 suites and 48 zero-charge graphical reports,
+including macOS x64 under Rosetta. Selected implementation/test sources match. Verified
+archival and native/local cache cleanup are complete. See the
+[implementation handoff](handoffs/2026-11-01-range-based-weighted-allocation.md).
+Licensing, keyed groups, arrays/spills, repair, fairness state, visible-only
 allocation and history remain excluded; ADR-0023 stays parked at G3.
 
 **Desktop licensing policy (proposal only).**

@@ -413,6 +413,7 @@ pub(crate) fn evaluate_expression_with_arguments(
                 }
                 stack.push(Some(reduction.finish(id)?));
             }
+            BoundToken::Range(_) => return Err(invalid()),
             BoundToken::Sum(selection) | BoundToken::Aggregate(_, selection) => {
                 let kind = match *token {
                     BoundToken::Aggregate(k, _) => k,

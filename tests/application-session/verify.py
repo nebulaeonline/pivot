@@ -25,7 +25,7 @@ failure=subprocess.run(['dotnet','tests/application-session/bin/Release/net10.0/
 if failure.returncode!=1 or not failure.stderr.strip() or 'Unhandled exception' in failure.stderr or 'PASS' in failure.stdout:
     raise AssertionError('Headless failure was not reported through the controlled console boundary')
 subprocess.run(['dotnet','tests/application-session/bin/Release/net10.0/ApplicationSession.dll',str(binary),str(args.output_dir/'results.json')], cwd=ROOT, check=True, timeout=180)
-subprocess.run(['cargo','build','--locked','--release','-p','pivot-workbook-document','--example','capacity','--example','capacity_graphs','--example','regions','--example','structure','--example','sorting','--example','filtering','--example','visible_clipboard','--example','visible_edit','--example','allocation','--example','weighted'],cwd=ROOT,check=True)
+subprocess.run(['cargo','build','--locked','--release','-p','pivot-workbook-document','--example','capacity','--example','capacity_graphs','--example','regions','--example','structure','--example','sorting','--example','filtering','--example','visible_clipboard','--example','visible_edit','--example','allocation','--example','weighted','--example','weighted_range'],cwd=ROOT,check=True)
 examples=Path(metadata['target_directory'])/'release/examples'
 suffix='.exe' if os.name=='nt' else ''
 commands=[('identity-capacity',[str(examples/('capacity'+suffix)),'identities',str(args.output_dir/'identity-capacity.pivot')])]
@@ -41,6 +41,7 @@ commands += [('visible-clipboard-'+kind,[str(examples/('visible_clipboard'+suffi
 commands += [('visible-edit-'+kind,[str(examples/('visible_edit'+suffix)),kind]) for kind in ['clear-contents','clear-format','clear-both','fill-down','fill-up','fill-left','fill-right']]
 commands += [('allocation-'+kind,[str(examples/('allocation'+suffix)),kind]) for kind in ['cents','tiny','wide','large-count','overflow']]
 commands += [('weighted-'+kind,[str(examples/('weighted'+suffix)),kind]) for kind in ['mixed','mixed-scale','zeros-ties','wide','overflow']]
+commands += [('weighted-range-'+kind,[str(examples/('weighted_range'+suffix)),kind]) for kind in ['mixed','mixed-scale','zeros-ties','wide','overflow']]
 for name,command in commands:
     with (args.output_dir/(name+'.log')).open('w',encoding='utf-8') as log:
         subprocess.run(command,cwd=ROOT,check=True,stdout=log,stderr=subprocess.STDOUT,timeout=180)

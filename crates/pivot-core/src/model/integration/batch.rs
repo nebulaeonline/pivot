@@ -194,6 +194,40 @@ impl Batch {
     ) -> Result<(), ModelError> {
         self.push(Edit::RetiredSelection(id), 64)
     }
+    /// Reuse live spatial geometry; never reuse a retired identity or numeric result.
+    pub fn intern_selection(
+        &mut self,
+        fresh: selection::SelectionId,
+        rectangle: selection::Rectangle,
+    ) -> Result<selection::SelectionId, ModelError> {
+        if self.failed || !rectangle.valid() {
+            return self.fail(ModelError::Backend("invalid selection interning request"));
+        }
+        let touched = |id| {
+            self.edits.iter().rev().find_map(|e| match e {
+                Edit::Selection(s, r) | Edit::ReframeSelection(s, r) if *s == id => Some(Some(*r)),
+                Edit::RetiredSelection(s) if *s == id => Some(None),
+                _ => None,
+            })
+        };
+        for edit in &self.edits {
+            if let Edit::Selection(id, _) | Edit::ReframeSelection(id, _) = edit
+                && touched(*id) == Some(Some(rectangle))
+            {
+                return Ok(*id);
+            }
+        }
+        if let Some(state) = &self.base.get().selections {
+            for (id, old) in state.identities() {
+                // A retired descriptor is never resurrected through geometry equality.
+                if old.is_some() && touched(id).unwrap_or(old) == Some(rectangle) {
+                    return Ok(id);
+                }
+            }
+        }
+        self.define_selection(fresh, rectangle)?;
+        Ok(fresh)
+    }
     pub fn define_selection(
         &mut self,
         id: selection::SelectionId,
@@ -360,7 +394,8 @@ impl IntegrationRuntime {
             .iter()
             .flat_map(|f| {
                 f.tokens.iter().filter_map(|t| {
-                    if let transfer::SelectionToken::Sum(id)
+                    if let transfer::SelectionToken::Range(id)
+                    | transfer::SelectionToken::Sum(id)
                     | transfer::SelectionToken::Aggregate(_, id) = t
                     {
                         Some(*id)
@@ -451,6 +486,7 @@ impl IntegrationRuntime {
                             source_bytes = source_bytes.saturating_add(op.heap_bytes())
                         }
                         transfer::SelectionToken::Sum(id)
+                        | transfer::SelectionToken::Range(id)
                         | transfer::SelectionToken::Aggregate(_, id)
                             if !defined.contains(id) =>
                         {
@@ -493,6 +529,9 @@ impl IntegrationRuntime {
                             transfer::SelectionToken::Node(slot) => transfer::ResolvedToken::Node(
                                 *imported.nodes.get(slot).ok_or_else(invalid)?,
                             ),
+                            transfer::SelectionToken::Range(id) => {
+                                transfer::ResolvedToken::Range(id)
+                            }
                             transfer::SelectionToken::Aggregate(kind, id) => {
                                 transfer::ResolvedToken::Aggregate(kind, id)
                             }

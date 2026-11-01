@@ -370,6 +370,25 @@ impl Workbook {
                         Token::Typed(op, n) => S::Typed(op.clone(), *n),
                         Token::Control(c) => S::Control(*c),
                         Token::Binary(op) => S::Binary(*op),
+                        Token::WeightRange {
+                            id,
+                            rectangle,
+                            first,
+                            last,
+                            span,
+                        } => {
+                            if selections.get(id) != Some(&Some(*rectangle))
+                                || rectangle.first_row != first.row.min(last.row)
+                                || rectangle.last_row != first.row.max(last.row)
+                                || rectangle.first_column != first.column.min(last.column)
+                                || rectangle.last_column != first.column.max(last.column)
+                                || span.start >= span.end
+                                || source.get(span.clone()).is_none()
+                            {
+                                return Err(bad());
+                            }
+                            S::Range(*id)
+                        }
                         Token::Sum {
                             kind,
                             id,
@@ -401,7 +420,7 @@ impl Workbook {
             if translated.iter().any(|t| {
                 matches!(
                     t,
-                    S::Typed(..) | S::Control(_) | S::Sum(_) | S::Aggregate(_, _)
+                    S::Range(_) | S::Typed(..) | S::Control(_) | S::Sum(_) | S::Aggregate(_, _)
                 )
             }) {
                 expected_overlays.insert(slot);
@@ -704,7 +723,7 @@ fn same_selection_tokens(a: &[transfer::SelectionToken], b: &[transfer::Selectio
             (T::Control(a), T::Control(b)) => a == b,
             (T::Unary(a), T::Unary(b)) => a == b,
             (T::Binary(a), T::Binary(b)) => a == b,
-            (T::Sum(a), T::Sum(b)) => a == b,
+            (T::Range(a), T::Range(b)) | (T::Sum(a), T::Sum(b)) => a == b,
             (T::Aggregate(a, b), T::Aggregate(c, d)) => a == c && b == d,
             _ => false,
         })

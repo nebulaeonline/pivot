@@ -22,6 +22,15 @@ public partial class MainWindow {
   string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetDirectoryName(report)!,"typed-ui-"+Guid.NewGuid()+".pivot");
   AutomationCheck(await SaveDocumentAsync(true,path),"typed workbook saves");await s.NewAsync(s.Revision,discard:true);await RefreshAsync();await OpenDocumentAsync(path);
   AutomationCheck(WorkbookSession.DisplayValue(Sheet.CellAt(AutomationPosition(3,3))!)=="hello!","typed workbook reopens");AutomationImage(Path.ChangeExtension(report,"typed.png"));
+  await s.NewAsync(s.Revision,discard:true);await RefreshAsync();
+  await Enter(1,"3");await Enter(2,"1");await Enter(3,"=ALLOCATEWEIGHTEDRANGE(10,1,2,$A$1:$A$2)");
+  AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(3,1))!.Result.Decimal)==7.5m,"range allocation exact grid result");
+  await SelectAsync(AutomationPosition(3,1));await ClipboardAsync(false);await SelectAsync(AutomationPosition(5,1));await ClipboardAsync(true);await RefreshAsync();
+  AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(5,1))!.Result.Decimal)==7.5m,"range allocation native clipboard");
+  await Enter(4,"=ALLOCATEWEIGHTEDRANGE(10,1,2,B1:B1)");
+  AutomationCheck(Sheet.CellAt(AutomationPosition(4,1))!.ErrorCode=="TypeMismatch","range allocation missing weight stays strict");
+  AutomationCheck(await SaveDocumentAsync(true,path),"range workbook saves");await s.NewAsync(s.Revision,discard:true);await RefreshAsync();await OpenDocumentAsync(path);
+  AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(5,1))!.Result.Decimal)==7.5m,"WB13 range workbook reopens");
   await s.NewAsync(s.Revision,discard:true);CancelDraft();clipboardEditor=null;shortcutModifiers=KeyModifiers.None;await RefreshAsync();Sheet.Focus();
  }
 }

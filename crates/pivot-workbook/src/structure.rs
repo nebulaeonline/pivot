@@ -142,7 +142,7 @@ pub fn structural_syntax(syntax: &Token, bound: &Token, previous: Option<&Token>
     let origin = origin_of(bound)?;
     Ok(match syntax {
         Token::At(_) => origin.is_some_and(|o| o.kind == 1),
-        Token::SumAt { .. } => origin.is_some_and(|o| o.kind == 2),
+        Token::WeightRangeAt { .. } | Token::SumAt { .. } => origin.is_some_and(|o| o.kind == 2),
         Token::Typed(pivot_core::typed::Op::ReferenceDeleted(_), 0) => matches!(
             bound,
             Token::Typed(pivot_core::typed::Op::ReferenceDeleted(_), 0)
@@ -227,7 +227,7 @@ pub(crate) fn render(
         };
         let span = match syntax {
             Token::At(_) => Some(scalar.next().ok_or(Error::InvalidTarget)?.0),
-            Token::SumAt { span, .. } => Some(span.clone()),
+            Token::WeightRangeAt { span, .. } | Token::SumAt { span, .. } => Some(span.clone()),
             Token::Typed(pivot_core::typed::Op::ReferenceDeleted(_), 0) => {
                 Some(literal.next().ok_or(Error::InvalidTarget)?)
             }
@@ -265,7 +265,8 @@ pub(crate) fn render(
                 };
                 replacements.push((span, text, None));
             }
-            (Token::SumAt { .. }, Token::Sum { first, last, .. }, Some(span)) => {
+            (Token::WeightRangeAt { .. }, Token::WeightRange { first, last, .. }, Some(span))
+            | (Token::SumAt { .. }, Token::Sum { first, last, .. }, Some(span)) => {
                 let refs: Vec<_> = lexical
                     .iter()
                     .filter(|r| r.span.start >= span.start && r.span.end <= span.end)
@@ -530,6 +531,73 @@ impl Workbook {
                         tokens[index] = Token::Typed(fault_op(origin), 0);
                         changed = true;
                     }
+                    Token::WeightRange {
+                        id: selection,
+                        mut rectangle,
+                        mut first,
+                        mut last,
+                        span,
+                    } if rectangle.space.0 == *sheet.uuid().as_bytes() => {
+                        let (a, b) = match change.axis {
+                            AxisKind::Rows => (rectangle.first_row, rectangle.last_row),
+                            AxisKind::Columns => (rectangle.first_column, rectangle.last_column),
+                        };
+                        if let Some((new_a, new_b)) = change.range(a, b, limit) {
+                            if (a, b) == (new_a, new_b) {
+                                continue;
+                            }
+                            match change.axis {
+                                AxisKind::Rows => {
+                                    rectangle.first_row = new_a;
+                                    rectangle.last_row = new_b;
+                                    if first.row <= last.row {
+                                        first.row = new_a;
+                                        last.row = new_b;
+                                    } else {
+                                        first.row = new_b;
+                                        last.row = new_a;
+                                    }
+                                }
+                                AxisKind::Columns => {
+                                    rectangle.first_column = new_a;
+                                    rectangle.last_column = new_b;
+                                    if first.column <= last.column {
+                                        first.column = new_a;
+                                        last.column = new_b;
+                                    } else {
+                                        first.column = new_b;
+                                        last.column = new_a;
+                                    }
+                                }
+                            }
+                            reframes.insert(selection, rectangle);
+                            tokens[index] = Token::WeightRange {
+                                id: selection,
+                                rectangle,
+                                first,
+                                last,
+                                span,
+                            };
+                            changed = true;
+                        } else {
+                            let origin = FaultOrigin {
+                                kind: 2,
+                                worksheet: sheet,
+                                target: Uuid::from_bytes(selection.0),
+                                node: Uuid::nil(),
+                                first: Position::new(rectangle.first_row, rectangle.first_column),
+                                last: Position::new(rectangle.last_row, rectangle.last_column),
+                            };
+                            tokens[index] = Token::Typed(fault_op(origin), 0);
+                            if tokens.get(index + 1)
+                                == Some(&Token::Control(expression::AggregateControl::Range))
+                            {
+                                tokens[index + 1] =
+                                    Token::Control(expression::AggregateControl::Value);
+                            }
+                            changed = true;
+                        }
+                    }
                     Token::Sum {
                         kind,
                         id: selection,
@@ -618,6 +686,7 @@ impl Workbook {
                                 .ok_or(Error::InvalidTarget)?
                                 .runtime,
                         ),
+                        Token::WeightRange { id, .. } => ResolvedToken::Range(*id),
                         Token::Sum { kind, id, .. } => {
                             if *kind == expression::AggregateKind::Sum {
                                 ResolvedToken::Sum(*id)

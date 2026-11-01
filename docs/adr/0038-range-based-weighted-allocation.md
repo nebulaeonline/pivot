@@ -1,7 +1,7 @@
 # ADR-0038: Range-based weighted allocation
 
 Date: 2026-11-01.
-Status: **Design approved with four clarifications (2026-11-01). Implementation not started.**
+Status: **Accepted and closed with explicit Windows ARM64 cold-build qualification (2026-11-01).**
 
 ## Problem and source findings
 
@@ -392,3 +392,37 @@ This disposition approves the design only. No implementation, benchmark or platf
 execution has occurred. Keyed groups, persistent recipient identities, automatic repair,
 arrays/spills, visible-only allocation, fairness/history state, financial subsystems and
 Desktop licensing implementation remain excluded. ADR-0023 stays parked at G3.
+
+
+## Implementation record — 2026-11-01
+
+The implementation uses operation 21, graph range token 8 and workbook range token 9
+with WB13-only persistence. Dense positional collection, invalid-geometry dependency
+restoration, strict operand authority and separate adapter admission implement the
+four approved clarifications. Identical live spatial rectangles may share descriptors;
+retired identities and numeric results are never reused. Calculated Blank is checked
+before ordinary formula-result coercion, without changing other formula semantics.
+
+ROBPC CI passed 13/13, all-feature tests passed 525 and strict Clippy passed. All six
+targets have passing complete headless CI evidence; Windows ARM64 is explicitly a
+retained-build-cache pass after three preserved cold-build structural timing failures.
+Their cause remains unresolved. All 12 managed/AOT GUI suites passed, including x64
+Rosetta, with 48 zero-charge graphical reports. Selected source qualification, exact
+oracle/SUM checks, observed resource maxima and verified cleanup are recorded in the
+[implementation handoff](../handoffs/2026-11-01-range-based-weighted-allocation.md)
+and [qualification report](../performance/range-weighted-allocation.md). These records
+do not convert the earlier cold failures into passes or claim cold-build timing reliability.
+
+## Implementation acceptance — 2026-11-01
+
+Accepted and closed by implementation review, 2026-11-01, with the Windows ARM64
+cold-build qualification retained. The four design clarifications, unchanged ADR-0037
+arithmetic, separate adapter admission, WB13-only compatibility cut, source-qualified
+six-target evidence, diagnostic code-size report and verified cleanup are accepted.
+
+The three Windows ARM64 cold-build timing failures remain Failed and unexplained.
+The retained-build-cache CI pass is separate successful evidence, not proof of cold-build
+timing reliability. macOS x64 is Rosetta coverage; source hashes cover the documented
+selected files. Timings are observed maxima and memory is charged-domain accounting,
+not GUI latency, percentiles or process RSS. No additional validation is required for
+this acceptance. ADR-0023 remains parked at G3; excluded capabilities remain outside scope.

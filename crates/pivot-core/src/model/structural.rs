@@ -313,7 +313,10 @@ impl Compiled {
             } => tokens
                 .iter()
                 .filter_map(|t| {
-                    if let BoundToken::Sum(id) | BoundToken::Aggregate(_, id) = t {
+                    if let BoundToken::Range(id)
+                    | BoundToken::Sum(id)
+                    | BoundToken::Aggregate(_, id) = t
+                    {
                         Some(*id)
                     } else {
                         None
@@ -781,10 +784,25 @@ impl Graph {
             });
         }
         let state = self.selections.as_ref().ok_or(Error::InvalidTransfer)?;
-        let upper = state
-            .metrics()
-            .points
-            .saturating_mul(selections.len())
+        let ordered_only = |sid| match &**definition {
+            Compiled::Formula {
+                binding: Ok((tokens, _)),
+                ..
+            } => !tokens
+                .iter()
+                .any(|t| matches!(t,BoundToken::Sum(s)|BoundToken::Aggregate(_,s) if *s==sid)),
+            _ => false,
+        };
+        let upper = selections
+            .iter()
+            .map(|s| {
+                if ordered_only(*s) {
+                    64
+                } else {
+                    state.metrics().points
+                }
+            })
+            .sum::<usize>()
             .saturating_add(definition.deps().len())
             .min(selection::MAX_MEMBER_EDGES_PER_FORMULA);
         let charge = self.memory.reserve(upper.saturating_mul(64) + 4096)?;
@@ -793,17 +811,32 @@ impl Graph {
         let mut range_budget = (*budget).min(selection::MAX_MEMBER_EDGES_PER_FORMULA);
         let initial = range_budget;
         for selection in selections {
-            members.extend(
-                state
-                    .members(selection, &mut range_budget, cancel)
+            if ordered_only(selection) {
+                let slots = state
+                    .ordered_slots(selection, &mut range_budget, cancel)
                     .map_err(|e| {
                         if matches!(e, selection::Error::Cancelled) {
                             Error::Cancelled
                         } else {
                             Error::ValidationBudget
                         }
-                    })?,
-            );
+                    })?;
+                if let Some(slots) = slots {
+                    members.extend(slots.into_iter().flatten());
+                }
+            } else {
+                members.extend(
+                    state
+                        .members(selection, &mut range_budget, cancel)
+                        .map_err(|e| {
+                            if matches!(e, selection::Error::Cancelled) {
+                                Error::Cancelled
+                            } else {
+                                Error::ValidationBudget
+                            }
+                        })?,
+                );
+            }
         }
         *budget = budget
             .checked_sub(initial - range_budget)
@@ -1093,6 +1126,7 @@ impl Graph {
         }
         let mut changed = BTreeSet::new();
         let mut invalidation_sources = BTreeSet::new();
+        let mut restored_ordered_range = false;
         let mut topology = false;
         let mut inputs = false;
         let install_profile = crate::experiment_profile::construction::scope(6);
@@ -1134,6 +1168,17 @@ impl Graph {
             }
             match edit {
                 Edit::ReframeSelection(id, rectangle) => {
+                    if rectangle.ordered_len().is_some()
+                        && let Some(state) = &candidate.selections
+                        && state
+                            .descriptor(id)
+                            .is_some_and(|r| r.ordered_len().is_none())
+                    {
+                        restored_ordered_range |= state.consumers_of(id).iter().any(|n| {
+                            candidate.live_record(*n).is_ok_and(|record| matches!(&*record.definition,
+                                Compiled::Formula { binding: Ok((tokens,_)), .. } if tokens.iter().any(|t|matches!(t,BoundToken::Range(s) if *s==id))))
+                        });
+                    }
                     candidate.edit_selection(|state| state.reframe(id, rectangle))?;
                     topology = true;
                 }
@@ -1234,6 +1279,17 @@ impl Graph {
                                     return Err(Error::InvalidTransfer);
                                 }
                                 BoundToken::Aggregate(kind, id)
+                            }
+                            transfer::ResolvedToken::Range(id) => {
+                                if candidate
+                                    .selections
+                                    .as_ref()
+                                    .and_then(|s| s.descriptor(id))
+                                    .is_none()
+                                {
+                                    return Err(Error::InvalidTransfer);
+                                }
+                                BoundToken::Range(id)
                             }
                             transfer::ResolvedToken::Sum(id) => {
                                 if candidate
@@ -1357,6 +1413,22 @@ impl Graph {
             }));
             candidate.invalid = Index::new(candidate.memory.clone());
             candidate.import_invalid = false;
+            if restored_ordered_range {
+                let _roots = candidate
+                    .memory
+                    .reserve(changed.len().saturating_mul(std::mem::size_of::<NodeId>()))?;
+                let roots = changed.iter().copied().collect::<Vec<_>>();
+                candidate
+                    .validate_cycle_relation(&roots, bulk.unwrap_or(&|| false))
+                    .map_err(|e| match e {
+                        ComputeError::Cancelled => Error::Cancelled,
+                        ComputeError::Admission => Error::Admission,
+                        ComputeError::Invalid(_) => Error::Model(ModelError::Backend(
+                            "range geometry restoration introduces a dependency cycle",
+                        )),
+                        _ => Error::ValidationBudget,
+                    })?;
+            }
             if let Some((id, error)) =
                 candidate.validate_many(&changed, bulk.unwrap_or(&|| false))?
             {
@@ -1548,6 +1620,51 @@ impl Graph {
         }
         Ok(None)
     }
+    pub(super) fn validate_cycle_relation(
+        &self,
+        outputs: &[NodeId],
+        cancelled: impl Fn() -> bool,
+    ) -> Result<(), ComputeError> {
+        let mut work = Work::new(self.memory.clone());
+        work.add(4096 + outputs.len() * 128)?;
+        let mut active = BTreeSet::new();
+        let mut done = BTreeSet::new();
+        let mut pending: Vec<_> = outputs.iter().map(|&id| (id, false)).collect();
+        let mut visits = 1_000_000usize;
+        while let Some((id, exit)) = pending.pop() {
+            if cancelled() {
+                return Err(ComputeError::Cancelled);
+            }
+            visits = visits.checked_sub(1).ok_or(ComputeError::WorkBudget)?;
+            if exit {
+                active.remove(&id);
+                done.insert(id);
+                continue;
+            }
+            if active.contains(&id) {
+                return Err(ComputeError::Invalid(SnapshotError::Unorderable {
+                    nodes: active.iter().copied().collect(),
+                }));
+            }
+            if done.contains(&id) || self.live_record(id).is_err() {
+                continue;
+            }
+            let deps = self
+                .selection_dependencies(id, &mut visits, &cancelled)
+                .map_err(|_| {
+                    if cancelled() {
+                        ComputeError::Cancelled
+                    } else {
+                        ComputeError::WorkBudget
+                    }
+                })?;
+            work.add(512 + deps.items.len() * 64)?;
+            active.insert(id);
+            pending.push((id, true));
+            pending.extend(deps.items.iter().map(|&d| (d, false)));
+        }
+        Ok(())
+    }
     fn validate_from(
         &self,
         start: NodeId,
@@ -1642,46 +1759,7 @@ impl Capture {
         outputs: &[NodeId],
         cancelled: impl Fn() -> bool,
     ) -> Result<(), ComputeError> {
-        let mut work = Work::new(self.0.memory.clone());
-        work.add(4096 + outputs.len() * 128)?;
-        let mut active = BTreeSet::new();
-        let mut done = BTreeSet::new();
-        let mut pending: Vec<_> = outputs.iter().map(|&id| (id, false)).collect();
-        let mut visits = 1_000_000usize;
-        while let Some((id, exit)) = pending.pop() {
-            if cancelled() {
-                return Err(ComputeError::Cancelled);
-            }
-            visits = visits.checked_sub(1).ok_or(ComputeError::WorkBudget)?;
-            if exit {
-                active.remove(&id);
-                done.insert(id);
-                continue;
-            }
-            if active.contains(&id) {
-                return Err(ComputeError::Invalid(SnapshotError::Unorderable {
-                    nodes: active.iter().copied().collect(),
-                }));
-            }
-            if done.contains(&id) || self.0.live_record(id).is_err() {
-                continue;
-            }
-            let deps = self
-                .0
-                .selection_dependencies(id, &mut visits, &cancelled)
-                .map_err(|_| {
-                    if cancelled() {
-                        ComputeError::Cancelled
-                    } else {
-                        ComputeError::WorkBudget
-                    }
-                })?;
-            work.add(512 + deps.items.len() * 64)?;
-            active.insert(id);
-            pending.push((id, true));
-            pending.extend(deps.items.iter().map(|&d| (d, false)));
-        }
-        Ok(())
+        self.0.validate_cycle_relation(outputs, cancelled)
     }
     pub fn evaluate(&self, outputs: &[NodeId]) -> Result<Calculation, ComputeError> {
         self.evaluate_retiring(outputs, drop)

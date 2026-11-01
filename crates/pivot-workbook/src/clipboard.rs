@@ -106,7 +106,12 @@ fn references_mode(source: &str, proof: bool) -> Result<(Vec<ReferenceSyntax>, u
                 absolute_column: *absolute_column,
                 span: span.clone(),
             }),
-            Expr::SumRange {
+            Expr::WeightRange {
+                first_reference,
+                last_reference,
+                ..
+            }
+            | Expr::SumRange {
                 first_reference,
                 last_reference,
                 ..

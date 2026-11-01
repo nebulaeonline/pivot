@@ -61,8 +61,9 @@ The addressed area is at most 256 slots, even when its bounding rows span the fu
 worksheet. Combined bytes remain 256 KiB, source/text work 128 KiB, token work
 16,384, reference work 8,192 and operation transient admission 8 MiB. Row-map traversal,
 response/ticket construction, existing graph/style quotas and cancellation remain
-bounded; no worksheet/transport/runtime threshold is raised. WB12 and hosted v1 are
-unchanged; private session v12 carries the new operations and row-plan metadata.
+bounded; no worksheet/transport/runtime threshold is raised. The current WB13 container
+retains this metadata and hosted v1 is unchanged; private session v12 introduced the
+new operations and row-plan metadata.
 
 Sparse styles are staged by property as a batch rather than rebuilding every map
 for every slot. Splitting/coalescing preserves exact assignments outside the point

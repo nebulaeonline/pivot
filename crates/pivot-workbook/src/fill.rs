@@ -227,6 +227,10 @@ impl Workbook {
                         .and_then(|r| r.position)
                         .ok_or(Error::InvalidTarget)?,
                 ),
+                (Token::WeightRangeAt { .. }, Token::WeightRange { first, last, .. }) => {
+                    effective.push(*first);
+                    effective.push(*last);
+                }
                 (
                     Token::SumAt { kind, .. },
                     Token::Sum {
@@ -332,6 +336,15 @@ impl Workbook {
                                 .and_then(|r| r.position)
                                 == Some(*p)
                         }
+                        (
+                            Token::WeightRangeAt { first, last, span },
+                            Token::WeightRange {
+                                first: f,
+                                last: l,
+                                span: s,
+                                ..
+                            },
+                        ) => first == f && last == l && span == s,
                         (
                             Token::SumAt {
                                 kind,

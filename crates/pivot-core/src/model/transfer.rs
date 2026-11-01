@@ -100,12 +100,39 @@ pub enum ResolvedToken {
     Typed(crate::typed::Op, usize),
     Control(crate::expression::AggregateControl),
     Aggregate(crate::expression::AggregateKind, selection::SelectionId),
+    Range(super::selection::SelectionId),
     Sum(super::selection::SelectionId),
     Decimal(PivotDecimal),
     Node(NodeId),
     Unary(UnaryOp),
     Binary(BinaryOp),
 }
+fn valid_range_fault(origin: &str) -> bool {
+    if origin.is_empty() {
+        return true;
+    }
+    if origin.len() != 132 || !origin.is_ascii() {
+        return false;
+    }
+    let mut bytes = [0u8; 66];
+    for (i, byte) in bytes.iter_mut().enumerate() {
+        let Ok(value) = u8::from_str_radix(&origin[i * 2..i * 2 + 2], 16) else {
+            return false;
+        };
+        *byte = value;
+    }
+    let coord = |offset| u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
+    bytes[0] == 1
+        && matches!(bytes[1], 2 | 4)
+        && bytes[2..18].iter().any(|b| *b != 0)
+        && bytes[18..34].iter().any(|b| *b != 0)
+        && bytes[34..50].iter().all(|b| *b == 0)
+        && coord(50) > 0
+        && coord(54) > 0
+        && coord(50) <= coord(58)
+        && coord(54) <= coord(62)
+}
+
 pub(super) fn checked_dependencies(tokens: &[BoundToken]) -> Result<Vec<NodeId>, ModelError> {
     if tokens.len() > 1_048_576 {
         return Err(invalid());
@@ -116,7 +143,30 @@ pub(super) fn checked_dependencies(tokens: &[BoundToken]) -> Result<Vec<NodeId>,
     for (index, token) in tokens.iter().enumerate() {
         let floor = calls.last().map_or(0, |c| c.0);
         match token {
+            BoundToken::Range(_) => {
+                if !matches!(
+                    tokens.get(index + 1),
+                    Some(BoundToken::Typed(
+                        crate::typed::Op::AllocateWeightedRange,
+                        4
+                    ))
+                ) {
+                    return Err(invalid());
+                }
+                depth += 1;
+            }
             BoundToken::Typed(op, arity) => {
+                if *op == crate::typed::Op::AllocateWeightedRange
+                    && !match tokens.get(index.wrapping_sub(1)) {
+                        Some(BoundToken::Range(_)) => true,
+                        Some(BoundToken::Typed(crate::typed::Op::ReferenceDeleted(origin), 0)) => {
+                            valid_range_fault(origin)
+                        }
+                        _ => false,
+                    }
+                {
+                    return Err(invalid());
+                }
                 if !op.valid_arity(*arity) || depth < floor + arity {
                     return Err(invalid());
                 }
@@ -315,6 +365,7 @@ fn encode_mapped_image(
                                     BoundToken::Typed(..)
                                     | BoundToken::Control(_)
                                     | BoundToken::Sum(_)
+                                    | BoundToken::Range(_)
                                     | BoundToken::Aggregate(_, _) => {
                                         return Err(ModelError::Backend(
                                             "unsupported selection capability in scalar transfer",
@@ -669,6 +720,7 @@ pub enum SelectionToken {
     Aggregate(crate::expression::AggregateKind, selection::SelectionId),
     Decimal(PivotDecimal),
     Node(usize),
+    Range(selection::SelectionId),
     Sum(selection::SelectionId),
     Unary(UnaryOp),
     Binary(BinaryOp),
@@ -865,6 +917,43 @@ mod tests {
                 _ => image.node_slots = 8193,
             }
             assert!(import(image).is_err());
+        }
+    }
+}
+
+#[cfg(test)]
+mod range_operand_tests {
+    use super::*;
+    use crate::typed::Op;
+    #[test]
+    fn range_authority_is_distinct_from_four_scalars_and_cannot_escape() {
+        let metadata = || {
+            vec![
+                BoundToken::Decimal(10.into()),
+                BoundToken::Decimal(1.into()),
+                BoundToken::Decimal(2.into()),
+            ]
+        };
+        let mut scalar = metadata();
+        scalar.push(BoundToken::Decimal(1.into()));
+        scalar.push(BoundToken::Typed(Op::AllocateWeightedRange, 4));
+        assert!(checked_dependencies(&scalar).is_err());
+        let range = BoundToken::Range(selection::SelectionId([1; 16]));
+        let mut valid = metadata();
+        valid.push(range.clone());
+        valid.push(BoundToken::Typed(Op::AllocateWeightedRange, 4));
+        assert!(checked_dependencies(&valid).is_ok());
+        assert!(checked_dependencies(std::slice::from_ref(&range)).is_err());
+        assert!(checked_dependencies(&[range, BoundToken::Typed(Op::Len, 1)]).is_err());
+        for origin in [
+            "0102".to_owned() + &"00".repeat(64),
+            "0104".to_owned() + &"ff".repeat(64),
+            "bogus".into(),
+        ] {
+            let mut forged = metadata();
+            forged.push(BoundToken::Typed(Op::ReferenceDeleted(origin), 0));
+            forged.push(BoundToken::Typed(Op::AllocateWeightedRange, 4));
+            assert!(checked_dependencies(&forged).is_err());
         }
     }
 }

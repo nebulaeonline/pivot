@@ -2,6 +2,12 @@
 use super::memory::{Admission, Footprint, Memory, Shared};
 use std::borrow::Borrow;
 
+#[derive(Debug, Clone, Copy)]
+pub enum LookupError {
+    Cancelled,
+    Budget,
+}
+
 type Link<K, V> = Option<Shared<Node<K, V>>>;
 struct Node<K, V> {
     key: K,
@@ -81,6 +87,30 @@ impl<K: Key, V: Clone + Footprint> Index<K, V> {
     }
     pub fn is_empty(&self) -> bool {
         self.root.is_none()
+    }
+    /// Exact point lookup with admission and cancellation on every visited index node.
+    pub fn get_metered<Q: Ord + ?Sized>(
+        &self,
+        key: &Q,
+        budget: &mut usize,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Option<&V>, LookupError>
+    where
+        K: Borrow<Q>,
+    {
+        let mut next = self.root.as_ref();
+        while let Some(node) = next {
+            if cancel() {
+                return Err(LookupError::Cancelled);
+            }
+            *budget = budget.checked_sub(1).ok_or(LookupError::Budget)?;
+            match key.cmp(node.key.borrow()) {
+                std::cmp::Ordering::Less => next = node.left.as_ref(),
+                std::cmp::Ordering::Greater => next = node.right.as_ref(),
+                std::cmp::Ordering::Equal => return Ok(Some(&node.value)),
+            }
+        }
+        Ok(None)
     }
     pub fn get<Q: Ord + ?Sized>(&self, key: &Q) -> Option<&V>
     where

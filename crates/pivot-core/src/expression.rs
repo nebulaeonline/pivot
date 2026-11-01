@@ -21,6 +21,13 @@ pub enum Expr {
     },
     Decimal(PivotDecimal),
     Name(String),
+    WeightRange {
+        first: (u32, u32),
+        last: (u32, u32),
+        span: std::ops::Range<usize>,
+        first_reference: ReferenceSyntax,
+        last_reference: ReferenceSyntax,
+    },
     SumRange {
         kind: AggregateKind,
         first: (u32, u32),
@@ -527,7 +534,35 @@ impl Parser<'_> {
                     self.pos += 1;
                     let mut arguments = Vec::new();
                     loop {
-                        arguments.push(self.expr(0, depth + 1)?);
+                        if op == crate::typed::Op::AllocateWeightedRange && arguments.len() == 3 {
+                            self.space();
+                            let at = self.pos;
+                            if self.source[self.pos..].starts_with("#REF!") {
+                                arguments.push(self.expr(0, depth + 1)?);
+                            } else {
+                                let first = self.range_cell()?;
+                                self.space();
+                                if self.peek() != Some(b':') {
+                                    return Err(self.error("expected explicit weight range"));
+                                }
+                                self.pos += 1;
+                                let last = self.range_cell()?;
+                                if last.qualifier.is_some() {
+                                    return Err(
+                                        self.error("range endpoint qualifier is not supported")
+                                    );
+                                }
+                                arguments.push(Expr::WeightRange {
+                                    first: (first.row, first.column),
+                                    last: (last.row, last.column),
+                                    span: at..self.pos,
+                                    first_reference: first,
+                                    last_reference: last,
+                                });
+                            }
+                        } else {
+                            arguments.push(self.expr(0, depth + 1)?);
+                        }
                         self.space();
                         match self.peek() {
                             Some(b',') => self.pos += 1,

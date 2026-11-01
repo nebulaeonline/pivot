@@ -62,6 +62,10 @@ See [exact allocation](docs/architecture/allocation.md) for admission and error 
 for up to 64 explicit weights. For example, `=ALLOCATEWEIGHTED(10,1,2,1,2,3)` returns
 `1.67`. See [weighted allocation](docs/architecture/weighted-allocation.md) for ordinal
 association, exact reconciliation and the documented limits.
+`ALLOCATEWEIGHTEDRANGE(total,index,places,weight_range)` reads 1..64 physical positions
+in one literal row or column range. Missing, Blank, String and Boolean weights are
+errors; zero must be explicit. Sorting changes positional weight order, and hidden
+rows still count. See [range-weighted allocation](docs/architecture/range-weighted-allocation.md).
 
 
 A Format pane provides fixed-decimal, grouped, currency and percentage display,
@@ -86,7 +90,7 @@ dialog displays the final range and offers explicit inclusion of adjacent column
 [Sorting implementation and validation status](docs/architecture/worksheet-sorting.md).
 
 Workbooks open and save as local `.pivot` files, preserving every sheet, typed
-content, presentation and stable bindings. The current experimental format is WB12; earlier
+content, presentation and stable bindings. The current experimental format is WB13; earlier
 experimental workbook versions are rejected.
 
 Worksheet filters preserve typed criteria and hide whole rows without changing cell

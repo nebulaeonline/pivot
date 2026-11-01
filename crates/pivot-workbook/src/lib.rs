@@ -144,6 +144,18 @@ pub enum Token {
     Control(pivot_core::expression::AggregateControl),
     #[doc(hidden)]
     Output(structured::OutputBinding),
+    WeightRangeAt {
+        first: Position,
+        last: Position,
+        span: std::ops::Range<usize>,
+    },
+    WeightRange {
+        id: pivot_core::model::selection::SelectionId,
+        rectangle: pivot_core::model::selection::Rectangle,
+        first: Position,
+        last: Position,
+        span: std::ops::Range<usize>,
+    },
     SumAt {
         kind: pivot_core::expression::AggregateKind,
         first: Position,
@@ -613,6 +625,38 @@ impl Workbook {
                             ));
                             stack.push((arg.expression(), 0));
                         }
+                    }
+                    Expr::WeightRange {
+                        first,
+                        last,
+                        span,
+                        first_reference,
+                        ..
+                    } => {
+                        if let Some(q) = &first_reference.qualifier {
+                            tokens.push(Token::QualifierAt {
+                                name: q.name.clone(),
+                                span: q.span.clone(),
+                            });
+                        }
+                        let first = Position::new(first.0, first.1);
+                        let last = Position::new(last.0, last.1);
+                        if rows.at(first.row).is_err()
+                            || columns.at(first.column).is_err()
+                            || rows.at(last.row).is_err()
+                            || columns.at(last.column).is_err()
+                        {
+                            diagnostic = Some(ParseError {
+                                offset: span.start,
+                                message: "cell reference outside worksheet",
+                            });
+                            break;
+                        }
+                        tokens.push(Token::WeightRangeAt {
+                            first,
+                            last,
+                            span: span.clone(),
+                        });
                     }
                     Expr::SumRange {
                         kind,

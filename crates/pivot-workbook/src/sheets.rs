@@ -144,12 +144,15 @@ pub(crate) fn validate_scope(
             Token::Typed(pivot_core::typed::Op::ReferenceDeleted(_), 0) => {
                 pending.take();
             }
-            Token::Sum { rectangle, .. } => {
+            Token::WeightRange { rectangle, .. } | Token::Sum { rectangle, .. } => {
                 if rectangle.space.0 != *pending.take().unwrap_or(owner).uuid().as_bytes() {
                     return Err(Error::InvalidTarget);
                 }
             }
-            Token::QualifierAt { .. } | Token::At(_) | Token::SumAt { .. } => {
+            Token::WeightRangeAt { .. }
+            | Token::QualifierAt { .. }
+            | Token::At(_)
+            | Token::SumAt { .. } => {
                 return Err(Error::InvalidTarget);
             }
             _ if pending.is_some() => return Err(Error::InvalidTarget),

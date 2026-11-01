@@ -132,6 +132,8 @@ def main():
     allocation_verify(args.output_dir,args.configuration)
     from weighted_reference import verify as weighted_verify
     weighted_verify(args.output_dir,args.configuration)
+    from range_weighted_reference import verify as range_weighted_verify
+    range_weighted_verify(args.output_dir,args.configuration)
 
 
 if __name__ == "__main__":

@@ -90,7 +90,7 @@ Cancellation is checked at recipient/ranking boundaries and whenever limb work c
 a 128-iteration block, which is tighter than the approved division-bit interval.
 Malformed arities refuse before scratch construction. Parsing, lowering, token validation,
 native decoding and execution share arity 4..67; source/token/depth budgets also apply.
-Opcode 20 uses existing WB12/private v13/hosted v1/CB5/CB6 encodings. Older engines
+Opcode 20 retains its encoding in WB13/private v13/hosted v1/CB5/CB6. Older engines
 reject unsupported operations. No numeric value type or Desktop interaction changed.
 
 ## Qualification
@@ -123,3 +123,5 @@ ADR-0038's range design is approved with four clarifications, but remains unimpl
 It adds no range support to this scalar function. The separate range contract requires
 position-preserving collection, bounded dependency transitions, authorized operands
 and an explicit native-format boundary; see the linked ADR for the full disposition.
+
+The literal spatial-range adapter is documented in [range-based weighted allocation](range-weighted-allocation.md). It uses operation 21 and WB13; scalar operation 20 arithmetic remains unchanged.

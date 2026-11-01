@@ -26,6 +26,15 @@ pub struct Rectangle {
     pub last_column: u32,
 }
 impl Rectangle {
+    pub fn ordered_len(self) -> Option<usize> {
+        if !self.valid() {
+            return None;
+        }
+        let rows = u64::from(self.last_row) - u64::from(self.first_row) + 1;
+        let cols = u64::from(self.last_column) - u64::from(self.first_column) + 1;
+        let len = rows.checked_mul(cols)?;
+        ((rows == 1 || cols == 1) && len <= 64).then_some(len as usize)
+    }
     pub fn valid(self) -> bool {
         self.space.0 != [0; 16]
             && self.first_row > 0
@@ -408,6 +417,55 @@ impl State {
         }
         Ok(())
     }
+    /// Dense physical positions; None denotes rejected geometry, not an empty vector.
+    /// Callers reserve adapter/dependency scratch before invoking this accessor.
+    pub fn ordered_slots(
+        &self,
+        id: SelectionId,
+        budget: &mut usize,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Option<Vec<Option<NodeId>>>, Error> {
+        let failed = || {
+            if cancel() {
+                Error::Cancelled
+            } else {
+                Error::Quota
+            }
+        };
+        let r = self
+            .descriptors
+            .get_metered(&id, budget, cancel)
+            .map_err(|_| failed())?
+            .copied()
+            .flatten()
+            .ok_or(Error::Invalid)?;
+        let Some(len) = r.ordered_len() else {
+            return Ok(None);
+        };
+        let mut out = Vec::with_capacity(len);
+        for row in r.first_row..=r.last_row {
+            for column in r.first_column..=r.last_column {
+                if cancel() {
+                    return Err(Error::Cancelled);
+                }
+                *budget = budget.checked_sub(1).ok_or(Error::Quota)?;
+                let value = match self
+                    .rows
+                    .get_metered(&(r.space, row), budget, cancel)
+                    .map_err(|_| failed())?
+                {
+                    Some(columns) => columns
+                        .0
+                        .get_metered(&column, budget, cancel)
+                        .map_err(|_| failed())?
+                        .copied(),
+                    None => None,
+                };
+                out.push(value);
+            }
+        }
+        Ok(Some(out))
+    }
     pub fn members(
         &self,
         id: SelectionId,
@@ -782,6 +840,57 @@ impl State {
 #[cfg(test)]
 mod placement_storage_tests {
     use super::*;
+    #[test]
+    fn ordered_slots_preserve_holes_aliases_and_meter_actual_lookups() {
+        let memory = Memory::new(8 * 1024 * 1024);
+        let mut state = State::new(memory.clone()).unwrap();
+        let space = SpaceId([1; 16]);
+        let id = SelectionId([2; 16]);
+        let node = NodeId { model: 1, node: 1 };
+        state
+            .define(
+                id,
+                Rectangle {
+                    space,
+                    first_row: 1,
+                    last_row: 1,
+                    first_column: 1,
+                    last_column: 4,
+                },
+            )
+            .unwrap();
+        state.placement(space, 1, 1, Some(node)).unwrap();
+        state.placement(space, 1, 3, Some(node)).unwrap();
+        let mut budget = 100;
+        assert_eq!(
+            state.ordered_slots(id, &mut budget, &|| false).unwrap(),
+            Some(vec![Some(node), None, Some(node), None])
+        );
+        assert!(budget < 95); // Includes descriptor and physical AVL node visits.
+        assert!(matches!(
+            state.ordered_slots(id, &mut 0, &|| false),
+            Err(Error::Quota)
+        ));
+        assert!(matches!(
+            state.ordered_slots(id, &mut 100, &|| true),
+            Err(Error::Cancelled)
+        ));
+        state
+            .reframe(
+                id,
+                Rectangle {
+                    space,
+                    first_row: 1,
+                    last_row: u32::MAX,
+                    first_column: 1,
+                    last_column: u32::MAX,
+                },
+            )
+            .unwrap();
+        assert_eq!(state.ordered_slots(id, &mut 1, &|| false).unwrap(), None);
+        drop(state);
+        assert_eq!(memory.stats().charged, 0);
+    }
     #[test]
     fn singleton_alias_growth_and_collapse_preserve_old_roots_ranges_and_charges() {
         let memory = Memory::new(8 * 1024 * 1024);

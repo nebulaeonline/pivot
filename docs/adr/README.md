@@ -166,11 +166,13 @@ follow below. ADR-0023 remains parked at G3.
   [Implementation review](../handoffs/2026-11-01-weighted-allocation.md).
 
 - [ADR-0038: Range-based weighted allocation](0038-range-based-weighted-allocation.md)
-  — Design approved with four clarifications (2026-11-01). Separate range function,
-  1..64 physical positions in one row/column, strict Blank/type policy and captured
-  spatial association. Preserve positional multiplicity; bound invalid geometry and
-  restore/cycle-check dependencies; validate operand authority; apply WB13-only with
-  no WB12 reader/migration. Tags 8/9 and retained private/hosted/clipboard versions need
-  codec audit. Independent adapter charging and all-six-target headless/managed/AOT
-  scope are approved. No implementation or platform run.
-  [Design review](../handoffs/2026-11-01-range-based-weighted-allocation-design.md).
+  — Accepted and closed with Windows ARM64 cold-build qualification (2026-11-01).
+  Dense 1..64-position
+  literal ranges, strict Blank/types, spatial membership and cycle-safe geometry
+  restoration use operation 21 and tags 8/9 with WB13-only persistence. Private v13,
+  hosted v1 and CB5/CB6 retain their fields. ROBPC CI 13/13, 525 all-feature tests,
+  strict Clippy, six-target headless evidence and all 12 managed/AOT GUI suites pass.
+  Windows ARM64 headless is a retained-cache pass after three preserved cold-build
+  structural timing failures; their cause remains unresolved. Source qualification,
+  observed resource maxima, diagnostic LoC and verified cleanup are documented.
+  [Implementation review](../handoffs/2026-11-01-range-based-weighted-allocation.md).

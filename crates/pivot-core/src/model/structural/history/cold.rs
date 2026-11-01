@@ -97,6 +97,7 @@ pub(super) fn token(w: &mut Writer, t: &BoundToken) -> Result<(), ModelError> {
                 BinaryOp::Divide => 3,
             });
         }
+        BoundToken::Range(_) => return Err(malformed()),
         BoundToken::Sum(id) => {
             w.n(4);
             w.raw(&id.0);

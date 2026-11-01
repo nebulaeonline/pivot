@@ -20,10 +20,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def verify_workbook_fixture(fixture):
     """Read-only current-format envelope check, also usable on retained evidence."""
-    if (len(fixture) < 49 or fixture[:9] != b'PIVOTWB12'
+    if (len(fixture) < 49 or fixture[:9] != b'PIVOTWB13'
             or int.from_bytes(fixture[9:17], 'little') != len(fixture) - 49
             or hashlib.sha256(fixture[49:]).digest() != fixture[17:49]):
-        raise RuntimeError('Saved WB11 fixture is invalid')
+        raise RuntimeError('Saved WB13 fixture is invalid')
 
 
 def host_rid():

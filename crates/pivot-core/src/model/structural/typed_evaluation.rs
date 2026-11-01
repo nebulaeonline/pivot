@@ -9,6 +9,8 @@ use pivot_types::PivotValue as V;
 type Answer = Result<V, EvaluationError>;
 enum Expr {
     Members(usize),
+    WeightOperand(selection::SelectionId),
+    Weighted(Vec<usize>),
     Token(BoundToken, Vec<usize>),
     Aggregate(K, Vec<usize>),
     Range(K, selection::SelectionId),
@@ -43,6 +45,11 @@ fn program(tokens: &[BoundToken]) -> Result<Program, ComputeError> {
                 let (k, args) = calls.pop().unwrap();
                 Expr::Aggregate(k, args)
             }
+            BoundToken::Range(id) => Expr::WeightOperand(*id),
+            BoundToken::Typed(Op::AllocateWeightedRange, 4) => {
+                let args = stack.split_off(stack.len() - 4);
+                Expr::Weighted(args)
+            }
             BoundToken::Sum(id) => Expr::Range(K::Sum, *id),
             BoundToken::Aggregate(k, id) => Expr::Range(*k, *id),
             _ => {
@@ -64,7 +71,25 @@ fn program(tokens: &[BoundToken]) -> Result<Program, ComputeError> {
         root: stack.pop().unwrap(),
     })
 }
+struct RangeFrame {
+    node: NodeId,
+    slots: Vec<Option<NodeId>>,
+    values: Vec<V>,
+    next: usize,
+    _charge: Charge,
+}
+const RANGE_ADAPTER_BYTES: usize = 8192;
+const _: () = assert!(
+    std::mem::size_of::<RangeFrame>()
+        + 64 * std::mem::size_of::<Option<NodeId>>()
+        + 67 * std::mem::size_of::<V>()
+        + 1024
+        <= RANGE_ADAPTER_BYTES
+);
 enum Task {
+    RangeStart(NodeId, usize, usize),
+    RangeNext(Box<RangeFrame>),
+    RangeFeed(Box<RangeFrame>, Option<NodeId>),
     CheckArgument {
         node: NodeId,
         token: BoundToken,
@@ -169,6 +194,9 @@ impl Capture {
             pending.extend(deps.items.iter().copied());
         }
         let mut values = BTreeMap::<NodeId, Answer>::new();
+        // Ordinary formula results retain their existing Blank-to-zero boundary.
+        // Ordered weight operands must inspect the pre-coercion result type.
+        let mut calculated_blanks = BTreeSet::new();
         let mut tasks: Vec<_> = outputs.iter().rev().map(|n| Task::Node(*n)).collect();
         let mut stack = Vec::<Answer>::new();
         let typed = |node, error| match error {
@@ -224,6 +252,8 @@ impl Capture {
                 Task::FinishNode(id) => {
                     let mut value = stack.pop().unwrap();
                     if value == Ok(V::Blank) {
+                        work.add(64)?;
+                        calculated_blanks.insert(id);
                         value = Ok(V::Decimal(PivotDecimal::ZERO));
                     }
                     if let Ok(V::String(s)) = &value {
@@ -244,6 +274,22 @@ impl Capture {
                     Expr::Token(BoundToken::Typed(op @ (Op::And | Op::Or), _), args) => {
                         tasks.push(Task::Logic(id, args.clone(), 0, matches!(op, Op::Or)));
                         tasks.push(Task::Expr(id, args[0]));
+                    }
+                    Expr::WeightOperand(_) => return Err(ComputeError::WorkBudget),
+                    Expr::Weighted(args) => {
+                        let task_base = tasks.len();
+                        let stack_base = stack.len();
+                        tasks.push(Task::RangeStart(id, args[3], stack_base));
+                        for (index, a) in args[..3].iter().enumerate().rev() {
+                            tasks.push(Task::CheckArgument {
+                                node: id,
+                                token: BoundToken::Typed(Op::AllocateWeightedRange, 4),
+                                index,
+                                tasks: task_base,
+                                stack: stack_base,
+                            });
+                            tasks.push(Task::Expr(id, *a));
+                        }
                     }
                     Expr::Token(token, args) => {
                         let task_base = tasks.len();
@@ -336,6 +382,95 @@ impl Capture {
                         ));
                     }
                 },
+                Task::RangeStart(id, root, base) => {
+                    let selection = match &programs[&id].arena[root] {
+                        Expr::WeightOperand(s) => *s,
+                        Expr::Token(BoundToken::Typed(Op::ReferenceDeleted(_), 0), _) => {
+                            stack.truncate(base);
+                            stack.push(Err(typed(id, typed::Error::ReferenceDeleted)));
+                            continue;
+                        }
+                        _ => return Err(ComputeError::WorkBudget),
+                    };
+                    let charge = self.memory().reserve(RANGE_ADAPTER_BYTES)?;
+                    let state = self.0.selections.as_ref().ok_or(ComputeError::WorkBudget)?;
+                    let slots = state
+                        .ordered_slots(selection, &mut visits, &cancelled)
+                        .map_err(|e| {
+                            if matches!(e, selection::Error::Cancelled) {
+                                ComputeError::Cancelled
+                            } else {
+                                ComputeError::WorkBudget
+                            }
+                        })?;
+                    let Some(slots) = slots else {
+                        stack.truncate(base);
+                        stack.push(Err(typed(id, typed::Error::InvalidArgument)));
+                        continue;
+                    };
+                    let mut values = Vec::with_capacity(slots.len() + 3);
+                    for result in stack.drain(base..) {
+                        values.push(result.map_err(|_| ComputeError::WorkBudget)?);
+                    }
+                    tasks.push(Task::RangeNext(Box::new(RangeFrame {
+                        node: id,
+                        slots,
+                        values,
+                        next: 0,
+                        _charge: charge,
+                    })));
+                }
+                Task::RangeNext(frame) => {
+                    if frame.next == frame.slots.len() {
+                        let result = typed::apply(
+                            &Op::AllocateWeighted,
+                            &frame.values,
+                            &mut visits,
+                            &self.memory(),
+                            &cancelled,
+                        )
+                        .map_err(|e| match e {
+                            typed::ExecutionError::Cancelled => ComputeError::Cancelled,
+                            typed::ExecutionError::Admission => ComputeError::Admission,
+                            typed::ExecutionError::WorkBudget => ComputeError::WorkBudget,
+                        })?;
+                        stack.push(result.map_err(|e| typed(frame.node, e)));
+                    } else {
+                        let slot = frame.slots[frame.next];
+                        tasks.push(Task::RangeFeed(frame, slot));
+                        if let Some(node) = slot {
+                            tasks.push(Task::Node(node));
+                        } else {
+                            stack.push(Ok(V::Blank));
+                        }
+                    }
+                }
+                Task::RangeFeed(mut frame, source) => {
+                    let result = stack
+                        .pop()
+                        .unwrap()
+                        .map_err(|e| {
+                            source.map_or(e.clone(), |source| e.dependency(frame.node, source))
+                        })
+                        .and_then(|v| {
+                            let v = if source.is_some_and(|n| calculated_blanks.contains(&n)) {
+                                V::Blank
+                            } else {
+                                v
+                            };
+                            typed::validate_argument(&Op::AllocateWeighted, 3 + frame.next, &v)
+                                .map(|_| v)
+                                .map_err(|e| typed(frame.node, e))
+                        });
+                    match result {
+                        Err(e) => stack.push(Err(e)),
+                        Ok(v) => {
+                            frame.values.push(v);
+                            frame.next += 1;
+                            tasks.push(Task::RangeNext(frame));
+                        }
+                    }
+                }
                 Task::Choose(id, args) => match stack
                     .pop()
                     .unwrap()

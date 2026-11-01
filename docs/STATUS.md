@@ -2,6 +2,19 @@
 
 Date: 2026-11-01
 
+## ADR-0040 — design approved with clarifications; revised contract awaiting confirmation
+
+[ADR-0040](adr/0040-unbound-grid-windows.md) details the first accepted ADR-0039 scope:
+tagged Grid ownership, independent Window identity and references, transactional
+retirement, proposed WB14/private v14 cuts and explicit native clipboard refusals.
+See the [design handoff](handoffs/2026-11-01-unbound-grid-windows-design.md).
+The 2026-11-01 review approves the design with mandatory client-only scope selection,
+bounded scope views over one canonical calculation generation, and transactional
+aggregate axis/identity admission. All three are incorporated in the revised handoff,
+returned for confirmation. Implementation remains a separate owner decision; no
+feature implementation or platform validation has started.
+Producer bindings, Text, section geometry, document layout and PDF remain later scopes.
+
 ## ADR-0039 — architecture accepted with three clarifications
 
 [Named Windows, data binding and document composition](adr/0039-named-windows-and-document-composition.md)

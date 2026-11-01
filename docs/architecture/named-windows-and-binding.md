@@ -3,6 +3,16 @@
 Status: **Architecture accepted with clarifications under [ADR-0039](../adr/0039-named-windows-and-document-composition.md), 2026-11-01**.
 Nothing in this document is an implemented API.
 
+The first detailed scope is [ADR-0040](../adr/0040-unbound-grid-windows.md), approved
+with mandatory clarifications incorporated and awaiting revised-contract confirmation.
+Editor selection is entirely client-local; each scope-dependent request supplies its
+tagged owner and expected state. Scope capture is a bounded view over one canonical
+immutable workbook calculation generation, with its axes/index/format/visibility
+roots, not an independent model, cache or Window calculation revision. Empty logical
+dimensions use compact axis descriptors; actual axis allocations, cells, graph nodes,
+retired authority and retained roots remain subject to existing aggregate admission.
+These requirements do not authorize implementation or introduce producer bindings.
+
 ## Identity and authority
 
 | Identity | Meaning / lifetime |

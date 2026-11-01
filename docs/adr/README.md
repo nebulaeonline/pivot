@@ -185,3 +185,12 @@ follow below. ADR-0023 remains parked at G3.
   geometry, bounded Text, immutable document capture and headless layout/PDF boundary.
   Design only; no feature or platform execution. See the
   [design handoff](../handoffs/2026-11-01-named-windows-design.md).
+
+- [ADR-0040: Unbound Grid Windows, identity and references](0040-unbound-grid-windows.md)
+  — Design approved with three clarifications incorporated (2026-11-01); revised
+  contract awaiting confirmation, implementation unauthorized. Client-only selection,
+  single-generation scope capture and aggregate axis/identity admission. Tagged Grid
+  ownership, sparse canonical graph integration, lifecycle/reference faults, proposed
+  WB14/private v14 cuts, clipboard refusals and six-target qualification plan.
+  No feature implementation or platform execution. See the
+  [design handoff](../handoffs/2026-11-01-unbound-grid-windows-design.md).

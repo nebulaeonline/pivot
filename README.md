@@ -30,6 +30,12 @@ also be used directly through Rust crate APIs, independently of a workbook or GU
 
 ## The spreadsheet desktop
 
+The [unbound Grid Windows design](docs/adr/0040-unbound-grid-windows.md) is approved
+with clarifications incorporated and its revised contract awaiting confirmation.
+It specifies client-local scope selection, views over one canonical calculation
+generation and aggregate axis/identity admission. This is planned functionality;
+implementation has not started. See the [revised design handoff](docs/handoffs/2026-11-01-unbound-grid-windows-design.md).
+
 The desktop is built with **C#/.NET 10 and Avalonia** for Windows, Linux and macOS.
 It provides direct grid editing, a formula bar, rectangular selection, copy/paste
 and four-direction fill. Formula copies translate relative references and preserve

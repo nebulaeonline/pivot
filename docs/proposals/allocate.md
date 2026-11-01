@@ -1,9 +1,8 @@
 # ALLOCATE: exact, conservation-preserving allocation
 
 Date: 2026-10-31.
-Status: **Assigned as the starting proposal for ADR-0036 design by parent review
-(2026-10-31); ADR-0036 design approved with three clarifications, implementation
-awaits separate owner authorization.**
+Status: **Historical starting proposal; ADR-0036 is accepted and closed.
+ADR-0037 weighted-allocation design is approved with four clarifications; implementation has not started.**
 
 Recorded at the owner's request from a sidebar with the parent GPT while ADR-0035
 was under review. The later ADR-0035 acceptance assigns this proposal to ADR-0036
@@ -149,3 +148,17 @@ its earlier approval/authorization statements are historical provenance; see the
 The parent recommends ADR-0037 weighted allocation as a next design candidate only.
 Neither that design nor implementation is authorized yet. Stop for owner commit/push
 and explicit next-work authorization.
+
+## Weighted design follow-up
+
+The owner subsequently authorized ADR-0037 design. See the
+[proposed weighted ADR](../adr/0037-weighted-conservation-preserving-allocation.md)
+and [parent handoff](../handoffs/2026-10-31-weighted-allocation-design.md).
+Its explicit scalar-list association, cap and metered exact arithmetic are proposals;
+no weighted implementation is authorized yet. Earlier candidate/authorization statements
+above retain the chronology of the original equal-allocation proposal.
+
+ADR-0037 design is now approved with four clarifications: positional association,
+final-award representation/SUM, fully admitted cancellable execution, and consistent
+arity enforcement. The linked ADR records the accepted technical contract and proofs
+required before implementation acceptance. This update contains no implementation.

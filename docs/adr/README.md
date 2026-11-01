@@ -154,8 +154,12 @@ follow below. ADR-0023 remains parked at G3.
   pruning and diagnostic cloc are complete. See the
   [implementation handoff](../handoffs/2026-10-31-exact-allocation.md).
 
-The parent recommends **ADR-0037: Weighted, Conservation-Preserving Allocation** as
-the next design candidate. No ADR-0037 design or implementation is authorized yet;
-stop for owner commit/push and explicit next-work authorization. Weight-to-recipient
-association, exact remainder ranking/ties, admissible weights, group-wide representation,
-production SUM, reference stability and bounded work require design resolution.
+- [ADR-0037: Weighted, conservation-preserving allocation](0037-weighted-conservation-preserving-allocation.md)
+  — Design approved with four clarifications (2026-10-31). Scalar weights 1..64,
+  strict Decimal operands, exact ranking/ordinal ties and group-wide final-share /
+  nonzero-subset SUM admission. Explicit association, final-award validation, fully
+  charged/cancellable execution and consistent arity at all boundaries are mandatory.
+  Accept opcode 20 subject to codec verification, with existing formats/global budgets
+  unchanged. Six-target headless/parity scope approved; macOS x64 is Rosetta. No feature
+  implementation, benchmark or platform run has occurred.
+  [Design handoff](../handoffs/2026-10-31-weighted-allocation-design.md).

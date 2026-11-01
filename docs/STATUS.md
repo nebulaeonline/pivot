@@ -160,13 +160,42 @@ The parent accepts all three clarifications, the shared Blank-anchor correction,
 validation/source/resource qualifications, unchanged representations, diagnostic LoC
 and verified retention. No further validation, reconciliation packet or AOT rerun is
 required. Stop for owner Git commit/push and explicit next-work authorization.
-ADR-0037, Weighted, Conservation-Preserving Allocation, is the parent's recommended
-next design candidate only; neither design nor implementation is authorized yet.
-A future design must address weight sources and recipient association, exact remainder
-ranking/ties, zero/negative weights, group-wide representation, actual SUM, reference
-stability and bounded work. Sorting/range changes cannot be assumed to preserve intended
-weight associations. Keep settlement formulas understandable to ordinary users, with
-numerical complexity inside the engine. ADR-0023 remains parked at G3.
+The owner subsequently authorized ADR-0037 design, as recorded below. ADR-0036
+implementation remains closed; its recorded validation and source qualifications are unchanged.
+
+**ADR-0037: Weighted, Conservation-Preserving Allocation — design approved with four clarifications (2026-10-31).**
+See the [ADR](adr/0037-weighted-conservation-preserving-allocation.md) and
+[design review](handoffs/2026-10-31-weighted-allocation-design.md).
+ALLOCATEWEIGHTED(total,index,places,weight1,...,weightN) accepts 1..64 strict Decimal
+weights, nonnegative with a positive sum, and explicit precision. Exact largest-remainder
+ranking, ordinal ties, nonmonotonic behavior across changed totals, group-wide final-share
+admission and the proper-nonzero-subset SUM bound are approved.
+
+Four requirements remain mandatory: explicit ordinal recipient association without
+repair; final-award-only representability with actual production SUM and inserted zeros;
+fully metered/cancellable work and scratch on every execution/failure path; and consistent
+arity enforcement across parsing, lowering, tokens, codecs, restoration and evaluation.
+The 16-KiB scratch, 4,096+16,384*N limb ceiling and 4+16*N existing-visit reservation
+are accepted subject to proof. Existing global budgets and original performance/memory
+objectives remain unchanged. Opcode 20 is accepted subject to encoding verification;
+WB12/private v13/hosted v1/CB5/CB6 remain unchanged unless a real incompatibility requires
+review. All-six-target headless/parity scope is approved, with macOS x64 as Rosetta;
+reassess targeted GUI/AOT qualification only if sensitive paths change.
+No feature implementation, benchmark or native run has occurred. Range/keyed-group/array
+extensions, implicit repair, fairness state, Desktop licensing implementation and history
+are excluded. ADR-0023 remains parked at G3.
+
+**Desktop licensing policy (proposal only).**
+The proposal limits only Pivot.Desktop to free noncommercial/educational and
+qualifying public-interest use, with paid commercial/government-administrative use.
+Government-owned education and noncommercial public research remain free; government
+administration gets preferential pricing rather than an exemption. Shared engine,
+SDK, Avalonia adapter, pivotd and REPL remain Apache-2.0. See the
+[licensing proposal](proposals/desktop-licensing.md) and
+[custom license draft](proposals/desktop-license-draft.md). Unmodified PolyForm's
+government exemption conflicts with this policy. Existing Apache grants remain intact;
+no operative license or packaging changes have been made. Review the custom text and
+adoption boundary before applying it. No licensing-enforcement feature is assigned.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;

@@ -4,7 +4,10 @@ using System.Text.Json;
 using Pivot.Client;
 using Pivot.Protocol.Application.V1;
 
+try
+{
 await ClipboardReadChecks.Run();
+if(args.Length==3&&args[0]=="--weighted-checks"){await WeightedChecks.Run(args[1],args[2]);Console.WriteLine("Weighted session checks: PASS");return;}
 if(args.Length==3&&args[0]=="--allocation-checks"){await AllocationChecks.Run(args[1],args[2]);Console.WriteLine("Allocation session checks: PASS");return;}
 if(args.Length==3&&args[0]=="--visible-edit-checks"){await VisibleEditChecks.Run(args[1],args[2]);Console.WriteLine("Visible edit session checks: PASS");return;}
 if(args.Length==3&&args[0]=="--visible-checks") { await VisibleClipboardChecks.Run(args[1],args[2]);Console.WriteLine("Visible clipboard session checks: PASS");return; }
@@ -44,6 +47,7 @@ await VisibleEditChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.G
 await VisibleClipboardChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await CapacityChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await CsvChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
+await WeightedChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await AllocationChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await RoundingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await FormattingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
@@ -167,3 +171,10 @@ await broken.DisposeAsync();
 var report=JsonSerializer.Serialize(new {status="passed",startup_ms=startup,shutdown_ms=shutdown,remaining_charge=session.FinalCharge,metrics},new JsonSerializerOptions {WriteIndented=true});
 if(args.Length>1) await File.WriteAllTextAsync(args[1],report);
 Console.WriteLine(report);
+
+}
+catch (Exception error)
+{
+    Console.Error.WriteLine(error);
+    Environment.ExitCode = 1;
+}

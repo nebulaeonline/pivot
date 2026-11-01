@@ -402,9 +402,15 @@ fn partial_calculation_admission_failure_reclaims_scratch_without_editing_captur
     let memory = r.memory();
     let mut model = WorkingModel::new_in("partial calculation", &r).unwrap();
     let nodes: Vec<_> = (0..1024)
-        .map(|i| model.add_input(format!("n{i}"), 1.into()).unwrap())
+        .map(|i| {
+            // Fixture construction is not the cleanup-capacity test. Keep the
+            // eight-slot queue unchanged and drain retired roots between edits.
+            r.flush();
+            model.add_input(format!("n{i}"), 1.into()).unwrap()
+        })
         .collect();
     for (i, &id) in nodes.iter().enumerate().skip(1) {
+        r.flush();
         model.set_expression(id, format!("n{}+1", i - 1)).unwrap();
     }
 

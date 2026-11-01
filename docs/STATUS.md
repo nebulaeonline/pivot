@@ -1,6 +1,6 @@
 # Pivot implementation status
 
-Date: 2026-10-31
+Date: 2026-11-01
 
 ## Current direction — spreadsheet features
 
@@ -163,27 +163,46 @@ required. Stop for owner Git commit/push and explicit next-work authorization.
 The owner subsequently authorized ADR-0037 design, as recorded below. ADR-0036
 implementation remains closed; its recorded validation and source qualifications are unchanged.
 
-**ADR-0037: Weighted, Conservation-Preserving Allocation — design approved with four clarifications (2026-10-31).**
-See the [ADR](adr/0037-weighted-conservation-preserving-allocation.md) and
-[design review](handoffs/2026-10-31-weighted-allocation-design.md).
-ALLOCATEWEIGHTED(total,index,places,weight1,...,weightN) accepts 1..64 strict Decimal
-weights, nonnegative with a positive sum, and explicit precision. Exact largest-remainder
-ranking, ordinal ties, nonmonotonic behavior across changed totals, group-wide final-share
-admission and the proper-nonzero-subset SUM bound are approved.
+**ADR-0037: Weighted, Conservation-Preserving Allocation — accepted and closed (2026-11-01).**
+See the [ADR](adr/0037-weighted-conservation-preserving-allocation.md),
+[implementation review](handoffs/2026-11-01-weighted-allocation.md) and
+[semantics](architecture/weighted-allocation.md). ALLOCATEWEIGHTED provides exact
+settlement for 1..64 ordered scalar weights, strict Decimal operands and required
+precision. The four requirements are implemented: explicit ordinal association,
+final-award-only group representation and actual SUM, fully metered/cancellable scratch
+and work on every typed path, and consistent arity enforcement throughout codecs/evaluation.
 
-Four requirements remain mandatory: explicit ordinal recipient association without
-repair; final-award-only representability with actual production SUM and inserted zeros;
-fully metered/cancellable work and scratch on every execution/failure path; and consistent
-arity enforcement across parsing, lowering, tokens, codecs, restoration and evaluation.
-The 16-KiB scratch, 4,096+16,384*N limb ceiling and 4+16*N existing-visit reservation
-are accepted subject to proof. Existing global budgets and original performance/memory
-objectives remain unchanged. Opcode 20 is accepted subject to encoding verification;
-WB12/private v13/hosted v1/CB5/CB6 remain unchanged unless a real incompatibility requires
-review. All-six-target headless/parity scope is approved, with macOS x64 as Rosetta;
-reassess targeted GUI/AOT qualification only if sensitive paths change.
-No feature implementation, benchmark or native run has occurred. Range/keyed-group/array
-extensions, implicit repair, fairness state, Desktop licensing implementation and history
-are excluded. ADR-0023 remains parked at G3.
+Final local CI passed 13/13; all-feature Rust tests passed 515 and strict Clippy passed.
+All six selected headless targets passed 13/13 and 12,841 weighted oracle vectors each,
+with zero mismatches and final session charges. Linux ARM64's first run failed in an
+existing test's eight-slot cleanup-queue setup; the fixture now drains retired roots,
+without changing the queue or scratch assertion. The fresh retry and final local checks
+pass. Original failure and selected source qualifications remain explicit; five earlier
+passing snapshots precede that final test-only correction. macOS x64 is Rosetta.
+
+Maximum observed core evaluation was 84.02 ms, maximum steady charge 36.78 MiB and
+peak 135.23 MiB. Original objectives, work/scratch bounds and global limits are unchanged.
+Opcode 20 fits existing WB12/private v13/hosted v1/CB5/CB6. No production Desktop, DTO
+or AOT-sensitive path changed; no new graphical/AOT round was required under the approved
+scope. The headless test executable now reports exceptions through a controlled console
+boundary. Verified archives/cache cleanup are complete. Diagnostic size is 90,859 code
+lines across 400 files, +1,400 lines versus ADR-0036; the final count includes the fixture
+correction. Range/keyed-group/array extensions, repair, fairness state, Desktop licensing
+implementation and history remain excluded. Review accepts the four requirements,
+validation, numeric-only GUI/AOT scope, resource results, fixture correction, original
+failure/retry distinction, selected-file source qualification and diagnostic code size.
+ADR-0023 remains parked at G3.
+
+**Next design direction — ADR-0038: Range-Based Weighted Allocation.**
+Investigate an ordered worksheet range as the weight source, reusing ADR-0037 arithmetic.
+Compare row/column/rectangle ordering, strict Blank/type/error policy, explicit indices,
+range identity and structural affinity, sorting/Copy/Fill/filtering/cross-sheet behavior,
+bounded work/memory/cancellation and representation requirements. Never skip Blank
+positions or silently renumber recipients. Compare range admission against the existing
+64-weight cap without raising global limits. Keyed groups, persistent recipient identity,
+repair, arrays/spills, fairness/history state and visible-only allocation are excluded.
+This is a recorded direction; no ADR-0038 design, implementation or platform run has
+started in this update.
 
 **Desktop licensing policy (proposal only).**
 The proposal limits only Pivot.Desktop to free noncommercial/educational and

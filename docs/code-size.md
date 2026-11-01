@@ -34,3 +34,8 @@ understandable code rather than optimizing the project for fewer physical lines.
 ADR-0036: **89,459 code lines across 391 files**, +859 lines versus ADR-0035.
 See the [per-project report](../artifacts/loc/ADR-0036/20261031T233804215663Z/report.md)
 and [implementation handoff](handoffs/2026-10-31-exact-allocation.md).
+
+ADR-0037: **90,859 code lines across 400 files**, +1,400 lines versus ADR-0036.
+The final [per-project report](../artifacts/loc/ADR-0037/20261101T113816456043Z/report.md)
+includes the test-fixture correction; the earlier 90,855-line count remains historical.
+See the [implementation review](handoffs/2026-11-01-weighted-allocation.md).

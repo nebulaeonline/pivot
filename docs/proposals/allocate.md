@@ -2,7 +2,7 @@
 
 Date: 2026-10-31.
 Status: **Historical starting proposal; ADR-0036 is accepted and closed.
-ADR-0037 weighted-allocation design is approved with four clarifications; implementation has not started.**
+ADR-0037 weighted allocation is accepted and closed.**
 
 Recorded at the owner's request from a sidebar with the parent GPT while ADR-0035
 was under review. The later ADR-0035 acceptance assigns this proposal to ADR-0036
@@ -162,3 +162,11 @@ ADR-0037 design is now approved with four clarifications: positional association
 final-award representation/SUM, fully admitted cancellable execution, and consistent
 arity enforcement. The linked ADR records the accepted technical contract and proofs
 required before implementation acceptance. This update contains no implementation.
+
+ADR-0037 implementation and validation completed on 2026-11-01; see the
+[implementation review](../handoffs/2026-11-01-weighted-allocation.md).
+ADR-0037 is accepted and closed. This proposal is retained as technical provenance.
+
+The next design direction, ADR-0038, concerns ordered range-based weights with explicit
+Blank-position and recipient-association semantics, reusing the accepted arithmetic.
+No range design or implementation is included in this proposal update.

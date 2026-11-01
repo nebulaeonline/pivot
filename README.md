@@ -58,6 +58,11 @@ calculated value; cell number formats change only its presentation.
 explicit precision: `=ALLOCATE(10,3,1,2)` returns `3.34`, and indices 2 and 3 return
 `3.33`. Conservation requires a complete, consistently specified set of indices.
 See [exact allocation](docs/architecture/allocation.md) for admission and error rules.
+`ALLOCATEWEIGHTED(total,index,places,weight1,...,weightN)` settles proportional shares
+for up to 64 explicit weights. For example, `=ALLOCATEWEIGHTED(10,1,2,1,2,3)` returns
+`1.67`. See [weighted allocation](docs/architecture/weighted-allocation.md) for ordinal
+association, exact reconciliation and the documented limits.
+
 
 A Format pane provides fixed-decimal, grouped, currency and percentage display,
 all seven display rounding modes, bold/italic, alignment and cell colors. Formatting

@@ -1607,3 +1607,42 @@ mod historical_codec_failures {
         assert_eq!(memory.stats().charged, 0);
     }
 }
+
+#[cfg(test)]
+mod weighted_codec_tests {
+    use super::*;
+    #[test]
+    fn weighted_opcode_arity_roundtrips_and_rejects_malformed_shapes() {
+        for arity in 0..=100 {
+            let mut writer = Writer(Vec::new());
+            writer.typed_op(&pivot_core::typed::Op::AllocateWeighted, arity);
+            let mut reader = Reader {
+                bytes: &writer.0,
+                at: 0,
+            };
+            let decoded = reader.typed_op();
+            if (4..=67).contains(&arity) {
+                assert_eq!(
+                    decoded.unwrap(),
+                    (pivot_core::typed::Op::AllocateWeighted, arity)
+                );
+                assert_eq!(reader.at, writer.0.len());
+            } else {
+                assert!(decoded.is_err());
+            }
+        }
+        for (code, arity) in [(20, 4097), (21, 4), (255, 4)] {
+            let mut writer = Writer(Vec::new());
+            writer.n(code);
+            writer.n(arity);
+            assert!(
+                Reader {
+                    bytes: &writer.0,
+                    at: 0
+                }
+                .typed_op()
+                .is_err()
+            );
+        }
+    }
+}

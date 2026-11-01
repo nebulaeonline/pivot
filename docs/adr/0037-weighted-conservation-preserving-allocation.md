@@ -1,7 +1,7 @@
 # ADR-0037: Weighted, conservation-preserving allocation
 
 Date: 2026-10-31.
-Status: **Design approved with four clarifications (2026-10-31). Implementation not started.**
+Status: **Accepted and closed by implementation review (2026-11-01).**
 
 ## Context and scope
 
@@ -343,3 +343,64 @@ This is design approval, not implementation completion. No feature code, benchma
 or platform execution accompanies this disposition. Range/array/keyed-group extensions,
 implicit repair, fairness state, Desktop licensing implementation and history are
 excluded. ADR-0023 remains parked at G3.
+
+## Implementation progress — 2026-11-01
+
+The fixed-width helper, context-bearing typed execution, resource/cancellation handling
+and opcode/arity integration are implemented. Local independent oracles, worksheet
+SUM, structural persistence and session/resource regressions have passed. A controlled
+console failure boundary was added to the headless session runner; application behavior
+and Desktop licensing are unchanged. Final qualification is pending; no implementation
+acceptance is recorded. Earlier design-only statements describe the design disposition.
+
+## Implementation disposition — 2026-11-01
+
+Implementation and final qualification are complete and accepted.
+See the [implementation review](../handoffs/2026-11-01-weighted-allocation.md) and
+[semantics](../architecture/weighted-allocation.md). All four clarifications are
+implemented. Direct typed execution requires explicit visits, memory and cancellation
+context. Explicit helper storage is 9,472 bytes within the 16-KiB reservation; approved
+work bounds and global limits are unchanged. Opcode 20 fits existing representations.
+
+Final local CI passed 13/13, all-feature Rust tests passed 515, strict Clippy passed,
+and all six selected headless targets passed 13/13 with 12,841 weighted vectors each.
+Production SUM passed 1,116 checks in three orders. The review records the test-only
+cleanup-fixture correction and Linux ARM64 retry, original failures, selected-file
+source qualification, Rosetta designation, observed core/charged-memory scope, final
+code-size report and verified archival/pruning. No new graphical/AOT round or Desktop
+licensing implementation is included. Earlier design-only and in-progress statements
+retain their historical scope rather than describing current qualification.
+
+## Implementation acceptance — 2026-11-01
+
+**Accepted and closed.** Review accepts all four design requirements: ordinal
+recipient association without repair, final-award-only group representation and actual
+SUM, fully metered/cancellable execution, and consistent arity across every boundary.
+The (M,10^-28) weight case, zero-share handling, exact ranking, equal-weight equivalence,
+negative symmetry and documented nonmonotonicity satisfy the allocation contract.
+
+The context-bearing typed API, 9,472-byte explicit helper layout within the 16-KiB
+reservation, unchanged limb/visit ceilings and failure-path charge release are accepted.
+Opcode 20 and unchanged WB12/private v13/hosted v1/CB5/CB6 remain appropriate.
+
+Accepted evidence includes 1,116 production-SUM checks over 372 groups, 12,841 independent
+weighted vectors per target, 515 all-feature Rust tests, strict Clippy, final local CI
+13/13 and all six selected headless targets 13/13 with zero final session charges.
+Preserve four-sample observed-core maxima, charged-memory versus RSS distinctions,
+original objectives and macOS x64 Rosetta designation. The numeric-only graphical/AOT
+scope decision is accepted; historical graphical receipts remain historical.
+
+The Linux ARM64 setup correction is accepted as a test-fixture repair: the original
+failure remains Failed, with its fresh successful retry separate. Queue capacity and
+the scratch-admission assertion were not weakened. Five earlier passing snapshots
+precede that final test-only edit; the retry and final local CI include it. Eleven
+selected files match the final checkout on all six targets, without implying complete
+historical byte identity. Verified archives/cleanup and the final diagnostic count of
+90,859 lines across 400 files are accepted; 90,855 remains an earlier measurement.
+
+The next design direction is ADR-0038, Range-Based Weighted Allocation. It should
+investigate an ordered worksheet range as the weight source while reusing this exact
+arithmetic. Range ordering, Blank positions, reference/structural behavior, bounds and
+representation need an explicit design. Skipping Blank positions must never silently
+renumber recipients. No range implementation or platform execution is included in
+this acceptance. ADR-0037 remains unchanged; ADR-0023 remains parked at G3.

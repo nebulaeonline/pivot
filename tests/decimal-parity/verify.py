@@ -130,6 +130,8 @@ def main():
         raise SystemExit(1)
     from allocation_reference import verify as allocation_verify
     allocation_verify(args.output_dir,args.configuration)
+    from weighted_reference import verify as weighted_verify
+    weighted_verify(args.output_dir,args.configuration)
 
 
 if __name__ == "__main__":

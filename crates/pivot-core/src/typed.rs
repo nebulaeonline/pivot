@@ -15,6 +15,7 @@ pub enum Op {
     Mid,
     Round,
     Allocate,
+    AllocateWeighted,
     RoundUp,
     RoundDown,
     Concat,
@@ -28,6 +29,7 @@ pub enum Op {
 impl Op {
     pub fn code(&self) -> u8 {
         match self {
+            Self::AllocateWeighted => 20,
             Self::Allocate => 19,
             Self::ReferenceDeleted(_) => 18,
             Self::Boolean(_) => 0,
@@ -52,6 +54,7 @@ impl Op {
     }
     pub fn from_code(code: u8) -> Option<Self> {
         Some(match code {
+            20 => Self::AllocateWeighted,
             19 => Self::Allocate,
             18 => Self::ReferenceDeleted(String::new()),
             2 => Self::If,
@@ -81,6 +84,7 @@ impl Op {
             "NOT" => Self::Not,
             "LEN" => Self::Len,
             "MID" => Self::Mid,
+            "ALLOCATEWEIGHTED" => Self::AllocateWeighted,
             "ALLOCATE" => Self::Allocate,
             "ROUND" => Self::Round,
             "ROUNDUP" => Self::RoundUp,
@@ -98,6 +102,7 @@ impl Op {
             }
             Self::Boolean(_) => n == 0,
             Self::String(s) => n == 0 && s.len() <= MAX_TEXT_BYTES,
+            Self::AllocateWeighted => (4..=67).contains(&n),
             Self::Allocate => n == 4,
             Self::If | Self::Mid => n == 3,
             Self::And | Self::Or => n > 0 && n <= 4096,
@@ -137,6 +142,21 @@ pub fn condition(value: &V) -> Result<bool, Error> {
 }
 pub(crate) fn validate_argument(op: &Op, index: usize, value: &V) -> Result<(), Error> {
     match op {
+        Op::AllocateWeighted => {
+            let V::Decimal(n) = value else {
+                return Err(Error::TypeMismatch);
+            };
+            match index {
+                1 => {
+                    allocation_integer(*n, 1, 64)?;
+                }
+                2 => {
+                    allocation_integer(*n, 0, 28)?;
+                }
+                3.. if *n < PivotDecimal::ZERO => return Err(Error::InvalidArgument),
+                _ => {}
+            }
+        }
         Op::Allocate => {
             let V::Decimal(n) = value else {
                 return Err(Error::TypeMismatch);
@@ -218,7 +238,7 @@ fn allocation_integer(value: PivotDecimal, min: u32, max: u32) -> Result<u32, Er
     }
     Ok(n as u32)
 }
-pub fn apply(op: &Op, args: &[V]) -> Result<V, Error> {
+fn apply_scalar(op: &Op, args: &[V]) -> Result<V, Error> {
     if !op.valid_arity(args.len()) {
         return Err(Error::InvalidArgument);
     }
@@ -230,6 +250,7 @@ pub fn apply(op: &Op, args: &[V]) -> Result<V, Error> {
         Op::And => V::Boolean(args.iter().try_fold(true, |v, a| Ok(v && condition(a)?))?),
         Op::Or => V::Boolean(args.iter().try_fold(false, |v, a| Ok(v || condition(a)?))?),
         Op::Not => V::Boolean(!condition(&args[0])?),
+        Op::AllocateWeighted => return Err(Error::InvalidArgument),
         Op::Allocate => {
             // Preserve local argument validation order even for direct typed callers.
             for (i, v) in args.iter().enumerate() {
@@ -344,4 +365,62 @@ pub fn apply(op: &Op, args: &[V]) -> Result<V, Error> {
             })
         }
     })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExecutionError {
+    Cancelled,
+    Admission,
+    WorkBudget,
+}
+
+/// Context-bearing execution boundary. Weighted arithmetic has no uncharged typed entry.
+/// Operational admission/cancellation stays separate from completed formula errors.
+pub fn apply(
+    op: &Op,
+    args: &[V],
+    visits: &mut usize,
+    memory: &crate::model::integration::AllocationDomain,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<Result<V, Error>, ExecutionError> {
+    use pivot_types::weighted::{self, Error as W};
+    if *op != Op::AllocateWeighted {
+        return Ok(apply_scalar(op, args));
+    }
+    if !op.valid_arity(args.len()) {
+        return Ok(Err(Error::InvalidArgument));
+    }
+    for (i, v) in args.iter().enumerate() {
+        if let Err(e) = validate_argument(op, i, v) {
+            return Ok(Err(e));
+        }
+    }
+    let n = args.len() - 3;
+    let decimals = |i| match args[i] {
+        V::Decimal(d) => d,
+        _ => unreachable!(),
+    };
+    let index = allocation_integer(decimals(1), 1, 64).unwrap();
+    let places = allocation_integer(decimals(2), 0, 28).unwrap();
+    if index as usize > n {
+        return Ok(Err(Error::InvalidArgument));
+    }
+    if cancelled() {
+        return Err(ExecutionError::Cancelled);
+    }
+    *visits = visits
+        .checked_sub(weighted::visit_charge(n))
+        .ok_or(ExecutionError::WorkBudget)?;
+    let _scratch_charge = memory
+        .reserve(weighted::SCRATCH_BYTES)
+        .map_err(|_| ExecutionError::Admission)?;
+    let mut scratch = Box::<weighted::Scratch>::default();
+    let weights = (3..args.len()).map(decimals).collect::<Vec<_>>();
+    match scratch.allocate(decimals(0), index, places, &weights, cancelled) {
+        Ok((value, _)) => Ok(Ok(V::Decimal(value))),
+        Err(W::InvalidArgument) => Ok(Err(Error::InvalidArgument)),
+        Err(W::Overflow) => Ok(Err(Error::Arithmetic(DecimalError::Overflow))),
+        Err(W::Cancelled) => Err(ExecutionError::Cancelled),
+        Err(W::WorkBudget) => Err(ExecutionError::WorkBudget),
+    }
 }

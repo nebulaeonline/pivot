@@ -449,44 +449,52 @@ impl Capture {
                     } else {
                         None
                     };
-                    let answer = (|| {
-                        let args = args.into_iter().collect::<Result<Vec<_>, _>>()?;
-                        Ok(match token {
-                            BoundToken::Node(target) => args
-                                .into_iter()
-                                .next()
-                                .ok_or(EvaluationError::InvalidExpression { node: target })?,
-                            BoundToken::Decimal(d) => V::Decimal(d),
-                            BoundToken::Typed(op, _) => {
-                                typed::apply(&op, &args).map_err(|e| typed(id, e))?
-                            }
-                            BoundToken::Unary(op) => {
-                                let d = typed::number(&args[0]).map_err(|e| typed(id, e))?;
-                                V::Decimal(match op {
-                                    UnaryOp::Plus => d,
-                                    UnaryOp::Minus => d.checked_neg().map_err(|error| {
-                                        EvaluationError::Arithmetic { node: id, error }
-                                    })?,
-                                })
-                            }
-                            BoundToken::Binary(op) => {
-                                let a = typed::number(&args[0]).map_err(|e| typed(id, e))?;
-                                let b = typed::number(&args[1]).map_err(|e| typed(id, e))?;
-                                V::Decimal(
-                                    match op {
-                                        BinaryOp::Add => a.checked_add(b),
-                                        BinaryOp::Subtract => a.checked_sub(b),
-                                        BinaryOp::Multiply => a.checked_mul(b),
-                                        BinaryOp::Divide => a.checked_div(b),
-                                    }
-                                    .map_err(|error| {
-                                        EvaluationError::Arithmetic { node: id, error }
-                                    })?,
-                                )
-                            }
-                            _ => return Err(EvaluationError::InvalidExpression { node: id }),
-                        })
-                    })();
+                    let answer = match (token, args.into_iter().collect::<Result<Vec<_>, _>>()) {
+                        (_, Err(error)) => Err(error),
+                        (BoundToken::Typed(op, _), Ok(args)) => {
+                            typed::apply(&op, &args, &mut visits, &self.memory(), &cancelled)
+                                .map_err(|e| match e {
+                                    typed::ExecutionError::Cancelled => ComputeError::Cancelled,
+                                    typed::ExecutionError::Admission => ComputeError::Admission,
+                                    typed::ExecutionError::WorkBudget => ComputeError::WorkBudget,
+                                })?
+                                .map_err(|e| typed(id, e))
+                        }
+                        (token, Ok(args)) => (|| {
+                            Ok(match token {
+                                BoundToken::Node(target) => args
+                                    .into_iter()
+                                    .next()
+                                    .ok_or(EvaluationError::InvalidExpression { node: target })?,
+                                BoundToken::Decimal(d) => V::Decimal(d),
+                                BoundToken::Unary(op) => {
+                                    let d = typed::number(&args[0]).map_err(|e| typed(id, e))?;
+                                    V::Decimal(match op {
+                                        UnaryOp::Plus => d,
+                                        UnaryOp::Minus => d.checked_neg().map_err(|error| {
+                                            EvaluationError::Arithmetic { node: id, error }
+                                        })?,
+                                    })
+                                }
+                                BoundToken::Binary(op) => {
+                                    let a = typed::number(&args[0]).map_err(|e| typed(id, e))?;
+                                    let b = typed::number(&args[1]).map_err(|e| typed(id, e))?;
+                                    V::Decimal(
+                                        match op {
+                                            BinaryOp::Add => a.checked_add(b),
+                                            BinaryOp::Subtract => a.checked_sub(b),
+                                            BinaryOp::Multiply => a.checked_mul(b),
+                                            BinaryOp::Divide => a.checked_div(b),
+                                        }
+                                        .map_err(
+                                            |error| EvaluationError::Arithmetic { node: id, error },
+                                        )?,
+                                    )
+                                }
+                                _ => return Err(EvaluationError::InvalidExpression { node: id }),
+                            })
+                        })(),
+                    };
                     if let Ok(V::String(s)) = &answer {
                         work.add(s.len() + 64)?;
                     }
@@ -500,5 +508,72 @@ impl Capture {
             _capture: self.clone(),
             _work: work,
         })
+    }
+}
+
+#[cfg(test)]
+mod weighted_execution_tests {
+    use super::*;
+    use std::cell::Cell;
+    #[test]
+    fn canonical_weighted_refusal_and_inner_cancellation_preserve_capture_and_charge() {
+        let rt = crate::model::integration::IntegrationRuntime::standalone().unwrap();
+        let mut model = WorkingModel::new_in("Weighted cancellation", &rt).unwrap();
+        let output = model.add_computed("Share", "0").unwrap();
+        use crate::model::transfer::{self, ResolvedToken as T};
+        let mut tokens = vec![
+            T::Decimal(10.into()),
+            T::Decimal(1.into()),
+            T::Decimal(2.into()),
+        ];
+        tokens.extend((0..64).map(|_| T::Decimal(1.into())));
+        tokens.push(T::Typed(Op::AllocateWeighted, 67));
+        transfer::set_resolved_expression(&mut model, output, "weighted", &tokens).unwrap();
+        let revision = model.revision();
+        {
+            let graph = Graph::from_model(
+                &model,
+                Limits {
+                    validation_visits: 800,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            let cap = graph.capture_local().unwrap();
+            rt.flush();
+            let before = rt.memory().stats().charged;
+            assert_eq!(
+                cap.evaluate_values(&[output]).err(),
+                Some(ComputeError::WorkBudget)
+            );
+            assert_eq!(rt.memory().stats().charged, before);
+            assert_eq!(model.revision(), revision);
+        }
+        {
+            let graph = Graph::from_model(&model, Limits::default()).unwrap();
+            let cap = graph.capture_local().unwrap();
+            rt.flush();
+            let before = rt.memory().stats().charged;
+            let calls = Cell::new(0);
+            assert!(matches!(
+                cap.evaluate_values_cancelled(&[output], None, || {
+                    calls.set(calls.get() + 1);
+                    calls.get() > 300
+                }),
+                Err(ComputeError::Cancelled)
+            ));
+            assert!(calls.get() > 300);
+            assert_eq!(rt.memory().stats().charged, before);
+            assert_eq!(model.revision(), revision);
+            let result = cap.evaluate_values(&[output]).unwrap();
+            assert_eq!(
+                result.values[&output],
+                Ok(V::Decimal("0.16".parse().unwrap()))
+            );
+        }
+        drop(model);
+        let memory = rt.memory();
+        assert!(rt.finish().is_ok());
+        assert_eq!(memory.stats().charged, 0);
     }
 }

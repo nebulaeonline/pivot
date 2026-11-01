@@ -95,3 +95,10 @@ The design is approved with these clarifications; implementation remains unstart
 No range-valued weights, arrays, keyed groups, repair, fairness state, Desktop licensing
 implementation or history work is included. See the ADR's design disposition for the
 accepted validation scope and resource qualifications.
+
+## Subsequent implementation
+
+Implementation and validation completed on 2026-11-01. See the
+[implementation review](2026-11-01-weighted-allocation.md) for executed evidence,
+source/resource qualifications and retained failures. Implementation review accepted and closed ADR-0037 on 2026-11-01.
+Earlier unstarted/planned statements describe this design-stage record.

@@ -2,6 +2,7 @@ using System.Globalization;
 using Pivot.Client;
 
 CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+if(args.Length==2&&args[0]=="--weighted"){WeightedOracle.Run(args[1]);return;}
 if(args.Length==2&&args[0]=="--allocation"){AllocationOracle.Run(args[1]);return;}
 // API validation that cannot be expressed by unsigned Rust scale arguments.
 try { DecimalRounding.Round(1, -1); throw new Exception("negative scale accepted"); }

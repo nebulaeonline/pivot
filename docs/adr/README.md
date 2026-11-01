@@ -155,11 +155,17 @@ follow below. ADR-0023 remains parked at G3.
   [implementation handoff](../handoffs/2026-10-31-exact-allocation.md).
 
 - [ADR-0037: Weighted, conservation-preserving allocation](0037-weighted-conservation-preserving-allocation.md)
-  — Design approved with four clarifications (2026-10-31). Scalar weights 1..64,
-  strict Decimal operands, exact ranking/ordinal ties and group-wide final-share /
-  nonzero-subset SUM admission. Explicit association, final-award validation, fully
-  charged/cancellable execution and consistent arity at all boundaries are mandatory.
-  Accept opcode 20 subject to codec verification, with existing formats/global budgets
-  unchanged. Six-target headless/parity scope approved; macOS x64 is Rosetta. No feature
-  implementation, benchmark or platform run has occurred.
-  [Design handoff](../handoffs/2026-10-31-weighted-allocation-design.md).
+  — Accepted and closed by implementation review (2026-11-01).
+  Four design clarifications implemented; strict operands, exact ranked settlement,
+  explicit ordinal association, group-wide final-share / nonzero-subset SUM admission,
+  fully metered/cancellable execution and consistent arity. Opcode 20; existing formats
+  and global limits unchanged. Final local CI 13/13, 515 all-feature Rust tests, strict
+  Clippy and all six selected headless targets 13/13 with 12,841 weighted vectors each.
+  Linux ARM64 retry and the late test-only fixture correction are qualified explicitly;
+  macOS x64 is Rosetta. Diagnostic LoC and verified cleanup are complete.
+  [Implementation review](../handoffs/2026-11-01-weighted-allocation.md).
+
+Next design direction: **ADR-0038 — Range-Based Weighted Allocation**. Investigate
+ordered range operands, Blank positions without skipped/renumbered recipients,
+association/structural semantics, bounded execution and required representations while
+reusing ADR-0037 arithmetic. No ADR-0038 design or implementation is included yet.

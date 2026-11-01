@@ -1,15 +1,15 @@
 # ADR-0036: Exact, conservation-preserving allocation
 
 Date: 2026-10-31.
-Status: **Design approved with three clarifications by parent review (2026-10-31).
-Feature implementation requires separate owner authorization.**
+Status: **Accepted and closed by parent implementation review (2026-10-31).**
 
 ## Context
 
 ADR-0035 is accepted and closed. The parent assigned allocation next, and the owner
 subsequently authorized this design. Start from the [captured ALLOCATE proposal](../proposals/allocate.md)
-and its required-precision clarification. This record contains no feature implementation,
-new benchmark or platform execution. ADR-0023 remains parked at G3.
+and its required-precision clarification. The owner subsequently authorized implementation
+and validation. See [implementation semantics](../architecture/allocation.md); qualification
+is complete and accepted; see the implementation evidence below. ADR-0023 remains parked at G3.
 
 Independent division expressions do not describe a complete allocation group. Rounding
 each result independently can leave an undistributed settlement unit; retaining hidden
@@ -296,8 +296,8 @@ membership, and formatting remains the user's separate presentation choice.
 
 ## Verification / reconsideration trigger
 
-This is source-based design, with algebraic reasoning, not new execution evidence.
-After parent review and separate owner implementation authorization:
+The following was the approved implementation verification plan. Executed evidence
+is recorded in the implementation disposition below:
 
 - Use an independent Python integer/Fraction oracle and .NET BigInteger oracle in
   tests. They may allocate arbitrary precision; production must not. Do not reuse
@@ -381,10 +381,52 @@ No new attended GUI/AOT round is required solely for numeric changes; reassess t
 qualification if implementation alters interaction, serialization metadata or other
 AOT-sensitive paths. Prior receipts remain historical evidence.
 
-See the [design handoff](../handoffs/2026-10-31-exact-allocation-design.md). No feature
-implementation, new benchmark or native run has occurred. Await separate owner
-implementation authorization and retain the normal review/docs/commit-push cadence.
+See the [design handoff](../handoffs/2026-10-31-exact-allocation-design.md). The owner authorized implementation and validation. Implementation and six-target headless qualification are complete and accepted by
+parent implementation review. Retain the normal review/docs/commit-push cadence.
 Weighted allocation, dynamic arrays, rotation, persistent groups, financial reporting,
 automatic repair and history remain outside ADR-0036. ADR-0023 remains parked at G3.
 Weighted allocation remains an unassigned nice-to-have. Wait for parent direction
 after ADR-0036; no subsequent ADR number or scope is assigned.
+
+## Implementation disposition — 2026-10-31
+
+Owner-authorized implementation and validation are complete. See the
+[implementation handoff](../handoffs/2026-10-31-exact-allocation.md) for the three
+mandatory clarifications, fixed-width arithmetic, actual SUM, strict error ordering,
+independent oracles, structural Blank-anchor correction, six-target receipts,
+resource/LoC tables, source qualifications and verified retention. Local CI passed
+13/13, all-feature Rust tests passed 504, strict Clippy passed, and all six headless
+targets passed 13/13 plus 51,523 parity vectors each. Another 1,116 residual-boundary
+vectors passed locally. macOS x64 is Rosetta; no new attended GUI/AOT round was needed
+under the approved scope. No format or resource limit changed.
+
+Parent implementation review accepts and closes this ADR. See the disposition below.
+
+## Parent implementation acceptance — 2026-10-31
+
+**Accepted and closed.** The parent accepts the four-argument strict Decimal96
+contract, fixed 192-bit arithmetic, exact settlement units, symmetric negatives,
+normalized zero and all three mandatory clarifications: actual production SUM,
+index-independent group refusal and the explicit complete/consistent index-set boundary.
+The largest-proper-partial-sum admission rule remains mandatory; ordinary SUM is unchanged.
+
+The moved-Blank-anchor correction is accepted as restoration of a canonical invariant,
+with twelve row/column insertion/deletion Save/reopen cases and real-session coverage.
+No structural redesign, format change or separate validation milestone is required.
+
+The parent accepts local CI 13/13, 504 all-feature Rust tests, strict Clippy, all six
+headless targets 13/13, 51,523 independent vectors per target and 1,116 supplementary
+local boundary vectors. Preserve selected-file source qualification, Rosetta designation,
+four-sample core timing/charged-memory qualifications and original resource objectives.
+No new graphical/AOT execution, further validation or reconciliation packet is required.
+Historical GUI receipts remain historical. Opcode 19, unchanged WB12/private v13/hosted
+v1/CB5/CB6, verified retention/cleanup and 89,459 lines across 391 files are accepted.
+
+The accompanying discussion emphasizes understandable settlement formulas for ordinary
+spreadsheet users, with numerical sophistication inside the engine and actual reconciled
+values independent of display formatting. Explicit precision and group completeness
+remain part of that understandable contract.
+
+Stop for owner Git commit/push and explicit next-work authorization. The parent recommends
+ADR-0037, Weighted, Conservation-Preserving Allocation, as a next design candidate only;
+its design and implementation are not authorized by this acceptance. ADR-0023 stays at G3.

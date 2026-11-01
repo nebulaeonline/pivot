@@ -144,13 +144,18 @@ mandatory. The owner subsequently authorized design; the proposed ADR and handof
 follow below. ADR-0023 remains parked at G3.
 
 - [ADR-0036: Exact, conservation-preserving allocation](0036-exact-conservation-preserving-allocation.md)
-  — Design approved with three clarifications by parent review (2026-10-31). Equal-weight scalar ALLOCATE
-  with required precision, strict Decimal arguments, u32 indices, deterministic
-  residuals, exact settlement units and group-wide representability/exact-SUM guard.
-  Fixed 192-bit scratch; propose opcode 19 with WB12/private v13/CB5/CB6 unchanged.
-  Six-target headless/parity scope approved; actual SUM, group-wide refusal and
-  completeness-boundary coverage are mandatory. Numeric-only changes need no new
-  attended GUI/AOT round; reassess if sensitive paths change. Implementation awaits
-  separate owner authorization. Weighted allocation is an unassigned nice-to-have;
-  next direction and any subsequent ADR assignment wait until after ADR-0036.
-  [Design handoff](../handoffs/2026-10-31-exact-allocation-design.md).
+  — Accepted and closed by parent implementation review (2026-10-31).
+  Four strict Decimal arguments, explicit precision, u32 indices, deterministic
+  residuals, fixed 192-bit arithmetic and group-wide exact-SUM admission. Opcode 19;
+  WB12/private v13/hosted v1/CB5/CB6 and budgets unchanged. Local CI 13/13, 504
+  all-feature Rust tests, strict Clippy, and all six headless targets 13/13 with
+  51,523 parity vectors each; 1,116 supplementary boundary vectors passed locally.
+  macOS x64 is Rosetta. Approved scope needed no new GUI/AOT run. Verified archival,
+  pruning and diagnostic cloc are complete. See the
+  [implementation handoff](../handoffs/2026-10-31-exact-allocation.md).
+
+The parent recommends **ADR-0037: Weighted, Conservation-Preserving Allocation** as
+the next design candidate. No ADR-0037 design or implementation is authorized yet;
+stop for owner commit/push and explicit next-work authorization. Weight-to-recipient
+association, exact remainder ranking/ties, admissible weights, group-wide representation,
+production SUM, reference stability and bounded work require design resolution.

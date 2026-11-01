@@ -137,27 +137,36 @@ unchanged budgets, source qualifications, Rosetta coverage, observed maxima/char
 memory, retained failures, archival and diagnostic LoC. No additional validation,
 reconciliation packet or Native AOT rerun is required. ADR-0023 stays parked at G3.
 
-**Current assignment — ADR-0036: Exact, Conservation-Preserving Allocation (design only).**
-The owner authorized design after ADR-0035 closeout. See the
-[proposed ADR](adr/0036-exact-conservation-preserving-allocation.md),
-[parent design handoff](handoffs/2026-10-31-exact-allocation-design.md) and starting
-[proposal](proposals/allocate.md). Propose four required Decimal arguments, one-based
-u32 recipient indices, precision 0..28, deterministic low-index residual units,
-normalized signed results, fixed 192-bit integer scratch and group-wide representability
-plus exact-SUM admission. The largest proper partial sum must fit at the normalized
-shares' common scale; the final total may normalize. Strict operands (including Blank
-refusal), this admission rule and validation scope are approved by parent design review.
-Propose typed opcode 19 with WB12/private v13/hosted v1/CB5/CB6 unchanged; all-six-RID
-headless parity, with no new attended GUI round absent UI/AOT-sensitive changes.
-Three mandatory clarifications require actual production SUM in different orders,
-index-independent group refusal with correct error classification, and an explicit
-complete/consistent recipient-set boundary without hidden registration or index repair.
-No feature implementation, new benchmark or platform run has occurred. Await separate
-owner implementation authorization. Weighted allocation is an unassigned nice-to-have;
-wait for parent direction after ADR-0036 before assigning a next milestone or ADR number. Weighted
-allocation, spills, rotation, persistent groups, reporting, automatic repair and
-history remain outside scope. Independent scalar calls do not certify user group
-completeness. ADR-0023 remains parked at G3.
+**ADR-0036: Exact, Conservation-Preserving Allocation — accepted and closed (2026-10-31).**
+The owner authorized implementation after parent design approval with three clarifications.
+See the [ADR](adr/0036-exact-conservation-preserving-allocation.md),
+[implementation handoff](handoffs/2026-10-31-exact-allocation.md) and
+[semantics](architecture/allocation.md). Four strict Decimal arguments, explicit precision,
+one-based u32 indices, deterministic residuals, fixed 192-bit arithmetic and group-wide
+exact-SUM admission are implemented. Actual production SUM passed in different orders;
+complete/consistent index membership remains the user's explicit responsibility.
+WB12/private v13/hosted v1/CB5/CB6 and resource limits remain unchanged; opcode 19 applies.
+
+Local CI passed 13/13; all-feature Rust tests passed 504 and strict Clippy passed.
+All six headless targets passed 13/13 and 51,523 independent oracle vectors each.
+An additional 1,116 residual-boundary vectors passed locally. macOS x64 is Rosetta.
+The approved numeric-only scope required no new attended GUI/AOT execution. A shared
+moved-Blank-anchor membership correction is covered by old ROUND and ALLOCATE tests
+across both structural axes/actions, including save/reopen. Sources, original failures,
+observed core/charged-memory qualifications and verified cleanup receipts are retained.
+Code size is 89,459 lines across 391 files, +859 lines versus ADR-0035.
+
+The parent accepts all three clarifications, the shared Blank-anchor correction,
+validation/source/resource qualifications, unchanged representations, diagnostic LoC
+and verified retention. No further validation, reconciliation packet or AOT rerun is
+required. Stop for owner Git commit/push and explicit next-work authorization.
+ADR-0037, Weighted, Conservation-Preserving Allocation, is the parent's recommended
+next design candidate only; neither design nor implementation is authorized yet.
+A future design must address weight sources and recipient association, exact remainder
+ranking/ties, zero/negative weights, group-wide representation, actual SUM, reference
+stability and bounded work. Sorting/range changes cannot be assumed to preserve intended
+weight associations. Keep settlement formulas understandable to ordinary users, with
+numerical complexity inside the engine. ADR-0023 remains parked at G3.
 
 **ADR-0023 is parked at G3 by owner/parent direction (2026-10-28).** G1/G2
 remain accepted and closed. Preserve the accepted research, source and evidence;

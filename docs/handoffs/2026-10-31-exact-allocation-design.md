@@ -139,3 +139,14 @@ the normal milestone cadence. Weighted allocation remains an unassigned nice-to-
 wait for parent direction after ADR-0036 before assigning subsequent scope or an ADR
 number. Any future weighted range membership/stable-index association and hidden state
 would require separate design. ADR-0023 remains parked at G3.
+
+## Owner implementation authorization
+
+The owner subsequently authorized ADR-0036 implementation and validation. Numeric
+implementation, independent oracle checks and resource qualification are in progress.
+The design-only statements above describe the original handoff, rather than the
+current work state. See [allocation semantics](../architecture/allocation.md).
+
+Implementation and six-target headless validation subsequently completed. See the
+[implementation handoff](2026-10-31-exact-allocation.md); parent implementation review
+has accepted and closed ADR-0036. Earlier design-only/in-progress statements preserve handoff chronology.

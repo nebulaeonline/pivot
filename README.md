@@ -54,6 +54,11 @@ rounding is explicit: `ROUND`, `ROUNDUP` and `ROUNDDOWN` accept positive or nega
 integer decimal-place arguments, such as `=ROUND(125,-1)` → `130`. They change the
 calculated value; cell number formats change only its presentation.
 
+`ALLOCATE(total,count,index,places)` returns an exact settled equal share with
+explicit precision: `=ALLOCATE(10,3,1,2)` returns `3.34`, and indices 2 and 3 return
+`3.33`. Conservation requires a complete, consistently specified set of indices.
+See [exact allocation](docs/architecture/allocation.md) for admission and error rules.
+
 A Format pane provides fixed-decimal, grouped, currency and percentage display,
 all seven display rounding modes, bold/italic, alignment and cell colors. Formatting
 keeps exact calculation values intact; even empty regions can be styled without

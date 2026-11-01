@@ -748,13 +748,21 @@ impl Workbook {
                         space,
                         p.row,
                         p.column,
-                        Some(
-                            self.persistent
-                                .bindings
-                                .get(&id)
-                                .ok_or(Error::InvalidTarget)?
-                                .runtime,
-                        ),
+                        if data
+                            .records
+                            .get(&id)
+                            .is_some_and(|r| matches!(r.content, Some(Content::Blank) | None))
+                        {
+                            None
+                        } else {
+                            Some(
+                                self.persistent
+                                    .bindings
+                                    .get(&id)
+                                    .ok_or(Error::InvalidTarget)?
+                                    .runtime,
+                            )
+                        },
                     )
                     .map_err(graph_error)?;
             }

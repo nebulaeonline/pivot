@@ -140,3 +140,12 @@ No numeric-only attended GUI/AOT round is required; reassess if sensitive paths 
 No implementation is authorized by this design acceptance. Weighted allocation remains
 an unassigned nice-to-have, outside current scope. Wait for parent direction after
 ADR-0036 before assigning any next milestone or ADR number.
+
+## Implementation acceptance — 2026-10-31
+
+ADR-0036 is accepted and closed by parent implementation review. This proposal and
+its earlier approval/authorization statements are historical provenance; see the
+[accepted implementation handoff](../handoffs/2026-10-31-exact-allocation.md).
+The parent recommends ADR-0037 weighted allocation as a next design candidate only.
+Neither that design nor implementation is authorized yet. Stop for owner commit/push
+and explicit next-work authorization.

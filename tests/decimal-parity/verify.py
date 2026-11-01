@@ -128,6 +128,8 @@ def main():
     print("\n".join(report[:40]))
     if failures or scales:
         raise SystemExit(1)
+    from allocation_reference import verify as allocation_verify
+    allocation_verify(args.output_dir,args.configuration)
 
 
 if __name__ == "__main__":

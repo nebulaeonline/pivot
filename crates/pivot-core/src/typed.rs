@@ -14,6 +14,7 @@ pub enum Op {
     Len,
     Mid,
     Round,
+    Allocate,
     RoundUp,
     RoundDown,
     Concat,
@@ -27,6 +28,7 @@ pub enum Op {
 impl Op {
     pub fn code(&self) -> u8 {
         match self {
+            Self::Allocate => 19,
             Self::ReferenceDeleted(_) => 18,
             Self::Boolean(_) => 0,
             Self::String(_) => 1,
@@ -50,6 +52,7 @@ impl Op {
     }
     pub fn from_code(code: u8) -> Option<Self> {
         Some(match code {
+            19 => Self::Allocate,
             18 => Self::ReferenceDeleted(String::new()),
             2 => Self::If,
             3 => Self::And,
@@ -78,6 +81,7 @@ impl Op {
             "NOT" => Self::Not,
             "LEN" => Self::Len,
             "MID" => Self::Mid,
+            "ALLOCATE" => Self::Allocate,
             "ROUND" => Self::Round,
             "ROUNDUP" => Self::RoundUp,
             "ROUNDDOWN" => Self::RoundDown,
@@ -94,6 +98,7 @@ impl Op {
             }
             Self::Boolean(_) => n == 0,
             Self::String(s) => n == 0 && s.len() <= MAX_TEXT_BYTES,
+            Self::Allocate => n == 4,
             Self::If | Self::Mid => n == 3,
             Self::And | Self::Or => n > 0 && n <= 4096,
             Self::Not | Self::Len => n == 1,
@@ -132,6 +137,18 @@ pub fn condition(value: &V) -> Result<bool, Error> {
 }
 pub(crate) fn validate_argument(op: &Op, index: usize, value: &V) -> Result<(), Error> {
     match op {
+        Op::Allocate => {
+            let V::Decimal(n) = value else {
+                return Err(Error::TypeMismatch);
+            };
+            if index > 0 {
+                allocation_integer(
+                    *n,
+                    if index == 3 { 0 } else { 1 },
+                    if index == 3 { 28 } else { u32::MAX },
+                )?;
+            }
+        }
         Op::Round | Op::RoundUp | Op::RoundDown => {
             let n = number(value)?;
             if index == 1 {
@@ -188,6 +205,19 @@ fn rounding_places(value: PivotDecimal) -> Result<i32, Error> {
     };
     Ok(if negative { -places } else { places })
 }
+fn allocation_integer(value: PivotDecimal, min: u32, max: u32) -> Result<u32, Error> {
+    let (lo, mid, hi, negative, scale) = value.parts();
+    let c = u128::from(lo) | (u128::from(mid) << 32) | (u128::from(hi) << 64);
+    let divisor = 10u128.pow(scale);
+    if (negative && c != 0) || !c.is_multiple_of(divisor) {
+        return Err(Error::InvalidArgument);
+    }
+    let n = c / divisor;
+    if n < u128::from(min) || n > u128::from(max) {
+        return Err(Error::InvalidArgument);
+    }
+    Ok(n as u32)
+}
 pub fn apply(op: &Op, args: &[V]) -> Result<V, Error> {
     if !op.valid_arity(args.len()) {
         return Err(Error::InvalidArgument);
@@ -200,6 +230,28 @@ pub fn apply(op: &Op, args: &[V]) -> Result<V, Error> {
         Op::And => V::Boolean(args.iter().try_fold(true, |v, a| Ok(v && condition(a)?))?),
         Op::Or => V::Boolean(args.iter().try_fold(false, |v, a| Ok(v || condition(a)?))?),
         Op::Not => V::Boolean(!condition(&args[0])?),
+        Op::Allocate => {
+            // Preserve local argument validation order even for direct typed callers.
+            for (i, v) in args.iter().enumerate() {
+                validate_argument(op, i, v)?;
+            }
+            let V::Decimal(total) = args[0] else {
+                unreachable!()
+            };
+            let count = allocation_integer(number(&args[1])?, 1, u32::MAX)?;
+            let index = allocation_integer(number(&args[2])?, 1, u32::MAX)?;
+            let places = allocation_integer(number(&args[3])?, 0, 28)?;
+            V::Decimal(
+                total
+                    .allocate_equal(count, index, places)
+                    .map_err(|e| match e {
+                        pivot_types::AllocationError::InvalidArgument => Error::InvalidArgument,
+                        pivot_types::AllocationError::Overflow => {
+                            Error::Arithmetic(DecimalError::Overflow)
+                        }
+                    })?,
+            )
+        }
         Op::Round | Op::RoundUp | Op::RoundDown => {
             let value = number(&args[0])?;
             let places = rounding_places(number(&args[1])?)?;

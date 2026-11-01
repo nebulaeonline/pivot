@@ -96,3 +96,9 @@ Parsing `Net / Revenue` does not evaluate it or check whether the names exist.
 through the same parser. Standalone `parse` retains its existing name syntax. See
 [grammar and binding](spreadsheet-scalar-formulas.md) for exact scope, spans, draft
 diagnostics and stable workbook target resolution. Both modes use the same evaluator.
+
+## Exact allocation
+
+`ALLOCATE(total,count,index,places)` provides explicit, settled equal allocation
+without changing ordinary decimal division or rounding. See [allocation semantics](allocation.md)
+for strict operands, group admission and the complete-recipient-set requirement.

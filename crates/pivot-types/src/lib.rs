@@ -1,5 +1,7 @@
 //! Transport-independent Pivot numeric types.
 
+pub mod allocation;
+pub use allocation::AllocationError;
 use rust_decimal::{Decimal, RoundingStrategy};
 use std::{fmt, str::FromStr};
 

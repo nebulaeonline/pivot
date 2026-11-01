@@ -30,3 +30,7 @@ artifact-retention policy.
 
 Line counts are diagnostic evidence, not a quality or reduction target. Preserve
 understandable code rather than optimizing the project for fewer physical lines.
+
+ADR-0036: **89,459 code lines across 391 files**, +859 lines versus ADR-0035.
+See the [per-project report](../artifacts/loc/ADR-0036/20261031T233804215663Z/report.md)
+and [implementation handoff](handoffs/2026-10-31-exact-allocation.md).

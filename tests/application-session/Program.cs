@@ -5,6 +5,7 @@ using Pivot.Client;
 using Pivot.Protocol.Application.V1;
 
 await ClipboardReadChecks.Run();
+if(args.Length==3&&args[0]=="--allocation-checks"){await AllocationChecks.Run(args[1],args[2]);Console.WriteLine("Allocation session checks: PASS");return;}
 if(args.Length==3&&args[0]=="--visible-edit-checks"){await VisibleEditChecks.Run(args[1],args[2]);Console.WriteLine("Visible edit session checks: PASS");return;}
 if(args.Length==3&&args[0]=="--visible-checks") { await VisibleClipboardChecks.Run(args[1],args[2]);Console.WriteLine("Visible clipboard session checks: PASS");return; }
 if(args.Length==3&&args[0]=="--filtering-checks") { await FilteringChecks.Run(args[1],args[2]);Console.WriteLine("Filtering session checks: PASS");return; }
@@ -43,6 +44,7 @@ await VisibleEditChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.G
 await VisibleClipboardChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await CapacityChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await CsvChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
+await AllocationChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await RoundingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await FormattingChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await RegionChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());

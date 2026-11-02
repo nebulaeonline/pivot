@@ -1,6 +1,25 @@
 # Pivot implementation status
 
-Date: 2026-11-01
+Date: 2026-11-02
+
+## ADR-0041 — design approved with four clarifications incorporated
+
+[Worksheet-Range Producers and Bound Grid Windows](adr/0041-worksheet-range-producers-and-bound-grid-windows.md)
+specifies live read-only worksheet projections and explicit-refresh immutable fixture
+producers. Source CellId/SelectionId authority, Window lifetime/membership guards,
+one canonical capture, stale-data retention, obsolete-refresh refusal and aggregate
+admission remain explicit. The parent approves the design with four mandatory
+clarifications, now incorporated: combined scalar/spatial authority, independent
+refresh/value/freshness transitions, complete native authority validation and one
+ownership/charge ledger with a representative coexistence workload. No further design
+confirmation is required. WB15/private v15 remain provisional pending the implementation
+codec audit; hosted v1 and CB5/CB6 remain unchanged. See the
+[design handoff](handoffs/2026-11-02-bound-grid-windows-design.md).
+Design work only: no feature implementation, toolchain execution or platform validation.
+The owner reports Rust nightly 1.101.0 dated 2026-11-01 on ROBPC, macOS and all four
+VMs; future execution receipts will record actual compiler identities. ADR-0040's
+Windows ARM64 cold timing failure remains unresolved. Implementation requires separate
+owner authorization. ADR-0023 remains parked at G3.
 
 ## ADR-0040 — accepted and closed with Windows ARM64 qualification
 
@@ -25,10 +44,10 @@ Failed and unexplained, with a separate full retained-cache CI pass. See the
 [implementation semantics](architecture/unbound-grid-windows.md).
 The original Windows ARM64 cold failure remains an unresolved reliability concern.
 No further ADR-0040 matrix or acceptance packet is required. ADR-0023 remains parked
-at G3. Documentation closeout is complete; stop for owner commit/push and explicit
-next-work authorization. ADR-0041, Worksheet-Range Producers and Bound Grid Windows,
-is assigned as the next design milestone but has not started.
-Producer bindings, Text, section geometry, document layout and PDF remain later scopes.
+at G3. Documentation closeout is complete. The owner subsequently authorized ADR-0041
+design on 2026-11-02; it is now approved with clarifications incorporated, without implementation.
+Producer bindings remain unimplemented; Text, section geometry, document layout and
+PDF remain later scopes.
 
 ## ADR-0039 — architecture accepted with three clarifications
 

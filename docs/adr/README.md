@@ -195,3 +195,12 @@ follow below. ADR-0023 remains parked at G3.
   GUI qualification. Windows ARM64 retains its original unresolved cold timing failure
   alongside a separate full retained-cache headless pass. See the
   [implementation handoff](../handoffs/2026-11-01-unbound-grid-windows.md).
+
+- [ADR-0041: Worksheet-Range Producers and Bound Grid Windows](0041-worksheet-range-producers-and-bound-grid-windows.md)
+  — Design approved with four mandatory clarifications incorporated (2026-11-02).
+  Combined scalar/spatial authority, refresh/value/freshness transitions, complete
+  native validation and a single ownership/charge ledger. Live worksheet SelectionId
+  projection, guarded source identities, immutable fixture generations and explicit
+  refresh, read-only views, coherent candidate/capture publication and bounded
+  aggregate admission. Provisional WB15/private v15 audit; no feature implementation
+  or validation. See the [design handoff](../handoffs/2026-11-02-bound-grid-windows-design.md).

@@ -1,11 +1,15 @@
 # Named Window identity, references and binding
 
 Status: **Architecture accepted with clarifications under [ADR-0039](../adr/0039-named-windows-and-document-composition.md), 2026-11-01**.
-This is the overall architecture contract. Only its first unbound Grid scope is
-under implementation; producer and Text contracts remain future work.
+This is the overall architecture contract. Its first unbound Grid scope is accepted
+and closed under ADR-0040. Producer contracts are detailed by approved
+[ADR-0041](../adr/0041-worksheet-range-producers-and-bound-grid-windows.md), design
+only, with four mandatory review clarifications incorporated; producers and Text
+remain unimplemented. ADR-0041's combined authority example, refresh transition
+matrix, native validation gate and ownership/charge ledger are implementation contracts.
 
-The first detailed scope is [ADR-0040](../adr/0040-unbound-grid-windows.md), approved
-with its revised contract confirmed and implementation separately authorized.
+The first detailed scope is [ADR-0040](../adr/0040-unbound-grid-windows.md), accepted
+and closed with its unresolved Windows ARM64 cold-run qualification retained.
 Editor selection is entirely client-local; each scope-dependent request supplies its
 tagged owner and expected state. Scope capture is a bounded view over one canonical
 immutable workbook calculation generation, with its axes/index/format/visibility

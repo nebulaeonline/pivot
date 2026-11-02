@@ -30,6 +30,13 @@ also be used directly through Rust crate APIs, independently of a workbook or GU
 
 ## The spreadsheet desktop
 
+Worksheet-range producers and read-only bound Grid Windows have an approved design in
+[ADR-0041](docs/adr/0041-worksheet-range-producers-and-bound-grid-windows.md).
+The design includes live worksheet projection and explicitly refreshed fixture
+snapshots. Four mandatory review clarifications are incorporated; implementation
+is not yet authorized. See the
+[design handoff](docs/handoffs/2026-11-02-bound-grid-windows-design.md).
+
 Unbound Grid Windows are accepted and closed under
 [ADR-0040](docs/adr/0040-unbound-grid-windows.md). Each has an independent named
 coordinate space; `WindowName|A1` references share the canonical calculation graph

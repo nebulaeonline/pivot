@@ -221,7 +221,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             cancellation.ThrowIfCancellationRequested();
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 14; request.Id = ++sequence;
+            request.Version = 15; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -245,7 +245,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 14 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 15 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
                 foreach(var cell in response.Cells) ValidateResult(cell);
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {
@@ -264,6 +264,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             if(documentChanged)DocumentGeneration++;
             Worksheets=response.Worksheets.Select(s=>s.Clone()).ToArray();
             Windows=response.Windows.Select(s=>s.Clone()).ToArray();
+            Producers=response.Producers.Select(p=>p.Clone()).ToArray();
             if(documentChanged || !(IsWindowScope?Windows:Worksheets).Any(s=>s.Id==WorksheetId)) {WorksheetId=Worksheets.FirstOrDefault()?.Id??"";IsWindowScope=false;if(documentChanged)capturedSheets.Clear();}
             if(request.Operation==Request.Types.Operation.Capture && response.Capture.Length!=0)capturedSheets[response.Capture]=(request.Worksheet,request.WindowScope);
             if(request.Operation==Request.Types.Operation.Release)capturedSheets.TryRemove(request.Capture,out _);
@@ -319,6 +320,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
         process.Dispose();
     }
     private static void ValidateResult(Cell cell) {
+        if(cell.Projected is { } location && (cell.CellId.Length!=0||cell.NodeId.Length!=0||cell.Worksheet!=location.Window||!Guid.TryParse(location.Window,out _)||!Guid.TryParse(location.Producer,out _)||location.Configuration==0||System.Text.Encoding.UTF8.GetByteCount(location.ItemKey)>256||location.FieldId.Length==0||location.FieldId.Length>128||location.SourceCell.Length!=0&&!Guid.TryParse(location.SourceCell,out _)||location.Generation.Length!=0&&!Guid.TryParse(location.Generation,out _)))throw new IOException("Invalid projected cell authority.");
         if(cell.Error.Length!=0) {if(cell.Result is not null || cell.Value is not null)throw new IOException("Fault has a successful value.");return;}
         var result=cell.Result??throw new IOException("Missing typed result.");
         switch(result.KindCase) {

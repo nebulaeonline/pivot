@@ -1,12 +1,14 @@
 # Named Window identity, references and binding
 
 Status: **Architecture accepted with clarifications under [ADR-0039](../adr/0039-named-windows-and-document-composition.md), 2026-11-01**.
-This is the overall architecture contract. Its first unbound Grid scope is accepted
-and closed under ADR-0040. Producer contracts are detailed by approved
-[ADR-0041](../adr/0041-worksheet-range-producers-and-bound-grid-windows.md), design
-only, with four mandatory review clarifications incorporated; producers and Text
-remain unimplemented. ADR-0041's combined authority example, refresh transition
-matrix, native validation gate and ownership/charge ledger are implementation contracts.
+This is the overall architecture contract. Its unbound Grid scope is accepted and
+closed under ADR-0040; worksheet-range and deterministic fixture producer bindings
+are implemented, accepted and closed under
+[ADR-0041](../adr/0041-worksheet-range-producers-and-bound-grid-windows.md), with
+the unresolved Windows ARM64 cold-run qualification retained. The combined authority
+example, refresh transition matrix, native validation gate and ownership/charge
+ledger remain implementation contracts. Production database connectors, Text and
+section geometry remain later scopes.
 
 The first detailed scope is [ADR-0040](../adr/0040-unbound-grid-windows.md), accepted
 and closed with its unresolved Windows ARM64 cold-run qualification retained.
@@ -17,7 +19,8 @@ roots, not an independent model, cache or Window calculation revision. Empty log
 dimensions use compact axis descriptors; actual axis allocations, cells, graph nodes,
 retired authority and retained roots remain subject to existing aggregate admission.
 See [unbound Grid implementation semantics](unbound-grid-windows.md) for the current
-qualification boundary. No producer bindings are introduced by this slice.
+qualification boundary of ADR-0040. Its scope did not introduce producer bindings;
+those are implemented by ADR-0041.
 
 ## Identity and authority
 

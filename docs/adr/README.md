@@ -183,8 +183,9 @@ follow below. ADR-0023 remains parked at G3.
   InputId authority for every invocation route. Independent Window scopes,
   explicit ownership/producer generations, source-authoritative references, section
   geometry, bounded Text, immutable document capture and headless layout/PDF boundary.
-  Design only; no feature or platform execution. See the
-  [design handoff](../handoffs/2026-11-01-named-windows-design.md).
+  This ADR records the architecture; its unbound Grid and producer-binding scopes
+  are implemented and accepted under ADR-0040 and ADR-0041. Later scopes remain
+  unimplemented. See the [design handoff](../handoffs/2026-11-01-named-windows-design.md).
 
 - [ADR-0040: Unbound Grid Windows, identity and references](0040-unbound-grid-windows.md)
   — Accepted and closed with unresolved Windows ARM64 cold-run qualification
@@ -197,10 +198,12 @@ follow below. ADR-0023 remains parked at G3.
   [implementation handoff](../handoffs/2026-11-01-unbound-grid-windows.md).
 
 - [ADR-0041: Worksheet-Range Producers and Bound Grid Windows](0041-worksheet-range-producers-and-bound-grid-windows.md)
-  — Design approved with four mandatory clarifications incorporated (2026-11-02).
-  Combined scalar/spatial authority, refresh/value/freshness transitions, complete
-  native validation and a single ownership/charge ledger. Live worksheet SelectionId
-  projection, guarded source identities, immutable fixture generations and explicit
-  refresh, read-only views, coherent candidate/capture publication and bounded
-  aggregate admission. Provisional WB15/private v15 audit; no feature implementation
-  or validation. See the [design handoff](../handoffs/2026-11-02-bound-grid-windows-design.md).
+  — Accepted and closed with unresolved Windows ARM64 cold-run qualification
+  (2026-11-02). Live read-only worksheet projections, guarded scalar/spatial source
+  authority, immutable fixture generations, explicit refresh, shared captured Decimal
+  leaves and aggregate ownership/admission. WB15-only native persistence and private
+  v15 are accepted; hosted v1 and CB5/CB6 are unchanged. All six targets passed
+  managed/AOT GUI suites. Windows ARM64 retains the original cold timing failure
+  alongside a separate full retained-cache headless pass. Recovered wrapper/DNS
+  failures and their complete passing retries remain distinct. See the
+  [implementation handoff](../handoffs/2026-11-02-bound-grid-windows.md).

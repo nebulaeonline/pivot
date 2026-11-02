@@ -237,6 +237,29 @@ pub(crate) fn render(
             }
             _ => None,
         };
+        if let Token::Bound(id) = bound {
+            let guard = data.guards.get(id).ok_or(Error::InvalidTarget)?;
+            if !crate::producers::guard_active(data, guard) {
+                let mut span = span.ok_or(Error::InvalidTarget)?;
+                if let Some((_, q)) = qualifier.take() {
+                    span.start = q.start;
+                }
+                replacements.push((span, "#REF!".into(), None));
+                continue;
+            }
+            if matches!(
+                syntax,
+                Token::Typed(pivot_core::typed::Op::ReferenceDeleted(_), 0)
+            ) {
+                replacements.push((
+                    span.ok_or(Error::InvalidTarget)?,
+                    crate::producers::guard_reference_text(data, guard)
+                        .ok_or(Error::InvalidTarget)?,
+                    None,
+                ));
+                continue;
+            }
+        }
         if let Some(origin) = fault {
             let mut span = span.ok_or(Error::InvalidTarget)?;
             if let Some((_, q)) = qualifier.take() {
@@ -254,6 +277,93 @@ pub(crate) fn render(
             replacements.push((span, sheets::quoted_name(name), None));
         }
         match (syntax, bound, span) {
+            (Token::WeightRangeAt { .. } | Token::SumAt { .. }, Token::Bound(id), Some(span)) => {
+                let guard = data.guards.get(id).ok_or(Error::InvalidTarget)?;
+                if !crate::producers::guard_active(data, guard) {
+                    replacements.push((span, "#REF!".into(), None));
+                } else {
+                    let directory = data.producers.as_ref().ok_or(Error::InvalidTarget)?;
+                    let producer = directory.producer(guard.producer)?;
+                    let crate::producers::Source::Worksheet {
+                        rectangle: Some(source),
+                        ..
+                    } = producer.source
+                    else {
+                        return Err(Error::InvalidTarget);
+                    };
+                    let crate::producers::GuardTarget::Range {
+                        rectangle: Some(range),
+                        ..
+                    } = guard.target
+                    else {
+                        return Err(Error::InvalidTarget);
+                    };
+                    let refs: Vec<_> = lexical
+                        .iter()
+                        .filter(|r| r.span.start >= span.start && r.span.end <= span.end)
+                        .collect();
+                    if refs.len() != 2 {
+                        return Err(Error::InvalidTarget);
+                    }
+                    let a = Position::new(
+                        range.first.row - source.first.row + 1,
+                        range.first.column - source.first.column + 1,
+                    );
+                    let z = Position::new(
+                        range.last.row - source.first.row + 1,
+                        range.last.column - source.first.column + 1,
+                    );
+                    let first = Position::new(
+                        if refs[0].row <= refs[1].row {
+                            a.row
+                        } else {
+                            z.row
+                        },
+                        if refs[0].column <= refs[1].column {
+                            a.column
+                        } else {
+                            z.column
+                        },
+                    );
+                    let last = Position::new(
+                        if refs[0].row <= refs[1].row {
+                            z.row
+                        } else {
+                            a.row
+                        },
+                        if refs[0].column <= refs[1].column {
+                            z.column
+                        } else {
+                            a.column
+                        },
+                    );
+                    replacements.push((
+                        refs[0].span.clone(),
+                        clipboard::address(first, refs[0]),
+                        None,
+                    ));
+                    replacements.push((
+                        refs[1].span.clone(),
+                        clipboard::address(last, refs[1]),
+                        None,
+                    ));
+                }
+            }
+            (Token::At(_), Token::Bound(id), Some(span)) => {
+                let guard = data.guards.get(id).ok_or(Error::InvalidTarget)?;
+                let text = if let Some(p) = crate::producers::guard_position(data, guard) {
+                    clipboard::address(
+                        p,
+                        lexical
+                            .iter()
+                            .find(|r| r.span == span)
+                            .ok_or(Error::InvalidTarget)?,
+                    )
+                } else {
+                    "#REF!".into()
+                };
+                replacements.push((span, text, None));
+            }
             (Token::At(_), Token::Cell(target), Some(span)) => {
                 let p = data.records.get(&target.cell).and_then(|r| r.position);
                 let text = if let Some(p) = p {
@@ -426,6 +536,7 @@ impl Workbook {
         use std::collections::{BTreeMap, BTreeSet};
         self.check(expected)?;
         cancelled(cancel)?;
+        self.require_editable(sheet)?;
         if self.is_structured_proof() {
             return Err(Error::InvalidTarget);
         }
@@ -501,6 +612,13 @@ impl Workbook {
             placements.push((*id, old, new));
         }
         let mut reframes = BTreeMap::new();
+        let producer_reframes =
+            crate::producers::transform_sources(&mut data, sheet, change, limit)?;
+        for (id, rectangle) in &producer_reframes {
+            if let Some(rectangle) = rectangle {
+                reframes.insert(*id, *rectangle);
+            }
+        }
         let mut formulas = BTreeMap::new();
         for (id, record) in self.persistent.records.iter() {
             units(&mut work, 1, cancel)?;
@@ -687,6 +805,7 @@ impl Workbook {
                 for token in tokens.iter() {
                     units(&mut work, 1, cancel)?;
                     resolved.push(match token {
+                        Token::Bound(id) => crate::producers::resolved_guard(&data, *id)?,
                         Token::Qualifier { .. } => continue,
                         Token::Typed(op, n) => ResolvedToken::Typed(op.clone(), *n),
                         Token::Control(c) => ResolvedToken::Control(*c),
@@ -765,8 +884,11 @@ impl Workbook {
             data.styles
                 .structural(sheet, change, limit, self.limits.styles, cancel)?;
         units(&mut work, style_work, cancel)?;
-        let content_changed =
-            !placements.is_empty() || !formulas.is_empty() || !reframes.is_empty() || style_changed;
+        let content_changed = !placements.is_empty()
+            || !formulas.is_empty()
+            || !reframes.is_empty()
+            || !producer_reframes.is_empty()
+            || style_changed;
         // Preserve the accepted empty-worksheet no-op policy. Window axes are
         // first-class identities even when there are no authored cells.
         if !content_changed && !sheet.is_window() {
@@ -795,6 +917,7 @@ impl Workbook {
         )?;
         *axis = axis.changed(change, &data.memory)?;
         data.install_sheets(directory)?;
+        crate::producers::sync_dimensions(&mut data)?;
         let next = self.state.checked_add(1).ok_or(Error::Exhausted)?;
         data.review_filter_after_structure(sheet)?;
         let stats = data.stats();
@@ -804,9 +927,15 @@ impl Workbook {
         {
             return Err(Error::Limit);
         }
-        let operations = placements.len() + moved + deleted.len() + formulas.len() + reframes.len();
+        let operations = placements.len()
+            + moved
+            + deleted.len()
+            + formulas.len()
+            + reframes.len()
+            + producer_reframes.len();
         units(&mut work, operations, cancel)?;
         let bytes = placements.len() * 64
+            + producer_reframes.len() * 64
             + moved * 64
             + reframes.len() * 128
             + formulas
@@ -826,6 +955,11 @@ impl Workbook {
                 .sum::<usize>();
         let mut core = self.core.stage();
         let mut batch = core.begin_batch(operations, bytes).map_err(graph_error)?;
+        for (id, rectangle) in &producer_reframes {
+            if rectangle.is_none() {
+                batch.retain_selection(*id, false).map_err(graph_error)?;
+            }
+        }
         let space = selection::SpaceId(*sheet.uuid().as_bytes());
         for (_, old, _) in &placements {
             batch
@@ -891,6 +1025,7 @@ impl Workbook {
             core.apply_batch(batch, cancel).map_err(graph_error)?;
         }
         cancelled(cancel)?;
+        crate::producers::maintain_guards(&mut core, &mut data, cancel)?;
         crate::windows::validate_scope_graph(&core, &data, cancel)?;
         self.core = core;
         self.persistent = data.freeze();

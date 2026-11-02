@@ -47,6 +47,12 @@ impl Workbook {
         cancel: &CancellationToken,
     ) -> Result<Expected> {
         self.check(expected)?;
+        self.require_editable(destination)?;
+        if self.window_binding(source).is_some() {
+            return Err(Error::Graph(
+                "Use Copy Values or Detach for bound source content.".into(),
+            ));
+        }
         poll(cancel)?;
         let source_view = self.request_view(source)?;
         source_view.axes_at(rectangle.first)?;
@@ -250,7 +256,45 @@ impl Workbook {
             if diagnostic.is_some() {
                 return Err(Error::InvalidDraft);
             }
-            crate::structure::attach_faults(&mut tokens, &faults, true)?;
+            if bound.iter().any(|t| matches!(t, Token::Bound(_))) {
+                let retained = bound
+                    .iter()
+                    .filter_map(|t| match t {
+                        Token::Bound(id)
+                            if capture.pinned.guards.get(id).is_some_and(|g| {
+                                !crate::producers::guard_active(&capture.pinned, g)
+                            }) =>
+                        {
+                            Some(Ok(t.clone()))
+                        }
+                        Token::Typed(pivot_core::typed::Op::ReferenceDeleted(origin), 0) => {
+                            Some(crate::structure::FaultOrigin::decode(origin).map(|o| {
+                                Token::Typed(
+                                    pivot_core::typed::Op::ReferenceDeleted(
+                                        o.map_or_else(String::new, |o| o.transferred().encode()),
+                                    ),
+                                    0,
+                                )
+                            }))
+                        }
+                        _ => None,
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let mut retained = retained.into_iter();
+                for token in &mut tokens {
+                    if matches!(
+                        token,
+                        Token::Typed(pivot_core::typed::Op::ReferenceDeleted(_), 0)
+                    ) {
+                        *token = retained.next().ok_or(Error::InvalidTarget)?;
+                    }
+                }
+                if retained.next().is_some() {
+                    return Err(Error::InvalidTarget);
+                }
+            } else {
+                crate::structure::attach_faults(&mut tokens, &faults, true)?;
+            }
             return Ok(Edit::SetFormula {
                 position: at,
                 source,

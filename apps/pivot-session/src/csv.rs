@@ -33,6 +33,12 @@ impl Session {
             Op::CsvBounds => {
                 let book = self.book.as_ref().ok_or("No workbook open")?;
                 let sheet = request_scope(q)?;
+                if book.window_binding(sheet).is_some() {
+                    return Err(
+                        "Use Copy Values or detach a copy before exporting a bound Window to CSV"
+                            .into(),
+                    );
+                }
                 r.csv_has_content = book.csv_content_bounds(sheet)?.is_some();
             }
             Op::PrepareCsvImport => {

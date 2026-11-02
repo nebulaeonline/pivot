@@ -17,6 +17,7 @@ pub mod reclaim;
 pub use index::{Index, Key};
 pub use materialization::{MaterializedImage, NamedCalculation, NamedError, Restored};
 use memory::{Admission, Charge, Footprint, Memory, Shared};
+impl Footprint for crate::captured::CapturedScalarId {}
 impl From<Admission> for Error {
     fn from(_: Admission) -> Self {
         Self::Admission
@@ -386,6 +387,7 @@ impl Default for Limits {
 }
 /// Typed references are stable IDs, including allocated retired IDs. No name rebinding.
 pub enum Edit {
+    SelectionOwner(selection::SelectionId, bool),
     ReframeSelection(selection::SelectionId, selection::Rectangle),
     RetiredSelection(selection::SelectionId),
     Selection(selection::SelectionId, selection::Rectangle),
@@ -408,7 +410,7 @@ pub enum Edit {
 pub struct Graph {
     #[cfg(feature = "history-experiment")]
     history: history::Accounting,
-    captured_scalar: Option<(NodeId, crate::captured::CapturedScalarId)>,
+    captured_scalar: Index<NodeId, crate::captured::CapturedScalarId>,
     pub(super) selections: Option<Shared<selection::State>>,
     selection_invalidated: Option<Shared<Vec<NodeId>>>,
     records: Pages<Record>,
@@ -480,7 +482,7 @@ impl Graph {
             history: Default::default(),
             local_validation: true,
             transfer_admission: transfer::AdmissionLimits::default(),
-            captured_scalar: None,
+            captured_scalar: Index::new(memory.clone()),
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(true)))?,
             selections: None,
             selection_invalidated: None,
@@ -590,7 +592,7 @@ impl Graph {
             },
             local_validation: false,
             transfer_admission: transfer::AdmissionLimits::default(),
-            captured_scalar: None,
+            captured_scalar: Index::new(memory.clone()),
             proof: memory.alloc(Proof(std::sync::atomic::AtomicBool::new(
                 initial_error.is_none(),
             )))?,
@@ -944,12 +946,16 @@ impl Graph {
         self.history_note_record(history::codec::RecordKey::number(7, id.node))?;
         let old = self.live_record(id)?.clone();
         if let Compiled::CapturedScalar(slot) = definition {
-            if self.captured_scalar.is_some_and(|(node, _)| node != id) {
-                return Err(Error::Quota);
+            if self
+                .captured_scalar
+                .iter()
+                .any(|(node, existing)| *node != id && *existing == slot)
+            {
+                return Err(Error::InvalidTransfer);
             }
-            self.captured_scalar = Some((id, slot));
-        } else if self.captured_scalar.is_some_and(|(node, _)| node == id) {
-            self.captured_scalar = None;
+            self.captured_scalar.insert(id, slot)?;
+        } else {
+            self.captured_scalar.remove(&id)?;
         }
         #[cfg(feature = "history-experiment")]
         {
@@ -1206,6 +1212,10 @@ impl Graph {
                 _ => (),
             }
             match edit {
+                Edit::SelectionOwner(id, retain) => {
+                    candidate.edit_selection(|state| state.retain_owner(id, retain))?;
+                    topology = true;
+                }
                 Edit::ReframeSelection(id, rectangle) => {
                     if rectangle.ordered_len().is_some()
                         && let Some(state) = &candidate.selections
@@ -1366,12 +1376,7 @@ impl Graph {
                     topology = true;
                 }
                 Edit::Retire(id) => {
-                    if candidate
-                        .captured_scalar
-                        .is_some_and(|(node, _)| node == id)
-                    {
-                        candidate.captured_scalar = None;
-                    }
+                    candidate.captured_scalar.remove(&id)?;
                     let record = candidate.live_record(id)?.clone();
                     // Preserve tombstone reverse links so historical references never rebind.
                     for target in record.definition.deps() {
@@ -1789,8 +1794,8 @@ impl Capture {
     pub(super) fn captured_slots(&self) -> Vec<crate::captured::CapturedScalarId> {
         self.0
             .captured_scalar
-            .map(|(_, slot)| slot)
-            .into_iter()
+            .iter()
+            .map(|(_, slot)| *slot)
             .collect()
     }
     /// Validate dependency cycles without evaluating values or requiring captured inputs.

@@ -302,6 +302,7 @@ impl Workbook {
         cancel: &CancellationToken,
     ) -> Result<Outcome> {
         self.check(expected)?;
+        self.require_editable(sheet)?;
         let mut work = Work { used: 0, cancel };
         work.add(0)?;
         if options.rectangle.first.row > options.rectangle.last.row
@@ -454,6 +455,8 @@ impl Workbook {
             core.apply_batch(batch, cancel).map_err(graph_error)?;
         }
         work.add(0)?;
+        crate::producers::maintain_guards(&mut core, &mut data, cancel)?;
+        crate::windows::validate_scope_graph(&core, &data, cancel)?;
         self.core = core;
         self.persistent = data.freeze();
         self.state = next;

@@ -22,7 +22,7 @@ message Request {
   uint64 id = 2;
   // Opaque exact Expected identity, including session, sheet state and graph revision.
   string revision = 3;
-  enum Operation { UNSPECIFIED = 0; CREATE = 1; APPLY = 2; READ = 3; CAPTURE = 4; CALCULATE = 5; RELEASE = 6; CLOSE = 7; NEW = 8; OPEN = 9; PREPARE_SAVE = 10; SAVE = 11; CLOSE_DOCUMENT = 12; COPY_BLOCK = 13; PASTE_BLOCK = 14; PROOF_START = 15; PROOF_PUBLISH = 16; PROOF_LAYOUT = 17; PROOF_READ = 18; PROOF_EVALUATE = 19; BINDING_START = 20; RESOLVE_FORMULA = 21; APPLY_FORMULA = 22; DUPLICATE_BLOCK = 23; RENAME_PRODUCER = 24; RETIRE_PRODUCER = 25; RECREATE_PRODUCER = 26; PUBLISH_UNAVAILABLE = 27; RENAME_OUTPUT = 28; RETIRE_OUTPUT = 29; RECREATE_OUTPUT = 30; FILL = 31; LIST_SHEETS = 32; ADD_SHEET = 33; RENAME_SHEET = 34; FORMAT = 35; READ_STYLES = 36; PREPARE_CSV_IMPORT = 37; IMPORT_CSV = 38; EXPORT_CSV = 39; CANCEL_CSV_IMPORT = 40; CSV_BOUNDS = 41; STRUCTURE = 42; SORT = 43; SORT_BOUNDS = 44; SET_FILTER = 45; READ_FILTERED = 46; REAPPLY_FILTER = 47; PREPARE_FILTERED_OPERATION = 48; VALIDATE_FILTER = 49; GET_FILTER = 50; COPY_VISIBLE = 51; PREPARE_VISIBLE_PASTE = 52; PASTE_VISIBLE = 53; PREPARE_VISIBLE_EDIT = 54; CLEAR_VISIBLE = 55; FILL_VISIBLE = 56; CANCEL_VISIBLE_EDIT = 57; LIST_WINDOWS = 58; CREATE_WINDOW = 59; RENAME_WINDOW = 60; PREPARE_WINDOW_DELETE = 61; DELETE_WINDOW = 62; COPY_VALUES = 63; COPY_SCOPE = 64; }
+  enum Operation { UNSPECIFIED = 0; CREATE = 1; APPLY = 2; READ = 3; CAPTURE = 4; CALCULATE = 5; RELEASE = 6; CLOSE = 7; NEW = 8; OPEN = 9; PREPARE_SAVE = 10; SAVE = 11; CLOSE_DOCUMENT = 12; COPY_BLOCK = 13; PASTE_BLOCK = 14; PROOF_START = 15; PROOF_PUBLISH = 16; PROOF_LAYOUT = 17; PROOF_READ = 18; PROOF_EVALUATE = 19; BINDING_START = 20; RESOLVE_FORMULA = 21; APPLY_FORMULA = 22; DUPLICATE_BLOCK = 23; RENAME_PRODUCER = 24; RETIRE_PRODUCER = 25; RECREATE_PRODUCER = 26; PUBLISH_UNAVAILABLE = 27; RENAME_OUTPUT = 28; RETIRE_OUTPUT = 29; RECREATE_OUTPUT = 30; FILL = 31; LIST_SHEETS = 32; ADD_SHEET = 33; RENAME_SHEET = 34; FORMAT = 35; READ_STYLES = 36; PREPARE_CSV_IMPORT = 37; IMPORT_CSV = 38; EXPORT_CSV = 39; CANCEL_CSV_IMPORT = 40; CSV_BOUNDS = 41; STRUCTURE = 42; SORT = 43; SORT_BOUNDS = 44; SET_FILTER = 45; READ_FILTERED = 46; REAPPLY_FILTER = 47; PREPARE_FILTERED_OPERATION = 48; VALIDATE_FILTER = 49; GET_FILTER = 50; COPY_VISIBLE = 51; PREPARE_VISIBLE_PASTE = 52; PASTE_VISIBLE = 53; PREPARE_VISIBLE_EDIT = 54; CLEAR_VISIBLE = 55; FILL_VISIBLE = 56; CANCEL_VISIBLE_EDIT = 57; LIST_WINDOWS = 58; CREATE_WINDOW = 59; RENAME_WINDOW = 60; PREPARE_WINDOW_DELETE = 61; DELETE_WINDOW = 62; COPY_VALUES = 63; COPY_SCOPE = 64; CREATE_WORKSHEET_PRODUCER = 65; CREATE_FIXTURE_PRODUCER = 66; CREATE_BOUND_WINDOW = 67; BEGIN_PRODUCER_REFRESH = 68; COMPLETE_PRODUCER_REFRESH = 69; FAIL_PRODUCER_REFRESH = 70; CANCEL_PRODUCER_REFRESH = 71; DISCONNECT_PRODUCER = 72; RECONNECT_PRODUCER = 73; PREPARE_PRODUCER_DELETE = 74; DELETE_PRODUCER = 75; DETACH_BOUND_WINDOW = 76; REFRESH_PRODUCER = 77; }
   Operation operation = 4;
   repeated Edit edits = 5;
   Position first = 6;
@@ -87,6 +87,13 @@ message Request {
   string window_delete_ticket = 59;
   string destination_scope_id = 60;
   bool destination_window_scope = 61;
+  string producer_id = 62;
+  string source_worksheet = 63;
+  string fixture = 64;
+  bool generation_qualified = 65;
+  string producer_ticket = 66;
+  uint32 fixture_version = 67;
+  string producer_delete_ticket = 68;
 }
 message FilterPredicate { uint32 operator = 1; oneof literal { pivot.v1.Decimal128 decimal = 2; string text = 3; bool boolean = 4; string decimal_text = 5; } }
 message FilterCondition { uint32 column = 1; bool either = 2; repeated FilterPredicate predicates = 3; }
@@ -122,6 +129,7 @@ message Cell {
   TypedValue result = 19;
   string error_code = 20;
   string formatted_number = 21;
+  ProjectedLocation projected = 22;
 }
 message Response {
   uint32 version = 1;
@@ -216,6 +224,17 @@ message Response {
   repeated WorksheetInfo windows = 93;
   uint64 window_inbound_references = 94;
   string window_delete_ticket = 95;
+  repeated ProducerInfo producers = 96;
+  string producer_id = 97;
+  string producer_ticket = 98;
+  string producer_delete_ticket = 99;
+  uint64 producer_inbound_references = 100;
+  bool bound_projection = 101;
+  string producer_generation = 102;
+  uint32 bound_rows = 103;
+  uint32 bound_columns = 104;
+  string producer_status = 105;
+  uint64 producer_configuration = 106;
   bool clipboard_text_available = 87;
   uint32 clipboard_kind = 88;
 }
@@ -250,4 +269,7 @@ message TypedOccurrence {
 
 message StyledPosition { Position at = 1; bytes style = 2; }
 
-message WorksheetInfo { string id = 1; string name = 2; uint32 rows = 3; uint32 columns = 4; }
+message WorksheetInfo { string id = 1; string name = 2; uint32 rows = 3; uint32 columns = 4; bool bound = 5; string producer = 6; string binding_mode = 7; string selected_generation = 8; string refresh_status = 9; }
+message ProjectedLocation { string window = 1; string producer = 2; uint64 configuration = 3; string generation = 4; string item_key = 5; string field_id = 6; string source_cell = 7; bool source_hidden = 8; }
+message ProducerInfo { string id = 1; uint64 configuration = 2; string kind = 3; string source_worksheet = 4; Position first = 5; Position last = 6; string fixture = 7; bool generation_qualified = 8; string selected_generation = 9; string refresh_status = 10; uint32 rows = 11; uint32 columns = 12; bool retired = 13; string schema = 14; repeated ProducerField fields = 15; string last_outcome = 16; }
+message ProducerField { string id = 1; string label = 2; string kind = 3; bool nullable = 4; }

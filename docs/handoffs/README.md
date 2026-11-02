@@ -4,7 +4,7 @@ This directory records implementation handoffs, design reviews, experiments and
 platform validation. These are development records; the product overview is in the
 [project README](../../README.md).
 
-Start with [implementation status](../STATUS.md) to find the current workstream,
+Start with [implementation status](../STATUS-20261102.md) to find the current workstream,
 latest review and remaining boundaries. See [architecture decisions](../adr/README.md)
 for accepted design choices and [testing](../testing.md) for contributor instructions.
 

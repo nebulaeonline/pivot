@@ -735,6 +735,16 @@ pub struct SelectionImage {
     pub points: Vec<(selection::SpaceId, u32, u32, usize)>,
 }
 impl WorkingModel {
+    /// Exhaustive native projection; every captured leaf must have supplied authority.
+    #[doc(hidden)]
+    pub fn project_document_with_sources(
+        &self,
+        nodes: &[NodeId],
+        sources: &[(NodeId, crate::captured::CapturedScalarId)],
+        cancel: &integration::CancellationToken,
+    ) -> Result<SelectionImage, ModelError> {
+        self.integrated_document_projection_sources(nodes, sources, cancel)
+    }
     /// Internal exhaustive document projection, not the full allocation-ledger transfer API.
     /// The native caller retains admission for the returned workbook/transfer image
     /// through encoding. Intermediate GraphImage materialization is charged here.

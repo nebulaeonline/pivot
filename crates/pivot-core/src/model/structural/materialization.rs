@@ -32,7 +32,7 @@ mod projection_cancellation {
         let charged = memory.stats().charged;
         let polls = std::cell::Cell::new(0);
         assert!(matches!(
-            graph.project_document(&nodes, || {
+            graph.project_document_sources(&nodes, &[], || {
                 polls.set(polls.get() + 1);
                 polls.get() > 7
             }),
@@ -42,7 +42,11 @@ mod projection_cancellation {
         assert_eq!(graph.version(), before);
         assert_eq!(graph.next, floor);
         assert_eq!(memory.stats().charged, charged);
-        assert!(graph.project_document(&nodes, || false).is_ok());
+        assert!(
+            graph
+                .project_document_sources(&nodes, &[], || false)
+                .is_ok()
+        );
         drop(graph);
         assert_eq!(memory.stats().charged, 0);
     }
@@ -151,14 +155,15 @@ impl Graph {
         &self,
         cancelled: impl Fn() -> bool,
     ) -> Result<MaterializedImage, Error> {
-        self.materialize_mode(cancelled, false)
+        self.materialize_mode(cancelled, false, false)
     }
     fn materialize_mode(
         &self,
         cancelled: impl Fn() -> bool,
         allow_selections: bool,
+        allow_captured: bool,
     ) -> Result<MaterializedImage, Error> {
-        if self.captured_scalar.is_some() {
+        if !allow_captured && !self.captured_scalar.is_empty() {
             return Err(ModelError::Backend("captured scalar sources require a captured context; scalar materialization unsupported").into());
         }
         let name_bytes = self.names.iter().map(|(name, _)| name.len()).sum::<usize>();
@@ -215,14 +220,15 @@ impl Graph {
         nodes: &[NodeId],
         ports: &[PortId],
     ) -> Result<transfer::SelectionImage, Error> {
-        self.selection_transfer(nodes, ports, || false, false)
+        self.selection_transfer(nodes, ports, || false, false, &[])
     }
-    pub(in crate::model) fn project_document(
+    pub(in crate::model) fn project_document_sources(
         &self,
         nodes: &[NodeId],
+        sources: &[(NodeId, crate::captured::CapturedScalarId)],
         cancel: impl Fn() -> bool,
     ) -> Result<transfer::SelectionImage, Error> {
-        self.selection_transfer(nodes, &[], cancel, true)
+        self.selection_transfer(nodes, &[], cancel, true, sources)
     }
     fn selection_transfer(
         &self,
@@ -230,11 +236,31 @@ impl Graph {
         ports: &[PortId],
         cancel: impl Fn() -> bool,
         projection: bool,
+        sources: &[(NodeId, crate::captured::CapturedScalarId)],
     ) -> Result<transfer::SelectionImage, Error> {
         if cancel() {
             return Err(Error::Cancelled);
         }
-        let mut image = self.materialize_mode(&cancel, true)?;
+        if sources.len() != self.captured_scalar.len()
+            || sources
+                .iter()
+                .map(|(n, _)| *n)
+                .collect::<BTreeSet<_>>()
+                .len()
+                != sources.len()
+            || sources
+                .iter()
+                .any(|(node, slot)| self.captured_scalar.get(node) != Some(slot))
+        {
+            return Err(Error::InvalidTransfer);
+        }
+        let mut image = self.materialize_mode(&cancel, true, !sources.is_empty())?;
+        for node in image.model.nodes.values_mut() {
+            if matches!(node.definition, Definition::CapturedScalar(_)) {
+                // The complete native caller carries and validates captured authority separately.
+                node.definition = Definition::Input(PivotDecimal::ZERO);
+            }
+        }
 
         let slots: BTreeMap<_, _> = nodes
             .iter()

@@ -19,11 +19,11 @@ internal static class SortingChecks {
   try{await s.SortAsync(s.Revision,P(1),P(2,2),false,[new SortKey{Column=1},new SortKey{Column=1}]);throw new Exception("duplicate sort key accepted");}catch(WorkbookSessionException){}
   Check(s.Revision==expected,"refusal leaves revision unchanged");
   string path=Path.Combine(output,"sorted-current.pivot");await s.SaveAsync(s.Revision,path);await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path);
-  Check((await s.ReadAsync(P(2),P(2))).Cells.Single().CellId==first,"WB14 preserves moved identity");
+  Check((await s.ReadAsync(P(2),P(2))).Cells.Single().CellId==first,"WB15 preserves moved identity");
   await s.ApplyAsync(s.Revision,[new Edit{At=P(1,3),Entry="=1/0"},new Edit{At=P(2,3),Entry="=#REF!"}]);
   await s.SortAsync(s.Revision,P(1),P(2,3),false,[new SortKey{Column=3,Descending=true},new SortKey{Column=1,Descending=true}],false);
   Check((await s.ReadAsync(P(1,3),P(2,3))).Cells.All(c=>c.ErrorCode.Length>0),"completed cell errors sortable and retained");
   await s.DisposeAsync();Check(s.FinalCharge==0,"zero final domain charge");
-  await File.WriteAllTextAsync(Path.Combine(output,"sorting.json"),JsonSerializer.Serialize(new{status="passed",identity=true,fixed_ranges=true,sort_bounds=true,errors=true,leading_zeros=true,persistence="WB14",remaining_charge=s.FinalCharge}));
+  await File.WriteAllTextAsync(Path.Combine(output,"sorting.json"),JsonSerializer.Serialize(new{status="passed",identity=true,fixed_ranges=true,sort_bounds=true,errors=true,leading_zeros=true,persistence="WB15",remaining_charge=s.FinalCharge}));
  }
 }

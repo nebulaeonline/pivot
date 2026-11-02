@@ -326,6 +326,7 @@ impl Workbook {
         cancel: &CancellationToken,
     ) -> Result<(Expected, Option<Visibility>)> {
         self.check(expected)?;
+        self.require_editable(sheet)?;
         self.sheet_info(sheet)?;
         if self.is_structured_proof() {
             return Err(Error::InvalidTarget);
@@ -442,8 +443,15 @@ impl CalculationCapture {
         definition: Option<&Definition>,
         cancel: &CancellationToken,
     ) -> Result<Visibility> {
+        self.filter_visibility_on(self.worksheet, definition, cancel)
+    }
+    pub(crate) fn filter_visibility_on(
+        &self,
+        sheet: GridScopeId,
+        definition: Option<&Definition>,
+        cancel: &CancellationToken,
+    ) -> Result<Visibility> {
         let expected = self.expected;
-        let sheet = self.worksheet;
         let info = self
             .pinned
             .sheets

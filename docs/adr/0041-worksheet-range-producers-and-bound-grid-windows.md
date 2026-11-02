@@ -1,17 +1,29 @@
 # ADR-0041: Worksheet-Range Producers and Bound Grid Windows
 
 Date: 2026-11-02.
-Status: **Design approved with four mandatory clarifications incorporated (2026-11-02). No implementation authorized or performed.**
+Status: **Accepted and closed by implementation review (2026-11-02), with the unresolved Windows ARM64 cold-run timing qualification retained.**
 
-## Parent design disposition
+## Review disposition
 
-The parent approves the architecture subject to four implementation-contract
-clarifications: combined positional/scalar authority, refresh state versus selected
-values and freshness, complete native authority validation, and a single explicit
-ownership/charge ledger. The normative examples, transition matrix, representation
-gate and accounting table below incorporate all four. No further architectural
-proposal or parent confirmation cycle is required. Implementation requires separate
-owner authorization. Subsequent architectural directions are not started here.
+The design review approved the architecture with four mandatory clarifications:
+combined positional/scalar authority, refresh status versus selected generation and
+freshness, complete native authority validation, and a single ownership/charge
+ledger. Those requirements remain normative below and are implemented.
+
+The 2026-11-02 implementation review accepts and closes ADR-0041. The review
+assessed supplied documentation and qualification evidence, without independent
+source execution. WB15-only native persistence, private session v15, the reported
+resource/ownership tests, code-size report, verified retention and all 12 managed/
+Native AOT graphical suites across six targets are accepted. Hosted v1 and CB5/CB6
+remain unchanged. macOS x64 remains Rosetta-qualified.
+
+The original Windows ARM64 cold structural timing failure remains Failed and
+unexplained; a separate retained-cache full CI pass does not establish cold-run
+reliability. Original Windows x64 AOT wrapper and Windows ARM64 NuGet DNS failure
+receipts remain distinct from their passing complete retries. No further ADR-0041
+validation matrix, graphical/AOT rerun or housekeeping acceptance is required.
+See the [implementation handoff](../handoffs/2026-11-02-bound-grid-windows.md) and
+[qualification record](../performance/bound-grid-windows.md).
 
 ## Purpose and boundary
 
@@ -358,9 +370,9 @@ Rebind is explicitly create-replacement; it never retargets existing references.
 
 ## Persistence and representation
 
-Propose **WB15 only** and **private session v15**, freezing final numbers with the
-implementation codec audit. Do not emit new authority labeled WB14/v14. No historical
-reader or migration; WB14/older explicitly refuse once this milestone is promoted.
+Implemented and accepted: **WB15 only** and **private session v15**, finalized by
+the implementation codec audit. New authority is never labeled WB14/v14. No
+historical reader or migration is provided; WB14/older explicitly refuse.
 Hosted v1 remains unchanged; CB5/CB6 remain unchanged and cannot transport producer
 or Window authority. Experimental history/structured paths must refuse unsupported
 new ownership instead of dropping guards. ADR-0023 remains parked at G3.
@@ -387,8 +399,9 @@ valid saved snapshot. Corrupt authority refuses the entire native load.
 
 ### Representation acceptance gate
 
-WB15/private v15 remain provisional until the codec audit establishes complete
-authority closure. Visible-value round trips are insufficient.
+The implementation codec audit and reported regressions satisfy the WB15/private
+v15 authority-closure gate below, accepted by implementation review. Visible-value
+round trips alone remain insufficient.
 
 | Encoded authority | Required pre-install validation |
 | --- | --- |
@@ -414,7 +427,7 @@ Freeze format numbers only after this gate is audited.
 ## Admission and resource objectives
 
 No global limit increases. Existing 64 live Windows and 16 worksheets remain aggregate.
-Specialize ADR-0039's proposed producer admission to at most 32 live producers,
+Specialize ADR-0039's producer admission to at most 32 live producers,
 64 fields per external schema, and 100,000 projected logical rows across live bound
 Windows; duplicate views consume that row admission even when storage is shared.
 These are initial refusal ceilings, not measured capacity promises. Worksheet sparse
@@ -487,12 +500,11 @@ delay is reported separately, never used to hide workbook publication time. If a
 required corpus cannot fit, stop and return the measured conflict for review rather
 than silently raise limits or weaken identity/consistency semantics.
 
-## Implementation and validation plan
+## Implementation and validation
 
-Implementation requires separate owner authorization after design review. Order:
-producer/ownership authority and admission; worksheet geometry/guards and cycle
-maintenance; immutable fixture contexts/refresh; native/private audit; read-only editor
-and lifecycle; then qualification and retention. No feature work accompanies this ADR.
+The owner authorized implementation after design approval on 2026-11-02.
+Implementation and qualification are complete and accepted. The requirements below
+record the approved validation scope; they are not instructions for another run.
 
 Required regressions:
 
@@ -519,19 +531,19 @@ completed value error. Report edit/guard maintenance, publication, evaluation, S
 reopen, charged steady/peak and final charges separately. Do not claim every maximum
 can be combined simultaneously or multiply memory allowances per producer.
 
-Plan six-target headless CI and managed/AOT GUI coverage: Windows/Linux x64,
-Windows/Linux ARM64, macOS ARM64 and macOS x64 under Rosetta. Use a Windows x64 pilot,
-then owner-run short launchers in each graphical terminal under `docs/testing.md`.
-The GUI flow must demonstrate live worksheet update without Refresh, explicit fixture
-refresh/failure retention, read-only refusal, exact String export, status, stale frame
-protection, source deletion and disconnected Save/reopen. No GUI is launched through
-SSH. Record selected source hashes, archive verified evidence before cache cleanup,
-and report cloc per project from the canonical checkout at implementation completion.
+The completed qualification covers six-target headless evidence and managed/AOT
+GUI: Windows/Linux x64, Windows/Linux ARM64, macOS ARM64 and macOS x64 under Rosetta.
+The Windows x64 pilot was followed by attended short launchers under
+`docs/testing.md`. The GUI flows demonstrated live worksheet update without Refresh,
+explicit fixture refresh/failure retention, read-only refusal, exact String export,
+status, stale-frame protection, source deletion and disconnected Save/reopen.
+No GUI was launched through SSH. Source hashes, byte-verified archives, cleanup
+receipts and the canonical per-project cloc report are retained.
 
-Owner reports all six systems updated to Rust nightly 1.101.0 dated 2026-11-01.
-Future receipts must capture actual compiler identity; no toolchain commands or tests
-were run for this design. ADR-0040's Windows ARM64 cold-run timing failure remains
-Failed and unexplained; future passing runs do not resolve it implicitly.
+Actual execution receipts record Rust nightly 1.101.0 dated 2026-11-01.
+The original Windows ARM64 cold-run structural timing failures remain Failed and
+unexplained, alongside separate passing retained-cache CI evidence. Later passing
+runs do not resolve or reclassify those original failures.
 
 ## Exclusions and alternatives
 

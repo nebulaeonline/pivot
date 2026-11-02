@@ -40,6 +40,9 @@ impl Workbook {
         self.core.history_metrics().map_err(graph_error)
     }
     pub fn history_weight(&self) -> Result<usize> {
+        if !self.producers().is_empty() {
+            return Err(Error::InvalidTarget);
+        }
         // Content Move/Fill now produce explicit built-in style snapshots. This
         // content-only experiment can still represent their appearance because
         // worksheet-default editing and non-default formatting remain unsupported.

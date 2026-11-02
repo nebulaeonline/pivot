@@ -130,8 +130,8 @@ impl Graph {
     }
     pub(in crate::model) fn history_activated(&self, current: &Self) -> Result<Self, Error> {
         if self.version.model != current.version.model
-            || self.captured_scalar.is_some()
-            || current.captured_scalar.is_some()
+            || !self.captured_scalar.is_empty()
+            || !current.captured_scalar.is_empty()
             || !self.ports.inputs.is_empty()
             || !self.ports.outputs.is_empty()
             || !current.ports.inputs.is_empty()
@@ -165,7 +165,7 @@ impl Graph {
         Ok(root)
     }
     pub(in crate::model) fn history_metrics(&self) -> Result<HistoryMetrics, Error> {
-        if self.captured_scalar.is_some()
+        if !self.captured_scalar.is_empty()
             || !self.ports.inputs.is_empty()
             || !self.ports.outputs.is_empty()
         {

@@ -116,6 +116,27 @@ impl Batch {
         self.push(Edit::CapturedScalar(id, slot), 0)?;
         Ok((id, slot))
     }
+    /// Publish a changed immutable producer context through the canonical graph revision.
+    pub fn replace_captured_scalar(
+        &mut self,
+        node: NodeId,
+        slot: crate::captured::CapturedScalarId,
+    ) -> Result<(), ModelError> {
+        self.push(Edit::CapturedScalar(node, slot), 0)
+    }
+    /// Native authority was validated by the enclosing document coordinator.
+    pub fn restore_captured_scalar(
+        &mut self,
+        node: NodeId,
+        identity: [u8; 16],
+    ) -> Result<crate::captured::CapturedScalarId, ModelError> {
+        if identity == [0; 16] {
+            return self.fail(ModelError::Backend("empty captured scalar identity"));
+        }
+        let slot = crate::captured::CapturedScalarId(identity);
+        self.replace_captured_scalar(node, slot)?;
+        Ok(slot)
+    }
     /// Blank scalar evaluates to zero, but is excluded by numeric-member reducers.
     pub fn set_blank(&mut self, id: NodeId) -> Result<(), ModelError> {
         self.push(Edit::Blank(id), 0)
@@ -234,6 +255,14 @@ impl Batch {
         rectangle: selection::Rectangle,
     ) -> Result<(), ModelError> {
         self.push(Edit::Selection(id, rectangle), 128)
+    }
+    /// A document producer can own geometry without manufacturing a formula consumer.
+    pub fn retain_selection(
+        &mut self,
+        id: selection::SelectionId,
+        retain: bool,
+    ) -> Result<(), ModelError> {
+        self.push(Edit::SelectionOwner(id, retain), 64)
     }
     pub fn place(
         &mut self,
@@ -366,6 +395,17 @@ impl IntegrationRuntime {
         cancel: &CancellationToken,
         admission: transfer::AdmissionLimits,
     ) -> Result<transfer::Imported, ModelError> {
+        self.import_document_selections(image, cancel, admission, &[])
+    }
+    /// Native document ownership is explicit; generic selection transfer grants none.
+    #[doc(hidden)]
+    pub fn import_document_selections(
+        &self,
+        image: transfer::SelectionImage,
+        cancel: &CancellationToken,
+        admission: transfer::AdmissionLimits,
+        owned: &[selection::SelectionId],
+    ) -> Result<transfer::Imported, ModelError> {
         use selection::{MAX_IDENTITIES, MAX_SELECTIONS};
         let invalid = || ModelError::Backend("invalid selection-aware transfer");
         if !admission.valid()
@@ -405,7 +445,11 @@ impl IntegrationRuntime {
                 })
             })
             .collect();
-        if used != active {
+        let owners: BTreeSet<_> = owned.iter().copied().collect();
+        if owners.len() != owned.len()
+            || !owners.is_subset(&active)
+            || used.union(&owners).copied().collect::<BTreeSet<_>>() != active
+        {
             return Err(invalid());
         }
         let mut slots = BTreeSet::new();
@@ -470,6 +514,20 @@ impl IntegrationRuntime {
             imported.model.apply_batch(batch, cancel)?;
         }
         let mut defined = BTreeSet::new();
+        if !owners.is_empty() {
+            let mut batch = imported
+                .model
+                .begin_batch(owners.len() * 2, owners.len() * 192)?;
+            for id in &owners {
+                batch.define_selection(
+                    *id,
+                    descriptors.get(id).copied().flatten().ok_or_else(invalid)?,
+                )?;
+                batch.retain_selection(*id, true)?;
+                defined.insert(*id);
+            }
+            imported.model.apply_batch(batch, cancel)?;
+        }
         let mut formulas = image.formulas.into_iter();
         loop {
             let chunk: Vec<_> = formulas.by_ref().take(256).collect();

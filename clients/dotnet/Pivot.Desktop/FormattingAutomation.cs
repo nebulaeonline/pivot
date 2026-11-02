@@ -61,11 +61,11 @@ public partial class MainWindow {
   // Verify persistence independently, then reveal the row and await its current frame.
   var reopened=await s.ReadAsync(AutomationPosition(3,1),AutomationPosition(3,2));
   AutomationCheck(reopened.Cells.SingleOrDefault(c=>c.At.Row==3&&c.At.Column==1)?.FormattedNumber=="$1,234.57"
-      &&CellStyle.Decode(reopened.Styles.Single(p=>p.At.Column==2).Style).Italic,"WB14 backend restores styles and exact values");
+      &&CellStyle.Decode(reopened.Styles.Single(p=>p.At.Column==2).Style).Italic,"WB15 backend restores styles and exact values");
   AutomationCheck(await SelectAsync(AutomationPosition(3,1)),"reopened formatting row selected");
   await RefreshAsync();
   await AutomationWaitAsync(()=>frameReady&&!editing&&displayedRevision==s.Revision&&Sheet.IsVisibleCell(AutomationPosition(3,1))&&Sheet.CellAt(AutomationPosition(3,1)) is not null);
-  AutomationCheck(Sheet.StyleAt(AutomationPosition(3,2)).Italic&&Sheet.CellAt(AutomationPosition(3,1))?.FormattedNumber=="$1,234.57","WB14 styles and exact values reach reopened grid");
+  AutomationCheck(Sheet.StyleAt(AutomationPosition(3,2)).Italic&&Sheet.CellAt(AutomationPosition(3,1))?.FormattedNumber=="$1,234.57","WB15 styles and exact values reach reopened grid");
   AutomationImage(Path.ChangeExtension(report,"formatting.png"));
   await s.NewAsync(s.Revision,discard:true);CancelDraft();clipboardEditor=null;shortcutModifiers=KeyModifiers.None;await RefreshAsync();Sheet.Focus();
   } catch {

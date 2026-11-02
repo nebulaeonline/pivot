@@ -163,6 +163,9 @@ pub(crate) fn validate_scope(
                     return Err(Error::InvalidTarget);
                 }
             }
+            Token::Bound(_) => {
+                pending.take();
+            }
             Token::Typed(pivot_core::typed::Op::ReferenceDeleted(_), 0) => {
                 pending.take();
             }
@@ -386,16 +389,16 @@ impl Workbook {
                 _ => (),
             }
         }
-        let mut data = self
-            .core
-            .stage_resource(&self.persistent)
-            .map_err(graph_error)?;
+        let mut core = self.core.stage();
+        let mut data = core.stage_resource(&self.persistent).map_err(graph_error)?;
         data.install_sheets(sheets)?;
-        crate::windows::validate_scope_graph(&self.core, &data, &Default::default())?;
+        crate::producers::maintain_guards(&mut core, &mut data, &Default::default())?;
+        crate::windows::validate_scope_graph(&core, &data, &Default::default())?;
         if data.stats().estimated_owned_bytes > self.limits.bytes {
             return Err(Error::Limit);
         }
         self.persistent = data.freeze();
+        self.core = core;
         self.state = next;
         Ok(())
     }
@@ -426,6 +429,7 @@ impl Workbook {
         id: GridScopeId,
         call: impl FnOnce(&mut Self) -> Result<T>,
     ) -> Result<T> {
+        self.require_editable(id)?;
         let mut view = self.request_view(id)?;
         let answer = call(&mut view)?;
         self.persistent = view.persistent;
@@ -447,6 +451,12 @@ impl Workbook {
         self.mutate_sheet(id, |v| v.apply(expected, edits))
     }
     pub fn axes_at_sheet(&self, id: GridScopeId, position: Position) -> Result<(AxisId, AxisId)> {
+        if self.window_binding(id).is_some() {
+            return Err(Error::Graph(
+                "Bound positions use producer item/field authority; request a projected frame."
+                    .into(),
+            ));
+        }
         self.request_view(id)?.axes_at(position)
     }
     pub fn display_formula(&self, cell: CellRef) -> Result<Option<String>> {

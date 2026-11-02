@@ -407,6 +407,17 @@ impl Workbook {
         Ok(())
     }
     pub fn style_at(&self, sheet: GridScopeId, p: Position) -> Result<Style> {
+        if let GridScopeId::Window(window) = sheet
+            && self.window_binding(sheet).is_some()
+        {
+            return self
+                .capture_local(self.expected())?
+                .project_window(window, Rectangle { first: p, last: p })?
+                .cells
+                .first()
+                .map(|c| c.style)
+                .ok_or(Error::InvalidTarget);
+        }
         self.axes_at_sheet(sheet, p)?;
         self.persistent
             .resolved_style(sheet, p, self.limits.styles, &Default::default())
@@ -466,6 +477,7 @@ impl Workbook {
         cancel: &CancellationToken,
     ) -> Result<Expected> {
         self.check(expected)?;
+        self.require_editable(sheet)?;
         self.sheet_info(sheet)?;
         self.formatting_allowed(cancel)?;
         if patch.intents().contains(&2) {
@@ -502,6 +514,7 @@ impl Workbook {
         cancel: &CancellationToken,
     ) -> Result<Expected> {
         self.check(expected)?;
+        self.require_editable(sheet)?;
         self.check_style_rectangle(sheet, r)?;
         self.formatting_allowed(cancel)?;
         let mut data = self
@@ -535,6 +548,20 @@ impl Workbook {
 
 impl CalculationCapture {
     pub fn style_at(&self, sheet: GridScopeId, p: Position) -> Result<Style> {
+        if let GridScopeId::Window(window) = sheet
+            && self
+                .pinned
+                .producers
+                .as_ref()
+                .is_some_and(|d| d.binding(sheet).is_some())
+        {
+            return self
+                .project_window(window, Rectangle { first: p, last: p })?
+                .cells
+                .first()
+                .map(|c| c.style)
+                .ok_or(Error::InvalidTarget);
+        }
         let info = self
             .pinned
             .sheets

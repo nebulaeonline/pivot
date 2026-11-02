@@ -103,6 +103,8 @@ fn independent_restore_preserves_projection_bound_graph_and_retired_ledgers() {
     use sha2::{Digest, Sha256};
     for (offset, length) in [(49, 16), (81, 8), (105, 8)] {
         let mut bad = export.bytes.clone();
+        let prefix = 8 + u64::from_le_bytes(bad[49..57].try_into().unwrap()) as usize;
+        let offset = offset + prefix;
         bad[offset..offset + length].fill(0);
         let digest = Sha256::digest(&bad[49..]);
         bad[17..49].copy_from_slice(&digest);
@@ -191,7 +193,7 @@ fn sum_document_keeps_bound_geometry_identity_and_member_affinity() {
     .unwrap();
     let formula = book.cell_at(p(1, 4)).unwrap().unwrap();
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&bytes.bytes[..9], b"PIVOTWB14");
+    assert_eq!(&bytes.bytes[..9], b"PIVOTWB15");
     let (mut restored, _) =
         pivot_workbook_document::Document::open_document(&bytes.bytes, Limits::default(), &runtime)
             .unwrap();
@@ -275,8 +277,9 @@ fn wb14_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected())
         .unwrap()
         .bytes;
-    // WB14 tagged primary scope, axis dimensions/state, directories, then graph.
-    let mut at = 49 + 80;
+    // WB15 producer block, tagged primary scope, axis dimensions/state, directories, then graph.
+    let producer_bytes = u64::from_le_bytes(bytes[49..57].try_into().unwrap()) as usize;
+    let mut at = 57 + producer_bytes + 80;
     let read = |at: &mut usize| {
         let n = u64::from_le_bytes(bytes[*at..*at + 8].try_into().unwrap()) as usize;
         *at += 8;
@@ -371,7 +374,7 @@ fn text_roundtrip_preserves_marker_identity_and_old_versions_reject() {
     .unwrap();
     let cell = b.cell_at(p(1, 1)).unwrap().unwrap();
     let exported = pivot_workbook_document::Document::export_document(&b, b.expected()).unwrap();
-    assert_eq!(&exported.bytes[..9], b"PIVOTWB14");
+    assert_eq!(&exported.bytes[..9], b"PIVOTWB15");
     let (restored, checkpoint) = pivot_workbook_document::Document::open_document(
         &exported.bytes,
         Limits::default(),
@@ -486,7 +489,7 @@ fn wb5_preserves_blank_identity_sum_and_checkpoint() {
     assert_eq!(value(&book, p(3, 3)), Ok(3.into()));
     assert_eq!(value(&book, p(4, 3)), Ok(2.into()));
     let saved = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&saved.bytes[..9], b"PIVOTWB14");
+    assert_eq!(&saved.bytes[..9], b"PIVOTWB15");
     let (restored, checkpoint) =
         pivot_workbook_document::Document::open_document(&saved.bytes, Limits::default(), &runtime)
             .unwrap();

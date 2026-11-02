@@ -30,12 +30,14 @@ also be used directly through Rust crate APIs, independently of a workbook or GU
 
 ## The spreadsheet desktop
 
-Worksheet-range producers and read-only bound Grid Windows have an approved design in
+Worksheet-range producers and read-only bound Grid Windows are implemented under
 [ADR-0041](docs/adr/0041-worksheet-range-producers-and-bound-grid-windows.md).
-The design includes live worksheet projection and explicitly refreshed fixture
-snapshots. Four mandatory review clarifications are incorporated; implementation
-is not yet authorized. See the
-[design handoff](docs/handoffs/2026-11-02-bound-grid-windows-design.md).
+Worksheet views update from committed source changes; fixture snapshots change
+through explicit refresh. All six targets passed managed/AOT GUI qualification.
+ADR-0041 is accepted and closed, with the original Windows ARM64 cold headless
+timing qualification retained. See the
+[implementation handoff](docs/handoffs/2026-11-02-bound-grid-windows.md) and
+[current status](docs/STATUS-20261102.md).
 
 Unbound Grid Windows are accepted and closed under
 [ADR-0040](docs/adr/0040-unbound-grid-windows.md). Each has an independent named
@@ -106,7 +108,7 @@ dialog displays the final range and offers explicit inclusion of adjacent column
 [Sorting implementation and validation status](docs/architecture/worksheet-sorting.md).
 
 Workbooks open and save as local `.pivot` files, preserving every sheet, typed
-content, presentation and stable bindings. The current experimental format is WB14; earlier
+content, presentation and stable bindings. The current experimental format is WB15; earlier
 experimental workbook versions are rejected.
 
 Worksheet filters preserve typed criteria and hide whole rows without changing cell

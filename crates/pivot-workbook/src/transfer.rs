@@ -24,6 +24,7 @@ pub struct SheetRecord {
     pub column_axis: AxisImage,
 }
 pub struct PortableWorkbook {
+    pub producers: producers::Image,
     pub filters: Vec<(GridScopeId, filtering::Definition)>,
     pub styles: Vec<formatting::Region>,
     pub style_defaults: Vec<(GridScopeId, formatting::Style)>,
@@ -154,8 +155,18 @@ impl Workbook {
             .map(|(id, b)| (*id, b.clone()))
             .collect();
         pairs.sort_by_key(|(_, b)| b.portable);
-        let nodes = pairs.iter().map(|(_, b)| b.runtime).collect::<Vec<_>>();
-        let graph = if let Some(cancel) = cancel {
+        let mut nodes = pairs.iter().map(|(_, b)| b.runtime).collect::<Vec<_>>();
+        nodes.extend(data.outputs.iter().map(|(_, o)| o.node));
+        let graph = if data.producers.is_some() {
+            let sources: Vec<_> = data.outputs.iter().map(|(_, o)| (o.node, o.slot)).collect();
+            self.core
+                .project_document_with_sources(
+                    &nodes,
+                    &sources,
+                    cancel.unwrap_or(&CancellationToken::default()),
+                )
+                .map_err(graph_error)?
+        } else if let Some(cancel) = cancel {
             self.core
                 .project_document_definitions(&nodes, cancel)
                 .map_err(graph_error)?
@@ -180,6 +191,7 @@ impl Workbook {
             })
             .collect();
         Ok(PortableWorkbook {
+            producers: producers::Image::from_data(data, data.records.len()),
             filters: self.filters().map(|(id, d)| (id, d.clone())).collect(),
             styles: self.regions().collect(),
             style_defaults: self.worksheet_defaults().collect(),
@@ -217,13 +229,33 @@ impl Workbook {
         use transfer::{Binding as B, NodeDefinition as D, SelectionToken as S};
         let bad = || Error::InvalidTarget;
         let graph = &image.graph;
+        producers::validate_authority(&self.persistent, &graph.identities, self.limits)?;
+        let total_slots = image.cells.len() + image.producers.outputs.len();
+        let runtime_slots: BTreeMap<_, _> = image
+            .cells
+            .iter()
+            .enumerate()
+            .map(|(slot, (id, _, _))| (self.persistent.bindings.get(id).unwrap().runtime, slot))
+            .chain(
+                image
+                    .producers
+                    .outputs
+                    .iter()
+                    .map(|o| (self.persistent.outputs.get(&o.key).unwrap().node, o.slot)),
+            )
+            .collect();
         let slots: BTreeMap<_, _> = image
             .cells
             .iter()
             .enumerate()
             .map(|(slot, (id, _, _))| (*id, slot))
             .collect();
-        let ids: BTreeSet<_> = image.cells.iter().map(|(_, node, _)| *node).collect();
+        let ids: BTreeSet<_> = image
+            .cells
+            .iter()
+            .map(|(_, node, _)| *node)
+            .chain(image.producers.outputs.iter().map(|o| o.portable))
+            .collect();
         let nodes: BTreeMap<_, _> = graph
             .scalar_skeleton
             .nodes
@@ -234,13 +266,13 @@ impl Workbook {
         let selections: BTreeMap<_, _> = graph.identities.iter().copied().collect();
         let blanks: BTreeSet<_> = graph.blanks.iter().copied().collect();
         if slots.len() != image.cells.len()
-            || ids.len() != image.cells.len()
+            || ids.len() != total_slots
             || ids.iter().any(|id| id.uuid().is_nil())
             || nodes.len() != graph.scalar_skeleton.nodes.len()
             || overlays.len() != graph.formulas.len()
             || selections.len() != graph.identities.len()
             || blanks.len() != graph.blanks.len()
-            || graph.scalar_skeleton.node_slots != image.cells.len()
+            || graph.scalar_skeleton.node_slots != total_slots
             || !graph.scalar_skeleton.ports.is_empty()
             || graph.scalar_skeleton.port_slots != 0
         {
@@ -378,9 +410,21 @@ impl Workbook {
             sheets::validate_scope(record.worksheet, source, tokens, self.scopes())?;
             let translated: Vec<_> = tokens
                 .iter()
-                .filter(|t| !matches!(t, Token::Qualifier { .. }))
-                .map(|t| {
+                .enumerate()
+                .filter(|(_, t)| !matches!(t, Token::Qualifier { .. }))
+                .map(|(index, t)| {
                     Ok(match t {
+                        Token::Bound(id) => match producers::resolved_guard(&self.persistent, *id)?
+                        {
+                            ResolvedToken::Node(n) => {
+                                S::Node(*runtime_slots.get(&n).ok_or_else(bad)?)
+                            }
+                            ResolvedToken::Range(id) => S::Range(id),
+                            ResolvedToken::Sum(id) => S::Sum(id),
+                            ResolvedToken::Aggregate(kind, id) => S::Aggregate(kind, id),
+                            ResolvedToken::Typed(op, n) => S::Typed(op, n),
+                            _ => return Err(bad()),
+                        },
                         Token::Decimal(d) => S::Decimal(d.value()),
                         Token::Cell(c)
                             if slots.get(&c.cell).is_some_and(|slot| {
@@ -391,7 +435,28 @@ impl Workbook {
                         }
                         Token::Unary(op) => S::Unary(*op),
                         Token::Typed(op, n) => S::Typed(op.clone(), *n),
-                        Token::Control(c) => S::Control(*c),
+                        Token::Control(c) => {
+                            let previous = index.checked_sub(1).and_then(|i| tokens.get(i));
+                            let control = if let Some(Token::Bound(id)) = previous
+                                && self.persistent.guards.get(id).is_some_and(|g| {
+                                    matches!(
+                                        g.target,
+                                        producers::GuardTarget::Range { kind: None, .. }
+                                    )
+                                }) {
+                                if producers::guard_active(
+                                    &self.persistent,
+                                    self.persistent.guards.get(id).ok_or_else(bad)?,
+                                ) {
+                                    expression::AggregateControl::Range
+                                } else {
+                                    expression::AggregateControl::Value
+                                }
+                            } else {
+                                *c
+                            };
+                            S::Control(control)
+                        }
                         Token::Binary(op) => S::Binary(*op),
                         Token::WeightRange {
                             id,
@@ -481,9 +546,16 @@ impl Workbook {
             || points != expected_points
             || blanks != expected_blanks
             || overlays.keys().copied().collect::<BTreeSet<_>>() != expected_overlays
-            || nodes.keys().any(|slot| *slot >= image.cells.len())
+            || nodes.keys().any(|slot| *slot >= total_slots)
         {
             return Err(bad());
+        }
+        for (ordinal, output) in image.producers.outputs.iter().enumerate() {
+            if output.slot != image.cells.len() + ordinal
+                || !matches!(nodes.get(&output.slot).map(|n|&n.definition),Some(D::Input(v)) if v.parts()==PivotDecimal::ZERO.parts())
+            {
+                return Err(bad());
+            }
         }
         Ok(())
     }
@@ -491,13 +563,14 @@ impl Workbook {
     /// The document layer must additionally validate source/binding provenance before calling.
     #[doc(hidden)]
     pub fn restore_portable(
-        image: PortableWorkbook,
+        mut image: PortableWorkbook,
         limits: Limits,
         runtime: &IntegrationRuntime,
     ) -> Result<Self> {
         validate_sheet_directory(&image.sheets, limits)?;
         if image.cells.len() > limits.allocated_cells
-            || image.graph.scalar_skeleton.node_slots != image.cells.len()
+            || image.graph.scalar_skeleton.node_slots
+                != image.cells.len() + image.producers.outputs.len()
             || !image.graph.scalar_skeleton.ports.is_empty()
             || image.graph.scalar_skeleton.port_slots != 0
             || image.row_count == 0
@@ -535,6 +608,26 @@ impl Workbook {
             return Err(Error::InvalidTarget);
         }
         let mut data = persistent::Data::new(runtime.memory());
+        let _producer_restore_lease = if image.producers.producers.is_empty() {
+            None
+        } else {
+            Some(
+                runtime
+                    .memory()
+                    .reserve(
+                        image.graph.scalar_skeleton.nodes.len().saturating_mul(512)
+                            + image
+                                .graph
+                                .formulas
+                                .iter()
+                                .map(|f| f.tokens.len().saturating_mul(128) + f.source.len())
+                                .sum::<usize>()
+                            + image.producers.guards.len().saturating_mul(256),
+                    )
+                    .map_err(|_| Error::Limit)?,
+            )
+        };
+        let audit_graph = (!image.producers.producers.is_empty()).then(|| image.graph.clone());
         data.install_sheets(
             image
                 .sheets
@@ -590,6 +683,7 @@ impl Workbook {
             return Err(Error::InvalidTarget);
         }
         let sheet_ids: BTreeSet<_> = image.sheets.iter().map(|s| s.id).collect();
+        image.producers.restore_directory(&mut data, limits)?;
         for &(sheet, style) in &image.style_defaults {
             if !sheet_ids.contains(&sheet) {
                 return Err(Error::InvalidTarget);
@@ -655,11 +749,12 @@ impl Workbook {
         // Complete graph import before allocating persistent cell/index copies.
         // Its bounded transient materialization must not overlap those copies;
         // both candidates remain private until the entire restore succeeds.
-        let imported = runtime
-            .import_selections_admitted(
+        let mut imported = runtime
+            .import_document_selections(
                 image.graph,
                 &CancellationToken::default(),
                 limits.document_admission(),
+                &image.producers.owned_selections(),
             )
             .map_err(graph_error)?;
         for (slot, (id, node, r)) in image.cells.iter().enumerate() {
@@ -723,19 +818,68 @@ impl Workbook {
         {
             return Err(Error::Limit);
         }
-        for ((id, portable, _), runtime_id) in image.cells.into_iter().zip(imported.nodes) {
+        for ((id, portable, _), runtime_id) in image.cells.iter().zip(&imported.nodes) {
             data.bindings
                 .insert_private(
-                    id,
+                    *id,
                     Binding {
-                        portable,
-                        runtime: runtime_id,
+                        portable: *portable,
+                        runtime: *runtime_id,
                     },
                 )
                 .map_err(|_| Error::Limit)?;
             data.nodes
-                .insert_private(runtime_id, id)
+                .insert_private(*runtime_id, *id)
                 .map_err(|_| Error::Limit)?;
+        }
+        let mut batch = imported
+            .model
+            .begin_batch(image.producers.outputs.len(), 0)
+            .map_err(graph_error)?;
+        let audited_definitions: BTreeMap<_, _> = audit_graph
+            .as_ref()
+            .into_iter()
+            .flat_map(|g| &g.scalar_skeleton.nodes)
+            .map(|node| (node.slot, &node.definition))
+            .collect();
+        for (ordinal, output) in image.producers.outputs.iter().enumerate() {
+            if output.slot != image.cells.len() + ordinal
+                || output.portable.uuid().is_nil()
+                || !ids.insert(output.portable)
+            {
+                return Err(Error::InvalidTarget);
+            }
+            let definition = audited_definitions.get(&output.slot).copied();
+            if !matches!(definition,Some(transfer::NodeDefinition::Input(v)) if v.parts()==PivotDecimal::ZERO.parts())
+            {
+                return Err(Error::InvalidTarget);
+            }
+            let node = *imported
+                .nodes
+                .get(output.slot)
+                .ok_or(Error::InvalidTarget)?;
+            let slot = batch
+                .restore_captured_scalar(node, *output.portable.uuid().as_bytes())
+                .map_err(graph_error)?;
+            if data.outputs.contains_key(&output.key) {
+                return Err(Error::InvalidTarget);
+            }
+            data.outputs
+                .insert(
+                    output.key.clone(),
+                    producers::Output {
+                        node,
+                        slot,
+                        portable: output.portable,
+                    },
+                )
+                .map_err(|_| Error::Limit)?;
+        }
+        if !batch.is_empty() {
+            imported
+                .model
+                .apply_batch(batch, &Default::default())
+                .map_err(graph_error)?;
         }
         crate::windows::validate_scope_graph(&imported.model, &data, &Default::default())?;
         let primary = data
@@ -747,7 +891,7 @@ impl Workbook {
             .ok_or(Error::InvalidTarget)?
             .clone();
         let persistent = imported.model.retain_resource(data).map_err(graph_error)?;
-        Ok(Self {
+        let book = Self {
             #[cfg(feature = "history-experiment")]
             history_content: Uuid::new_v4(),
             #[cfg(feature = "history-experiment")]
@@ -763,7 +907,12 @@ impl Workbook {
             persistent,
             core: imported.model,
             limits,
-        })
+        };
+        if let Some(graph) = audit_graph {
+            image.graph = graph;
+            book.verify_document_projection(&image, &Default::default())?;
+        }
+        Ok(book)
     }
 }
 

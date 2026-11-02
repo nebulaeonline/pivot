@@ -5,6 +5,7 @@ use pivot_core::{
     model::{NodeId, Revision, SnapshotError, WorkingModel, transfer::ResolvedToken},
 };
 pub mod entry;
+pub mod producers;
 #[doc(hidden)]
 pub mod projection;
 use pivot_types::{DecimalError, PivotDecimal};
@@ -153,6 +154,7 @@ impl DecimalInput {
 /// Typed source is provenance; SetFormulaText uses the shared spreadsheet parser.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
+    Bound(producers::GuardId),
     Typed(pivot_core::typed::Op, usize),
     QualifierAt {
         window: bool,
@@ -878,6 +880,7 @@ pub struct CalculationCapture {
     pinned: persistent::State,
     local_core: pivot_core::model::integration::CalculationCapture,
     scalar_context: Option<structured::CapturedAdapterContext>,
+    producer_context: Option<pivot_core::model::integration::ScalarContext>,
     source_fault: Option<(
         pivot_core::captured::CapturedFaultId,
         structured::SourceFault,

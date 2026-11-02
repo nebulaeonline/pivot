@@ -30,7 +30,7 @@ public partial class MainWindow {
   await Enter(4,"=ALLOCATEWEIGHTEDRANGE(10,1,2,B1:B1)");
   AutomationCheck(Sheet.CellAt(AutomationPosition(4,1))!.ErrorCode=="TypeMismatch","range allocation missing weight stays strict");
   AutomationCheck(await SaveDocumentAsync(true,path),"range workbook saves");await s.NewAsync(s.Revision,discard:true);await RefreshAsync();await OpenDocumentAsync(path);
-  AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(5,1))!.Result.Decimal)==7.5m,"WB14 range workbook reopens");
+  AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(5,1))!.Result.Decimal)==7.5m,"WB15 range workbook reopens");
   await s.NewAsync(s.Revision,discard:true);CancelDraft();clipboardEditor=null;shortcutModifiers=KeyModifiers.None;await RefreshAsync();Sheet.Focus();
  }
 }

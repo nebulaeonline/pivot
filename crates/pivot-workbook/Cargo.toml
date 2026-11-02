@@ -10,10 +10,10 @@ caseless = "=0.2.2"
 pivot-core = { path = "../pivot-core" }
 pivot-types = { path = "../pivot-types" }
 uuid = { version = "1.28.0", features = ["v4"] }
-sha2 = { version = "0.10", optional = true }
+sha2 = "0.10"
 
 [features]
-history-experiment = ["pivot-core/history-experiment", "dep:sha2"]
+history-experiment = ["pivot-core/history-experiment"]
 scaling-experiment = ["pivot-core/scaling-experiment"]
 
 [[example]]

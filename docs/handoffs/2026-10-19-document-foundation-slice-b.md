@@ -48,7 +48,7 @@ containers. No further hosted persistence work was started.
 | OS-specific creation, identity and sync | [platform.rs](../../crates/pivot-storage/src/experimental_file/platform.rs) |
 | Shared graph codec factoring | [codec.rs](../../crates/pivot-storage/src/codec.rs) |
 | File, process and failure tests | [files.rs](../../crates/pivot-storage/tests/files.rs) |
-| Decision and roadmap | [ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md), [status](../STATUS.md) |
+| Decision and roadmap | [ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md), [status](../STATUS-20261102.md) |
 
 ## Save invariants and limitations
 

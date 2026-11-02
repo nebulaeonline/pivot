@@ -17,7 +17,7 @@ ADR-0023 remains parked at G3; no production history integration is authorized.
 
 Owner direction supersedes the parent's permission to commit/push: the owner will
 do that after the documentation update. Further work, including the next ADR design,
-is held until the owner's explicit go-ahead under the cadence in [STATUS](../STATUS.md).
+is held until the owner's explicit go-ahead under the cadence in [STATUS](../STATUS-20261102.md).
 
 [Implementation handoff, native measurements and source-qualified validation](../handoffs/2026-10-29-region-formatting.md).
 Parent design authorization and superseding compatibility direction are retained below.

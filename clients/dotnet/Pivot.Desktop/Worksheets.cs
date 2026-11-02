@@ -61,7 +61,7 @@ public partial class MainWindow
         WorksheetBar.IsVisible=!session.IsProjectionProof&&!session.IsBindingProof;
         WindowBar.IsVisible=WorksheetBar.IsVisible;
         string signature=session.DocumentId+"|"+session.WorksheetId+"|"+string.Join("|",session.GridScopes.Select(s=>s.Id+":"+s.Name));
-        if(signature==worksheetTabSignature)return;
+        if(signature==worksheetTabSignature){UpdateBoundControls();return;}
         worksheetTabSignature=signature;WorksheetTabs.Children.Clear();WindowTabs.Children.Clear();
         foreach(var sheet in session.Worksheets) {
             var tab=new ToggleButton{Content=sheet.Name,Tag=sheet.Id,IsChecked=sheet.Id==session.WorksheetId};
@@ -78,6 +78,7 @@ public partial class MainWindow
         CreateWindowButton.IsEnabled=session.Windows.Count<64;
         WorksheetNameEditor.Text=session.Worksheets.FirstOrDefault(s=>s.Id==session.WorksheetId)?.Name??"";
         AddWorksheetButton.IsEnabled=session.Worksheets.Count<16;
+        UpdateBoundControls();
     }
     private async void CreateWindowClick(object? sender,RoutedEventArgs args) {
         await FileActionAsync(async()=>{

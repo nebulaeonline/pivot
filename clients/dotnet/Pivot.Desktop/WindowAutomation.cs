@@ -38,10 +38,10 @@ public partial class MainWindow {
   await SwitchWorksheetAsync(sheet);await Enter(1,"='O''Brien Items'|A3");
   AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(1,1))!.Value)==7.5m,"worksheet resolves Window identity");
   string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetDirectoryName(report)!,"windows-ui-"+Guid.NewGuid()+".pivot");
-  AutomationCheck(await SaveDocumentAsync(true,path),"WB14 saves Window directory");
+  AutomationCheck(await SaveDocumentAsync(true,path),"WB15 saves Window directory");
   await s.NewAsync(s.Revision,discard:true);await RefreshAsync();await OpenDocumentAsync(path);
   await AutomationWaitAsync(()=>frameReady&&displayedRevision==s.Revision&&Sheet.CellAt(AutomationPosition(1,1)) is not null);
-  AutomationCheck(s.Windows.Single().Id==id&&WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(1,1))!.Value)==7.5m,"WB14 restores Window binding");
+  AutomationCheck(s.Windows.Single().Id==id&&WorkbookSession.Decode(Sheet.CellAt(AutomationPosition(1,1))!.Value)==7.5m,"WB15 restores Window binding");
   await SwitchWorksheetAsync(id);
   DeleteWindowButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
   await AutomationWaitAsync(()=>OwnedWindows.Any(w=>w.Title=="Delete Window"));

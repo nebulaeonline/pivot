@@ -9,7 +9,7 @@ The owner authorized implementation after parent design acceptance (2026-10-30),
 including the accepted six-target validation and end-of-batch archival/cache cleanup.
 ADR-0031 remains accepted and
 closed; ADR-0023 remains parked at G3. Follow the milestone cadence in
-[STATUS](../STATUS.md).
+[STATUS](../STATUS-20261102.md).
 
 The parent accepts the atomic identity-preserving permutation, fixed range geometry,
 snapshot typed keys and stable ordering, explicit formatting policy, charged sparse

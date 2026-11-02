@@ -128,6 +128,7 @@ fn retained_capture_owns_charged_axis_roots_across_delete_and_recreation() {
     );
     drop(b);
     // Exhaust the remaining domain: the live capture's ownership cannot be reused.
+    rt.flush();
     let stats = memory.stats();
     assert!(stats.charged > 0);
     let full = memory.reserve(stats.limit - stats.charged).unwrap();

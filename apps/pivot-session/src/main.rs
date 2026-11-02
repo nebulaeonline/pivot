@@ -14,6 +14,7 @@ use std::{
 };
 use uuid::Uuid;
 
+mod bound;
 mod csv;
 mod filtering;
 #[cfg(test)]
@@ -42,6 +43,18 @@ struct PendingSave {
 }
 #[derive(Default)]
 struct Session {
+    producer_refresh: BTreeMap<
+        String,
+        (
+            pivot_workbook::producers::ProducerId,
+            pivot_workbook::producers::RefreshTicket,
+        ),
+    >,
+    producer_delete: Option<(
+        String,
+        pivot_workbook::Expected,
+        pivot_workbook::producers::ProducerId,
+    )>,
     window_delete: Option<(String, pivot_workbook::Expected, WindowId)>,
     filter: filtering::Presentation,
     filter_confirmation: Option<filtering::Confirmation>,
@@ -171,6 +184,8 @@ fn file_error(error: pivot_storage::experimental_file::Error) -> String {
 impl Session {
     fn new() -> Result<Self, String> {
         Ok(Self {
+            producer_refresh: BTreeMap::new(),
+            producer_delete: None,
             window_delete: None,
             computational_state: Uuid::new_v4().to_string(),
             proof: None,
@@ -191,6 +206,8 @@ impl Session {
         })
     }
     fn close(&mut self) -> Result<u64, String> {
+        self.producer_refresh.clear();
+        self.producer_delete = None;
         self.proof_frame.take();
         self.pending.take();
         self.csv_import.take();
@@ -211,10 +228,21 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 14 {
+        if q.version != 15 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
+        if self.handle_bound(q, r, operation)? {
+            return Ok(());
+        }
+        if matches!(operation, Op::ProofStart | Op::BindingStart)
+            && self
+                .book
+                .as_ref()
+                .is_some_and(|b| !b.producers().is_empty())
+        {
+            return Err("Producer workbooks cannot enter experimental proof modes.".into());
+        }
         if matches!(operation, Op::ProofStart | Op::BindingStart)
             && self
                 .book
@@ -1271,7 +1299,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 14,
+            version: 15,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -1293,6 +1321,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let presentation_lease = if matches!(
             wire::request::Operation::try_from(q.operation),
             Ok(wire::request::Operation::Read
+                | wire::request::Operation::Calculate
                 | wire::request::Operation::ReadStyles
                 | wire::request::Operation::ReadFiltered
                 | wire::request::Operation::SetFilter
@@ -1379,17 +1408,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     name: s.name.clone(),
                     rows: s.row_count(),
                     columns: s.column_count(),
+                    ..Default::default()
                 })
                 .collect();
             r.windows = book
                 .windows()
                 .filter(|s| !s.retired)
-                .map(|s| wire::WorksheetInfo {
-                    id: s.id.uuid().to_string(),
-                    name: s.name.clone(),
-                    rows: s.row_count(),
-                    columns: s.column_count(),
+                .map(|s| bound::window_info(book, s))
+                .collect();
+            r.producers = book
+                .producers()
+                .iter()
+                .filter(|p| {
+                    !p.retired
+                        || book.windows().any(|w| {
+                            book.window_binding(w.id)
+                                .is_some_and(|b| b.producer == p.id)
+                        })
                 })
+                .map(bound::info)
                 .collect();
             if r.worksheet.is_empty() {
                 r.worksheet = if book.scopes().iter().any(|s| {
@@ -1506,7 +1543,7 @@ mod protocol_version_tests {
     #[test]
     fn incompatible_peers_reject_before_creating_state() {
         let mut session = Session::default();
-        for version in 0..14 {
+        for version in 0..15 {
             let request = wire::Request {
                 version,
                 operation: wire::request::Operation::Create as i32,

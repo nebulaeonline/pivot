@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 64 * 1024 * 1024;
-const MAGIC: &[u8; 9] = b"PIVOTWB14";
+const MAGIC: &[u8; 9] = b"PIVOTWB15";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -49,6 +49,25 @@ fn limits() -> storage::Limits {
     }
 }
 struct Writer(Vec<u8>);
+fn remap_graph(image: &mut pivot_core::model::transfer::Image, slots: &[usize]) -> Result<()> {
+    for node in &mut image.nodes {
+        node.slot = *slots.get(node.slot).ok_or_else(malformed)?;
+        node.name = format!("N{}", node.slot);
+        if let pivot_core::model::transfer::NodeDefinition::Computed {
+            binding: pivot_core::model::transfer::Binding::Bound(tokens),
+            ..
+        } = &mut node.definition
+        {
+            for token in tokens {
+                if let pivot_core::model::transfer::Token::Node(slot) = token {
+                    *slot = *slots.get(*slot).ok_or_else(malformed)?;
+                }
+            }
+        }
+    }
+    image.nodes.sort_by_key(|n| n.slot);
+    Ok(())
+}
 impl Writer {
     fn n(&mut self, n: u64) {
         self.0.extend(n.to_le_bytes());
@@ -160,6 +179,10 @@ impl Writer {
         self.n(tokens.len() as u64);
         for t in tokens {
             match t {
+                Token::Bound(id) => {
+                    self.n(10);
+                    self.id(id.0);
+                }
                 Token::Typed(op, n) => {
                     self.n(8);
                     self.typed_op(op, *n);
@@ -410,6 +433,7 @@ impl<'a> Reader<'a> {
                     let (op, n) = self.typed_op()?;
                     Token::Typed(op, n)
                 }
+                10 => Token::Bound(producers::GuardId(self.id()?)),
                 7 => Token::Qualifier {
                     worksheet: self.scope()?,
                     span: self.count(4096)?..self.count(4096)?,
@@ -517,9 +541,33 @@ impl Document {
     ) -> Result<Export> {
         let pairs = &projection.cells;
         let checkpoint = Uuid::new_v4();
+        let logical_ids: Vec<_> = pairs
+            .iter()
+            .map(|(_, n, _)| n.uuid())
+            .chain(
+                projection
+                    .producers
+                    .outputs
+                    .iter()
+                    .map(|o| o.portable.uuid()),
+            )
+            .collect();
+        let mut canonical_ids = logical_ids.clone();
+        canonical_ids.sort();
+        let canonical_slots: BTreeMap<_, _> = canonical_ids
+            .iter()
+            .enumerate()
+            .map(|(i, id)| (*id, i))
+            .collect();
+        if canonical_slots.len() != logical_ids.len() {
+            return Err(malformed());
+        }
+        let mapping: Vec<_> = logical_ids.iter().map(|id| canonical_slots[id]).collect();
+        let mut skeleton = projection.graph.scalar_skeleton;
+        remap_graph(&mut skeleton, &mapping)?;
         let graph = storage::from_image(
-            projection.graph.scalar_skeleton,
-            pairs.iter().map(|(_, n, _)| n.uuid()).collect(),
+            skeleton,
+            canonical_ids,
             vec![],
             storage::GraphHeader {
                 model: projection.graph_id,
@@ -541,6 +589,7 @@ impl Document {
         )
         .map_err(graph_error)?;
         let mut w = Writer(vec![]);
+        w.bytes(&producers::codec::encode(&projection.producers)?);
         w.scope(projection.worksheet);
         w.id(projection.rows);
         w.n(projection.row_count.into());
@@ -743,7 +792,7 @@ impl Document {
                 .map(|b| *b as char)
                 .collect();
             return Err(Error::Graph(format!(
-                "unsupported native workbook version WB{version}; WB14 required"
+                "unsupported native workbook version WB{version}; WB15 required"
             )));
         }
         if bytes.len() < 49 || !bytes.starts_with(MAGIC) {
@@ -758,6 +807,12 @@ impl Document {
             bytes: &bytes[49..],
             at: 0,
         };
+        let producer_bytes = r.bytes(MAX_BYTES)?;
+        let _producer_decode_charge = runtime
+            .memory()
+            .reserve(producer_bytes.len().saturating_mul(8))
+            .map_err(|_| Error::Limit)?;
+        let producers = producers::codec::decode(producer_bytes)?;
         let worksheet = r.scope()?;
         let rows = Axis {
             namespace: r.id()?,
@@ -977,17 +1032,19 @@ impl Document {
             slots
         };
         let count = r.count(limits.allocated_cells)?;
-        if count != document.graph.node_ids.len() {
+        if count + producers.outputs.len() != document.graph.node_ids.len() {
             return Err(malformed());
         }
         let mut records = BTreeMap::new();
         let mut ids = Vec::new();
         let mut positions = BTreeSet::new();
         let mut live_ids = BTreeSet::new();
-        for expected_node in &document.graph.node_ids {
+        let graph_ids: BTreeSet<_> = document.graph.node_ids.iter().copied().collect();
+        let mut portable_seen = BTreeSet::new();
+        for _ in 0..count {
             let id = CellId::from_uuid(r.id()?);
             let node = GraphNodeId::from_uuid(r.id()?);
-            if node.uuid() != *expected_node {
+            if !graph_ids.contains(&node.uuid()) || !portable_seen.insert(node) {
                 return Err(malformed());
             }
             let record_sheet = r.scope()?;
@@ -1115,10 +1172,32 @@ impl Document {
             }
             ids.push((id, node));
         }
+        for (ordinal, output) in producers.outputs.iter().enumerate() {
+            if output.slot != count + ordinal
+                || !graph_ids.contains(&output.portable.uuid())
+                || !portable_seen.insert(output.portable)
+                || !live_ids.insert(output.portable.uuid())
+            {
+                return Err(malformed());
+            }
+        }
         if r.at != r.bytes.len()
             || positions.len() > limits.live_cells
             || live_ids != document.graph.nodes.iter().map(|n| n.id).collect()
         {
+            return Err(malformed());
+        }
+        let logical_ids: Vec<_> = ids
+            .iter()
+            .map(|(_, n)| n.uuid())
+            .chain(producers.outputs.iter().map(|o| o.portable.uuid()))
+            .collect();
+        let logical_slots: BTreeMap<_, _> = logical_ids
+            .iter()
+            .enumerate()
+            .map(|(i, id)| (*id, i))
+            .collect();
+        if logical_slots.len() != document.graph.node_ids.len() {
             return Err(malformed());
         }
         let portable: BTreeMap<_, _> = ids.iter().map(|(c, n)| (*c, *n)).collect();
@@ -1128,7 +1207,7 @@ impl Document {
                 .strip_prefix('N')
                 .and_then(|n| n.parse::<usize>().ok())
                 .ok_or_else(malformed)?;
-            if ordinal >= count || node.name != format!("N{ordinal}") {
+            if ordinal >= count + producers.outputs.len() || node.name != format!("N{ordinal}") {
                 return Err(malformed());
             }
         }
@@ -1137,6 +1216,17 @@ impl Document {
             let Some(content) = records[id].content.as_ref() else {
                 continue;
             };
+            // Guarded content is audited against restored producer and canonical graph authority.
+            if match content {
+                Content::Formula { tokens, .. } => {
+                    tokens.iter().any(|t| matches!(t, Token::Bound(_)))
+                }
+                Content::TextFormula(f) => f.tokens.iter().any(|t| matches!(t, Token::Bound(_))),
+                _ => false,
+            } {
+                continue;
+            }
+
             let definition = *definitions.get(&node.uuid()).ok_or_else(malformed)?;
             let literal_tokens;
             let (source, tokens, invalid): (&str, &[Token], bool) = match content {
@@ -1306,12 +1396,7 @@ impl Document {
                 }
             } else {
                 let mut selection_tokens = Vec::with_capacity(tokens.len());
-                let node_slot = document
-                    .graph
-                    .node_ids
-                    .iter()
-                    .position(|n| *n == node.uuid())
-                    .ok_or_else(malformed)?;
+                let node_slot = *logical_slots.get(&node.uuid()).ok_or_else(malformed)?;
                 for t in tokens {
                     if let Some(o) = pivot_workbook::structure::origin_of(t)? {
                         if o.kind == 1 {
@@ -1334,6 +1419,7 @@ impl Document {
                         continue;
                     }
                     selection_tokens.push(match t {
+                        Token::Bound(_) => return Err(malformed()),
                         Token::WeightRange {
                             id,
                             rectangle,
@@ -1386,14 +1472,7 @@ impl Document {
                                 return Err(malformed());
                             }
                             let id = portable.get(&c.cell).ok_or_else(malformed)?.uuid();
-                            SelectionToken::Node(
-                                document
-                                    .graph
-                                    .node_ids
-                                    .iter()
-                                    .position(|n| *n == id)
-                                    .ok_or_else(malformed)?,
-                            )
+                            SelectionToken::Node(*logical_slots.get(&id).ok_or_else(malformed)?)
                         }
                         Token::Typed(op, n) => SelectionToken::Typed(op.clone(), *n),
                         Token::Unary(op) => SelectionToken::Unary(*op),
@@ -1435,6 +1514,7 @@ impl Document {
                     .filter(|t| !matches!(t, Token::Qualifier { .. }))
                     .map(|t| {
                         Ok(match t {
+                            Token::Bound(_) => return Err(malformed()),
                             Token::Typed(..) => return Err(malformed()),
                             Token::Decimal(d) => {
                                 storage::Token::Decimal(storage::Decimal96::from_runtime(d.value()))
@@ -1496,6 +1576,9 @@ impl Document {
                 Content::Formula { tokens, .. } => tokens,
                 _ => return Err(malformed()),
             };
+            if tokens.iter().any(|t| matches!(t, Token::Bound(_))) {
+                continue;
+            }
             if !tokens.iter().any(|t| {
                 matches!(
                     t,
@@ -1510,8 +1593,25 @@ impl Document {
         }
         timings.decode_ns = started.elapsed().as_nanos() as u64;
         let restoring = std::time::Instant::now();
-        let scalar_skeleton =
+        let mut scalar_skeleton =
             storage::to_image(&document.graph, self::limits()).map_err(graph_error)?;
+        let mapping: Vec<_> = document
+            .graph
+            .node_ids
+            .iter()
+            .map(|id| logical_slots.get(id).copied().ok_or_else(malformed))
+            .collect::<Result<_>>()?;
+        remap_graph(&mut scalar_skeleton, &mapping)?;
+        let output_names: BTreeMap<_, _> = producers
+            .outputs
+            .iter()
+            .map(|o| (o.slot, o.portable))
+            .collect();
+        for node in &mut scalar_skeleton.nodes {
+            if let Some(id) = output_names.get(&node.slot) {
+                node.name = format!("PS_{}", id.uuid().simple());
+            }
+        }
         let points = ids
             .iter()
             .enumerate()
@@ -1556,6 +1656,7 @@ impl Document {
             .collect();
         let book = Workbook::restore_portable(
             PortableWorkbook {
+                producers,
                 filters,
                 styles,
                 style_defaults,

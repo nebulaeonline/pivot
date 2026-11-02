@@ -8,6 +8,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from execution_policy import headless_environment
 
+subprocess.run([sys.executable, 'tests/application-session/test_native_aot_fixture.py'],
+               cwd=ROOT, env=headless_environment(), check=True)
+
 subprocess.run(['dotnet', 'build', 'tests/execution-safety/PolicyProbe.csproj',
                 '-c', 'Release', '--disable-build-servers', '-warnaserror'],
                cwd=ROOT, env=headless_environment(), check=True)

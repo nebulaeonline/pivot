@@ -9,6 +9,9 @@ use pivot_core::model::integration::{
 pub(super) type State = Retained<Data>;
 #[derive(Clone)]
 pub(super) struct Data {
+    pub(crate) outputs: Index<producers::OutputKey, producers::Output>,
+    pub(crate) guards: Index<producers::GuardId, Shared<producers::Guard>>,
+    pub(crate) producers: Option<Shared<producers::Directory>>,
     #[cfg(feature = "history-experiment")]
     pub(super) history_payload: usize,
     pub(crate) directory: Option<structured::Directory>,
@@ -99,6 +102,9 @@ impl Footprint for RecordPayload {
 impl Data {
     pub(super) fn new(memory: Memory) -> Self {
         Self {
+            outputs: Index::new(memory.clone()),
+            guards: Index::new(memory.clone()),
+            producers: None,
             #[cfg(feature = "history-experiment")]
             history_payload: 0,
             directory: None,
@@ -139,15 +145,32 @@ impl Data {
                 .sum(),
             axis_layout_bytes: self.sheets.as_ref().map_or(0, |s| s.axis_bytes()),
             live_cells: self.positions.len(),
-            live_nodes: self.live,
-            allocated_nodes: self.records.len(),
+            live_nodes: self.live + self.outputs.len(),
+            allocated_nodes: self.records.len()
+                + self.guards.len()
+                + self.outputs.len()
+                + self
+                    .producers
+                    .as_ref()
+                    .map_or(0, |p| p.allocated_identities),
             formula_tokens: self.tokens,
-            source_bytes: self.source,
+            source_bytes: self.source + self.producers.as_ref().map_or(0, |p| p.payload_bytes()),
             estimated_owned_bytes: self.records.len() * 256
                 + self.positions.len() * 64
                 + self.tokens * std::mem::size_of::<Token>()
                 + self.source
                 + self.metadata
+                + self
+                    .outputs
+                    .iter()
+                    .map(|(k, _)| 256 + k.key.capacity())
+                    .sum::<usize>()
+                + self
+                    .guards
+                    .iter()
+                    .map(|(_, g)| std::mem::size_of::<producers::Guard>() + g.heap_bytes() + 128)
+                    .sum::<usize>()
+                + self.producers.as_ref().map_or(0, |p| p.owned_bytes())
                 + self.styles.bytes()
                 + self
                     .filters
@@ -458,7 +481,33 @@ impl Transaction<'_> {
         let mut bound = Vec::with_capacity(tokens.len());
         let mut normalized = Vec::with_capacity(tokens.len());
         let mut qualified = None;
+        let lexical = clipboard::references(source)
+            .map(|r| r.0)
+            .unwrap_or_default();
+        let mut lexical_cursor = 0usize;
         for token in tokens {
+            let count = match token {
+                Token::At(_) | Token::Cell(_) => 1,
+                Token::SumAt { .. }
+                | Token::WeightRangeAt { .. }
+                | Token::Sum { .. }
+                | Token::WeightRange { .. } => 2,
+                _ => 0,
+            };
+            let first = lexical.get(lexical_cursor);
+            let last = if count == 2 {
+                lexical.get(lexical_cursor + 1)
+            } else {
+                None
+            };
+            let copy_flags = first.map_or(0, |r| {
+                u8::from(r.absolute_row) | u8::from(r.absolute_column) << 1
+            }) | last.map_or(0, |r| {
+                u8::from(r.absolute_row) << 2 | u8::from(r.absolute_column) << 3
+            }) | first.zip(last).map_or(0, |(a, b)| {
+                u8::from(a.row > b.row) << 4 | u8::from(a.column > b.column) << 5
+            });
+            lexical_cursor += count;
             match token {
                 Token::QualifierAt { window, name, span } => {
                     if qualified.is_some() {
@@ -485,6 +534,60 @@ impl Transaction<'_> {
                     continue;
                 }
                 _ => (),
+            }
+            if let Token::WeightRangeAt { first, last, .. } | Token::SumAt { first, last, .. } =
+                token
+            {
+                let scope = qualified.take().unwrap_or(self.book.worksheet);
+                if let Some((b, producer, configuration, source, a)) =
+                    producers::worksheet_location(&self.data, scope, *first)?
+                {
+                    let (_, _, _, _, z) = producers::worksheet_location(&self.data, scope, *last)?
+                        .ok_or(Error::InvalidTarget)?;
+                    let rectangle = Rectangle {
+                        first: Position::new(a.row.min(z.row), a.column.min(z.column)),
+                        last: Position::new(a.row.max(z.row), a.column.max(z.column)),
+                    };
+                    let selection = self
+                        .batch
+                        .intern_selection(
+                            pivot_core::model::selection::SelectionId(*Uuid::new_v4().as_bytes()),
+                            pivot_core::model::selection::Rectangle {
+                                space: pivot_core::model::selection::SpaceId(
+                                    *source.uuid().as_bytes(),
+                                ),
+                                first_row: rectangle.first.row,
+                                last_row: rectangle.last.row,
+                                first_column: rectangle.first.column,
+                                last_column: rectangle.last.column,
+                            },
+                        )
+                        .map_err(graph_error)?;
+                    self.batch
+                        .retain_selection(selection, true)
+                        .map_err(graph_error)?;
+                    let kind = if let Token::SumAt { kind, .. } = token {
+                        Some(*kind)
+                    } else {
+                        None
+                    };
+                    let id = producers::install_guard(
+                        &mut self.data,
+                        b.window,
+                        producer,
+                        configuration,
+                        producers::GuardTarget::Range {
+                            selection,
+                            rectangle: Some(rectangle),
+                            kind,
+                        },
+                        copy_flags,
+                    )?;
+                    bound.push(producers::resolved_guard(&self.data, id)?);
+                    normalized.push(Token::Bound(id));
+                    continue;
+                }
+                qualified = Some(scope);
             }
             if let Token::WeightRange { span, .. }
             | Token::WeightRangeAt { span, .. }
@@ -590,11 +693,66 @@ impl Transaction<'_> {
                 }
                 Token::At(p) => {
                     let worksheet = qualified.take().unwrap_or(self.book.worksheet);
-                    let id = self.anchor_on(worksheet, *p)?;
-                    Token::Cell(CellRef {
-                        worksheet,
-                        cell: id,
-                    })
+                    if let Some((b, key)) = producers::external_location(&self.data, worksheet, *p)?
+                    {
+                        if !self.data.outputs.contains_key(&key) {
+                            if self.data.stats().live_nodes >= self.book.limits.live_cells {
+                                return Err(Error::Limit);
+                            }
+                            let portable = GraphNodeId::fresh();
+                            let (node, slot) = self
+                                .batch
+                                .add_captured_scalar(
+                                    format!("PS_{}", portable.uuid().simple()),
+                                    *portable.uuid().as_bytes(),
+                                )
+                                .map_err(graph_error)?;
+                            self.data
+                                .outputs
+                                .insert(
+                                    key.clone(),
+                                    producers::Output {
+                                        node,
+                                        slot,
+                                        portable,
+                                    },
+                                )
+                                .map_err(|_| Error::Limit)?;
+                        }
+                        Token::Bound(producers::install_guard(
+                            &mut self.data,
+                            b.window,
+                            key.producer,
+                            key.configuration,
+                            producers::GuardTarget::External {
+                                key: key.key,
+                                field: key.field,
+                                generation: key.generation,
+                            },
+                            copy_flags,
+                        )?)
+                    } else if let Some((b, producer, configuration, source, at)) =
+                        producers::worksheet_location(&self.data, worksheet, *p)?
+                    {
+                        let cell = self.anchor_on(source, at)?;
+                        Token::Bound(producers::install_guard(
+                            &mut self.data,
+                            b.window,
+                            producer,
+                            configuration,
+                            producers::GuardTarget::Cell(CellRef {
+                                worksheet: source,
+                                cell,
+                            }),
+                            copy_flags,
+                        )?)
+                    } else {
+                        let id = self.anchor_on(worksheet, *p)?;
+                        Token::Cell(CellRef {
+                            worksheet,
+                            cell: id,
+                        })
+                    }
                 }
                 Token::Cell(r) => {
                     if qualified.take().unwrap_or(self.book.worksheet) != r.worksheet
@@ -608,9 +766,20 @@ impl Transaction<'_> {
                     }
                     Token::Cell(*r)
                 }
+                Token::Bound(id) => {
+                    let g = self.data.guards.get(id).ok_or(Error::InvalidTarget)?;
+                    let owner = qualified.take();
+                    if owner.is_some_and(|owner| owner != g.window.into())
+                        || owner.is_none() && g.active && self.book.worksheet != g.window.into()
+                    {
+                        return Err(Error::InvalidTarget);
+                    }
+                    token.clone()
+                }
                 other => other.clone(),
             };
             bound.push(match &t {
+                Token::Bound(id) => producers::resolved_guard(&self.data, *id)?,
                 Token::Output(binding) => {
                     let directory = self.data.directory.as_ref().ok_or(Error::InvalidTarget)?;
                     if directory.binding != *binding {
@@ -815,15 +984,20 @@ impl Transaction<'_> {
                         .map_err(graph_error)?;
                     let targets: Vec<_> = tokens
                         .iter()
-                        .filter_map(|t| {
-                            if let Token::Cell(r) = t {
-                                Some(*r)
-                            } else {
-                                None
+                        .filter_map(|t| match t {
+                            Token::Cell(r) => Some(Some(*r)),
+                            Token::Bound(id)
+                                if self.data.guards.get(id).is_some_and(|g| {
+                                    !matches!(g.target, producers::GuardTarget::Range { .. })
+                                }) =>
+                            {
+                                Some(None)
                             }
+                            _ => None,
                         })
                         .collect();
                     for ((span, pos), target) in references.into_iter().zip(targets) {
+                        let Some(target) = target else { continue };
                         bound_references.push(FormulaReference {
                             span,
                             submitted_position: pos,
@@ -979,6 +1153,7 @@ fn apply_mode(
 ) -> Result<Expected> {
     let _profile = profile::scope(11);
     book.check(expected)?;
+    book.require_editable(book.worksheet)?;
     if styles
         .iter()
         .any(|(_, s)| *s != formatting::Style::default())
@@ -1094,6 +1269,11 @@ fn apply_mode(
     let stats = tx.data.stats();
     for (used, limit, resource) in [
         (
+            stats.allocated_nodes,
+            book.limits.allocated_cells,
+            "allocated identities including producer authority",
+        ),
+        (
             stats.estimated_owned_bytes,
             book.limits.bytes,
             "estimated workbook bytes",
@@ -1177,7 +1357,9 @@ fn apply_mode(
     } else {
         None
     };
-    let Transaction { data, batch, .. } = tx;
+    let Transaction {
+        mut data, batch, ..
+    } = tx;
     let mut core = core;
     {
         let _profile = profile::scope(12);
@@ -1193,6 +1375,7 @@ fn apply_mode(
             .validate_acyclic(&cycle_outputs, cancel)
             .map_err(graph_error)?;
     }
+    producers::maintain_guards(&mut core, &mut data, cancel)?;
     crate::windows::validate_scope_graph(&core, &data, cancel)?;
     let data = data.freeze();
     book.core = core;
@@ -1271,7 +1454,7 @@ pub(super) fn capture(
         book.core.capture_calculation()
     }
     .map_err(|_| Error::InvalidDraft)?;
-    Ok(CalculationCapture {
+    let mut capture = CalculationCapture {
         expected,
         worksheet: book.worksheet,
         style_limits: book.limits.styles,
@@ -1279,8 +1462,11 @@ pub(super) fn capture(
         pinned: book.persistent.clone(),
         local_core: core,
         scalar_context: None,
+        producer_context: None,
         source_fault: None,
-    })
+    };
+    capture.prepare_producer_context()?;
+    Ok(capture)
 }
 pub(super) fn evaluate(capture: &CalculationCapture, outputs: &[CellRef]) -> Result<Calculation> {
     let result = evaluate_values(capture, outputs)?;
@@ -1355,7 +1541,10 @@ pub(super) fn evaluate_values_cancelled(
         .local_core
         .evaluate_values(
             &nodes,
-            capture.scalar_context.as_ref().map(|c| &c.core),
+            capture
+                .producer_context
+                .as_ref()
+                .or_else(|| capture.scalar_context.as_ref().map(|c| &c.core)),
             cancel,
         )
         .map_err(graph_error)?;
@@ -1378,6 +1567,17 @@ pub(super) fn evaluate_values_cancelled(
                                 CellError::CapturedSourceFailed {
                                     fault_id: *fault_id,
                                     kind,
+                                }
+                            }
+                            _ if capture
+                                .pinned
+                                .outputs
+                                .iter()
+                                .any(|(_, o)| *o.portable.uuid().as_bytes() == fault_id.0) =>
+                            {
+                                CellError::CapturedSourceFailed {
+                                    fault_id: *fault_id,
+                                    kind: structured::SourceFault::UnavailableResult,
                                 }
                             }
                             _ => CellError::InvalidExpression,

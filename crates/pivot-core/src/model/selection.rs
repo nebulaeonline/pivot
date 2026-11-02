@@ -140,6 +140,7 @@ pub(crate) struct State {
     coverage: Index<SpaceId, Shared<Coverage>>,
     descriptors: Index<SelectionId, Option<Rectangle>>,
     consumers: Index<SelectionId, Shared<Consumers>>,
+    owners: Index<SelectionId, ()>,
     points: usize,
     point_limit: usize,
     live: usize,
@@ -176,6 +177,7 @@ impl State {
             coverage: Index::new(memory.clone()),
             descriptors: Index::new(memory.clone()),
             consumers: Index::new(memory.clone()),
+            owners: Index::new(memory.clone()),
             points: 0,
             point_limit,
             live: 0,
@@ -392,7 +394,9 @@ impl State {
         let ids: Vec<_> = self
             .descriptors
             .iter()
-            .filter(|(id, r)| r.is_some() && !self.consumers.contains_key(id))
+            .filter(|(id, r)| {
+                r.is_some() && !self.consumers.contains_key(id) && !self.owners.contains_key(id)
+            })
             .map(|(id, _)| *id)
             .collect();
         for id in ids {
@@ -414,6 +418,21 @@ impl State {
         }
         if self.live > MAX_SELECTIONS {
             return Err(Error::Quota);
+        }
+        Ok(())
+    }
+    /// Non-computational document ownership keeps geometry alive without a value node.
+    pub fn retain_owner(&mut self, id: SelectionId, retain: bool) -> Result<(), Error> {
+        if retain {
+            if self.descriptor(id).is_none() {
+                return Err(Error::Invalid);
+            }
+            self.owners.insert(id, ())?;
+        } else {
+            if !self.descriptors.contains_key(&id) {
+                return Err(Error::Invalid);
+            }
+            self.owners.remove(&id)?;
         }
         Ok(())
     }

@@ -27,8 +27,8 @@ public partial class MainWindow {
   StructureOpened(null,new RoutedEventArgs());InsertRowsItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));await AutomationWaitAsync(()=>!editing&&displayedRevision==s.Revision);AutomationCheck(StatusLabel.Text?.Contains("discarded")==true,"actual presentation clipping notice");
   await SelectAsync(P(6,2));await Command(InsertColumnsItem);AutomationCheck(Sheet.Selected.Row==6&&Sheet.Selected.Column==2&&Sheet.SelectionLast.Row==65536&&Sheet.FirstRow<20,"whole-column band retains focused row and viewport");
   await SelectAsync(P(6,2));await Command(DeleteColumnsItem);await RefreshAsync();AutomationCheck(WorkbookSession.Decode(Sheet.CellAt(P(6,2))!.Result.Decimal)==18,"column insert/delete survives scalar bindings");
-  string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetDirectoryName(report)!,"structure-ui-"+Guid.NewGuid()+".pivot");AutomationCheck(await SaveDocumentAsync(true,path),"structural WB14 save");await s.NewAsync(s.Revision,discard:true);await RefreshAsync();await OpenDocumentAsync(path);
-  var fault=(await s.ReadAsync(P(10,2),P(10,2))).Cells[0];AutomationCheck(fault.ErrorCode=="ReferenceDeleted","fault remains after WB14 reopen");AutomationCheck((await s.ReadAsync(P(2,4),P(2,4))).Cells[0].Result.Text=="001234","structural String exactness");
+  string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetDirectoryName(report)!,"structure-ui-"+Guid.NewGuid()+".pivot");AutomationCheck(await SaveDocumentAsync(true,path),"structural WB15 save");await s.NewAsync(s.Revision,discard:true);await RefreshAsync();await OpenDocumentAsync(path);
+  var fault=(await s.ReadAsync(P(10,2),P(10,2))).Cells[0];AutomationCheck(fault.ErrorCode=="ReferenceDeleted","fault remains after WB15 reopen");AutomationCheck((await s.ReadAsync(P(2,4),P(2,4))).Cells[0].Result.Text=="001234","structural String exactness");
   AutomationImage(Path.ChangeExtension(report,"structure.png"));await s.NewAsync(s.Revision,discard:true);CancelDraft();clipboardEditor=null;await RefreshAsync();Sheet.Focus();
  }
 }

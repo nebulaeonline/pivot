@@ -17,7 +17,7 @@ internal static class RangeAllocationChecks {
   var image=await s.CopyBlockAsync(s.Revision,P(1),P(1));await s.PasteBlockAsync(s.Revision,P(10),P(10),image.Clipboard.ToByteArray(),true);
   Check(WorkbookSession.Decode((await s.ReadAsync(P(10),P(10))).Cells.Single().Result.Decimal)==2.5m,"CB5 absolute range");
   string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"range-"+Guid.NewGuid()+".pivot");await s.SaveAsync(s.Revision,path);await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path);
-  Check(WorkbookSession.Decode((await s.ReadAsync(P(10),P(10))).Cells.Single().Result.Decimal)==2.5m,"WB14 range reopen");
+  Check(WorkbookSession.Decode((await s.ReadAsync(P(10),P(10))).Cells.Single().Result.Decimal)==2.5m,"WB15 range reopen");
   await s.DisposeAsync();Check(s.FinalCharge==0,"zero final charge");await File.WriteAllTextAsync(Path.Combine(output,"range-session.json"),JsonSerializer.Serialize(new{status="passed",remaining_charge=s.FinalCharge}));
  }
 }

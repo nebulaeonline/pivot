@@ -694,6 +694,45 @@ impl Workbook {
         rectangle: Rectangle,
     ) -> Result<ClipboardBlock> {
         area(rectangle.first, rectangle.last)?;
+        self.check(expected)?;
+        if let GridScopeId::Window(window) = scope
+            && self.window_binding(scope).is_some()
+        {
+            let capture = self.capture_local(expected)?;
+            let frame = capture.project_window(window, rectangle)?;
+            if frame.rows == 0 || frame.cells.is_empty() {
+                return Err(Error::InvalidTarget);
+            }
+            let mut slots = Vec::with_capacity(frame.cells.len());
+            for cell in &frame.cells {
+                slots.push(match &cell.value {
+                    Ok(pivot_types::PivotValue::Blank) => Slot::Blank,
+                    Ok(pivot_types::PivotValue::String(s)) => Slot::Text(s.clone()),
+                    Ok(pivot_types::PivotValue::Boolean(b)) => Slot::Boolean(*b),
+                    Ok(pivot_types::PivotValue::Decimal(d)) => Slot::Number(
+                        cell.decimal
+                            .unwrap_or_else(|| DecimalInput::from_decimal(*d)),
+                    ),
+                    Err(_) => {
+                        return Err(Error::Graph(
+                            "Copy Values cannot export source errors.".into(),
+                        ));
+                    }
+                    Ok(_) => return Err(Error::InvalidTarget),
+                });
+            }
+            let mut result = Image {
+                source_rows: None,
+                first: rectangle.first,
+                height: rectangle.last.row - rectangle.first.row + 1,
+                width: rectangle.last.column - rectangle.first.column + 1,
+                slots,
+                styles: frame.cells.iter().map(|c| c.style).collect(),
+            }
+            .encode()?;
+            result.native.clear();
+            return Ok(result);
+        }
         let rows: Vec<_> = (rectangle.first.row..=rectangle.last.row).collect();
         let mut result = self.request_view(scope)?.copy_rows(
             expected,

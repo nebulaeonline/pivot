@@ -151,4 +151,4 @@ standing short-launcher convention. ADR-0023 remains parked at G3.
 The owner will commit/push this completed milestone after the documentation update.
 macOS updating is still pending. No further design, implementation or validation
 work starts until the owner explicitly indicates it is OK to proceed. The standing
-milestone cadence is recorded in [STATUS](../STATUS.md).
+milestone cadence is recorded in [STATUS](../STATUS-20261102.md).

@@ -478,6 +478,14 @@ impl WorkingModel {
         nodes: &[NodeId],
         cancel: &CancellationToken,
     ) -> Result<transfer::SelectionImage, ModelError> {
+        self.integrated_document_projection_sources(nodes, &[], cancel)
+    }
+    pub(super) fn integrated_document_projection_sources(
+        &self,
+        nodes: &[NodeId],
+        sources: &[(NodeId, crate::captured::CapturedScalarId)],
+        cancel: &CancellationToken,
+    ) -> Result<transfer::SelectionImage, ModelError> {
         let i = &self.integrated;
         if nodes.len() > i.graph().document_admission().identities
             || i.graph().live_count() > i.graph().document_admission().nodes
@@ -491,6 +499,7 @@ impl WorkingModel {
             .map_err(|_| ModelError::Backend("document projection admission"))?;
         let graph = i.graph.clone();
         let nodes = nodes.to_vec();
+        let sources = sources.to_vec();
         let token = cancel.clone();
         i.runtime
             .heavy
@@ -500,7 +509,7 @@ impl WorkingModel {
                 // a second generic image-copy lease here double-counted that image.
                 graph
                     .get()
-                    .project_document(&nodes, || token.is_cancelled())
+                    .project_document_sources(&nodes, &sources, || token.is_cancelled())
             })
             .map_err(ModelError::Backend)?
             .map_err(map_error)
@@ -739,15 +748,15 @@ impl CalculationCapture {
         diagnostics: &[crate::captured::CapturedFaultId],
     ) -> Result<ScalarContext, crate::captured::ContextError> {
         use crate::captured::{ContextError as E, ScalarValue};
-        if entries.len() > 1 || diagnostics.len() > 1 {
-            return Err(E::Duplicate);
+        if entries.len() > 65_536 || diagnostics.len() > 65_536 {
+            return Err(E::Resource);
         }
         let charge = self
             .state
             .value
             .get()
             .memory()
-            .reserve(4096)
+            .reserve(4096 + entries.len().saturating_mul(256))
             .map_err(|_| E::Resource)?;
         let slots = self.state.value.get().captured_slots();
         let mut values = BTreeMap::new();
@@ -762,7 +771,7 @@ impl CalculationCapture {
         if slots.len() != values.len() {
             return Err(E::Missing);
         }
-        let faults: Vec<_> = values
+        let mut faults: Vec<_> = values
             .values()
             .filter_map(|v| {
                 if let ScalarValue::Fault(id) = v {
@@ -772,7 +781,10 @@ impl CalculationCapture {
                 }
             })
             .collect();
-        if faults != diagnostics {
+        faults.sort();
+        let mut declared = diagnostics.to_vec();
+        declared.sort();
+        if faults != declared {
             return Err(E::Fault);
         }
         Ok(ScalarContext {

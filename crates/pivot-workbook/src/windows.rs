@@ -7,6 +7,7 @@ pub(crate) fn validate_scope_graph(
     data: &persistent::Data,
     cancel: &CancellationToken,
 ) -> Result<()> {
+    crate::producers::validate_feedback(data, cancel)?;
     if !data
         .sheets
         .as_ref()
@@ -42,6 +43,15 @@ pub struct ScopeCapture {
 }
 impl ScopeCapture {
     pub fn axes_at(&self, position: Position) -> Result<(AxisId, AxisId)> {
+        if self
+            .calculation
+            .pinned
+            .producers
+            .as_ref()
+            .is_some_and(|p| p.binding(self.scope).is_some())
+        {
+            return Err(Error::InvalidTarget);
+        }
         let info = self
             .calculation
             .pinned
@@ -124,6 +134,11 @@ impl Workbook {
                     return Err(Error::Limit);
                 }
                 if match token {
+                    Token::Bound(guard) => self
+                        .persistent
+                        .guards
+                        .get(guard)
+                        .is_some_and(|g| g.window == id),
                     Token::Cell(c) => c.worksheet == scope,
                     Token::Sum { rectangle, .. } | Token::WeightRange { rectangle, .. } => {
                         rectangle.space.0 == *scope.uuid().as_bytes()
@@ -227,6 +242,27 @@ impl Workbook {
         self.check(expected)?;
         let scope = GridScopeId::Window(id);
         let rows = self.sheet_info(scope)?.row_count();
+        if self.window_binding(scope).is_some() {
+            if cancel.is_cancelled() {
+                return Err(Error::Graph("cancelled".into()));
+            }
+            let _copy = self.reserve_scope_copy()?;
+            let mut scopes = self.scopes().to_vec();
+            scopes
+                .iter_mut()
+                .find(|s| s.id == scope)
+                .ok_or(Error::InvalidTarget)?
+                .retired = true;
+            let mut candidate = self.request_view(self.worksheet)?;
+            candidate.publish_sheets(scopes)?;
+            if cancel.is_cancelled() {
+                return Err(Error::Graph("cancelled".into()));
+            }
+            self.core = candidate.core;
+            self.persistent = candidate.persistent;
+            self.state = candidate.state;
+            return Ok(self.expected());
+        }
         let mut candidate = self.request_view(self.worksheet)?;
         candidate
             .restructure(

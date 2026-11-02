@@ -32,9 +32,9 @@ internal static class WeightedChecks {
   Check(WorkbookSession.Decode(selected.Result.Decimal)==7.5m&&selected.Formula=="=ALLOCATEWEIGHTED(10,1,2,$B$41,$B$40)","ordinal follows ordered bound arguments, not current worksheet row");
 
   await s.StructureAsync(s.Revision,false,false,1,1);Check((await s.ReadAsync(P(3),P(3))).Cells.Single().Formula=="=ALLOCATEWEIGHTED($A$2,1,2,1,2,3)","structure preserves binding and explicit index");
-  string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"weighted-"+Guid.NewGuid()+".pivot");await s.SaveAsync(s.Revision,path);await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path);Check(WorkbookSession.Decode((await s.ReadAsync(P(6),P(6))).Cells.Single().Result.Decimal)==20m,"WB14 allocation and SUM reopen");
+  string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"weighted-"+Guid.NewGuid()+".pivot");await s.SaveAsync(s.Revision,path);await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path);Check(WorkbookSession.Decode((await s.ReadAsync(P(6),P(6))).Cells.Single().Result.Decimal)==20m,"WB15 allocation and SUM reopen");
   await s.SetFilterAsync(s.Revision,new FilterDefinition{First=P(1),Last=P(15,3),Conditions={new FilterCondition{Column=1,Predicates={new FilterPredicate{Operator=11}}}}});
   for(int i=0;i<200;i++){if((await s.ReadFilteredAsync(1,10,1,3)).FilterStatus!=3)break;await Task.Delay(10);}Check((await s.ReadFilteredAsync(1,10,1,3)).FilterStatus==1,"error filter accepts allocation faults");
-  await s.DisposeAsync();Check(s.FinalCharge==0,"zero final charge");await File.WriteAllTextAsync(Path.Combine(output,"weighted-session.json"),JsonSerializer.Serialize(new{status="passed",production_sum=true,formats="WB14/CB5/CB6/private14",remaining_charge=s.FinalCharge}));
+  await s.DisposeAsync();Check(s.FinalCharge==0,"zero final charge");await File.WriteAllTextAsync(Path.Combine(output,"weighted-session.json"),JsonSerializer.Serialize(new{status="passed",production_sum=true,formats="WB15/CB5/CB6/private14",remaining_charge=s.FinalCharge}));
  }
 }

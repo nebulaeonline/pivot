@@ -45,7 +45,7 @@ static class WindowChecks {
    Check((await s.ReadAsync(P(1),P(2))).Cells.All(c=>c.ErrorCode=="ReferenceDeleted"),"reused name never repairs");
    string path=Path.Combine(output,"windows-"+Guid.NewGuid()+".pivot");
    await s.SaveAsync(s.Revision,path);await s.OpenAsync(s.Revision,path);
-   Check(s.Windows.Count==1&&(await s.ReadAsync(P(1),P(2))).Cells.All(c=>c.ErrorCode=="ReferenceDeleted"),"WB14 tombstones survive reopen");
+   Check(s.Windows.Count==1&&(await s.ReadAsync(P(1),P(2))).Cells.All(c=>c.ErrorCode=="ReferenceDeleted"),"WB15 tombstones survive reopen");
   }finally{await s.DisposeAsync();}
   Check(s.FinalCharge==0,"all retained ownership released");
   await File.WriteAllTextAsync(Path.Combine(output,"windows.json"),JsonSerializer.Serialize(new{status="passed",remaining_charge=s.FinalCharge}));

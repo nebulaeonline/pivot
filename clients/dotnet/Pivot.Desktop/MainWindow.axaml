@@ -91,7 +91,7 @@
       </Grid>
       <StackPanel x:Name="WindowBar" Spacing="4">
         <StackPanel Orientation="Horizontal" Spacing="6">
-          <TextBlock Text="Windows · unbound Grid" VerticalAlignment="Center" />
+          <TextBlock Text="Windows" VerticalAlignment="Center" />
           <TextBox x:Name="WindowNameEditor" Width="150" MaxLength="64" PlaceholderText="Window name" />
           <TextBlock Text="Rows" VerticalAlignment="Center" /><NumericUpDown x:Name="WindowRows" Minimum="1" Maximum="65536" Value="65536" Width="95" />
           <TextBlock Text="Columns" VerticalAlignment="Center" /><NumericUpDown x:Name="WindowColumns" Minimum="1" Maximum="1024" Value="1024" Width="85" />
@@ -99,7 +99,15 @@
           <Button x:Name="RenameWindowButton" Content="Rename" Click="RenameWindowClick" />
           <Button x:Name="DeleteWindowButton" Content="Delete…" Click="DeleteWindowClick" />
         </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="6"><Button Content="Copy Values" Click="CopyValuesClick" /><Button Content="Paste Text" Click="PasteTextClick" /></StackPanel>
+        <WrapPanel Orientation="Horizontal">
+          <Button x:Name="CopyValuesButton" Content="Copy Values" Click="CopyValuesClick" Margin="0,0,6,0" />
+          <Button Content="Paste Text" Click="PasteTextClick" Margin="0,0,6,0" />
+          <Button x:Name="BindWindowButton" Content="Bind source…" Click="BindWindowClick" Margin="0,0,6,0" />
+          <Button x:Name="BoundSourceButton" Content="Source…" Click="BoundSourceClick" Margin="0,0,6,0" />
+          <Button x:Name="RefreshProducerButton" Content="Refresh" Click="RefreshProducerClick" Margin="0,0,6,0" />
+          <Button x:Name="DetachWindowButton" Content="Detach copy…" Click="DetachWindowClick" />
+        </WrapPanel>
+        <TextBlock x:Name="BoundStatusLabel" IsVisible="False" TextWrapping="Wrap" />
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"><StackPanel x:Name="WindowTabs" Orientation="Horizontal" Spacing="3" /></ScrollViewer>
       </StackPanel>
       <Grid ColumnDefinitions="60,*,80" ColumnSpacing="8">

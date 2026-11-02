@@ -41,7 +41,7 @@ public partial class MainWindow {
   AutomationCheck(!CellStyle.Decode((await s.ReadStylesAsync(AutomationPosition(1,1024),AutomationPosition(1,1024))).Styles[0].Style).Italic,"Reset writes explicit built-in default");
   string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetDirectoryName(report)!,"regions-ui-"+Guid.NewGuid()+".pivot");
   AutomationCheck(await SaveDocumentAsync(true,path),"region workbook saves");await s.NewAsync(s.Revision,discard:true);await RefreshAsync();await OpenDocumentAsync(path);
-  AutomationCheck(CellStyle.Decode((await s.ReadStylesAsync(AutomationPosition(65536,2),AutomationPosition(65536,2))).Styles[0].Style).Background==0xc00000,"WB14 column region reopens");
+  AutomationCheck(CellStyle.Decode((await s.ReadStylesAsync(AutomationPosition(65536,2),AutomationPosition(65536,2))).Styles[0].Style).Background==0xc00000,"WB15 column region reopens");
   AutomationImage(Path.ChangeExtension(report,"regions.png"));
   formatTarget.SelectedIndex=0;FormatPane.IsExpanded=false;await s.NewAsync(s.Revision,discard:true);await RefreshAsync();Sheet.Focus();
  }

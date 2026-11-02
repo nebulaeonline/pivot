@@ -53,6 +53,7 @@ public partial class MainWindow {
     }
     private async Task LoadFormatting() {
         if(session is null || session.DocumentId.Length==0)return;
+        if(session.IsReadOnly){formatRevision="";formatInfo.Text="Bound content displays source formatting. Edit formatting in the source worksheet.";return;}
         long request=++formatRequest;var s=session;var first=Sheet.SelectionFirst;var last=Sheet.SelectionLast;string sheet=s.WorksheetId,revision=s.Revision;
         formatRevision="";
         try {

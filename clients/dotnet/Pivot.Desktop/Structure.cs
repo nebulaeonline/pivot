@@ -8,7 +8,7 @@ public partial class MainWindow {
  private void StructureOpened(object? sender,RoutedEventArgs args) {
   var first=Sheet.SelectionFirst;var last=Sheet.SelectionLast;
   uint rows=last.Row-first.Row+1,columns=last.Column-first.Column+1;
-  bool allowed=session is not null&&session.DocumentId.Length!=0&&!session.IsBindingProof&&!session.IsProjectionProof&&!editing&&!fileAction&&!shuttingDown&&!Sheet.IsSelecting;
+  bool allowed=session is not null&&!session.IsReadOnly&&session.DocumentId.Length!=0&&!session.IsBindingProof&&!session.IsProjectionProof&&!editing&&!fileAction&&!shuttingDown&&!Sheet.IsSelecting;
   InsertRowsItem.Header=$"Insert {rows:N0} row(s) above";DeleteRowsItem.Header=$"Delete {rows:N0} entire row(s)";
   InsertColumnsItem.Header=$"Insert {columns:N0} column(s) left";DeleteColumnsItem.Header=$"Delete {columns:N0} entire column(s)";
   InsertRowsItem.IsEnabled=DeleteRowsItem.IsEnabled=InsertColumnsItem.IsEnabled=DeleteColumnsItem.IsEnabled=allowed&&Sheet.HasVisibleRows&&FilterBulkReady;
@@ -21,7 +21,7 @@ public partial class MainWindow {
  private async void InsertColumnsClick(object? s,RoutedEventArgs e)=>await StructureAsync(true,false);
  private async void DeleteColumnsClick(object? s,RoutedEventArgs e)=>await StructureAsync(true,true);
  private async Task StructureAsync(bool columns,bool delete) {
-  if(session is null||session.IsBindingProof||session.IsProjectionProof||editing||fileAction||shuttingDown||Sheet.IsSelecting||Sheet.ProjectedSelection is not null||!await CommitAsync())return;
+  if(session is null||session.IsReadOnly||session.IsBindingProof||session.IsProjectionProof||editing||fileAction||shuttingDown||Sheet.IsSelecting||Sheet.ProjectedSelection is not null||!await CommitAsync())return;
   var s=session;var first=Sheet.SelectionFirst;var last=Sheet.SelectionLast;var focus=Sheet.Selected;
   uint start=columns?first.Column:first.Row,count=columns?last.Column-first.Column+1:last.Row-first.Row+1;
   editing=true;SetEditing(false);++clipboardRequest;refresh?.Cancel();++displayRequest;

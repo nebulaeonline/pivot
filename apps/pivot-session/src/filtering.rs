@@ -5,7 +5,7 @@ use pivot_workbook::filtering::{Condition, Definition, Literal, Operator, Predic
 pub(super) struct Presentation {
     map: Option<Visibility>,
     pub(super) generation: String,
-    failures: BTreeMap<WorksheetId, String>,
+    failures: BTreeMap<GridScopeId, String>,
     session: Option<Uuid>,
     job: Option<FilterJob>,
     status_charge: Option<pivot_core::model::integration::resources::Charge>,
@@ -41,14 +41,21 @@ pub(super) fn is_bulk(op: wire::request::Operation) -> bool {
 }
 fn footprints(
     book: &Workbook,
-    sheet: WorksheetId,
+    sheet: GridScopeId,
     q: &wire::Request,
 ) -> Result<Vec<Rectangle>, String> {
     use wire::request::Operation as O;
     let op = O::try_from(q.operation).map_err(|_| "unknown operation")?;
+    let info = book
+        .scopes()
+        .iter()
+        .find(|s| s.id == sheet && !s.retired)
+        .ok_or("unknown Grid scope")?;
+    let row_count = info.row_count();
+    let column_count = info.column_count();
     let full = || Rectangle {
         first: Position::new(1, 1),
-        last: Position::new(65536, 1024),
+        last: Position::new(row_count, column_count),
     };
     let rectangle = || {
         Ok::<_, String>(Rectangle {
@@ -102,18 +109,24 @@ fn footprints(
                 .structure_start
                 .checked_add(q.structure_count - 1)
                 .ok_or("structure band overflow")?;
-            if end > if q.structure_columns { 1024 } else { 65536 } {
+            if end
+                > if q.structure_columns {
+                    column_count
+                } else {
+                    row_count
+                }
+            {
                 return Err("structure band exceeds worksheet".into());
             }
             if q.structure_columns {
                 vec![Rectangle {
                     first: Position::new(1, q.structure_start),
-                    last: Position::new(65536, 1024),
+                    last: Position::new(row_count, column_count),
                 }]
             } else {
                 vec![Rectangle {
                     first: Position::new(q.structure_start, 1),
-                    last: Position::new(65536, 1024),
+                    last: Position::new(row_count, column_count),
                 }]
             }
         }
@@ -145,9 +158,7 @@ fn footprints(
 impl Session {
     fn hidden_footprint(&mut self, q: &wire::Request) -> Result<(Vec<Rectangle>, u32), String> {
         let book = self.book.as_ref().ok_or("no workbook")?;
-        let sheet = WorksheetId::from_uuid(
-            Uuid::parse_str(&q.worksheet).map_err(|_| "worksheet ID required")?,
-        );
+        let sheet = request_scope(q)?;
         let rects = footprints(book, sheet, q)?;
         self.filter.requalify(book, sheet);
         let Some(definition) = book
@@ -214,7 +225,7 @@ impl Session {
             wire::Request::decode(q.filter_operation.as_slice()).map_err(|e| e.to_string())?;
         visible::validate_native_kind(&operation)?;
         if operation.revision != self.revision
-            || operation.worksheet != q.worksheet
+            || (operation.worksheet != q.worksheet || operation.window_scope != q.window_scope)
             || !is_bulk(
                 wire::request::Operation::try_from(operation.operation).map_err(|_| "operation")?,
             )
@@ -225,6 +236,7 @@ impl Session {
         r.filter_hidden_rows = hidden;
         r.filter_generation = self.filter.generation.clone();
         r.worksheet = q.worksheet.clone();
+        r.window_scope = q.window_scope;
         r.filter_footprints = rects
             .iter()
             .map(|r| wire::FilterFootprint {
@@ -299,7 +311,7 @@ fn bounded_error(error: impl std::fmt::Display) -> String {
 }
 struct FilterJob {
     expected: pivot_workbook::Expected,
-    sheet: WorksheetId,
+    sheet: GridScopeId,
     cancel: pivot_core::model::integration::CancellationToken,
     receive: std::sync::mpsc::Receiver<Result<Visibility, String>>,
     thread: Option<std::thread::JoinHandle<()>>,
@@ -313,7 +325,7 @@ impl Drop for FilterJob {
     }
 }
 impl Presentation {
-    pub(super) fn requalify(&mut self, book: &Workbook, sheet: WorksheetId) {
+    pub(super) fn requalify(&mut self, book: &Workbook, sheet: GridScopeId) {
         if book
             .filter(sheet)
             .ok()
@@ -350,7 +362,7 @@ impl Presentation {
     pub(super) fn ensure(
         &mut self,
         book: &Workbook,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         retry: bool,
     ) -> Result<(), String> {
         let expected = book.expected();
@@ -464,7 +476,7 @@ impl Presentation {
         });
         Ok(())
     }
-    pub(super) fn rows(&self, book: &Workbook, sheet: WorksheetId) -> Result<Vec<u32>, String> {
+    pub(super) fn rows(&self, book: &Workbook, sheet: GridScopeId) -> Result<Vec<u32>, String> {
         if !self.failures.contains_key(&sheet)
             && let Some(map) = &self.map
             && map.worksheet == sheet
@@ -473,7 +485,7 @@ impl Presentation {
             return Ok(map.rows().to_vec());
         }
         let n = book
-            .sheets()
+            .scopes()
             .iter()
             .find(|s| s.id == sheet)
             .ok_or("unknown worksheet")?
@@ -483,7 +495,7 @@ impl Presentation {
     pub(super) fn describe(
         &self,
         book: &Workbook,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         r: &mut wire::Response,
     ) -> Result<(), String> {
         let definition = book.filter(sheet).map_err(|e| e.to_string())?;
@@ -641,11 +653,10 @@ impl Session {
         if self.proof.is_some() || book.is_structured_proof() {
             return Err("Filters require an ordinary workbook".into());
         }
-        let sheet = WorksheetId::from_uuid(
-            Uuid::parse_str(&q.worksheet).map_err(|_| "worksheet ID required")?,
-        );
+        let sheet = request_scope(q)?;
         book.filter(sheet).map_err(|e| e.to_string())?;
         r.worksheet = q.worksheet.clone();
+        r.window_scope = q.window_scope;
         if q.filter_definition.is_some() || book.filter(sheet).map_err(|e| e.to_string())?.is_some()
         {
             self.filter
@@ -662,7 +673,7 @@ impl Session {
                     .ok_or("filter definition required")?,
             )?;
             let info = book
-                .sheets()
+                .scopes()
                 .iter()
                 .find(|s| s.id == sheet)
                 .ok_or("unknown worksheet")?;

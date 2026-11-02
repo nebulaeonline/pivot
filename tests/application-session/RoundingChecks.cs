@@ -17,6 +17,6 @@ internal static class RoundingChecks {
   await s.FormatAsync(s.Revision,P(2),P(2),new CellStyle(Numeric:1,Places:0),3);
   var cell=(await s.ReadAsync(P(2),P(2))).Cells.Single();Check(cell.FormattedNumber=="2"&&WorkbookSession.Decode(cell.Result.Decimal)==2.35m,"display rounding stays independent");
   string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"rounding-"+Guid.NewGuid()+".pivot");await s.SaveAsync(s.Revision,path);await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path);
-  Check(WorkbookSession.Decode((await s.ReadAsync(P(2),P(2))).Cells.Single().Result.Decimal)==2.35m,"WB9 rounding definitions reopen");
+  Check(WorkbookSession.Decode((await s.ReadAsync(P(2),P(2))).Cells.Single().Result.Decimal)==2.35m,"WB14 rounding definitions reopen");
  }
 }

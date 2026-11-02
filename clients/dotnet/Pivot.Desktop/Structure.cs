@@ -29,7 +29,7 @@ public partial class MainWindow {
    var outcome=await s.StructureAsync(s.Revision,columns,delete,start,count);
    if(outcome.StructureChanged) {
     var begin=columns?new Position{Row=1,Column=start}:new Position{Row=start,Column=1};
-    var end=columns?new Position{Row=WorkbookCapacity.MaximumRows,Column=start+(delete?0:count-1)}:new Position{Row=start+(delete?0:count-1),Column=WorkbookCapacity.MaximumColumns};
+    var end=columns?new Position{Row=(uint)Sheet.RowLimit,Column=start+(delete?0:count-1)}:new Position{Row=start+(delete?0:count-1),Column=(uint)Sheet.ColumnLimit};
     var selected=columns?new Position{Row=focus.Row,Column=start}:new Position{Row=start,Column=focus.Column};
     Sheet.SelectStructuralBand(begin,end,selected);Sheet.Reveal(selected);
    }

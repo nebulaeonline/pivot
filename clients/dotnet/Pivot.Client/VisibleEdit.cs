@@ -9,7 +9,7 @@ public sealed partial class WorkbookSession {
   string? interaction=CaptureFilterInteractionAsync is {} capture?await capture(cancellation).ConfigureAwait(false):null;
   cancellation.ThrowIfCancellationRequested();
   // Drain preparation even if cancellation arrives after dispatch, then release its ticket.
-  var preview=await SendAsync(new Request{Operation=Request.Types.Operation.PrepareVisibleEdit,Revision=operation.Revision,ComputationalState=operation.ComputationalState,Worksheet=operation.Worksheet,FilterOperation=operation.ToByteString()},CancellationToken.None).ConfigureAwait(false);
+  var preview=await SendAsync(new Request{Operation=Request.Types.Operation.PrepareVisibleEdit,Revision=operation.Revision,ComputationalState=operation.ComputationalState,Worksheet=operation.Worksheet,WindowScope=operation.WindowScope,FilterOperation=operation.ToByteString()},CancellationToken.None).ConfigureAwait(false);
   try{
    cancellation.ThrowIfCancellationRequested();
    var confirm=ConfirmVisibleEditAsync??throw new WorkbookSessionException("Visible Clear/Fill requires exact-row review.");

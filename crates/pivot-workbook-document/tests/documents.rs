@@ -191,7 +191,7 @@ fn sum_document_keeps_bound_geometry_identity_and_member_affinity() {
     .unwrap();
     let formula = book.cell_at(p(1, 4)).unwrap().unwrap();
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&bytes.bytes[..9], b"PIVOTWB13");
+    assert_eq!(&bytes.bytes[..9], b"PIVOTWB14");
     let (mut restored, _) =
         pivot_workbook_document::Document::open_document(&bytes.bytes, Limits::default(), &runtime)
             .unwrap();
@@ -257,7 +257,7 @@ fn wb1_is_an_explicit_unsupported_version_not_a_migration_reader() {
 }
 
 #[test]
-fn wb3_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
+fn wb14_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
     use sha2::{Digest, Sha256};
     let runtime = IntegrationRuntime::standalone().unwrap();
     let mut book = Workbook::new_in("Corruption", Limits::default(), &runtime).unwrap();
@@ -275,8 +275,8 @@ fn wb3_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
     let bytes = pivot_workbook_document::Document::export_document(&book, book.expected())
         .unwrap()
         .bytes;
-    // WB3 fixed worksheet/axis/state header, then length-prefixed graph.
-    let mut at = 49 + 72;
+    // WB14 tagged primary scope, axis dimensions/state, directories, then graph.
+    let mut at = 49 + 80;
     let read = |at: &mut usize| {
         let n = u64::from_le_bytes(bytes[*at..*at + 8].try_into().unwrap()) as usize;
         *at += 8;
@@ -284,20 +284,31 @@ fn wb3_rejects_checksum_valid_unknown_policy_and_selection_corruption() {
     };
     let sheets = read(&mut at);
     for _ in 0..sheets {
-        at += 16;
+        at += 24 + 8; // Tagged scope and retirement flag.
         let name = read(&mut at);
         at += name + 48;
+        for _ in 0..2 {
+            let _next = read(&mut at);
+            let runs = read(&mut at);
+            at += runs * 16;
+        }
     }
     let styles = read(&mut at);
-    at += styles * 64;
+    at += styles * 72;
     let defaults = read(&mut at);
     for _ in 0..defaults {
-        at += 16;
+        at += 24;
         let len = read(&mut at);
         at += len;
     }
+    assert_eq!(read(&mut at), 0, "fixture has no filters");
     let graph_length = read(&mut at);
     let policy = at + graph_length;
+    assert_eq!(
+        u64::from_le_bytes(bytes[policy..policy + 8].try_into().unwrap()),
+        1,
+        "mutation targets the current policy field"
+    );
     for (at, value) in [(policy, 2u64), (policy + 8, 8193), (policy + 8 + 8 + 16, 9)] {
         let mut corrupt = bytes.clone();
         corrupt[at..at + 8].copy_from_slice(&value.to_le_bytes());
@@ -360,7 +371,7 @@ fn text_roundtrip_preserves_marker_identity_and_old_versions_reject() {
     .unwrap();
     let cell = b.cell_at(p(1, 1)).unwrap().unwrap();
     let exported = pivot_workbook_document::Document::export_document(&b, b.expected()).unwrap();
-    assert_eq!(&exported.bytes[..9], b"PIVOTWB13");
+    assert_eq!(&exported.bytes[..9], b"PIVOTWB14");
     let (restored, checkpoint) = pivot_workbook_document::Document::open_document(
         &exported.bytes,
         Limits::default(),
@@ -475,7 +486,7 @@ fn wb5_preserves_blank_identity_sum_and_checkpoint() {
     assert_eq!(value(&book, p(3, 3)), Ok(3.into()));
     assert_eq!(value(&book, p(4, 3)), Ok(2.into()));
     let saved = pivot_workbook_document::Document::export_document(&book, book.expected()).unwrap();
-    assert_eq!(&saved.bytes[..9], b"PIVOTWB13");
+    assert_eq!(&saved.bytes[..9], b"PIVOTWB14");
     let (restored, checkpoint) =
         pivot_workbook_document::Document::open_document(&saved.bytes, Limits::default(), &runtime)
             .unwrap();
@@ -543,7 +554,7 @@ fn wb5_unknown_aggregate_rejects_even_with_a_valid_checksum() {
 #[test]
 fn obsolete_workbook_versions_are_explicitly_rejected() {
     let runtime = IntegrationRuntime::standalone().unwrap();
-    for version in 1..=4 {
+    for version in 1..=13 {
         let bytes = format!("PIVOTWB{version}");
         let error = pivot_workbook_document::Document::open_document(
             bytes.as_bytes(),

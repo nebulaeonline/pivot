@@ -168,7 +168,7 @@ impl Workbook {
         output: Uuid,
         budget: Arc<projection::Budget>,
     ) -> Result<()> {
-        if self.sheets().len() != 1
+        if self.scopes().len() != 1
             || self.is_structured_proof()
             || producer.is_nil()
             || output.is_nil()

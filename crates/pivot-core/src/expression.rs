@@ -132,6 +132,7 @@ pub struct ReferenceSyntax {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SheetSyntax {
+    pub window: bool,
     pub name: String,
     pub span: std::ops::Range<usize>,
 }
@@ -377,12 +378,14 @@ impl Parser<'_> {
         };
         let end = self.pos;
         self.space();
-        if self.peek() != Some(b'!') {
+        if !matches!(self.peek(), Some(b'!' | b'|')) {
             self.pos = start;
             return Ok(None);
         }
+        let window = self.peek() == Some(b'|');
         self.pos += 1;
         Ok(Some(SheetSyntax {
+            window,
             name,
             span: start..end,
         }))
@@ -512,7 +515,7 @@ impl Parser<'_> {
                 let name = &self.source[start..self.pos];
                 let qualified = self.source[self.pos..]
                     .trim_start_matches(|c: char| c.is_ascii_whitespace())
-                    .starts_with('!');
+                    .starts_with(['!', '|']);
                 if self.spreadsheet
                     && !qualified
                     && (name.eq_ignore_ascii_case("TRUE") || name.eq_ignore_ascii_case("FALSE"))

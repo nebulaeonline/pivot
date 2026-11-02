@@ -165,7 +165,7 @@ fn read_tokens(r: &mut Reader<'_>) -> Result<Vec<Token>> {
             ),
             0 => Token::Decimal(read_decimal_input(r)?),
             1 => Token::Cell(CellRef {
-                worksheet: WorksheetId::from_uuid(id(r)?),
+                worksheet: GridScopeId::from_uuid(id(r)?),
                 cell: CellId::from_uuid(id(r)?),
             }),
             2 => Token::Unary(match r.n().map_err(graph_error)? {
@@ -257,7 +257,7 @@ fn read_content(r: &mut Reader<'_>) -> Result<Content> {
                     span: read_span(r)?,
                     submitted_position: read_pos(r)?,
                     target: CellRef {
-                        worksheet: WorksheetId::from_uuid(id(r)?),
+                        worksheet: GridScopeId::from_uuid(id(r)?),
                         cell: CellId::from_uuid(id(r)?),
                     },
                     node: GraphNodeId::from_uuid(id(r)?),
@@ -296,7 +296,7 @@ pub struct ColdLedger {
     pub(super) validated_content: Option<Uuid>,
     pub(super) instance: Uuid,
     pub(super) session: Uuid,
-    pub(super) worksheet: WorksheetId,
+    pub(super) worksheet: GridScopeId,
     pub(super) graph: Uuid,
     pub(super) floor: u64,
     pub(super) selection_floor: usize,
@@ -515,7 +515,7 @@ impl ColdLedger {
     fn read(
         r: &mut Reader<'_>,
         book: &Workbook,
-        worksheet: WorksheetId,
+        worksheet: GridScopeId,
         graph: Uuid,
     ) -> Result<Self> {
         let instance = id(r)?;
@@ -607,18 +607,20 @@ fn frame(bytes: &[u8]) -> Result<&[u8]> {
 fn header<'a>(
     bytes: &'a [u8],
     book: &Workbook,
-) -> Result<(Reader<'a>, WorksheetId, Uuid, Axis, Axis, Uuid, ColdLedger)> {
+) -> Result<(Reader<'a>, GridScopeId, Uuid, Axis, Axis, Uuid, ColdLedger)> {
     let mut r = Reader::new(frame(bytes)?).map_err(graph_error)?;
     if r.take(8).map_err(graph_error)? != b"PIVHWB01" {
         return Err(bad());
     }
-    let worksheet = WorksheetId::from_uuid(id(&mut r)?);
+    let worksheet = GridScopeId::from_uuid(id(&mut r)?);
     let graph = id(&mut r)?;
     let rows = Axis {
+        layout: None,
         namespace: id(&mut r)?,
         length: r.u32().map_err(graph_error)?,
     };
     let columns = Axis {
+        layout: None,
         namespace: id(&mut r)?,
         length: r.u32().map_err(graph_error)?,
     };
@@ -751,6 +753,7 @@ impl Workbook {
             .prepare_resource(persistent::Data::new(memory))
             .map_err(graph_error)?;
         data.install_sheets(vec![SheetInfo {
+            retired: false,
             id: worksheet,
             name: "Sheet1".into(),
             rows: rows.clone(),

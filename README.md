@@ -30,11 +30,14 @@ also be used directly through Rust crate APIs, independently of a workbook or GU
 
 ## The spreadsheet desktop
 
-The [unbound Grid Windows design](docs/adr/0040-unbound-grid-windows.md) is approved
-with clarifications incorporated and its revised contract awaiting confirmation.
-It specifies client-local scope selection, views over one canonical calculation
-generation and aggregate axis/identity admission. This is planned functionality;
-implementation has not started. See the [revised design handoff](docs/handoffs/2026-11-01-unbound-grid-windows-design.md).
+Unbound Grid Windows are accepted and closed under
+[ADR-0040](docs/adr/0040-unbound-grid-windows.md). Each has an independent named
+coordinate space; `WindowName|A1` references share the canonical calculation graph
+with worksheets. Selection stays client-local and capacity remains aggregate.
+See the [implementation semantics](docs/architecture/unbound-grid-windows.md).
+All six targets passed managed/AOT GUI qualification; Windows ARM64 headless retains
+an unresolved cold-run timing qualification. See the
+[implementation handoff](docs/handoffs/2026-11-01-unbound-grid-windows.md).
 
 The desktop is built with **C#/.NET 10 and Avalonia** for Windows, Linux and macOS.
 It provides direct grid editing, a formula bar, rectangular selection, copy/paste
@@ -96,7 +99,7 @@ dialog displays the final range and offers explicit inclusion of adjacent column
 [Sorting implementation and validation status](docs/architecture/worksheet-sorting.md).
 
 Workbooks open and save as local `.pivot` files, preserving every sheet, typed
-content, presentation and stable bindings. The current experimental format is WB13; earlier
+content, presentation and stable bindings. The current experimental format is WB14; earlier
 experimental workbook versions are rejected.
 
 Worksheet filters preserve typed criteria and hide whole rows without changing cell

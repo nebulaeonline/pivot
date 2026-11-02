@@ -17,7 +17,7 @@ public sealed partial class WorkbookSession {
  private static bool FilterBulk(Request.Types.Operation op)=>op is Request.Types.Operation.Apply or Request.Types.Operation.CopyBlock or Request.Types.Operation.PasteBlock or Request.Types.Operation.Fill or Request.Types.Operation.Format or Request.Types.Operation.Sort or Request.Types.Operation.Structure or Request.Types.Operation.ExportCsv;
  private async Task<Response> CallAsync(Request request,CancellationToken cancellation){
   // Capture the exact logical operation before previewing it or awaiting a modal decision.
-  request=request.Clone();if(request.Worksheet.Length==0)request.Worksheet=WorksheetId;
+  request=request.Clone();if(request.Worksheet.Length==0){request.Worksheet=WorksheetId;request.WindowScope=IsWindowScope;}
   if(request.Revision.Length==0)request.Revision=Revision;
   if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
   if(request.Operation is Request.Types.Operation.ClearVisible or Request.Types.Operation.FillVisible)return await ConfirmAndEditVisibleAsync(request,cancellation).ConfigureAwait(false);
@@ -25,7 +25,7 @@ public sealed partial class WorkbookSession {
   bool singleEdit=request.Operation==Request.Types.Operation.Apply&&request.Edits.Count==1&&request.Edits[0].ActionCase!=Edit.ActionOneofCase.MoveTo;
   if(FilterSummary is not null&&FilterBulk(request.Operation)&&!singleEdit&&!IsBindingProof&&!IsProjectionProof){
    string? interaction=CaptureFilterInteractionAsync is { } capture?await capture(cancellation).ConfigureAwait(false):null;
-   var preview=await SendAsync(new Request{Operation=Request.Types.Operation.PrepareFilteredOperation,Worksheet=request.Worksheet,Revision=request.Revision,ComputationalState=request.ComputationalState,FilterOperation=request.ToByteString()},cancellation).ConfigureAwait(false);
+   var preview=await SendAsync(new Request{Operation=Request.Types.Operation.PrepareFilteredOperation,Worksheet=request.Worksheet,WindowScope=request.WindowScope,Revision=request.Revision,ComputationalState=request.ComputationalState,FilterOperation=request.ToByteString()},cancellation).ConfigureAwait(false);
    if(preview.FilterHiddenRows!=0){
     var confirm=ConfirmHiddenRowsAsync??throw new WorkbookSessionException("The operation includes filtered-out rows; an explicit exact-operation confirmation is required.");
     if(!await confirm(request.Clone(),preview.Clone(),cancellation).ConfigureAwait(false))throw new OperationCanceledException("Hidden-row operation cancelled.",cancellation);

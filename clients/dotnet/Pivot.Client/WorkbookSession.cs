@@ -33,10 +33,30 @@ public sealed partial class WorkbookSession : IAsyncDisposable
     public ulong DocumentGeneration {get;private set;}
     public string WorksheetId { get; private set; } = "";
     public IReadOnlyList<WorksheetInfo> Worksheets { get; private set; } = Array.Empty<WorksheetInfo>();
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string,string> capturedSheets = new();
+    public bool IsWindowScope { get; private set; }
+    public IReadOnlyList<WorksheetInfo> Windows { get; private set; } = Array.Empty<WorksheetInfo>();
+    public IEnumerable<WorksheetInfo> GridScopes => Worksheets.Concat(Windows);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string,(string Id,bool Window)> capturedSheets = new();
+    public void SelectWindow(string id) {
+        if(!Windows.Any(w=>w.Id==id)) throw new ArgumentException("Unknown Window ID.",nameof(id));
+        WorksheetId=id; IsWindowScope=true;
+    }
+    public Task<Response> CreateWindowAsync(string expected,string name,uint rows,uint columns,CancellationToken cancellation=default)=>
+        CallAsync(new Request{Operation=Request.Types.Operation.CreateWindow,Revision=expected,SheetName=name,WindowRows=rows,WindowColumns=columns},cancellation);
+    public Task<Response> RenameWindowAsync(string expected,string id,string name,CancellationToken cancellation=default)=>
+        CallAsync(new Request{Operation=Request.Types.Operation.RenameWindow,Revision=expected,Worksheet=id,WindowScope=true,SheetName=name},cancellation);
+    public Task<Response> PrepareWindowDeleteAsync(string expected,string id,CancellationToken cancellation=default)=>
+        CallAsync(new Request{Operation=Request.Types.Operation.PrepareWindowDelete,Revision=expected,Worksheet=id,WindowScope=true},cancellation);
+    public Task<Response> DeleteWindowAsync(string expected,string id,string ticket,CancellationToken cancellation=default)=>
+        CallAsync(new Request{Operation=Request.Types.Operation.DeleteWindow,Revision=expected,Worksheet=id,WindowScope=true,WindowDeleteTicket=ticket},cancellation);
+    public Task<Response> CopyBetweenScopesAsync(string expected,Position first,Position last,string destination,bool destinationWindow,Position destinationFirst,CancellationToken cancellation=default)=>
+        CallAsync(new Request{Operation=Request.Types.Operation.CopyScope,Revision=expected,First=first.Clone(),Last=last.Clone(),DestinationScopeId=destination,DestinationWindowScope=destinationWindow,DestinationFirst=destinationFirst.Clone()},cancellation);
+    public Task<Response> CopyValuesAsync(string expected,Position first,Position last,CancellationToken cancellation=default)=>
+        CallAsync(new Request{Operation=Request.Types.Operation.CopyValues,Revision=expected,First=first.Clone(),Last=last.Clone()},cancellation);
+
     public void SelectWorksheet(string id) {
         if (!Worksheets.Any(s=>s.Id==id)) throw new ArgumentException("Unknown worksheet ID.",nameof(id));
-        WorksheetId=id;
+        WorksheetId=id; IsWindowScope=false;
     }
     public Task<Response> ListSheetsAsync(CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ListSheets},cancellation);
     public Task<Response> AddSheetAsync(string expected,string? name=null,CancellationToken cancellation=default) {
@@ -142,7 +162,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
     {
         var selected = outputs.Take(257).Select(p => p.Clone()).ToArray();
         if (selected.Length is 0 or > 256) throw new ArgumentOutOfRangeException(nameof(outputs));
-        var request = new Request { Operation = Request.Types.Operation.Calculate, Capture = capture, Worksheet=capturedSheets.TryGetValue(capture,out var sheet)?sheet:WorksheetId };
+        var request = new Request { Operation = Request.Types.Operation.Calculate, Capture = capture, Worksheet=capturedSheets.TryGetValue(capture,out var sheet)?sheet.Id:WorksheetId, WindowScope=capturedSheets.TryGetValue(capture,out var scope)?scope.Window:IsWindowScope };
         request.Outputs.AddRange(selected);
         return CallAsync(request, cancellation);
     }
@@ -182,7 +202,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
     private async Task<Response> SendAsync(Request request, CancellationToken cancellation)
     {
         // Capture sheet context before queueing; tab switches cannot redirect this request.
-        if(request.Worksheet.Length==0)request.Worksheet=WorksheetId;
+        if(request.Worksheet.Length==0){request.Worksheet=WorksheetId;request.WindowScope=IsWindowScope;}
         // Reserve envelope space before accepting a queued request, so the queue
         // cannot retain eight arbitrarily large caller-owned formula buffers.
         if (request.CalculateSize() > MaximumFrame - 256)
@@ -201,7 +221,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             cancellation.ThrowIfCancellationRequested();
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 13; request.Id = ++sequence;
+            request.Version = 14; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -225,7 +245,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 13 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 14 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
                 foreach(var cell in response.Cells) ValidateResult(cell);
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {
@@ -243,8 +263,9 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             bool documentChanged=DocumentId!=response.DocumentId || (response.Error.Length==0 && request.Operation is (Request.Types.Operation.Create or Request.Types.Operation.New or Request.Types.Operation.Open or Request.Types.Operation.CloseDocument));
             if(documentChanged)DocumentGeneration++;
             Worksheets=response.Worksheets.Select(s=>s.Clone()).ToArray();
-            if(documentChanged || !Worksheets.Any(s=>s.Id==WorksheetId)) {WorksheetId=Worksheets.FirstOrDefault()?.Id??"";capturedSheets.Clear();}
-            if(request.Operation==Request.Types.Operation.Capture && response.Capture.Length!=0)capturedSheets[response.Capture]=request.Worksheet;
+            Windows=response.Windows.Select(s=>s.Clone()).ToArray();
+            if(documentChanged || !(IsWindowScope?Windows:Worksheets).Any(s=>s.Id==WorksheetId)) {WorksheetId=Worksheets.FirstOrDefault()?.Id??"";IsWindowScope=false;if(documentChanged)capturedSheets.Clear();}
+            if(request.Operation==Request.Types.Operation.Capture && response.Capture.Length!=0)capturedSheets[response.Capture]=(request.Worksheet,request.WindowScope);
             if(request.Operation==Request.Types.Operation.Release)capturedSheets.TryRemove(request.Capture,out _);
             DocumentId = response.DocumentId; DocumentPath = response.Path;
             PositionedCells=response.PositionedCells;AllocatedCellIdentities=response.AllocatedCellIdentities;

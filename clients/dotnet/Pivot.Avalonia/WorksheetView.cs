@@ -14,6 +14,14 @@ namespace Pivot.Avalonia;
 /// no worksheet-sized control collection or client calculation model.</summary>
 public sealed partial class WorksheetView : Control
 {
+    public int RowLimit { get; private set; } = WorkbookCapacity.MaximumRows;
+    public int ColumnLimit { get; private set; } = WorkbookCapacity.MaximumColumns;
+    public void SetGridDimensions(uint rows,uint columns) {
+        if(rows is 0 or > WorkbookCapacity.MaximumRows || columns is 0 or > WorkbookCapacity.MaximumColumns) throw new ArgumentOutOfRangeException(nameof(rows));
+        if(RowLimit==rows&&ColumnLimit==columns)return;
+        RowLimit=(int)rows;ColumnLimit=(int)columns;
+        RestoreView(FirstRow,FirstColumn,anchor,active,structuralFocus);
+    }
     public bool ActiveFocus { get; set; }
     public const int Rows = 20, Columns = 10;
     private const double Header = 48, WidthPerCell = 94, HeightPerCell = 26;
@@ -28,7 +36,7 @@ public sealed partial class WorksheetView : Control
     public Cell? CellAt(Position at) => cells.GetValueOrDefault((at.Row, at.Column));
     public uint FirstRow { get; private set; } = 1;
     public uint FirstColumn { get; private set; } = 1;
-    public int VisibleRows => Math.Clamp((int)(Bounds.Height / HeightPerCell) - 1, 1, Rows);
+    public int VisibleRows => Math.Clamp((int)(Bounds.Height / HeightPerCell) - 1, 1, Math.Min(Rows,RowLimit));
     private Position active = new() { Row=1, Column=1 }, anchor = new() { Row=1, Column=1 };
     private Position? structuralFocus;
     public Position Selected => (structuralFocus??active).Clone();
@@ -55,9 +63,9 @@ public sealed partial class WorksheetView : Control
         ClearFilterFrame();
         structuralFocus=focus?.Clone();
         EndPointerSelection(false);
-        FirstRow=Math.Clamp(firstRow,1,(uint)WorkbookCapacity.MaximumRows+1-(uint)VisibleRows);FirstColumn=Math.Clamp(firstColumn,1,1025-Columns);
-        anchor=new(){Row=Math.Clamp(selectedAnchor.Row,1,WorkbookCapacity.MaximumRows),Column=Math.Clamp(selectedAnchor.Column,1,1024)};
-        active=new(){Row=Math.Clamp(selectedActive.Row,1,WorkbookCapacity.MaximumRows),Column=Math.Clamp(selectedActive.Column,1,1024)};
+        FirstRow=Math.Clamp(firstRow,1,(uint)RowLimit+1-(uint)VisibleRows);FirstColumn=Math.Clamp(firstColumn,1,(uint)Math.Max(1,ColumnLimit+1-Columns));
+        anchor=new(){Row=Math.Clamp(selectedAnchor.Row,1,(uint)RowLimit),Column=Math.Clamp(selectedAnchor.Column,1,(uint)ColumnLimit)};
+        active=new(){Row=Math.Clamp(selectedActive.Row,1,(uint)RowLimit),Column=Math.Clamp(selectedActive.Column,1,(uint)ColumnLimit)};
         cells.Clear();styles.Clear();InvalidateVisual();
     }
     public Cell? SelectedCell => cells.GetValueOrDefault((Selected.Row, Selected.Column));
@@ -82,7 +90,7 @@ public sealed partial class WorksheetView : Control
     public void Scroll(int rows, int columns = 0)
     {
         uint r = (uint)Math.Clamp((int)FirstRow + rows, 1, Math.Max((int)TotalVisualRows,VisibleRows) + 1 - VisibleRows);
-        uint c = (uint)Math.Clamp((int)FirstColumn + columns, 1, 1025 - Columns);
+        uint c = (uint)Math.Clamp((int)FirstColumn + columns, 1, Math.Max(1,ColumnLimit+1-Columns));
         if (r == FirstRow && c == FirstColumn) return;
         FirstRow = r; FirstColumn = c; cells.Clear();styles.Clear(); InvalidateVisual(); ViewportChanged?.Invoke();
     }
@@ -98,23 +106,23 @@ public sealed partial class WorksheetView : Control
         uint row;
         if(ProjectionFrame is not null){var mapped=MappedRow(index);if(mapped is null || mapped.Kind!=0)return null;row=mapped.OrdinaryRow;}
         else {var mapped=WorksheetRowAt(index);if(mapped is null)return null;row=mapped.Value;}
-        return new Position{Row=row,Column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,1024)};
+        return new Position{Row=row,Column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,ColumnLimit)};
     }
     protected override async void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
         var point=e.GetPosition(this);
         if(e.GetCurrentPoint(this).Properties.IsLeftButtonPressed&&FilterHeaderClick(point)){e.Handled=true;return;}
-        if(e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && ProjectionFrame is null && point.X>=0 && point.Y>=0 && point.X<Header+Columns*WidthPerCell && point.Y<(VisibleRows+1)*HeightPerCell && (point.X<Header || point.Y<HeightPerCell)) {
+        if(e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && ProjectionFrame is null && point.X>=0 && point.Y>=0 && point.X<Header+Math.Min(Columns,ColumnLimit)*WidthPerCell && point.Y<(VisibleRows+1)*HeightPerCell && (point.X<Header || point.Y<HeightPerCell)) {
             EndPointerSelection(false);e.Handled=true;
             long headerGesture=++gesture;
             bool rows=point.X<Header,columns=point.Y<HeightPerCell;
             if(rows&&point.Y>=HeightPerCell&&WorksheetRowAt((int)Math.Floor(point.Y/HeightPerCell)-1) is null)return;
             uint row=WorksheetRowAt((int)Math.Floor(point.Y/HeightPerCell)-1)??Selected.Row;
-            uint column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,WorkbookCapacity.MaximumColumns);
+            uint column=(uint)Math.Clamp((int)FirstColumn+(int)Math.Floor((point.X-Header)/WidthPerCell),1,ColumnLimit);
             bool extendHeader=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-            uint firstRow=columns?1:extendHeader?Math.Min(Anchor.Row,row):row,lastRow=columns?WorkbookCapacity.MaximumRows:extendHeader?Math.Max(Anchor.Row,row):row;
-            uint firstColumn=rows?1:extendHeader?Math.Min(Anchor.Column,column):column,lastColumn=rows?WorkbookCapacity.MaximumColumns:extendHeader?Math.Max(Anchor.Column,column):column;
+            uint firstRow=columns?1:extendHeader?Math.Min(Anchor.Row,row):row,lastRow=columns?(uint)RowLimit:extendHeader?Math.Max(Anchor.Row,row):row;
+            uint firstColumn=rows?1:extendHeader?Math.Min(Anchor.Column,column):column,lastColumn=rows?(uint)ColumnLimit:extendHeader?Math.Max(Anchor.Column,column):column;
             var firstHeader=new Position{Row=firstRow,Column=firstColumn};
             selectionPending=true;
             bool headerAccepted=SelectionRequested is not null && await SelectionRequested(firstHeader,false,false,()=>gesture==headerGesture);
@@ -124,7 +132,7 @@ public sealed partial class WorksheetView : Control
             Select(new Position{Row=lastRow,Column=lastColumn},true);
             Focus();return;
         }
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || point.X<Header || point.X>=Header+Columns*WidthPerCell
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || point.X<Header || point.X>=Header+Math.Min(Columns,ColumnLimit)*WidthPerCell
             || point.Y<HeightPerCell || point.Y>=(VisibleRows+1)*HeightPerCell) return;
         if(ProjectionTargetAt(point) is { } projected){EndPointerSelection(false);e.Handled=true;if(ProjectionRequested is not null)await ProjectionRequested(projected);return;}
         var ordinary=PositionAt(point);if(ordinary is null)return;
@@ -163,10 +171,10 @@ public sealed partial class WorksheetView : Control
     {
         if (!dragReady || dragPointer is null) return;
         int rows=dragPoint.Y<HeightPerCell ? -1 : dragPoint.Y>=(VisibleRows+1)*HeightPerCell ? 1 : 0;
-        int columns=dragPoint.X<Header ? -1 : dragPoint.X>=Header+Columns*WidthPerCell ? 1 : 0;
+        int columns=dragPoint.X<Header ? -1 : dragPoint.X>=Header+Math.Min(Columns,ColumnLimit)*WidthPerCell ? 1 : 0;
         Scroll(rows,columns);
         // Beyond-edge distance must not create a large coordinate jump per tick.
-        var clamped=new Point(Math.Clamp(dragPoint.X,Header,Header+Columns*WidthPerCell-1),
+        var clamped=new Point(Math.Clamp(dragPoint.X,Header,Header+Math.Min(Columns,ColumnLimit)*WidthPerCell-1),
             Math.Clamp(dragPoint.Y,HeightPerCell,(VisibleRows+1)*HeightPerCell-1));
         if(PositionAt(clamped) is { } at) Select(at,true);
     }
@@ -179,13 +187,13 @@ public sealed partial class WorksheetView : Control
         if(restore) { anchor=previousAnchor.Clone(); active=previousActive.Clone();structuralFocus=previousStructuralFocus?.Clone(); InvalidateVisual(); SelectionChanged?.Invoke(); Reveal(Selected); }
     }
     public void SelectStructuralBand(Position first,Position last,Position focus) {
-        if(first.Row<1||first.Column<1||last.Row>WorkbookCapacity.MaximumRows||last.Column>WorkbookCapacity.MaximumColumns||first.Row>last.Row||first.Column>last.Column||focus.Row<first.Row||focus.Row>last.Row||focus.Column<first.Column||focus.Column>last.Column)throw new ArgumentOutOfRangeException(nameof(focus));
+        if(first.Row<1||first.Column<1||last.Row>RowLimit||last.Column>ColumnLimit||first.Row>last.Row||first.Column>last.Column||focus.Row<first.Row||focus.Row>last.Row||focus.Column<first.Column||focus.Column>last.Column)throw new ArgumentOutOfRangeException(nameof(focus));
         anchor=first.Clone();active=last.Clone();structuralFocus=focus.Clone();InvalidateVisual();SelectionChanged?.Invoke();
     }
     public void Select(Position at, bool extend=false)
     {
         bool hadStructuralFocus=structuralFocus is not null;structuralFocus=null;
-        if(at.Row is <1 or >WorkbookCapacity.MaximumRows || at.Column is <1 or >1024) throw new ArgumentOutOfRangeException(nameof(at));
+        if(at.Row <1 || at.Row >RowLimit || at.Column <1 || at.Column >ColumnLimit) throw new ArgumentOutOfRangeException(nameof(at));
         if(ProjectedSelection is not null){ProjectedSelection=null;MissingProjectedRecord=false;ProjectedSelectionChanged?.Invoke();}
         if(!extend) anchor=at.Clone();
         if(active.Row==at.Row && active.Column==at.Column && extend && !hadStructuralFocus) return;
@@ -204,7 +212,7 @@ public sealed partial class WorksheetView : Control
         var border = new Pen(Brushes.LightGray, 1);
         context.FillRectangle(Brushes.White, new Rect(Bounds.Size));
         var first=SelectionFirst; var last=SelectionLast;var focused=Selected;
-        for (int row = -1; row < VisibleRows; row++) for (int col = -1; col < Columns; col++) {
+        for (int row = -1; row < VisibleRows; row++) for (int col = -1; col < Math.Min(Columns,ColumnLimit); col++) {
             double x = col < 0 ? 0 : Header + col * WidthPerCell;
             double y = (row + 1) * HeightPerCell;
             var rect = new Rect(x, y, col < 0 ? Header : WidthPerCell, HeightPerCell);

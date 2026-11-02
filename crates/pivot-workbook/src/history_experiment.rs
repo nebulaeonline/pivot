@@ -8,7 +8,7 @@ pub mod durability;
 pub mod representation;
 pub struct HistoricalRoot {
     session: Uuid,
-    worksheet: WorksheetId,
+    worksheet: GridScopeId,
     graph: Uuid,
     core: WorkingModel,
     data: persistent::State,

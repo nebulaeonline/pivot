@@ -122,7 +122,7 @@ fn valid_range_fault(origin: &str) -> bool {
         *byte = value;
     }
     let coord = |offset| u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
-    bytes[0] == 1
+    matches!(bytes[0], 1 | 2)
         && matches!(bytes[1], 2 | 4)
         && bytes[2..18].iter().any(|b| *b != 0)
         && bytes[18..34].iter().any(|b| *b != 0)

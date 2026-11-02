@@ -8,6 +8,12 @@ pub const MAX_BYTES: usize = 256 * 1024;
 const MAX_SOURCE: usize = 128 * 1024;
 const MAX_TOKENS: usize = 16_384;
 const MAX_REFERENCES: usize = 8192;
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CopyMode {
+    Ordinary,
+    Visible,
+    Values,
+}
 const MAGIC: &[u8] = b"PIVOTCB5";
 const VISIBLE_MAGIC: &[u8] = b"PIVOTCB6";
 
@@ -428,6 +434,19 @@ impl Image {
                 }
                 2 | 3 => {
                     let source = r.text()?;
+                    if tag == 2 {
+                        let parsed = expression::parse_spreadsheet(&source);
+                        let (tokens, _, _) =
+                            Workbook::lower_text_bounds(MAX_ROWS, MAX_COLUMNS, &parsed);
+                        if tokens
+                            .iter()
+                            .any(|t| matches!(t, Token::QualifierAt { window: true, .. }))
+                        {
+                            return Err(Error::Graph(
+                                "CB5/CB6 cannot import Window reference authority".into(),
+                            ));
+                        }
+                    }
                     let count = r.n()? as usize;
                     if count > MAX_REFERENCES || count > r.bytes.len().saturating_sub(r.at) / 8 {
                         return Err(invalid());
@@ -443,7 +462,11 @@ impl Image {
                     let mut faults = Vec::new();
                     for _ in 0..fault_count {
                         let origin = r.text()?;
-                        crate::structure::FaultOrigin::decode(&origin)?;
+                        if crate::structure::FaultOrigin::decode(&origin)?
+                            .is_some_and(|o| o.worksheet.is_window())
+                        {
+                            return Err(invalid());
+                        }
                         faults.push(origin);
                     }
                     if (tag == 3 && !faults.is_empty())
@@ -572,19 +595,25 @@ impl Workbook {
     }
     pub fn copy_visible_sheet(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         rows: &[u32],
         first_column: u32,
         last_column: u32,
         cancel: &CancellationToken,
     ) -> Result<ClipboardBlock> {
-        self.request_view(sheet)?
-            .copy_rows(expected, rows, first_column, last_column, true, cancel)
+        self.request_view(sheet)?.copy_rows(
+            expected,
+            rows,
+            first_column,
+            last_column,
+            CopyMode::Visible,
+            cancel,
+        )
     }
     pub fn paste_visible_sheet(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         destination: VisibleDestination<'_>,
         bytes: &[u8],
@@ -605,7 +634,7 @@ impl Workbook {
     /// Exact addressed destination from the immutable payload, for operation review.
     pub fn paste_extent(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         rectangle: Rectangle,
         bytes: &[u8],
@@ -654,9 +683,28 @@ impl Workbook {
             &(rectangle.first.row..=rectangle.last.row).collect::<Vec<_>>(),
             rectangle.first.column,
             rectangle.last.column,
-            false,
+            CopyMode::Ordinary,
             &CancellationToken::default(),
         )
+    }
+    pub fn copy_values_scope(
+        &self,
+        scope: GridScopeId,
+        expected: Expected,
+        rectangle: Rectangle,
+    ) -> Result<ClipboardBlock> {
+        area(rectangle.first, rectangle.last)?;
+        let rows: Vec<_> = (rectangle.first.row..=rectangle.last.row).collect();
+        let mut result = self.request_view(scope)?.copy_rows(
+            expected,
+            &rows,
+            rectangle.first.column,
+            rectangle.last.column,
+            CopyMode::Values,
+            &CancellationToken::default(),
+        )?;
+        result.native.clear();
+        Ok(result)
     }
     fn copy_rows(
         &self,
@@ -664,10 +712,17 @@ impl Workbook {
         rows: &[u32],
         first_column: u32,
         last_column: u32,
-        visible: bool,
+        mode: CopyMode,
         cancel: &CancellationToken,
     ) -> Result<ClipboardBlock> {
+        let visible = mode == CopyMode::Visible;
+        let values_only = mode == CopyMode::Values;
         self.check(expected)?;
+        if self.worksheet.is_window() && !values_only {
+            return Err(Error::Graph(
+                "Native Window Copy/Cut is unavailable; use explicit Copy Values.".into(),
+            ));
+        }
         valid_rows(rows)?;
         let first = Position::new(rows[0], first_column);
         let last = Position::new(*rows.last().unwrap(), last_column);
@@ -698,17 +753,57 @@ impl Workbook {
                 let content = capture
                     .pinned_content(Position::new(row, column))?
                     .map(|c| c.content);
+                let content = if values_only
+                    && matches!(
+                        content,
+                        Some(
+                            Content::Formula { .. }
+                                | Content::TextFormula(_)
+                                | Content::StructuredFormula(_)
+                        )
+                    ) {
+                    let cell = capture
+                        .cell_at(Position::new(row, column))
+                        .ok_or(Error::InvalidTarget)?;
+                    let value = capture
+                        .evaluate_values(&[cell])?
+                        .values
+                        .into_iter()
+                        .next()
+                        .ok_or(Error::InvalidTarget)?
+                        .1
+                        .map_err(|_| {
+                            Error::Graph("Cannot export an error as a scalar value".into())
+                        })?;
+                    Some(match value {
+                        pivot_types::PivotValue::Decimal(v) => {
+                            Content::Decimal(DecimalInput::from_decimal(v))
+                        }
+                        pivot_types::PivotValue::String(v) => Content::LiteralText(v),
+                        pivot_types::PivotValue::Boolean(v) => Content::Boolean(v),
+                        pivot_types::PivotValue::Blank => Content::Blank,
+                        _ => return Err(Error::InvalidTarget),
+                    })
+                } else {
+                    content
+                };
                 let slot=match content {
                     None|Some(Content::Blank)=>Slot::Blank,
                     Some(Content::Boolean(v))=>Slot::Boolean(v),Some(Content::LiteralText(v))=>Slot::Text(v),Some(Content::Decimal(v))=>Slot::Number(v),
                     Some(Content::StructuredFormula(_))=>return Err(Error::Graph("Structured formulas cannot use OS Copy/Cut; use same-document Duplicate instead.".into())),
                     Some(content)=>{
                         let (source,tokens,rejected)=match &content {Content::Formula{source,tokens}=>(source.as_str(),tokens.as_slice(),false),Content::TextFormula(f)=>(f.original_source.as_str(),f.tokens.as_slice(),f.diagnostic.is_some()),_=>return Err(invalid())};
+                        if tokens.iter().any(|t| match t {
+                            Token::Qualifier { worksheet, .. } => worksheet.is_window(),
+                            Token::Cell(c) => c.worksheet.is_window(),
+                            Token::Sum { rectangle, .. } | Token::WeightRange { rectangle, .. } => self.windows().any(|w| rectangle.space.0 == *w.id.uuid().as_bytes()),
+                            _ => crate::structure::origin_of(t).ok().flatten().is_some_and(|o| o.worksheet.is_window()),
+                        }) { return Err(Error::Graph("Native clipboard cannot preserve Window reference authority; use Copy Values.".into())); }
                         if tokens.iter().any(|t|matches!(t,Token::Output(_))){return Err(Error::Graph("Structured formulas cannot use OS Copy/Cut; use same-document Duplicate instead.".into()));}
                         if tokens.iter().any(|t|matches!(t,Token::Cell(target) if capture.pinned.records.get(&target.cell).is_none_or(|r|r.position.is_none()))){return Err(Error::Graph("Cannot copy a retired or unplaced bound target.".into()));}
                         if rejected {Slot::Formula{source:source.into(),effective:Vec::new(),rejected:true,faults:Vec::new()}}
                         else {
-                            let (source,faults)=crate::structure::render(source,tokens,&capture.pinned,self.sheets(),self.limits.source_bytes)?;
+                            let (source,faults)=crate::structure::render(source,tokens,&capture.pinned,self.scopes(),self.limits.source_bytes)?;
                             let effective=references(&source)?.0.into_iter().map(|r|Position::new(r.row,r.column)).collect();
                             Slot::Formula{source,effective,rejected:false,faults}
                         }
@@ -753,6 +848,12 @@ impl Workbook {
         destination_rows: Option<&[u32]>,
     ) -> Result<Rectangle> {
         self.check(expected)?;
+        if native && self.worksheet.is_window() {
+            return Err(Error::Graph(
+                "Native Paste into a Window is unavailable; choose explicit text/values paste."
+                    .into(),
+            ));
+        }
         self.axes_at(rectangle.first)?;
         self.axes_at(rectangle.last)?;
         let _scratch = self

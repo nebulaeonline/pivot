@@ -23,9 +23,9 @@ internal static class RegionChecks {
   await s.FormatAsync(s.Revision,P(1),P(65536,1024),new(),0,true);
   summary=await s.ReadStyleSummaryAsync(P(1),P(65536,1024));Check(summary.FormatRegions==10&&summary.MixedStyleFields==0,"whole-sheet ten regions");Check(summary.PositionedCells==0&&summary.AllocatedCellIdentities==0,"entire empty worksheet remains graph-free");
   string path=Path.Combine(output,"regions.pivot");await s.SaveAsync(s.Revision,path);await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path);
-  summary=await s.ReadStyleSummaryAsync(P(1),P(65536,1024));Check(summary.FormatRegions==10,"WB10 regions round-trip");
-  string old=Path.Combine(output,"obsolete-version.pivot");await File.WriteAllBytesAsync(old,"PIVOTWB9"u8.ToArray());revision=s.Revision;
-  try{await s.OpenAsync(s.Revision,old);throw new Exception("obsolete version accepted");}catch(WorkbookSessionException e){Check(e.Message.Contains("unsupported native workbook version WB9"),"explicit obsolete rejection");}
+  summary=await s.ReadStyleSummaryAsync(P(1),P(65536,1024));Check(summary.FormatRegions==10,"WB14 regions round-trip");
+  string old=Path.Combine(output,"obsolete-version.pivot");await File.WriteAllBytesAsync(old,"PIVOTWB13"u8.ToArray());revision=s.Revision;
+  try{await s.OpenAsync(s.Revision,old);throw new Exception("obsolete version accepted");}catch(WorkbookSessionException e){Check(e.Message.Contains("unsupported native workbook version WB13"),"explicit obsolete rejection");}
   Check(s.Revision==revision,"failed Open preserves current document");
  }
 }

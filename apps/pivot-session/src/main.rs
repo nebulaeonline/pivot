@@ -3,8 +3,8 @@ use pivot_core::model::integration::IntegrationRuntime;
 use pivot_protocol::{application::v1 as wire, v1::Decimal128};
 use pivot_types::PivotDecimal;
 use pivot_workbook::{
-    CalculationCapture, Content, DecimalInput, Edit, Limits, Position, Rectangle, Workbook,
-    WorksheetId,
+    CalculationCapture, Content, DecimalInput, Edit, GridScopeId, Limits, Position, Rectangle,
+    WindowId, Workbook,
 };
 use prost::Message;
 use std::{
@@ -28,6 +28,7 @@ mod visible_tests;
 const MAX_FRAME: usize = 1_048_576;
 const MAX_CELLS: usize = 256;
 struct Capture {
+    scope: GridScopeId,
     computational_state: String,
     proof: Option<pivot_workbook::projection::Capture>,
     value: CalculationCapture,
@@ -41,6 +42,7 @@ struct PendingSave {
 }
 #[derive(Default)]
 struct Session {
+    window_delete: Option<(String, pivot_workbook::Expected, WindowId)>,
     filter: filtering::Presentation,
     filter_confirmation: Option<filtering::Confirmation>,
     visible_confirmation: Option<visible::Confirmation>,
@@ -61,6 +63,17 @@ struct Session {
 fn pos(p: Option<&wire::Position>) -> Result<Position, String> {
     p.map(|p| Position::new(p.row, p.column))
         .ok_or("position required".into())
+}
+fn request_scope(q: &wire::Request) -> Result<GridScopeId, String> {
+    let id = Uuid::parse_str(&q.worksheet).map_err(|_| "Grid scope ID required")?;
+    if id.is_nil() {
+        return Err("Grid scope ID required".into());
+    }
+    Ok(if q.window_scope {
+        WindowId::from_uuid(id).into()
+    } else {
+        GridScopeId::from_uuid(id)
+    })
 }
 fn decimal(d: PivotDecimal) -> Decimal128 {
     let (lo, mid, hi, negative, scale) = d.parts();
@@ -158,6 +171,7 @@ fn file_error(error: pivot_storage::experimental_file::Error) -> String {
 impl Session {
     fn new() -> Result<Self, String> {
         Ok(Self {
+            window_delete: None,
             computational_state: Uuid::new_v4().to_string(),
             proof: None,
             proof_frame: None,
@@ -197,7 +211,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 13 {
+        if q.version != 14 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -252,7 +266,7 @@ impl Session {
             return Err("worksheet metadata is unavailable in experimental proof documents".into());
         }
         if matches!(operation, Op::ProofStart | Op::BindingStart)
-            && self.book.as_ref().is_some_and(|b| b.sheets().len() != 1)
+            && self.book.as_ref().is_some_and(|b| b.scopes().len() != 1)
         {
             return Err("experimental proof modes require a separate single-sheet document".into());
         }
@@ -505,28 +519,90 @@ impl Session {
                 | Op::Sort
                 | Op::SortBounds
                 | Op::CopyBlock
+                | Op::CopyValues
+                | Op::CopyScope
                 | Op::PasteBlock
                 | Op::Apply
                 | Op::Read
                 | Op::Capture
                 | Op::Calculate
                 | Op::RenameSheet
+                | Op::RenameWindow
+                | Op::PrepareWindowDelete
+                | Op::DeleteWindow
                 | Op::Format
                 | Op::ReadStyles
         ) {
-            let id = WorksheetId::from_uuid(
-                Uuid::parse_str(&q.worksheet).map_err(|_| "worksheet ID required")?,
-            );
-            if !book.sheets().iter().any(|s| s.id == id) {
+            let id = request_scope(q)?;
+            if (operation == Op::Calculate
+                && self.captures.get(&q.capture).is_none_or(|c| c.scope != id))
+                || (operation != Op::Calculate
+                    && !book.scopes().iter().any(|s| s.id == id && !s.retired))
+            {
                 return Err("unknown worksheet ID".into());
             }
             r.worksheet = id.uuid().to_string();
+            r.window_scope = id.is_window();
             Some(id)
         } else {
             None
         };
         match operation {
-            Op::ListSheets => (),
+            Op::ListSheets | Op::ListWindows => (),
+            Op::CreateWindow => {
+                let id = book
+                    .create_grid_window(
+                        book.expected(),
+                        &q.sheet_name,
+                        q.window_rows,
+                        q.window_columns,
+                    )
+                    .map_err(|e| e.to_string())?;
+                r.worksheet = id.uuid().to_string();
+                r.window_scope = true;
+                self.revision = Uuid::new_v4().to_string();
+                r.revision = self.revision.clone();
+            }
+            Op::RenameWindow => {
+                let GridScopeId::Window(id) = sheet.unwrap() else {
+                    return Err("Window required".into());
+                };
+                let before = book.expected();
+                book.rename_window(before, id, &q.sheet_name)
+                    .map_err(|e| e.to_string())?;
+                if book.expected() != before {
+                    self.revision = Uuid::new_v4().to_string();
+                }
+                r.revision = self.revision.clone();
+            }
+            Op::PrepareWindowDelete => {
+                let GridScopeId::Window(id) = sheet.unwrap() else {
+                    return Err("Window required".into());
+                };
+                r.window_inbound_references =
+                    book.window_inbound_references(id, &Default::default())
+                        .map_err(|e| e.to_string())? as u64;
+                let ticket = Uuid::new_v4().to_string();
+                self.window_delete = Some((ticket.clone(), book.expected(), id));
+                r.window_delete_ticket = ticket;
+            }
+            Op::DeleteWindow => {
+                let GridScopeId::Window(id) = sheet.unwrap() else {
+                    return Err("Window required".into());
+                };
+                if self.window_delete.as_ref()
+                    != Some(&(q.window_delete_ticket.clone(), book.expected(), id))
+                {
+                    return Err("Prepare a current Window deletion confirmation".into());
+                }
+                book.delete_window(book.expected(), id, &Default::default())
+                    .map_err(|e| e.to_string())?;
+                self.window_delete = None;
+                self.revision = Uuid::new_v4().to_string();
+                r.revision = self.revision.clone();
+                r.worksheet = book.worksheet().uuid().to_string();
+                r.window_scope = false;
+            }
             Op::AddSheet => {
                 let id = book
                     .add_sheet(
@@ -574,14 +650,54 @@ impl Session {
                 }
                 r.revision = self.revision.clone();
             }
-            Op::CopyBlock => {
+            Op::CopyScope => {
+                let id = Uuid::parse_str(&q.destination_scope_id)
+                    .map_err(|_| "Destination Grid scope ID required")?;
+                let destination = if q.destination_window_scope {
+                    WindowId::from_uuid(id).into()
+                } else {
+                    GridScopeId::from_uuid(id)
+                };
+                if book
+                    .filter(sheet.unwrap())
+                    .map_err(|e| e.to_string())?
+                    .is_some()
+                    || book
+                        .filter(destination)
+                        .map_err(|e| e.to_string())?
+                        .is_some()
+                {
+                    return Err("Cross-scope Copy requires unfiltered source and destination; clear filters explicitly first".into());
+                }
+                let before = book.expected();
+                book.copy_between_scopes(
+                    before,
+                    sheet.unwrap(),
+                    Rectangle {
+                        first: pos(q.first.as_ref())?,
+                        last: pos(q.last.as_ref())?,
+                    },
+                    destination,
+                    pos(q.destination_first.as_ref())?,
+                    &Default::default(),
+                )
+                .map_err(|e| e.to_string())?;
+                if book.expected() != before {
+                    self.revision = Uuid::new_v4().to_string();
+                }
+                r.revision = self.revision.clone();
+            }
+            Op::CopyBlock | Op::CopyValues => {
                 let rectangle = Rectangle {
                     first: pos(q.first.as_ref())?,
                     last: pos(q.last.as_ref())?,
                 };
-                let copied = book
-                    .copy_sheet(sheet.unwrap(), book.expected(), rectangle)
-                    .map_err(|e| e.to_string())?;
+                let copied = if operation == Op::CopyValues {
+                    book.copy_values_scope(sheet.unwrap(), book.expected(), rectangle)
+                } else {
+                    book.copy_sheet(sheet.unwrap(), book.expected(), rectangle)
+                }
+                .map_err(|e| e.to_string())?;
                 r.clipboard = copied.native;
                 r.clipboard_text = copied.text;
                 r.clipboard_text_available = copied.text_available;
@@ -1042,6 +1158,7 @@ impl Session {
                 self.captures.insert(
                     id.clone(),
                     Capture {
+                        scope: sheet.unwrap(),
                         computational_state: self.computational_state.clone(),
                         proof: self
                             .proof
@@ -1051,10 +1168,13 @@ impl Session {
                             .map_err(|e| e.to_string())?,
                         value: {
                             let mut capture = book
-                                .capture_sheet(sheet.unwrap(), book.expected())
+                                .capture_scope(sheet.unwrap(), book.expected())
                                 .map_err(|e| e.to_string())?;
-                            structured::prepare_capture(self.proof.as_ref(), &mut capture)?;
-                            capture
+                            structured::prepare_capture(
+                                self.proof.as_ref(),
+                                &mut capture.calculation,
+                            )?;
+                            capture.calculation
                         },
                         revision: self.revision.clone(),
                     },
@@ -1151,7 +1271,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 13,
+            version: 14,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -1261,12 +1381,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     columns: s.column_count(),
                 })
                 .collect();
+            r.windows = book
+                .windows()
+                .filter(|s| !s.retired)
+                .map(|s| wire::WorksheetInfo {
+                    id: s.id.uuid().to_string(),
+                    name: s.name.clone(),
+                    rows: s.row_count(),
+                    columns: s.column_count(),
+                })
+                .collect();
             if r.worksheet.is_empty() {
-                r.worksheet = if book
-                    .sheets()
-                    .iter()
-                    .any(|s| s.id.uuid().to_string() == q.worksheet)
-                {
+                r.worksheet = if book.scopes().iter().any(|s| {
+                    !s.retired
+                        && s.id.is_window() == q.window_scope
+                        && s.id.uuid().to_string() == q.worksheet
+                }) {
+                    r.window_scope = q.window_scope;
                     q.worksheet.clone()
                 } else {
                     book.worksheet().uuid().to_string()
@@ -1275,11 +1406,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         if let Some(book) = &session.book
             && let Ok(id) = Uuid::parse_str(&r.worksheet)
+            && book
+                .scopes()
+                .iter()
+                .any(|s| s.id.uuid() == id && s.id.is_window() == r.window_scope && !s.retired)
         {
-            session.filter.requalify(book, WorksheetId::from_uuid(id));
-            if let Err(e) = session
-                .filter
-                .describe(book, WorksheetId::from_uuid(id), &mut r)
+            let scope = if r.window_scope {
+                WindowId::from_uuid(id).into()
+            } else {
+                GridScopeId::from_uuid(id)
+            };
+            session.filter.requalify(book, scope);
+            if let Err(e) = session.filter.describe(book, scope, &mut r)
                 && r.error.is_empty()
             {
                 r.error = e;
@@ -1368,7 +1506,7 @@ mod protocol_version_tests {
     #[test]
     fn incompatible_peers_reject_before_creating_state() {
         let mut session = Session::default();
-        for version in 0..13 {
+        for version in 0..14 {
             let request = wire::Request {
                 version,
                 operation: wire::request::Operation::Create as i32,

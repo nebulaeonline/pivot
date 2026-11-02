@@ -26,10 +26,20 @@ do not indefinitely substitute macOS ARM64 for Windows/Linux ARM64 GUI coverage.
 Review each target's most recent managed/AOT GUI receipts when choosing the matrix.
 Owner direction and the accepted ADR-0031/0032/0033 validation plans require managed **and Native AOT** GUI execution on
 Windows x64, Linux x64, Windows ARM64, Linux ARM64, macOS ARM64 and macOS x64.
-This milestone covers all six configured targets; future runs choose applicable
-coverage. macOS x64 under Rosetta remains separately identified emulated evidence.
+ADR-0040 covered all six configured targets and is accepted and closed; future runs
+choose applicable coverage. macOS x64 under Rosetta remains separately identified emulated evidence.
 Keep short target-local launchers and the
 normal interactive consent policy on every selected target.
+
+ADR-0040's prepared launcher is `~/PivotValidation/grd.py`: after
+`cd ~/PivotValidation`, use `python grd.py` on Windows or `./grd.py` on Linux/macOS.
+Commands are retained in `artifacts/grid-commands.txt`. It runs managed then Native
+AOT, with ARM64 followed by x64/Rosetta on the Mac, retaining normal local consent.
+All accepted suites are complete; do not rerun them for documentation closeout.
+The original Windows ARM64 cold headless timing failure remains unresolved despite
+the separate passing retained-cache CI. See the
+[qualification record](performance/unbound-grid-windows.md). Older milestone
+launchers below are historical; prepare fresh run identities for future validation.
 
 ```sh
 python scripts/ci.py --desktop

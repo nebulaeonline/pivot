@@ -322,7 +322,7 @@ impl StylePatch {
 impl persistent::Data {
     pub(crate) fn paint_style(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         r: Rectangle,
         patch: StylePatch,
         reset: bool,
@@ -359,7 +359,7 @@ impl persistent::Data {
     }
     pub(crate) fn resolved_style(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         p: Position,
         limits: StyleLimits,
         cancel: &CancellationToken,
@@ -369,7 +369,7 @@ impl persistent::Data {
     }
     pub(crate) fn snapshot_style(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         p: Position,
         s: Style,
         limits: StyleLimits,
@@ -398,7 +398,7 @@ impl persistent::Data {
     }
 }
 impl Workbook {
-    fn check_style_rectangle(&self, sheet: WorksheetId, r: Rectangle) -> Result<()> {
+    fn check_style_rectangle(&self, sheet: GridScopeId, r: Rectangle) -> Result<()> {
         if r.first.row > r.last.row || r.first.column > r.last.column {
             return Err(Error::Position);
         }
@@ -406,7 +406,7 @@ impl Workbook {
         self.axes_at_sheet(sheet, r.last)?;
         Ok(())
     }
-    pub fn style_at(&self, sheet: WorksheetId, p: Position) -> Result<Style> {
+    pub fn style_at(&self, sheet: GridScopeId, p: Position) -> Result<Style> {
         self.axes_at_sheet(sheet, p)?;
         self.persistent
             .resolved_style(sheet, p, self.limits.styles, &Default::default())
@@ -427,14 +427,14 @@ impl Workbook {
     pub fn regions(&self) -> impl Iterator<Item = Region> + '_ {
         self.persistent.styles.regions()
     }
-    pub fn worksheet_defaults(&self) -> impl Iterator<Item = (WorksheetId, Style)> + '_ {
+    pub fn worksheet_defaults(&self) -> impl Iterator<Item = (GridScopeId, Style)> + '_ {
         self.persistent.styles.defaults()
     }
-    pub fn worksheet_default(&self, sheet: WorksheetId) -> Result<Style> {
+    pub fn worksheet_default(&self, sheet: GridScopeId) -> Result<Style> {
         self.sheet_info(sheet)?;
         Ok(self.persistent.styles.default_style(sheet))
     }
-    pub fn style_summary(&self, sheet: WorksheetId, r: Rectangle) -> Result<(Style, u32)> {
+    pub fn style_summary(&self, sheet: GridScopeId, r: Rectangle) -> Result<(Style, u32)> {
         self.check_style_rectangle(sheet, r)?;
         self.persistent.styles.summary(
             sheet,
@@ -444,7 +444,7 @@ impl Workbook {
     }
     pub fn style_viewport(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         r: Rectangle,
     ) -> Result<Vec<(Position, Style)>> {
         self.check_style_rectangle(sheet, r)?;
@@ -460,7 +460,7 @@ impl Workbook {
     }
     pub fn set_worksheet_default(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         patch: StylePatch,
         cancel: &CancellationToken,
@@ -494,7 +494,7 @@ impl Workbook {
     }
     pub fn format_sheet(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         r: Rectangle,
         patch: StylePatch,
@@ -534,7 +534,7 @@ impl Workbook {
 }
 
 impl CalculationCapture {
-    pub fn style_at(&self, sheet: WorksheetId, p: Position) -> Result<Style> {
+    pub fn style_at(&self, sheet: GridScopeId, p: Position) -> Result<Style> {
         let info = self
             .pinned
             .sheets

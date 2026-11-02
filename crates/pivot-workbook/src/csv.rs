@@ -1,6 +1,6 @@
 //! Bounded CSV interchange. Quotation preserves Strings; no formula authoring.
 use crate::{
-    CalculationCapture, DecimalInput, Edit, Limits, Position, Rectangle, Workbook, WorksheetId,
+    CalculationCapture, DecimalInput, Edit, GridScopeId, Limits, Position, Rectangle, Workbook,
 };
 use pivot_core::model::integration::IntegrationRuntime;
 use pivot_types::{PivotDecimal, PivotValue};
@@ -267,8 +267,8 @@ impl Table {
 
 impl Workbook {
     /// Content only: excludes styled blanks and other sheets.
-    pub fn csv_content_bounds(&self, sheet: WorksheetId) -> Result<Option<Rectangle>> {
-        if !self.sheets().iter().any(|s| s.id == sheet) {
+    pub fn csv_content_bounds(&self, sheet: GridScopeId) -> Result<Option<Rectangle>> {
+        if !self.scopes().iter().any(|s| s.id == sheet && !s.retired) {
             return Err("CSV unknown worksheet".into());
         }
         let mut bound: Option<Rectangle> = None;

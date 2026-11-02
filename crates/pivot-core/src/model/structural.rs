@@ -1120,6 +1120,45 @@ impl Graph {
             retire,
         };
         let candidate = guard.value.as_mut().unwrap();
+        // Resolved structural batches never consult names while executing. When
+        // most nodes retire, rebuilding the small survivor directory avoids
+        // allocating an immutable AVL removal path for every retired name.
+        // Ordinary authoring/rename batches retain their sequential name semantics.
+        let bulk_names = edits.iter().all(|e| {
+            matches!(
+                e,
+                Edit::Placement(..)
+                    | Edit::Retire(_)
+                    | Edit::Resolved(..)
+                    | Edit::ReframeSelection(..)
+            )
+        }) && edits
+            .iter()
+            .filter(|e| matches!(e, Edit::Retire(_)))
+            .count()
+            > candidate.names.len() / 2;
+        if bulk_names {
+            let retired: BTreeSet<_> = edits
+                .iter()
+                .filter_map(|e| {
+                    if let Edit::Retire(id) = e {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            let mut names = Index::new(candidate.memory.clone());
+            for (name, id) in candidate.names.iter() {
+                if bulk.is_some_and(|check| check()) {
+                    return Err(Error::Cancelled);
+                }
+                if !retired.contains(id) {
+                    names.insert_private(name.clone(), *id)?;
+                }
+            }
+            candidate.names = names;
+        }
         if candidate.local_validation && self.certified() {
             candidate.invalid = Index::new(candidate.memory.clone());
             candidate.import_invalid = false;
@@ -1349,7 +1388,9 @@ impl Graph {
                     let mut retired = (*record).clone();
                     retired.live = false;
                     candidate.records.set(id.node, retired)?;
-                    candidate.names.remove(&record.name)?;
+                    if !bulk_names {
+                        candidate.names.remove(&record.name)?;
+                    }
                     candidate.invalid.remove(&id)?;
                     candidate.live -= 1;
                     topology = true;
@@ -2267,6 +2308,49 @@ impl Work {
 #[cfg(test)]
 mod selection_transaction_tests {
     use super::*;
+    #[test]
+    fn bulk_retirement_preserves_old_name_roots_and_rolls_back_late_refusal() {
+        let runtime = integration::IntegrationRuntime::standalone().unwrap();
+        let mut model = WorkingModel::new_in("Retirement", &runtime).unwrap();
+        let mut batch = model.begin_batch(8, 4096).unwrap();
+        let ids: Vec<_> = (0..8)
+            .map(|i| batch.add_input(format!("P{i}"), 1.into()).unwrap())
+            .collect();
+        model.apply_batch(batch, &Default::default()).unwrap();
+        let mut graph = model.integrated.graph().clone();
+        let old = graph.clone();
+        graph
+            .apply_bulk(
+                graph.version(),
+                ids[..6].iter().copied().map(Edit::Retire).collect(),
+                &|| false,
+                drop,
+            )
+            .unwrap();
+        assert_eq!(graph.node_id("P0"), None);
+        assert_eq!(graph.node_id("P6"), Some(ids[6]));
+        assert_eq!(old.node_id("P0"), Some(ids[0]));
+        assert!(old.live_record(ids[0]).is_ok());
+        let before = graph.version();
+        assert!(
+            graph
+                .apply_bulk(
+                    before,
+                    vec![Edit::Retire(ids[6]), Edit::Retire(ids[6])],
+                    &|| false,
+                    drop
+                )
+                .is_err()
+        );
+        assert_eq!(graph.version(), before);
+        assert_eq!(graph.node_id("P6"), Some(ids[6]));
+        assert_eq!(graph.node_id("P7"), Some(ids[7]));
+        assert!(graph.live_record(ids[6]).is_ok());
+        drop((old, graph, model));
+        let memory = runtime.memory();
+        assert!(runtime.finish().is_ok());
+        assert_eq!(memory.stats().charged, 0);
+    }
     #[test]
     fn late_selection_walk_cancellation_preserves_all_roots() {
         let runtime = integration::IntegrationRuntime::standalone().unwrap();

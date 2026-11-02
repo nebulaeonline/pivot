@@ -1,7 +1,7 @@
 # ADR-0040: Unbound Grid Windows, identity and references
 
 Date: 2026-11-01.
-Status: **Design approved with three mandatory clarifications incorporated (2026-11-01); revised contract awaiting confirmation. Implementation not authorized.**
+Status: **Accepted and closed by parent implementation review (2026-11-01), with the unresolved Windows ARM64 cold-run qualification retained.**
 
 ## Design review disposition
 
@@ -10,8 +10,15 @@ v14 compatibility cuts subject to the implementation codec audit, clipboard refu
 and six-target qualification. Three mandatory clarifications are incorporated below:
 client-only scope selection, one-generation bounded scope captures, and explicit
 aggregate axis/identity admission. Return this revised contract for confirmation
-before the owner's separate implementation decision. No subsequent ADR is assigned
-or started by this review.
+before implementation. That confirmation and separate implementation authorization
+have now been received. No subsequent ADR is assigned or started by this milestone.
+
+Implementation and compatibility details are recorded in
+[unbound Grid Window semantics](../architecture/unbound-grid-windows.md). The
+[implementation handoff](../handoffs/2026-11-01-unbound-grid-windows.md) and
+[resource qualification](../performance/unbound-grid-windows.md) record six-target
+managed/AOT results and the separate Windows ARM64 retained-cache headless pass.
+The original cold-run timing failure remains Failed and unresolved.
 
 ## Scope and foundation
 

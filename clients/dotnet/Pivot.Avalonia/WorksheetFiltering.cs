@@ -10,7 +10,7 @@ public sealed partial class WorksheetView {
  public bool HasFilterMap=>filterRows is not null;
  public event Action<uint>? FilterColumnRequested;
  public uint? WorksheetRowAt(int offset){
-  if(filterRows is null)return (uint)Math.Clamp((int)FirstRow+offset,1,WorkbookCapacity.MaximumRows);
+  if(filterRows is null)return (uint)Math.Clamp((int)FirstRow+offset,1,RowLimit);
   long index=(long)FirstRow-1+offset;return index>=0&&index<filterRows.Length?filterRows[index]:null;
  }
  public bool RowIsShown(uint row)=>filterRows is null||Array.BinarySearch(filterRows,row)>=0;
@@ -20,7 +20,7 @@ public sealed partial class WorksheetView {
   if(!after)index--;return filterRows[Math.Clamp(index,0,filterRows.Length-1)];
  }
  public uint StepVisibleRow(uint row,int delta){
-  if(filterRows is null)return (uint)Math.Clamp((long)row+delta,1,WorkbookCapacity.MaximumRows);
+  if(filterRows is null)return (uint)Math.Clamp((long)row+delta,1,RowLimit);
   if(filterRows.Length==0)return 1;int index=Array.BinarySearch(filterRows,row);if(index<0)index=~index;
   return filterRows[Math.Clamp((long)index+delta,0,filterRows.Length-1)];
  }
@@ -38,13 +38,13 @@ public sealed partial class WorksheetView {
   if(response.FilterStatus>4||(response.FilterStatus==0)!=(response.FilterSummary is null))throw new InvalidDataException("Invalid filter presentation state.");
   if((response.FilterStatus==2)!=(response.FilterSummary?.NeedsReview==true)||response.FilterShownDataRows>response.FilterTotalDataRows)throw new InvalidDataException("Invalid filter counts or review state.");
   var frameRows=response.FilterRows.ToHashSet();if(response.Cells.Any(c=>c.At is null||!frameRows.Contains(c.At.Row))||response.Styles.Any(s=>s.At is null||!frameRows.Contains(s.At.Row)))throw new InvalidDataException("Filtered cell/style addresses do not match the mapped rows.");
-  if(response.FilterStatus!=1&&response.FilterVisibleMask.Span.ContainsAnyExcept((byte)255))throw new InvalidDataException("Pending or suspended filtering must show all rows.");
+  if(response.FilterStatus!=1&&(response.FilterVisibleMask.Span[..(RowLimit/8)].ContainsAnyExcept((byte)255)||(RowLimit%8!=0&&(response.FilterVisibleMask.Span[RowLimit/8]&((1<<(RowLimit%8))-1))!=((1<<(RowLimit%8))-1))))throw new InvalidDataException("Pending or suspended filtering must show all rows.");
   if(filterGeneration!=response.FilterGeneration){EndPointerSelection(false);filterGeneration=response.FilterGeneration;}
   if(response.FilterStatus!=1){
-   if(response.FilterTotalVisibleRows!=WorkbookCapacity.MaximumRows||response.FilterFirstVisible==0||response.FilterFirstVisible>WorkbookCapacity.MaximumRows||!response.FilterRows.SequenceEqual(Enumerable.Range((int)response.FilterFirstVisible,response.FilterRows.Count).Select(r=>(uint)r)))throw new InvalidDataException("Invalid unfiltered viewport mapping.");
+   if(response.FilterTotalVisibleRows!=RowLimit||response.FilterFirstVisible==0||response.FilterFirstVisible>RowLimit||!response.FilterRows.SequenceEqual(Enumerable.Range((int)response.FilterFirstVisible,response.FilterRows.Count).Select(r=>(uint)r)))throw new InvalidDataException("Invalid unfiltered viewport mapping.");
    filterRows=null;FilterSummary=response.FilterSummary?.Clone();FirstRow=response.FilterFirstVisible;InvalidateVisual();return;
   }
-  var rows=new List<uint>();for(uint row=1;row<=WorkbookCapacity.MaximumRows;row++)if((response.FilterVisibleMask.Span[(int)(row-1)/8]&(1<<((int)(row-1)%8)))!=0)rows.Add(row);
+  var rows=new List<uint>();for(uint row=1;row<=RowLimit;row++)if((response.FilterVisibleMask.Span[(int)(row-1)/8]&(1<<((int)(row-1)%8)))!=0)rows.Add(row);
   if(rows.Count!=response.FilterTotalVisibleRows||response.FilterFirstVisible==0)throw new InvalidDataException("Invalid filtered viewport mapping.");
   var expected=rows.Skip((int)response.FilterFirstVisible-1).Take(response.FilterRows.Count);if(!expected.SequenceEqual(response.FilterRows))throw new InvalidDataException("Incoherent filtered viewport rows.");
   FilterSummary=response.FilterSummary?.Clone();filterRows=FilterSummary is null||FilterSummary.NeedsReview?null:rows.ToArray();FirstRow=response.FilterFirstVisible;

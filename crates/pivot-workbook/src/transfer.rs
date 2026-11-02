@@ -7,25 +7,28 @@ use pivot_core::model::{
 use std::collections::BTreeMap;
 #[derive(Clone)]
 pub struct CellRecord {
-    pub worksheet: WorksheetId,
+    pub worksheet: GridScopeId,
     pub position: Option<Position>,
     pub content: Option<Content>,
 }
 #[derive(Clone, Debug)]
 pub struct SheetRecord {
-    pub id: WorksheetId,
+    pub retired: bool,
+    pub id: GridScopeId,
     pub name: String,
     pub rows: Uuid,
     pub columns: Uuid,
     pub row_count: u32,
     pub column_count: u32,
+    pub row_axis: AxisImage,
+    pub column_axis: AxisImage,
 }
 pub struct PortableWorkbook {
-    pub filters: Vec<(WorksheetId, filtering::Definition)>,
+    pub filters: Vec<(GridScopeId, filtering::Definition)>,
     pub styles: Vec<formatting::Region>,
-    pub style_defaults: Vec<(WorksheetId, formatting::Style)>,
+    pub style_defaults: Vec<(GridScopeId, formatting::Style)>,
     pub sheets: Vec<SheetRecord>,
-    pub worksheet: WorksheetId,
+    pub worksheet: GridScopeId,
     pub graph_id: Uuid,
     pub rows: Uuid,
     pub columns: Uuid,
@@ -36,17 +39,34 @@ pub struct PortableWorkbook {
     pub graph: transfer::SelectionImage,
 }
 pub fn validate_sheet_directory(sheets: &[SheetRecord], limits: Limits) -> Result<()> {
-    if sheets.is_empty() || sheets.len() > 16 {
+    if sheets.first().is_none_or(|s| s.id.is_window() || s.retired)
+        || sheets.len() > 262_144
+        || sheets.iter().filter(|s| !s.id.is_window()).count() > 16
+        || sheets
+            .iter()
+            .filter(|s| s.id.is_window() && !s.retired)
+            .count()
+            > 64
+    {
         return Err(Error::Limit);
     }
     let mut ids = BTreeSet::new();
     let mut names = BTreeSet::new();
     let mut axes = BTreeSet::new();
+    let mut saw_window = false;
     for sheet in sheets {
+        if (saw_window && !sheet.id.is_window())
+            || (!sheet.id.is_window() && sheet.retired)
+            || (sheet.id.is_window() && sheet.name.contains('|'))
+        {
+            return Err(Error::InvalidTarget);
+        }
+        saw_window |= sheet.id.is_window();
         if sheet.id.uuid().is_nil()
-            || !ids.insert(sheet.id)
+            || !ids.insert(sheet.id.uuid())
             || sheets::normalize_name(&sheet.name)? != sheet.name
-            || !names.insert(sheets::name_key(&sheet.name))
+            || (!sheet.retired
+                && !names.insert((sheet.id.is_window(), sheets::name_key(&sheet.name))))
             || sheet.row_count == 0
             || sheet.column_count == 0
             || sheet.row_count > limits.rows
@@ -164,15 +184,18 @@ impl Workbook {
             styles: self.regions().collect(),
             style_defaults: self.worksheet_defaults().collect(),
             sheets: self
-                .sheets()
+                .scopes()
                 .iter()
                 .map(|s| SheetRecord {
+                    retired: s.retired,
                     id: s.id,
                     name: s.name.clone(),
                     rows: s.rows.namespace,
                     columns: s.columns.namespace,
                     row_count: s.rows.length,
                     column_count: s.columns.length,
+                    row_axis: s.rows.image(),
+                    column_axis: s.columns.image(),
                 })
                 .collect(),
             worksheet: self.worksheet,
@@ -230,7 +253,7 @@ impl Workbook {
             if cancel.is_cancelled() {
                 return Err(Error::Graph("cancelled document projection".into()));
             }
-            if !self.sheets().iter().any(|s| s.id == record.worksheet)
+            if !self.scopes().iter().any(|s| s.id == record.worksheet)
                 || id.uuid().is_nil()
                 || record.position.is_some() != record.content.is_some()
                 || nodes.contains_key(&slot) != record.content.is_some()
@@ -352,7 +375,7 @@ impl Workbook {
                     }
                 }
             }
-            sheets::validate_scope(record.worksheet, source, tokens, self.sheets())?;
+            sheets::validate_scope(record.worksheet, source, tokens, self.scopes())?;
             let translated: Vec<_> = tokens
                 .iter()
                 .filter(|t| !matches!(t, Token::Qualifier { .. }))
@@ -516,19 +539,42 @@ impl Workbook {
             image
                 .sheets
                 .iter()
-                .map(|s| SheetInfo {
-                    id: s.id,
-                    name: s.name.clone(),
-                    rows: Axis {
-                        namespace: s.rows,
-                        length: limits.rows,
-                    },
-                    columns: Axis {
-                        namespace: s.columns,
-                        length: limits.columns,
-                    },
+                .map(|s| {
+                    Ok(SheetInfo {
+                        retired: s.retired,
+                        id: s.id,
+                        name: s.name.clone(),
+                        rows: Axis::from_image(
+                            s.rows,
+                            s.row_count,
+                            &s.row_axis,
+                            &runtime.memory(),
+                        )?
+                        .admitted_length(
+                            if s.id.is_window() {
+                                s.row_count
+                            } else {
+                                limits.rows
+                            },
+                            &runtime.memory(),
+                        )?,
+                        columns: Axis::from_image(
+                            s.columns,
+                            s.column_count,
+                            &s.column_axis,
+                            &runtime.memory(),
+                        )?
+                        .admitted_length(
+                            if s.id.is_window() {
+                                s.column_count
+                            } else {
+                                limits.columns
+                            },
+                            &runtime.memory(),
+                        )?,
+                    })
                 })
-                .collect(),
+                .collect::<Result<Vec<_>>>()?,
         )?;
         if image.sheets.first().is_none_or(|s| {
             s.id != image.worksheet
@@ -633,6 +679,11 @@ impl Workbook {
                 _ => (),
             }
             if !sheet_ids.contains(&r.worksheet)
+                || (r.position.is_some()
+                    && image
+                        .sheets
+                        .iter()
+                        .any(|s| s.id == r.worksheet && s.retired))
                 || id.uuid().is_nil()
                 || node.uuid().is_nil()
                 || !cells.insert(*id)
@@ -686,6 +737,15 @@ impl Workbook {
                 .insert_private(runtime_id, id)
                 .map_err(|_| Error::Limit)?;
         }
+        crate::windows::validate_scope_graph(&imported.model, &data, &Default::default())?;
+        let primary = data
+            .sheets
+            .as_ref()
+            .ok_or(Error::InvalidTarget)?
+            .0
+            .first()
+            .ok_or(Error::InvalidTarget)?
+            .clone();
         let persistent = imported.model.retain_resource(data).map_err(graph_error)?;
         Ok(Self {
             #[cfg(feature = "history-experiment")]
@@ -698,14 +758,8 @@ impl Workbook {
             state: image.state,
             worksheet: image.worksheet,
             graph_id: image.graph_id,
-            rows: Axis {
-                namespace: image.rows,
-                length: limits.rows,
-            },
-            columns: Axis {
-                namespace: image.columns,
-                length: limits.columns,
-            },
+            rows: primary.rows,
+            columns: primary.columns,
             persistent,
             core: imported.model,
             limits,

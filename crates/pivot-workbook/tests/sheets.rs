@@ -8,7 +8,7 @@ fn e(r: u32, c: u32, s: &str) -> Edit {
         source: s.into(),
     }
 }
-fn value(b: &Workbook, s: WorksheetId, r: u32, c: u32) -> String {
+fn value(b: &Workbook, s: GridScopeId, r: u32, c: u32) -> String {
     let cap = b.capture_sheet(s, b.expected()).unwrap();
     let cell = cap.cell_at(p(r, c)).unwrap();
     cap.evaluate(&[cell]).unwrap().values[0]

@@ -15,7 +15,7 @@ pub(super) struct Data {
     pub(crate) adapter: Option<Shared<structured::Adapter>>,
     annotations: Index<CellId, structured::StructuredContent>,
     pub(super) styles: formatting::Store,
-    pub(super) filters: Index<WorksheetId, Shared<filtering::Definition>>,
+    pub(super) filters: Index<GridScopeId, Shared<filtering::Definition>>,
     pub(super) positions: Index<sheets::SheetPosition, CellId>,
     pub(super) sheets: Option<Shared<sheets::Directory>>,
     pub(super) records: Index<CellId, Shared<Record>>,
@@ -119,7 +119,25 @@ impl Data {
         }
     }
     pub(super) fn stats(&self) -> Stats {
+        let scopes = self.sheets.as_ref().map_or(&[][..], |s| s.0.as_slice());
         Stats {
+            live_scopes: scopes.iter().filter(|s| !s.retired).count(),
+            retired_scopes: scopes.iter().filter(|s| s.retired).count(),
+            axis_namespaces: scopes.len() * 2,
+            explicit_axis_runs: scopes
+                .iter()
+                .map(|s| {
+                    [&s.rows, &s.columns]
+                        .into_iter()
+                        .map(|a| a.layout.as_ref().map_or(0, |p| p.runs.len()))
+                        .sum::<usize>()
+                })
+                .sum(),
+            logical_axis_slots: scopes
+                .iter()
+                .map(|s| u64::from(s.rows.length) + u64::from(s.columns.length))
+                .sum(),
+            axis_layout_bytes: self.sheets.as_ref().map_or(0, |s| s.axis_bytes()),
             live_cells: self.positions.len(),
             live_nodes: self.live,
             allocated_nodes: self.records.len(),
@@ -138,7 +156,10 @@ impl Data {
                         std::mem::size_of::<filtering::Definition>() + d.heap_bytes() + 128
                     })
                     .sum::<usize>()
-                + self.sheets.as_ref().map_or(0, |s| s.heap_bytes()),
+                + self
+                    .sheets
+                    .as_ref()
+                    .map_or(0, |s| s.heap_bytes() + s.axis_bytes()),
         }
     }
     pub(super) fn record(&mut self, id: CellId, record: Record) -> Result<()> {
@@ -211,17 +232,20 @@ impl Workbook {
         let mut core = WorkingModel::new_in(name, runtime).map_err(graph_error)?;
         core.configure_document_admission(limits.document_admission())
             .map_err(graph_error)?;
-        let worksheet = WorksheetId::fresh();
+        let worksheet = GridScopeId::fresh();
         let rows = Axis {
+            layout: None,
             namespace: Uuid::new_v4(),
             length: limits.rows,
         };
         let columns = Axis {
+            layout: None,
             namespace: Uuid::new_v4(),
             length: limits.columns,
         };
         let mut initial = Data::new(runtime.memory());
         initial.install_sheets(vec![SheetInfo {
+            retired: false,
             id: worksheet,
             name: "Sheet1".into(),
             rows: rows.clone(),
@@ -341,7 +365,7 @@ impl Transaction<'_> {
     fn anchor(&mut self, position: Position) -> Result<CellId> {
         self.anchor_on(self.book.worksheet, position)
     }
-    fn anchor_on(&mut self, worksheet: WorksheetId, position: Position) -> Result<CellId> {
+    fn anchor_on(&mut self, worksheet: GridScopeId, position: Position) -> Result<CellId> {
         self.book.sheet_info(worksheet)?.rows.at(position.row)?;
         self.book
             .sheet_info(worksheet)?
@@ -436,13 +460,13 @@ impl Transaction<'_> {
         let mut qualified = None;
         for token in tokens {
             match token {
-                Token::QualifierAt { name, span } => {
+                Token::QualifierAt { window, name, span } => {
                     if qualified.is_some() {
                         return Err(Error::InvalidTarget);
                     }
                     let worksheet = self
                         .book
-                        .sheet_by_name(name)
+                        .scope_by_name(*window, name)
                         .ok_or_else(|| Error::Graph("unknown worksheet".into()))?;
                     qualified = Some(worksheet);
                     normalized.push(Token::Qualifier {
@@ -475,6 +499,8 @@ impl Transaction<'_> {
                     let worksheet = qualified.take().unwrap_or(self.book.worksheet);
                     self.book.sheet_info(worksheet)?.rows.at(first.row)?;
                     self.book.sheet_info(worksheet)?.columns.at(last.column)?;
+                    self.book.sheet_info(worksheet)?.rows.at(last.row)?;
+                    self.book.sheet_info(worksheet)?.columns.at(first.column)?;
                     let rectangle = pivot_core::model::selection::Rectangle {
                         space: pivot_core::model::selection::SpaceId(*worksheet.uuid().as_bytes()),
                         first_row: first.row.min(last.row),
@@ -504,6 +530,8 @@ impl Transaction<'_> {
                     let worksheet = qualified.take().unwrap_or(self.book.worksheet);
                     self.book.sheet_info(worksheet)?.rows.at(first.row)?;
                     self.book.sheet_info(worksheet)?.columns.at(last.column)?;
+                    self.book.sheet_info(worksheet)?.rows.at(last.row)?;
+                    self.book.sheet_info(worksheet)?.columns.at(first.column)?;
                     let rectangle = pivot_core::model::selection::Rectangle {
                         space: pivot_core::model::selection::SpaceId(*worksheet.uuid().as_bytes()),
                         first_row: first.row.min(last.row),
@@ -545,7 +573,7 @@ impl Transaction<'_> {
                     {
                         return Err(Error::InvalidTarget);
                     }
-                    let worksheet = WorksheetId::from_uuid(Uuid::from_bytes(rectangle.space.0));
+                    let worksheet = GridScopeId::from_uuid(Uuid::from_bytes(rectangle.space.0));
                     if qualified.take().unwrap_or(self.book.worksheet) != worksheet
                         || self.book.sheet_info(worksheet).is_err()
                     {
@@ -748,23 +776,8 @@ impl Transaction<'_> {
                     expression::parse_spreadsheet(source)
                 };
                 let (mut tokens, references, mut diagnostic) = self.book.lower_text(&parsed);
-                if diagnostic.is_none()
-                    && let Some(span) = tokens.iter().find_map(|t| {
-                        if let Token::QualifierAt { name, span } = t {
-                            self.book
-                                .sheet_by_name(name)
-                                .is_none()
-                                .then_some(span.clone())
-                        } else {
-                            None
-                        }
-                    })
-                {
-                    diagnostic = Some(ParseError {
-                        offset: span.start,
-                        message: "unknown worksheet",
-                    });
-                    tokens.clear();
+                if diagnostic.is_none() {
+                    diagnostic = self.book.authoring_diagnostic(&tokens);
                 }
                 if matches!(edit, Edit::PreserveRejectedFormula { .. }) {
                     diagnostic = Some(ParseError {
@@ -1180,6 +1193,7 @@ fn apply_mode(
             .validate_acyclic(&cycle_outputs, cancel)
             .map_err(graph_error)?;
     }
+    crate::windows::validate_scope_graph(&core, &data, cancel)?;
     let data = data.freeze();
     book.core = core;
     book.persistent = data;
@@ -1513,8 +1527,10 @@ impl CalculationCapture {
 #[cfg(feature = "history-experiment")]
 pub(super) fn history_weight(book: &Workbook) -> Result<usize> {
     let d = state(book);
-    if book.sheets().len() != 1
-        || book.sheets()[0].name != "Sheet1"
+    if book.scopes().len() != 1
+        || book.scopes()[0].rows.layout.is_some()
+        || book.scopes()[0].columns.layout.is_some()
+        || book.scopes()[0].name != "Sheet1"
         || d.records.iter().any(|(_, r)| match &r.content {
             Some(Content::TextFormula(f)) => f
                 .tokens

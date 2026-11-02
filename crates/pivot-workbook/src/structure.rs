@@ -31,7 +31,7 @@ pub struct Outcome {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FaultOrigin {
     pub kind: u8,
-    pub worksheet: WorksheetId,
+    pub worksheet: GridScopeId,
     pub target: Uuid,
     pub node: Uuid,
     pub first: Position,
@@ -39,7 +39,7 @@ pub struct FaultOrigin {
 }
 impl FaultOrigin {
     pub fn encode(&self) -> String {
-        let mut bytes = vec![1, self.kind];
+        let mut bytes = vec![if self.worksheet.is_window() { 2 } else { 1 }, self.kind];
         bytes.extend(self.worksheet.uuid().as_bytes());
         bytes.extend(self.target.as_bytes());
         bytes.extend(self.node.as_bytes());
@@ -64,7 +64,7 @@ impl FaultOrigin {
             .step_by(2)
             .map(|i| u8::from_str_radix(&text[i..i + 2], 16).map_err(|_| Error::InvalidTarget))
             .collect::<Result<Vec<_>>>()?;
-        if bytes[0] != 1 || !(1..=4).contains(&bytes[1]) {
+        if !matches!(bytes[0], 1 | 2) || !(1..=4).contains(&bytes[1]) {
             return Err(Error::InvalidTarget);
         }
         let first = Position::new(
@@ -77,7 +77,11 @@ impl FaultOrigin {
         );
         let origin = Self {
             kind: bytes[1],
-            worksheet: WorksheetId::from_uuid(Uuid::from_slice(&bytes[2..18]).unwrap()),
+            worksheet: if bytes[0] == 2 {
+                WindowId::from_uuid(Uuid::from_slice(&bytes[2..18]).unwrap()).into()
+            } else {
+                GridScopeId::from_uuid(Uuid::from_slice(&bytes[2..18]).unwrap())
+            },
             target: Uuid::from_slice(&bytes[18..34]).unwrap(),
             node: Uuid::from_slice(&bytes[34..50]).unwrap(),
             first,
@@ -414,7 +418,7 @@ fn units(work: &mut usize, n: usize, cancel: &CancellationToken) -> Result<()> {
 impl Workbook {
     pub fn restructure(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         change: Change,
         cancel: &CancellationToken,
@@ -456,6 +460,7 @@ impl Workbook {
         let mut deleted = BTreeSet::new();
         let mut moved = 0;
         let mut placements = Vec::new();
+        let mut retired_payload = None;
         for (at, id) in self.persistent.positions.iter() {
             units(&mut work, 1, cancel)?;
             if at.worksheet != sheet {
@@ -480,7 +485,14 @@ impl Workbook {
             .clone();
             record.position = new;
             if new.is_none() {
-                record.set_content(&data.memory, None)?;
+                if retired_payload.is_none() {
+                    retired_payload = Some(
+                        data.memory
+                            .alloc(RecordPayload { content: None })
+                            .map_err(|_| Error::Limit)?,
+                    );
+                }
+                record.payload = retired_payload.as_ref().unwrap().clone();
                 deleted.insert(*id);
             } else {
                 moved += 1;
@@ -708,11 +720,32 @@ impl Workbook {
         }
         // Remove every source key before inserting any destination key: collisions
         // between surviving cells are transient, not user-visible occupied errors.
+        // A whole-scope deletion can retain a tiny survivor index instead of
+        // allocating O(N log N) immutable removal paths. Old captures keep theirs.
+        let rebuild_positions = change.action == Action::Delete
+            && change.start == 1
+            && change.count == limit
+            && placements.len() > self.persistent.positions.len() / 2;
+        if rebuild_positions {
+            let mut remaining =
+                pivot_core::model::integration::resources::Index::new(data.memory.clone());
+            for (at, id) in self.persistent.positions.iter() {
+                units(&mut work, 1, cancel)?;
+                if at.worksheet != sheet {
+                    remaining
+                        .insert_private(*at, *id)
+                        .map_err(|_| Error::Limit)?;
+                }
+            }
+            data.positions = remaining;
+        }
         for (id, old, _) in &placements {
             units(&mut work, 1, cancel)?;
-            data.positions
-                .remove(&sheets::at(sheet, *old))
-                .map_err(|_| Error::Limit)?;
+            if !rebuild_positions {
+                data.positions
+                    .remove(&sheets::at(sheet, *old))
+                    .map_err(|_| Error::Limit)?;
+            }
             if deleted.contains(id) {
                 data.live -= 1;
             }
@@ -732,9 +765,11 @@ impl Workbook {
             data.styles
                 .structural(sheet, change, limit, self.limits.styles, cancel)?;
         units(&mut work, style_work, cancel)?;
-        let changed =
+        let content_changed =
             !placements.is_empty() || !formulas.is_empty() || !reframes.is_empty() || style_changed;
-        if !changed {
+        // Preserve the accepted empty-worksheet no-op policy. Window axes are
+        // first-class identities even when there are no authored cells.
+        if !content_changed && !sheet.is_window() {
             return Ok(Outcome {
                 expected,
                 changed: false,
@@ -744,6 +779,22 @@ impl Workbook {
                 work,
             });
         }
+        let mut directory = self.scopes().to_vec();
+        let info = directory
+            .iter_mut()
+            .find(|s| s.id == sheet)
+            .ok_or(Error::InvalidTarget)?;
+        let axis = match change.axis {
+            AxisKind::Rows => &mut info.rows,
+            AxisKind::Columns => &mut info.columns,
+        };
+        units(
+            &mut work,
+            axis.layout.as_ref().map_or(1, |p| p.runs.len()),
+            cancel,
+        )?;
+        *axis = axis.changed(change, &data.memory)?;
+        data.install_sheets(directory)?;
         let next = self.state.checked_add(1).ok_or(Error::Exhausted)?;
         data.review_filter_after_structure(sheet)?;
         let stats = data.stats();
@@ -840,8 +891,14 @@ impl Workbook {
             core.apply_batch(batch, cancel).map_err(graph_error)?;
         }
         cancelled(cancel)?;
+        crate::windows::validate_scope_graph(&core, &data, cancel)?;
         self.core = core;
         self.persistent = data.freeze();
+        if self.worksheet == sheet {
+            let info = self.sheet_info(sheet)?.clone();
+            self.rows = info.rows.clone();
+            self.columns = info.columns.clone();
+        }
         self.state = next;
         #[cfg(feature = "history-experiment")]
         {

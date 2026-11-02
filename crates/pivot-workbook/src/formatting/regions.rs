@@ -4,13 +4,13 @@ use pivot_core::model::integration::resources::{Index, Key, Memory, Shared};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Region {
-    pub sheet: WorksheetId,
+    pub sheet: GridScopeId,
     pub property: u8,
     pub rectangle: Rectangle,
     pub value: u32,
 }
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct MapKey(WorksheetId, u8);
+struct MapKey(GridScopeId, u8);
 impl Key for MapKey {}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Entry {
@@ -203,7 +203,7 @@ pub(crate) struct Store {
 impl Store {
     pub(crate) fn permute_rows(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         rectangle: Rectangle,
         permutation: &[u32],
         limits: StyleLimits,
@@ -371,7 +371,7 @@ impl Store {
     }
     pub(crate) fn structural(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         change: crate::structure::Change,
         limit: u32,
         limits: StyleLimits,
@@ -551,7 +551,7 @@ impl Store {
     }
     pub(crate) fn viewport(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         r: Rectangle,
         limits: StyleLimits,
     ) -> Result<Vec<(Position, Style)>> {
@@ -599,7 +599,7 @@ impl Store {
     }
     pub(crate) fn restore(
         &mut self,
-        defaults: &[(WorksheetId, Style)],
+        defaults: &[(GridScopeId, Style)],
         regions: &[Region],
         limits: StyleLimits,
     ) -> Result<()> {
@@ -691,13 +691,13 @@ impl Store {
     pub(crate) fn bytes(&self) -> usize {
         self.bytes + self.maps.len() * 256 + self.defaults.len() * 256
     }
-    pub(crate) fn default_style(&self, sheet: WorksheetId) -> Style {
+    pub(crate) fn default_style(&self, sheet: GridScopeId) -> Style {
         self.defaults
             .get(&MapKey(sheet, 10))
             .copied()
             .unwrap_or_default()
     }
-    pub(crate) fn defaults(&self) -> impl Iterator<Item = (WorksheetId, Style)> + '_ {
+    pub(crate) fn defaults(&self) -> impl Iterator<Item = (GridScopeId, Style)> + '_ {
         self.defaults.iter().map(|(k, v)| (k.0, *v))
     }
     pub(crate) fn regions(&self) -> impl Iterator<Item = Region> + '_ {
@@ -710,7 +710,7 @@ impl Store {
             })
         })
     }
-    pub(crate) fn set_default(&mut self, sheet: WorksheetId, style: Style) -> Result<bool> {
+    pub(crate) fn set_default(&mut self, sheet: GridScopeId, style: Style) -> Result<bool> {
         style.validate()?;
         if self.default_style(sheet) == style {
             return Ok(false);
@@ -728,7 +728,7 @@ impl Store {
     }
     pub(crate) fn style_at(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         p: Position,
         work: &mut Work<'_>,
     ) -> Result<Style> {
@@ -746,7 +746,7 @@ impl Store {
     }
     pub(crate) fn summary(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         r: Rectangle,
         work: &mut Work<'_>,
     ) -> Result<(Style, u32)> {
@@ -777,7 +777,7 @@ impl Store {
     }
     pub(crate) fn paint(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         r: Rectangle,
         property: u8,
         value: Option<u32>,
@@ -904,7 +904,7 @@ impl Store {
     }
     pub(crate) fn snapshot_points(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         points: &[(Position, Style)],
         limits: StyleLimits,
         cancel: &CancellationToken,
@@ -1078,7 +1078,7 @@ impl Store {
 
     pub(crate) fn reset_rows(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         rows: &[u32],
         first: u32,
         last: u32,

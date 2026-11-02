@@ -5,7 +5,7 @@ impl Session {
     fn edit_plan(
         &mut self,
         q: &wire::Request,
-    ) -> Result<(WorksheetId, Vec<u32>, Rectangle), String> {
+    ) -> Result<(GridScopeId, Vec<u32>, Rectangle), String> {
         if !matches!(
             O::try_from(q.operation),
             Ok(O::ClearVisible | O::FillVisible)
@@ -70,7 +70,7 @@ impl Session {
             self.filter_confirmation = None;
             let operation =
                 wire::Request::decode(q.filter_operation.as_slice()).map_err(|e| e.to_string())?;
-            if operation.worksheet != q.worksheet
+            if (operation.worksheet != q.worksheet || operation.window_scope != q.window_scope)
                 || operation.revision != q.revision
                 || operation.computational_state != q.computational_state
             {
@@ -88,6 +88,7 @@ impl Session {
             let ticket = Uuid::new_v4().to_string();
             r.filter_confirmation = ticket.clone();
             r.worksheet = q.worksheet.clone();
+            r.window_scope = q.window_scope;
             r.visible_rows = rows.clone();
             r.visible_first_column = rectangle.first.column;
             r.visible_width = rectangle.last.column - rectangle.first.column + 1;
@@ -154,6 +155,7 @@ impl Session {
         }
         r.revision = self.revision.clone();
         r.worksheet = q.worksheet.clone();
+        r.window_scope = q.window_scope;
         r.visible_rows = rows;
         r.visible_first_column = columns.0;
         r.visible_width = columns.1 - columns.0 + 1;

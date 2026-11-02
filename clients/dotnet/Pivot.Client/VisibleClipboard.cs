@@ -11,7 +11,7 @@ public sealed partial class WorkbookSession {
  }
  private async Task<Response> ConfirmAndPasteVisibleAsync(Request operation,CancellationToken cancellation){
   string? interaction=CaptureFilterInteractionAsync is { } capture?await capture(cancellation).ConfigureAwait(false):null;
-  var preview=await SendAsync(new Request{Operation=Request.Types.Operation.PrepareVisiblePaste,Revision=operation.Revision,ComputationalState=operation.ComputationalState,Worksheet=operation.Worksheet,FilterOperation=operation.ToByteString()},cancellation).ConfigureAwait(false);
+  var preview=await SendAsync(new Request{Operation=Request.Types.Operation.PrepareVisiblePaste,Revision=operation.Revision,ComputationalState=operation.ComputationalState,Worksheet=operation.Worksheet,WindowScope=operation.WindowScope,FilterOperation=operation.ToByteString()},cancellation).ConfigureAwait(false);
   var confirm=ConfirmVisiblePasteAsync??throw new WorkbookSessionException("Paste Visible requires review of the actual destination rows.");
   if(!await confirm(operation.Clone(),preview.Clone(),cancellation).ConfigureAwait(false))throw new OperationCanceledException("Visible paste cancelled.",cancellation);
   cancellation.ThrowIfCancellationRequested();operation.FilterConfirmation=preview.FilterConfirmation;

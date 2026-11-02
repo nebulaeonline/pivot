@@ -32,9 +32,7 @@ impl Session {
         match op {
             Op::CsvBounds => {
                 let book = self.book.as_ref().ok_or("No workbook open")?;
-                let sheet = WorksheetId::from_uuid(
-                    Uuid::parse_str(&q.worksheet).map_err(|_| "CSV worksheet required")?,
-                );
+                let sheet = request_scope(q)?;
                 r.csv_has_content = book.csv_content_bounds(sheet)?.is_some();
             }
             Op::PrepareCsvImport => {
@@ -126,9 +124,7 @@ impl Session {
                     .reserve(policy.bytes * 4)
                     .map_err(|_| "CSV runtime memory admission exceeded")?;
                 let book = self.book.as_ref().ok_or("No workbook open")?;
-                let sheet = WorksheetId::from_uuid(
-                    Uuid::parse_str(&q.worksheet).map_err(|_| "CSV worksheet required")?,
-                );
+                let sheet = request_scope(q)?;
                 let rect = if q.csv_whole_sheet {
                     book.csv_content_bounds(sheet)?
                         .ok_or("CSV active sheet has no content")?

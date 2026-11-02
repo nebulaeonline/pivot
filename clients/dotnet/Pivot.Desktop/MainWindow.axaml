@@ -89,6 +89,19 @@
         <TextBox x:Name="WorksheetNameEditor" Grid.Column="2" MaxLength="64" PlaceholderText="Worksheet name" />
         <Button x:Name="RenameWorksheetButton" Grid.Column="3" Content="Rename" Click="RenameWorksheetClick" />
       </Grid>
+      <StackPanel x:Name="WindowBar" Spacing="4">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="Windows · unbound Grid" VerticalAlignment="Center" />
+          <TextBox x:Name="WindowNameEditor" Width="150" MaxLength="64" PlaceholderText="Window name" />
+          <TextBlock Text="Rows" VerticalAlignment="Center" /><NumericUpDown x:Name="WindowRows" Minimum="1" Maximum="65536" Value="65536" Width="95" />
+          <TextBlock Text="Columns" VerticalAlignment="Center" /><NumericUpDown x:Name="WindowColumns" Minimum="1" Maximum="1024" Value="1024" Width="85" />
+          <Button x:Name="CreateWindowButton" Content="Create" Click="CreateWindowClick" />
+          <Button x:Name="RenameWindowButton" Content="Rename" Click="RenameWindowClick" />
+          <Button x:Name="DeleteWindowButton" Content="Delete…" Click="DeleteWindowClick" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="6"><Button Content="Copy Values" Click="CopyValuesClick" /><Button Content="Paste Text" Click="PasteTextClick" /></StackPanel>
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"><StackPanel x:Name="WindowTabs" Orientation="Horizontal" Spacing="3" /></ScrollViewer>
+      </StackPanel>
       <Grid ColumnDefinitions="60,*,80" ColumnSpacing="8">
         <TextBlock x:Name="AddressLabel" Text="A1" VerticalAlignment="Center" />
         <TextBox x:Name="FormulaEntry" Grid.Column="1" MaxLength="4096" PlaceholderText="Enter a number or =A1+B1" KeyDown="EntryKeyDown" />

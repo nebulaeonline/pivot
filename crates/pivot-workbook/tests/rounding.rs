@@ -3,7 +3,7 @@ use pivot_workbook::*;
 fn p(r: u32, c: u32) -> Position {
     Position::new(r, c)
 }
-fn enter(b: &mut Workbook, sheet: WorksheetId, r: u32, c: u32, s: &str) {
+fn enter(b: &mut Workbook, sheet: GridScopeId, r: u32, c: u32, s: &str) {
     b.apply_sheet(
         sheet,
         b.expected(),
@@ -14,7 +14,7 @@ fn enter(b: &mut Workbook, sheet: WorksheetId, r: u32, c: u32, s: &str) {
     )
     .unwrap();
 }
-fn value(b: &Workbook, sheet: WorksheetId, r: u32, c: u32) -> std::result::Result<V, CellError> {
+fn value(b: &Workbook, sheet: GridScopeId, r: u32, c: u32) -> std::result::Result<V, CellError> {
     let capture = b.capture_sheet(sheet, b.expected()).unwrap();
     let cell = capture.cell_at(p(r, c)).unwrap();
     capture.evaluate_values(&[cell]).unwrap().values.remove(0).1

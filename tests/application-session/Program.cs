@@ -7,6 +7,7 @@ using Pivot.Protocol.Application.V1;
 try
 {
 await ClipboardReadChecks.Run();
+if(args.Length==3&&args[0]=="--window-checks"){await WindowChecks.Run(args[1],args[2]);Console.WriteLine("Window session checks passed.");return;}
 if(args.Length==3&&args[0]=="--weighted-checks"){await WeightedChecks.Run(args[1],args[2]);Console.WriteLine("Weighted session checks: PASS");return;}
 if(args.Length==3&&args[0]=="--allocation-checks"){await AllocationChecks.Run(args[1],args[2]);Console.WriteLine("Allocation session checks: PASS");return;}
 if(args.Length==3&&args[0]=="--visible-edit-checks"){await VisibleEditChecks.Run(args[1],args[2]);Console.WriteLine("Visible edit session checks: PASS");return;}
@@ -43,6 +44,7 @@ static async Task CancelledAfterDispatch(WorkbookSession session, Func<Cancellat
     finally { session.RequestDispatchedForTesting = null; }
 }
 await FilteringChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
+await WindowChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await VisibleEditChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await VisibleClipboardChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await CapacityChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());

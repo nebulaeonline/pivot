@@ -6,7 +6,8 @@ use unicode_normalization::UnicodeNormalization;
 pub const MAX_SHEETS: usize = 16;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SheetInfo {
-    pub id: WorksheetId,
+    pub retired: bool,
+    pub id: GridScopeId,
     pub name: String,
     pub(crate) rows: Axis,
     pub(crate) columns: Axis,
@@ -27,9 +28,26 @@ impl Footprint for Directory {
             + self.0.iter().map(|s| s.name.capacity()).sum::<usize>()
     }
 }
+impl Directory {
+    pub(super) fn axis_bytes(&self) -> usize {
+        self.0
+            .iter()
+            .map(|s| {
+                [&s.rows, &s.columns]
+                    .into_iter()
+                    .map(|axis| {
+                        axis.layout.as_ref().map_or(0, |p| {
+                            std::mem::size_of::<crate::axes::AxisLayout>() + p.heap_bytes()
+                        })
+                    })
+                    .sum::<usize>()
+            })
+            .sum()
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct SheetPosition {
-    pub worksheet: WorksheetId,
+    pub worksheet: GridScopeId,
     pub position: Position,
 }
 impl std::ops::Deref for SheetPosition {
@@ -39,7 +57,7 @@ impl std::ops::Deref for SheetPosition {
     }
 }
 impl pivot_core::model::integration::resources::Key for SheetPosition {}
-pub(super) fn at(worksheet: WorksheetId, position: Position) -> SheetPosition {
+pub(super) fn at(worksheet: GridScopeId, position: Position) -> SheetPosition {
     SheetPosition {
         worksheet,
         position,
@@ -118,7 +136,7 @@ pub(crate) fn render_source(
     Ok(text)
 }
 pub(crate) fn validate_scope(
-    owner: WorksheetId,
+    owner: GridScopeId,
     source: &str,
     tokens: &[Token],
     directory: &[SheetInfo],
@@ -131,6 +149,10 @@ pub(crate) fn validate_scope(
                     || span.is_empty()
                     || source.get(span.clone()).is_none()
                     || !directory.iter().any(|s| s.id == *worksheet)
+                    || source
+                        .get(span.end..)
+                        .and_then(|s| s.trim_start().chars().next())
+                        != Some(if worksheet.is_window() { '|' } else { '!' })
                 {
                     return Err(Error::InvalidTarget);
                 }
@@ -166,17 +188,37 @@ pub(crate) fn validate_scope(
 }
 impl persistent::Data {
     pub(super) fn install_sheets(&mut self, sheets: Vec<SheetInfo>) -> Result<()> {
-        if sheets.is_empty() || sheets.len() > MAX_SHEETS {
+        if sheets.first().is_none_or(|s| s.id.is_window() || s.retired)
+            || sheets.len() > 262_144
+            || sheets.iter().filter(|s| !s.id.is_window()).count() > MAX_SHEETS
+            || sheets
+                .iter()
+                .filter(|s| s.id.is_window() && !s.retired)
+                .count()
+                > 64
+        {
             return Err(Error::Limit);
         }
+        let _validation = self
+            .memory
+            .reserve(sheets.len().saturating_mul(512))
+            .map_err(|_| Error::Limit)?;
         let mut ids = BTreeSet::new();
         let mut names = BTreeSet::new();
         let mut axes = BTreeSet::new();
+        let mut saw_window = false;
         for sheet in &sheets {
+            if (saw_window && !sheet.id.is_window())
+                || (!sheet.id.is_window() && sheet.retired)
+                || (sheet.id.is_window() && sheet.name.contains('|'))
+            {
+                return Err(Error::InvalidTarget);
+            }
+            saw_window |= sheet.id.is_window();
             if sheet.id.uuid().is_nil()
-                || !ids.insert(sheet.id)
+                || !ids.insert(sheet.id.uuid())
                 || normalize_name(&sheet.name)? != sheet.name
-                || !names.insert(name_key(&sheet.name))
+                || (!sheet.retired && !names.insert((sheet.id.is_window(), name_key(&sheet.name))))
                 || sheet.rows.namespace.is_nil()
                 || sheet.columns.namespace.is_nil()
                 || !axes.insert(sheet.rows.namespace)
@@ -194,7 +236,21 @@ impl persistent::Data {
     }
 }
 impl Workbook {
-    pub fn sheets(&self) -> &[SheetInfo] {
+    pub(crate) fn reserve_scope_copy(
+        &self,
+    ) -> Result<pivot_core::model::integration::resources::Charge> {
+        self.persistent
+            .memory
+            .reserve(
+                self.persistent
+                    .sheets
+                    .as_ref()
+                    .map_or(0, |s| s.heap_bytes())
+                    + 1024,
+            )
+            .map_err(|_| Error::Limit)
+    }
+    pub fn scopes(&self) -> &[SheetInfo] {
         &self
             .persistent
             .sheets
@@ -202,7 +258,24 @@ impl Workbook {
             .expect("validated sheet directory")
             .0
     }
-    pub fn sheet_by_name(&self, name: &str) -> Option<WorksheetId> {
+    pub fn sheets(&self) -> &[SheetInfo] {
+        let all = self.scopes();
+        &all[..all.partition_point(|s| !s.id.is_window())]
+    }
+    pub fn windows(&self) -> impl Iterator<Item = &SheetInfo> {
+        self.scopes()
+            .iter()
+            .filter(|s| s.id.is_window() && !s.retired)
+    }
+    pub fn scope_by_name(&self, window: bool, name: &str) -> Option<GridScopeId> {
+        let normalized = normalize_name(name).ok()?;
+        let key = name_key(&normalized);
+        self.scopes()
+            .iter()
+            .find(|s| !s.retired && s.id.is_window() == window && name_key(&s.name) == key)
+            .map(|s| s.id)
+    }
+    pub fn sheet_by_name(&self, name: &str) -> Option<GridScopeId> {
         let normalized = normalize_name(name).ok()?;
         let key = name_key(&normalized);
         self.sheets()
@@ -210,13 +283,13 @@ impl Workbook {
             .find(|s| name_key(&s.name) == key)
             .map(|s| s.id)
     }
-    pub(crate) fn sheet_info(&self, id: WorksheetId) -> Result<&SheetInfo> {
-        self.sheets()
+    pub(crate) fn sheet_info(&self, id: GridScopeId) -> Result<&SheetInfo> {
+        self.scopes()
             .iter()
-            .find(|s| s.id == id)
+            .find(|s| s.id == id && !s.retired)
             .ok_or(Error::InvalidTarget)
     }
-    pub fn add_sheet(&mut self, expected: Expected, name: Option<&str>) -> Result<WorksheetId> {
+    pub fn add_sheet(&mut self, expected: Expected, name: Option<&str>) -> Result<GridScopeId> {
         self.check(expected)?;
         if self.is_structured_proof() || self.sheets().len() >= MAX_SHEETS {
             return Err(Error::Limit);
@@ -235,27 +308,34 @@ impl Workbook {
         if self.sheet_by_name(&name).is_some() {
             return Err(Error::Graph("duplicate worksheet name".into()));
         }
-        let id = WorksheetId::fresh();
-        let mut sheets = self.sheets().to_vec();
-        sheets.push(SheetInfo {
-            id,
-            name,
-            rows: Axis {
-                namespace: Uuid::new_v4(),
-                length: self.limits.rows,
+        let id = GridScopeId::fresh();
+        let _directory_copy = self.reserve_scope_copy()?;
+        let mut sheets = self.scopes().to_vec();
+        sheets.insert(
+            self.sheets().len(),
+            SheetInfo {
+                retired: false,
+                id,
+                name,
+                rows: Axis {
+                    layout: None,
+                    namespace: Uuid::new_v4(),
+                    length: self.limits.rows,
+                },
+                columns: Axis {
+                    layout: None,
+                    namespace: Uuid::new_v4(),
+                    length: self.limits.columns,
+                },
             },
-            columns: Axis {
-                namespace: Uuid::new_v4(),
-                length: self.limits.columns,
-            },
-        });
+        );
         self.publish_sheets(sheets)?;
         Ok(id)
     }
     pub fn rename_sheet(
         &mut self,
         expected: Expected,
-        id: WorksheetId,
+        id: GridScopeId,
         name: &str,
     ) -> Result<Expected> {
         self.check(expected)?;
@@ -271,15 +351,19 @@ impl Workbook {
         if self.history_active {
             return Err(Error::InvalidTarget);
         }
-        if self.sheet_by_name(&name).is_some_and(|other| other != id) {
+        if self
+            .scope_by_name(id.is_window(), &name)
+            .is_some_and(|other| other != id)
+        {
             return Err(Error::Graph("duplicate worksheet name".into()));
         }
-        let mut sheets = self.sheets().to_vec();
+        let _directory_copy = self.reserve_scope_copy()?;
+        let mut sheets = self.scopes().to_vec();
         sheets.iter_mut().find(|s| s.id == id).unwrap().name = name;
         self.publish_sheets(sheets)?;
         Ok(self.expected())
     }
-    fn publish_sheets(&mut self, sheets: Vec<SheetInfo>) -> Result<()> {
+    pub(crate) fn publish_sheets(&mut self, sheets: Vec<SheetInfo>) -> Result<()> {
         let next = self.state.checked_add(1).ok_or(Error::Exhausted)?;
         let _scratch = self
             .persistent
@@ -307,6 +391,7 @@ impl Workbook {
             .stage_resource(&self.persistent)
             .map_err(graph_error)?;
         data.install_sheets(sheets)?;
+        crate::windows::validate_scope_graph(&self.core, &data, &Default::default())?;
         if data.stats().estimated_owned_bytes > self.limits.bytes {
             return Err(Error::Limit);
         }
@@ -316,7 +401,7 @@ impl Workbook {
     }
     /// An explicit request scope, not a retained active-sheet setting or another engine.
     /// Graph/domain identity and every persistent root are shared until commit.
-    pub(crate) fn request_view(&self, id: WorksheetId) -> Result<Self> {
+    pub(crate) fn request_view(&self, id: GridScopeId) -> Result<Self> {
         let sheet = self.sheet_info(id)?;
         Ok(Self {
             #[cfg(feature = "history-experiment")]
@@ -338,7 +423,7 @@ impl Workbook {
     }
     pub(crate) fn mutate_sheet<T>(
         &mut self,
-        id: WorksheetId,
+        id: GridScopeId,
         call: impl FnOnce(&mut Self) -> Result<T>,
     ) -> Result<T> {
         let mut view = self.request_view(id)?;
@@ -355,13 +440,13 @@ impl Workbook {
     }
     pub fn apply_sheet(
         &mut self,
-        id: WorksheetId,
+        id: GridScopeId,
         expected: Expected,
         edits: &[Edit],
     ) -> Result<Expected> {
         self.mutate_sheet(id, |v| v.apply(expected, edits))
     }
-    pub fn axes_at_sheet(&self, id: WorksheetId, position: Position) -> Result<(AxisId, AxisId)> {
+    pub fn axes_at_sheet(&self, id: GridScopeId, position: Position) -> Result<(AxisId, AxisId)> {
         self.request_view(id)?.axes_at(position)
     }
     pub fn display_formula(&self, cell: CellRef) -> Result<Option<String>> {
@@ -386,7 +471,7 @@ impl Workbook {
                 &f.original_source,
                 &f.tokens,
                 &self.persistent,
-                self.sheets(),
+                self.scopes(),
                 self.limits.source_bytes,
             )
             .map(|v| Some(v.0)),
@@ -394,31 +479,31 @@ impl Workbook {
                 source,
                 tokens,
                 &self.persistent,
-                self.sheets(),
+                self.scopes(),
                 self.limits.source_bytes,
             )
             .map(|v| Some(v.0)),
             _ => Ok(None),
         }
     }
-    pub fn cell_at_sheet(&self, id: WorksheetId, position: Position) -> Result<Option<CellView>> {
+    pub fn cell_at_sheet(&self, id: GridScopeId, position: Position) -> Result<Option<CellView>> {
         self.request_view(id)?.cell_at(position)
     }
     pub fn read_sheet(
         &self,
-        id: WorksheetId,
+        id: GridScopeId,
         expected: Expected,
         rectangle: Rectangle,
         max: usize,
     ) -> Result<RectangleRead> {
         self.request_view(id)?.read(expected, rectangle, max)
     }
-    pub fn capture_sheet(&self, id: WorksheetId, expected: Expected) -> Result<CalculationCapture> {
+    pub fn capture_sheet(&self, id: GridScopeId, expected: Expected) -> Result<CalculationCapture> {
         self.request_view(id)?.capture_local(expected)
     }
     pub fn fill_sheet(
         &mut self,
-        id: WorksheetId,
+        id: GridScopeId,
         expected: Expected,
         rectangle: Rectangle,
         direction: FillDirection,
@@ -428,7 +513,7 @@ impl Workbook {
     }
     pub fn copy_sheet(
         &self,
-        id: WorksheetId,
+        id: GridScopeId,
         expected: Expected,
         rectangle: Rectangle,
     ) -> Result<clipboard::ClipboardBlock> {
@@ -436,7 +521,7 @@ impl Workbook {
     }
     pub fn paste_sheet(
         &mut self,
-        id: WorksheetId,
+        id: GridScopeId,
         expected: Expected,
         rectangle: Rectangle,
         bytes: &[u8],
@@ -449,7 +534,7 @@ impl Workbook {
     }
 }
 impl CalculationCapture {
-    pub fn cell_at_sheet(&self, id: WorksheetId, position: Position) -> Option<CellRef> {
+    pub fn cell_at_sheet(&self, id: GridScopeId, position: Position) -> Option<CellRef> {
         self.pinned
             .positions
             .get(&at(id, position))

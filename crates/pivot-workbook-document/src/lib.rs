@@ -34,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 64 * 1024 * 1024;
-const MAGIC: &[u8; 9] = b"PIVOTWB13";
+const MAGIC: &[u8; 9] = b"PIVOTWB14";
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -52,6 +52,18 @@ struct Writer(Vec<u8>);
 impl Writer {
     fn n(&mut self, n: u64) {
         self.0.extend(n.to_le_bytes());
+    }
+    fn scope(&mut self, scope: GridScopeId) {
+        self.n(u64::from(scope.is_window()));
+        self.id(scope.uuid());
+    }
+    fn axis(&mut self, image: &AxisImage) {
+        self.n(image.next.into());
+        self.n(image.runs.len() as u64);
+        for run in &image.runs {
+            self.n(run.first.into());
+            self.n(run.count.into());
+        }
     }
     fn id(&mut self, id: Uuid) {
         self.0.extend(id.as_bytes());
@@ -154,7 +166,7 @@ impl Writer {
                 }
                 Token::Qualifier { worksheet, span } => {
                     self.n(7);
-                    self.id(worksheet.uuid());
+                    self.scope(*worksheet);
                     self.n(span.start as u64);
                     self.n(span.end as u64);
                 }
@@ -204,7 +216,7 @@ impl Writer {
                 }
                 Token::Cell(c) => {
                     self.n(1);
-                    self.id(c.worksheet.uuid());
+                    self.scope(c.worksheet);
                     self.id(c.cell.uuid());
                 }
                 Token::Unary(op) => {
@@ -251,6 +263,27 @@ impl<'a> Reader<'a> {
     }
     fn u32(&mut self) -> Result<u32> {
         u32::try_from(self.n()?).map_err(|_| malformed())
+    }
+    fn scope(&mut self) -> Result<GridScopeId> {
+        let tag = self.n()?;
+        let id = self.id()?;
+        match tag {
+            0 => Ok(GridScopeId::Worksheet(WorksheetId::from_uuid(id))),
+            1 => Ok(GridScopeId::Window(WindowId::from_uuid(id))),
+            _ => Err(malformed()),
+        }
+    }
+    fn axis(&mut self, length: u32) -> Result<AxisImage> {
+        let next = self.u32()?;
+        let count = self.count(length as usize)?;
+        let mut runs = Vec::with_capacity(count);
+        for _ in 0..count {
+            runs.push(AxisRun {
+                first: self.u32()?,
+                count: self.u32()?,
+            });
+        }
+        Ok(AxisImage { next, runs })
     }
     fn id(&mut self) -> Result<Uuid> {
         let id = Uuid::from_slice(self.take(16)?).map_err(|_| malformed())?;
@@ -378,7 +411,7 @@ impl<'a> Reader<'a> {
                     Token::Typed(op, n)
                 }
                 7 => Token::Qualifier {
-                    worksheet: WorksheetId::from_uuid(self.id()?),
+                    worksheet: self.scope()?,
                     span: self.count(4096)?..self.count(4096)?,
                 },
                 9 => Token::WeightRange {
@@ -417,7 +450,7 @@ impl<'a> Reader<'a> {
                 ),
                 0 => Token::Decimal(self.dec()?),
                 1 => Token::Cell(CellRef {
-                    worksheet: WorksheetId::from_uuid(self.id()?),
+                    worksheet: self.scope()?,
                     cell: CellId::from_uuid(self.id()?),
                 }),
                 2 => Token::Unary(match self.n()? {
@@ -508,7 +541,7 @@ impl Document {
         )
         .map_err(graph_error)?;
         let mut w = Writer(vec![]);
-        w.id(projection.worksheet.uuid());
+        w.scope(projection.worksheet);
         w.id(projection.rows);
         w.n(projection.row_count.into());
         w.id(projection.columns);
@@ -516,16 +549,19 @@ impl Document {
         w.n(projection.state);
         w.n(projection.sheets.len() as u64);
         for sheet in &projection.sheets {
-            w.id(sheet.id.uuid());
+            w.scope(sheet.id);
+            w.n(u64::from(sheet.retired));
             w.text(&sheet.name);
             w.id(sheet.rows);
             w.n(sheet.row_count.into());
             w.id(sheet.columns);
             w.n(sheet.column_count.into());
+            w.axis(&sheet.row_axis);
+            w.axis(&sheet.column_axis);
         }
         w.n(projection.styles.len() as u64);
         for region in &projection.styles {
-            w.id(region.sheet.uuid());
+            w.scope(region.sheet);
             w.n(region.property.into());
             w.n(region.rectangle.first.row.into());
             w.n(region.rectangle.first.column.into());
@@ -535,12 +571,12 @@ impl Document {
         }
         w.n(projection.style_defaults.len() as u64);
         for (sheet, style) in &projection.style_defaults {
-            w.id(sheet.uuid());
+            w.scope(*sheet);
             w.bytes(&style.encode());
         }
         w.n(projection.filters.len() as u64);
         for (sheet, d) in &projection.filters {
-            w.id(sheet.uuid());
+            w.scope(*sheet);
             w.pos(d.rectangle.first);
             w.pos(d.rectangle.last);
             w.n(u64::from(d.exclude_header));
@@ -597,7 +633,7 @@ impl Document {
             }
             w.id(id.uuid());
             w.id(node.uuid());
-            w.id(record.worksheet.uuid());
+            w.scope(record.worksheet);
             if let (Some(p), Some(c)) = (record.position, record.content.as_ref()) {
                 w.n(1);
                 w.pos(p);
@@ -652,7 +688,7 @@ impl Document {
                             w.n(r.span.start as u64);
                             w.n(r.span.end as u64);
                             w.pos(r.submitted_position);
-                            w.id(r.target.worksheet.uuid());
+                            w.scope(r.target.worksheet);
                             w.id(r.target.cell.uuid());
                             w.id(r.node.uuid());
                         }
@@ -707,7 +743,7 @@ impl Document {
                 .map(|b| *b as char)
                 .collect();
             return Err(Error::Graph(format!(
-                "unsupported native workbook version WB{version}; WB13 required"
+                "unsupported native workbook version WB{version}; WB14 required"
             )));
         }
         if bytes.len() < 49 || !bytes.starts_with(MAGIC) {
@@ -722,7 +758,7 @@ impl Document {
             bytes: &bytes[49..],
             at: 0,
         };
-        let worksheet = WorksheetId::from_uuid(r.id()?);
+        let worksheet = r.scope()?;
         let rows = Axis {
             namespace: r.id()?,
             length: r.u32()?,
@@ -733,14 +769,33 @@ impl Document {
         };
         let state = r.n()?;
         let mut sheets = Vec::new();
-        for _ in 0..r.count(16)? {
+        for _ in 0..r.count(262_144)? {
+            let id = r.scope()?;
+            let retired = match r.n()? {
+                0 => false,
+                1 => true,
+                _ => return Err(malformed()),
+            };
+            let name = r.text()?;
+            let row_id = r.id()?;
+            let row_count = r.u32()?;
+            let column_id = r.id()?;
+            let column_count = r.u32()?;
+            if row_count > limits.rows || column_count > limits.columns {
+                return Err(Error::Limit);
+            }
+            let row_axis = r.axis(row_count)?;
+            let column_axis = r.axis(column_count)?;
             sheets.push(pivot_workbook::transfer::SheetRecord {
-                id: WorksheetId::from_uuid(r.id()?),
-                name: r.text()?,
-                rows: r.id()?,
-                row_count: r.u32()?,
-                columns: r.id()?,
-                column_count: r.u32()?,
+                id,
+                retired,
+                name,
+                rows: row_id,
+                columns: column_id,
+                row_count,
+                column_count,
+                row_axis,
+                column_axis,
             });
         }
         pivot_workbook::transfer::validate_sheet_directory(&sheets, limits)?;
@@ -760,7 +815,7 @@ impl Document {
         }
         let mut styles = Vec::new();
         for _ in 0..r.count(limits.styles.positions)? {
-            let sheet = WorksheetId::from_uuid(r.id()?);
+            let sheet = r.scope()?;
             let property = u8::try_from(r.n()?).map_err(|_| malformed())?;
             let first = Position::new(r.u32()?, r.u32()?);
             let last = Position::new(r.u32()?, r.u32()?);
@@ -773,9 +828,9 @@ impl Document {
             });
         }
         let mut style_defaults = Vec::new();
-        for _ in 0..r.count(16)? {
+        for _ in 0..r.count(sheets.len())? {
             style_defaults.push((
-                WorksheetId::from_uuid(r.id()?),
+                r.scope()?,
                 pivot_workbook::formatting::Style::decode(r.bytes(17)?)?,
             ));
         }
@@ -783,8 +838,8 @@ impl Document {
         let mut filter_ids = BTreeSet::new();
         let mut filter_bytes = 0usize;
         let start = r.at;
-        for _ in 0..r.count(16)? {
-            let sheet = WorksheetId::from_uuid(r.id()?);
+        for _ in 0..r.count(sheets.len())? {
+            let sheet = r.scope()?;
             let info = sheets
                 .iter()
                 .find(|s| s.id == sheet)
@@ -883,7 +938,8 @@ impl Document {
             };
             if let Some(rectangle) = rectangle
                 && (!sheet_ids
-                    .contains(&WorksheetId::from_uuid(Uuid::from_bytes(rectangle.space.0)))
+                    .iter()
+                    .any(|id| id.uuid().as_bytes() == &rectangle.space.0)
                     || rectangle.last_row > rows.length
                     || rectangle.last_column > columns.length)
             {
@@ -934,7 +990,7 @@ impl Document {
             if node.uuid() != *expected_node {
                 return Err(malformed());
             }
-            let record_sheet = WorksheetId::from_uuid(r.id()?);
+            let record_sheet = r.scope()?;
             if !sheet_ids.contains(&record_sheet) {
                 return Err(malformed());
             }
@@ -1027,7 +1083,7 @@ impl Document {
                                     span: start..end,
                                     submitted_position,
                                     target: CellRef {
-                                        worksheet: WorksheetId::from_uuid(r.id()?),
+                                        worksheet: r.scope()?,
                                         cell: CellId::from_uuid(r.id()?),
                                     },
                                     node: GraphNodeId::from_uuid(r.id()?),
@@ -1171,8 +1227,8 @@ impl Document {
                                 continue;
                             }
                             match syntax {
-                                Token::QualifierAt { span, .. } => {
-                                    if !matches!(bound,Token::Qualifier{worksheet,span:s} if sheet_ids.contains(worksheet) && span==s)
+                                Token::QualifierAt { window, span, .. } => {
+                                    if !matches!(bound,Token::Qualifier{worksheet,span:s} if sheet_ids.contains(worksheet) && worksheet.is_window()==*window && span==s)
                                     {
                                         return Err(malformed());
                                     }

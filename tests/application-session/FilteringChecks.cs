@@ -37,14 +37,14 @@ internal static class FilteringChecks {
   s.ConfirmHiddenRowsAsync=(q,p,c)=>{Check(p.FilterFootprints.Single().Last.Row==65536,"structure confirmation covers shifted rows, not only the inserted band");return Task.FromResult(true);};
   await s.StructureAsync(s.Revision,false,false,1,1);frame=await Frame(s);Check(frame.FilterStatus==2&&frame.FilterSummary.NeedsReview,"structure persists NeedsReview");
   before=s.Revision;await s.ReapplyFilterAsync();Check(s.Revision==before&&s.FilterSummary!.NeedsReview,"Reapply does not repair or rebind NeedsReview");
-  string path=Path.Combine(output,"filtered.pivot");await s.SaveAsync(s.Revision,path);Check((await File.ReadAllBytesAsync(path)).AsSpan(0,9).SequenceEqual("PIVOTWB13"u8),"WB12 current format");
+  string path=Path.Combine(output,"filtered.pivot");await s.SaveAsync(s.Revision,path);Check((await File.ReadAllBytesAsync(path)).AsSpan(0,9).SequenceEqual("PIVOTWB14"u8),"WB14 current format");
   await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path);frame=await Frame(s);Check(frame.FilterStatus==2&&!s.IsDirty,"NeedsReview saved; operational state not fabricated");
   await s.SetFilterAsync(s.Revision,null);
   await s.NewAsync(s.Revision,discard:true);
   await s.ApplyAsync(s.Revision,(from row in Enumerable.Range(1,20) from column in Enumerable.Range(1,10) select new Edit{At=P((uint)row,(uint)column),Number=WorkbookSession.Encode(row)}).ToArray());
   var large=new FilterDefinition{First=P(1),Last=P(1,240)};for(uint column=1;column<=240;column++)large.Conditions.Add(new FilterCondition{Column=column,Predicates={new FilterPredicate{Operator=0,Text=new string('x',4096)}}});
   await s.SetFilterAsync(s.Revision,large);var full=await s.GetFilterAsync();Check(full.FilterDefinition.Conditions.Count==240,"full near-quota definition fetched independently");frame=await Frame(s);Check(frame.FilterDefinition is null&&frame.FilterSummary.Columns.Count==240&&frame.Cells.Count>0,"near-quota definition does not crowd out viewport values");
-  string largePath=Path.Combine(output,"near-quota-filter.pivot");await s.SaveAsync(s.Revision,largePath);await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,largePath);Check((await s.GetFilterAsync()).FilterDefinition.Conditions.Count==240,"near-quota WB12 definition reopens under stable admission");
+  string largePath=Path.Combine(output,"near-quota-filter.pivot");await s.SaveAsync(s.Revision,largePath);await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,largePath);Check((await s.GetFilterAsync()).FilterDefinition.Conditions.Count==240,"near-quota WB14 definition reopens under stable admission");
   await s.NewAsync(s.Revision,discard:true);
   await s.ApplyAsync(s.Revision,[new Edit{At=P(2),Number=WorkbookSession.Encode(7)},new Edit{At=P(5,2),Formula="=$A$2*2"},new Edit{At=P(5,3),Formula="=IF(FALSE,A2,1)"}]);
   await s.ApplyAsync(s.Revision,[new Edit{At=P(8),Number=WorkbookSession.Encode(new decimal(0,0,0,true,4))}]);frame=await Frame(s);Check(frame.Cells.Single(c=>c.At.Row==8).Number is {Negative:true,Scale:4},"mapped viewport preserves exact submitted signed-zero parts");
@@ -57,6 +57,6 @@ internal static class FilteringChecks {
   await s.SetFilterAsync(s.Revision,new FilterDefinition{First=P(1),Last=P(10,3),Conditions={new FilterCondition{Column=2,Predicates={new FilterPredicate{Operator=11}}}}});frame=await Frame(s);
   Check(frame.FilterRows[0]==5&&frame.Cells.Single(c=>c.At.Row==5&&c.At.Column==2).ErrorCode=="ReferenceDeleted","Is Error filter retains completed faults and usable viewport diagnostics");
   await s.DisposeAsync();Check(s.FinalCharge==0,"zero final charge and joined filter worker");
-  await File.WriteAllTextAsync(Path.Combine(output,"filtering.json"),JsonSerializer.Serialize(new{status="passed",typed_exact_zeros=true,mapped_rows=true,exact_operation_confirmation=true,structural_review=true,persistence="WB12",remaining_charge=s.FinalCharge}));
+  await File.WriteAllTextAsync(Path.Combine(output,"filtering.json"),JsonSerializer.Serialize(new{status="passed",typed_exact_zeros=true,mapped_rows=true,exact_operation_confirmation=true,structural_review=true,persistence="WB14",remaining_charge=s.FinalCharge}));
  }
 }

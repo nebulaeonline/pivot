@@ -47,7 +47,7 @@ fn check_rows(
 impl Workbook {
     pub fn clear_visible_sheet(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         rows: &[u32],
         columns: (u32, u32),
@@ -87,7 +87,7 @@ impl Workbook {
     }
     pub fn fill_visible_sheet(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         rows: &[u32],
         columns: (u32, u32),

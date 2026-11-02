@@ -8,7 +8,7 @@ use pivot_types::PivotValue;
 use std::cmp::Ordering;
 
 pub const MAX_DEFINITION_BYTES: usize = 1024 * 1024;
-impl Key for WorksheetId {}
+impl Key for GridScopeId {}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Operator {
@@ -276,7 +276,7 @@ fn condition(c: &Condition, v: &Value, work: &mut Work<'_>) -> Result<bool> {
 /// Session-owned charged map. Expected qualifies both values and visibility.
 pub struct Visibility {
     pub expected: Expected,
-    pub worksheet: WorksheetId,
+    pub worksheet: GridScopeId,
     pub shown_data_rows: u32,
     pub total_data_rows: u32,
     pub work: usize,
@@ -300,17 +300,17 @@ impl Visibility {
     }
 }
 impl Workbook {
-    pub fn filter(&self, sheet: WorksheetId) -> Result<Option<&Definition>> {
+    pub fn filter(&self, sheet: GridScopeId) -> Result<Option<&Definition>> {
         self.sheet_info(sheet)?;
         Ok(self.persistent.filters.get(&sheet).map(|d| &**d))
     }
-    pub fn filters(&self) -> impl Iterator<Item = (WorksheetId, &Definition)> {
+    pub fn filters(&self) -> impl Iterator<Item = (GridScopeId, &Definition)> {
         self.persistent.filters.iter().map(|(s, d)| (*s, &**d))
     }
     /// Compute a candidate before changing persistent criteria. Transient evaluation failures never dirty a book.
     pub fn set_filter(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         definition: Option<&Definition>,
         cancel: &CancellationToken,
@@ -320,7 +320,7 @@ impl Workbook {
     }
     pub fn set_filter_with_visibility(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         definition: Option<&Definition>,
         cancel: &CancellationToken,
@@ -403,7 +403,7 @@ impl Workbook {
     }
     pub fn preview_filter(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         definition: &Definition,
         cancel: &CancellationToken,
@@ -412,7 +412,7 @@ impl Workbook {
     }
     pub fn filter_visibility(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         cancel: &CancellationToken,
     ) -> Result<Visibility> {
@@ -420,7 +420,7 @@ impl Workbook {
     }
     fn filter_visibility_for(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         definition: Option<&Definition>,
         cancel: &CancellationToken,
@@ -577,7 +577,7 @@ impl CalculationCapture {
     }
 }
 impl persistent::Data {
-    pub(super) fn review_filter_after_structure(&mut self, sheet: WorksheetId) -> Result<()> {
+    pub(super) fn review_filter_after_structure(&mut self, sheet: GridScopeId) -> Result<()> {
         if let Some(old) = self.filters.get(&sheet)
             && !old.needs_review
         {

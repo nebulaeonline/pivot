@@ -48,7 +48,7 @@ fn native_roundtrip_range_and_deleted_range_authority() {
             .unwrap();
         }
         let saved = Document::export_document(&b, b.expected()).unwrap();
-        assert!(saved.bytes.starts_with(b"PIVOTWB13"));
+        assert!(saved.bytes.starts_with(b"PIVOTWB14"));
         let (opened, _) = Document::open_document(&saved.bytes, Limits::default(), &rt).unwrap();
         assert_eq!(result(&opened), result(&b));
         if !deleted {

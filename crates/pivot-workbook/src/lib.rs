@@ -21,6 +21,8 @@ pub mod formatting;
 pub mod history_experiment;
 mod persistent;
 mod sheets;
+mod windows;
+pub use windows::ScopeCapture;
 pub mod sorting;
 pub mod structure;
 pub mod visible_edit;
@@ -48,6 +50,39 @@ macro_rules! identity {
     };
 }
 identity!(WorksheetId);
+identity!(WindowId);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum GridScopeId {
+    Worksheet(WorksheetId),
+    Window(WindowId),
+}
+impl GridScopeId {
+    pub fn from_uuid(id: Uuid) -> Self {
+        Self::Worksheet(WorksheetId::from_uuid(id))
+    }
+    pub fn uuid(self) -> Uuid {
+        match self {
+            Self::Worksheet(id) => id.uuid(),
+            Self::Window(id) => id.uuid(),
+        }
+    }
+    fn fresh() -> Self {
+        Self::Worksheet(WorksheetId::fresh())
+    }
+    pub fn is_window(self) -> bool {
+        matches!(self, Self::Window(_))
+    }
+}
+impl From<WorksheetId> for GridScopeId {
+    fn from(id: WorksheetId) -> Self {
+        Self::Worksheet(id)
+    }
+}
+impl From<WindowId> for GridScopeId {
+    fn from(id: WindowId) -> Self {
+        Self::Window(id)
+    }
+}
 identity!(CellId);
 identity!(GraphNodeId);
 
@@ -63,7 +98,7 @@ impl Position {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CellRef {
-    pub worksheet: WorksheetId,
+    pub worksheet: GridScopeId,
     pub cell: CellId,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -71,23 +106,9 @@ pub struct AxisId {
     pub namespace: Uuid,
     pub sequence: u32,
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct Axis {
-    namespace: Uuid,
-    length: u32,
-}
-impl Axis {
-    // One immutable ordered run, represented without allocating every row/column.
-    fn at(&self, position: u32) -> Result<AxisId> {
-        if position == 0 || position > self.length {
-            return Err(Error::Position);
-        }
-        Ok(AxisId {
-            namespace: self.namespace,
-            sequence: position,
-        })
-    }
-}
+mod axes;
+use axes::Axis;
+pub use axes::{AxisImage, AxisRun};
 
 /// Exact submitted decimal representation, not a second arithmetic implementation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -134,11 +155,12 @@ impl DecimalInput {
 pub enum Token {
     Typed(pivot_core::typed::Op, usize),
     QualifierAt {
+        window: bool,
         name: String,
         span: std::ops::Range<usize>,
     },
     Qualifier {
-        worksheet: WorksheetId,
+        worksheet: GridScopeId,
         span: std::ops::Range<usize>,
     },
     Control(pivot_core::expression::AggregateControl),
@@ -360,7 +382,7 @@ fn graph_error(e: impl std::fmt::Display) -> Error {
 }
 
 struct Record {
-    worksheet: WorksheetId,
+    worksheet: GridScopeId,
     position: Option<Position>,
     payload: pivot_core::model::integration::resources::Shared<RecordPayload>,
 }
@@ -394,7 +416,7 @@ impl std::fmt::Debug for Record {
 impl Record {
     fn new(
         memory: &pivot_core::model::integration::resources::Memory,
-        worksheet: WorksheetId,
+        worksheet: GridScopeId,
         position: Option<Position>,
         content: Option<Content>,
     ) -> Result<Self> {
@@ -442,6 +464,12 @@ pub enum Diagnostic {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Stats {
+    pub live_scopes: usize,
+    pub retired_scopes: usize,
+    pub axis_namespaces: usize,
+    pub explicit_axis_runs: usize,
+    pub logical_axis_slots: u64,
+    pub axis_layout_bytes: usize,
     pub live_cells: usize,
     pub live_nodes: usize,
     pub allocated_nodes: usize,
@@ -465,7 +493,7 @@ pub struct Workbook {
     history_recording: Option<pivot_core::model::integration::resources::Index<CellId, ()>>,
     session: Uuid,
     state: u64,
-    worksheet: WorksheetId,
+    worksheet: GridScopeId,
     graph_id: Uuid,
     rows: Axis,
     columns: Axis,
@@ -484,7 +512,7 @@ impl Workbook {
         })
         .map_err(graph_error)?
     }
-    pub fn worksheet(&self) -> WorksheetId {
+    pub fn worksheet(&self) -> GridScopeId {
         self.worksheet
     }
     pub fn graph_id(&self) -> Uuid {
@@ -563,10 +591,12 @@ impl Workbook {
     ) -> LoweredFormula {
         Self::lower_text_axes(
             &Axis {
+                layout: None,
                 namespace: Uuid::nil(),
                 length: rows,
             },
             &Axis {
+                layout: None,
                 namespace: Uuid::nil(),
                 length: columns,
             },
@@ -635,16 +665,26 @@ impl Workbook {
                     } => {
                         if let Some(q) = &first_reference.qualifier {
                             tokens.push(Token::QualifierAt {
+                                window: q.window,
                                 name: q.name.clone(),
                                 span: q.span.clone(),
                             });
                         }
                         let first = Position::new(first.0, first.1);
                         let last = Position::new(last.0, last.1);
-                        if rows.at(first.row).is_err()
-                            || columns.at(first.column).is_err()
-                            || rows.at(last.row).is_err()
-                            || columns.at(last.column).is_err()
+                        let (row_limit, column_limit) = if first_reference.qualifier.is_some() {
+                            (MAX_ROWS, MAX_COLUMNS)
+                        } else {
+                            (rows.length, columns.length)
+                        };
+                        if first.row == 0
+                            || last.row == 0
+                            || first.column == 0
+                            || last.column == 0
+                            || first.row > row_limit
+                            || last.row > row_limit
+                            || first.column > column_limit
+                            || last.column > column_limit
                         {
                             diagnostic = Some(ParseError {
                                 offset: span.start,
@@ -668,16 +708,26 @@ impl Workbook {
                     } => {
                         if let Some(q) = &first_reference.qualifier {
                             tokens.push(Token::QualifierAt {
+                                window: q.window,
                                 name: q.name.clone(),
                                 span: q.span.clone(),
                             });
                         }
                         let first = Position::new(first.0, first.1);
                         let last = Position::new(last.0, last.1);
-                        if rows.at(first.row).is_err()
-                            || columns.at(first.column).is_err()
-                            || rows.at(last.row).is_err()
-                            || columns.at(last.column).is_err()
+                        let (row_limit, column_limit) = if first_reference.qualifier.is_some() {
+                            (MAX_ROWS, MAX_COLUMNS)
+                        } else {
+                            (rows.length, columns.length)
+                        };
+                        if first.row == 0
+                            || last.row == 0
+                            || first.column == 0
+                            || last.column == 0
+                            || first.row > row_limit
+                            || last.row > row_limit
+                            || first.column > column_limit
+                            || last.column > column_limit
                         {
                             diagnostic = Some(ParseError {
                                 offset: span.start,
@@ -702,12 +752,22 @@ impl Workbook {
                     } => {
                         if let Some(q) = qualifier {
                             tokens.push(Token::QualifierAt {
+                                window: q.window,
                                 name: q.name.clone(),
                                 span: q.span.clone(),
                             });
                         }
                         let pos = Position::new(*row, *column);
-                        if rows.at(pos.row).is_err() || columns.at(pos.column).is_err() {
+                        let (row_limit, column_limit) = if qualifier.is_some() {
+                            (MAX_ROWS, MAX_COLUMNS)
+                        } else {
+                            (rows.length, columns.length)
+                        };
+                        if pos.row == 0
+                            || pos.column == 0
+                            || pos.row > row_limit
+                            || pos.column > column_limit
+                        {
                             diagnostic = Some(ParseError {
                                 offset: span.start,
                                 message: "cell reference outside worksheet",
@@ -814,7 +874,7 @@ pub struct RectangleRead {
 pub struct CalculationCapture {
     style_limits: formatting::StyleLimits,
     expected: Expected,
-    worksheet: WorksheetId,
+    worksheet: GridScopeId,
     pinned: persistent::State,
     local_core: pivot_core::model::integration::CalculationCapture,
     scalar_context: Option<structured::CapturedAdapterContext>,

@@ -2,17 +2,32 @@
 
 Date: 2026-11-01
 
-## ADR-0040 — design approved with clarifications; revised contract awaiting confirmation
+## ADR-0040 — accepted and closed with Windows ARM64 qualification
 
 [ADR-0040](adr/0040-unbound-grid-windows.md) details the first accepted ADR-0039 scope:
 tagged Grid ownership, independent Window identity and references, transactional
-retirement, proposed WB14/private v14 cuts and explicit native clipboard refusals.
+retirement, WB14/private v14 cuts and explicit native clipboard refusals.
 See the [design handoff](handoffs/2026-11-01-unbound-grid-windows-design.md).
 The 2026-11-01 review approves the design with mandatory client-only scope selection,
 bounded scope views over one canonical calculation generation, and transactional
 aggregate axis/identity admission. All three are incorporated in the revised handoff,
-returned for confirmation. Implementation remains a separate owner decision; no
-feature implementation or platform validation has started.
+confirmed by the design review. The separately authorized implementation is complete and accepted by parent review.
+Tagged ownership, sparse stable axis runs, retirement faults, native persistence,
+private protocol and Desktop navigation are implemented locally. Focused regressions,
+real Rust/C# Window IPC and the in-memory Avalonia Window flow have passed. ROBPC CI
+passed 13/13, all-feature Rust tests passed 535, and strict Clippy passed. All six
+targets passed managed/AOT GUI suites, totaling 12 suites and 48 zero-charge reports;
+92 selected source hashes match. macOS x64 is Rosetta coverage. Five original
+headless runs passed; Windows ARM64's original cold worksheet timing failure remains
+Failed and unexplained, with a separate full retained-cache CI pass. See the
+[implementation handoff](handoffs/2026-11-01-unbound-grid-windows.md),
+[resource qualification](performance/unbound-grid-windows.md) and
+[implementation semantics](architecture/unbound-grid-windows.md).
+The original Windows ARM64 cold failure remains an unresolved reliability concern.
+No further ADR-0040 matrix or acceptance packet is required. ADR-0023 remains parked
+at G3. Documentation closeout is complete; stop for owner commit/push and explicit
+next-work authorization. ADR-0041, Worksheet-Range Producers and Bound Grid Windows,
+is assigned as the next design milestone but has not started.
 Producer bindings, Text, section geometry, document layout and PDF remain later scopes.
 
 ## ADR-0039 — architecture accepted with three clarifications

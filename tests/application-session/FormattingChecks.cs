@@ -23,7 +23,7 @@ internal static class FormattingChecks {
   Check((await s.ReadAsync(P(1),P(1))).Cells.Single().FormattedNumber=="$5.12","external TSV keeps style");
   string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetTempPath(),"format-"+Guid.NewGuid()+".pivot");await s.SaveAsync(s.Revision,path);
   Check(!s.IsDirty,"save clean");await s.NewAsync(s.Revision,discard:true);await s.OpenAsync(s.Revision,path);
-  Check(CellStyle.Decode((await s.ReadStylesAsync(P(8,3),P(8,3))).Styles.Single().Style).Background==0xffeb9c,"WB9 style-only reopen");
+  Check(CellStyle.Decode((await s.ReadStylesAsync(P(8,3),P(8,3))).Styles.Single().Style).Background==0xffeb9c,"WB14 style-only reopen");
   await s.FormatAsync(s.Revision,P(1),P(1),new(),0,true);Check((await s.ReadAsync(P(1),P(1))).Cells.Single().FormattedNumber=="5.123","reset retains exact content");
  }
 }

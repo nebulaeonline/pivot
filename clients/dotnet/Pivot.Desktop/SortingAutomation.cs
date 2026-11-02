@@ -47,7 +47,7 @@ public partial class MainWindow {
   AutomationCheck(!CellStyle.Decode((await s.ReadStylesAsync(P(4),P(4))).Styles.Single().Style).Bold,"keep-format mode retains position assignment");
   string revision=s.Revision;dialog=await Open();Click(dialog.CancelButton);await AutomationWaitAsync(()=>!editing);AutomationCheck(s.Revision==revision,"dialog cancellation does not mutate workbook");
   string path=Path.Combine(Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT")??Path.GetDirectoryName(report)!,"sorting-ui-"+Guid.NewGuid()+".pivot");
-  AutomationCheck(await SaveDocumentAsync(true,path),"sorted WB11 save");await s.NewAsync(s.Revision,discard:true);await RefreshAsync();await OpenDocumentAsync(path);
+  AutomationCheck(await SaveDocumentAsync(true,path),"sorted WB14 save");await s.NewAsync(s.Revision,discard:true);await RefreshAsync();await OpenDocumentAsync(path);
   AutomationCheck((await s.ReadAsync(P(2,3),P(2,3))).Cells.Single().Result.Text=="000042","sorted exact String survives native reopen");
   AutomationImage(Path.ChangeExtension(report,"sorting.png"));await s.NewAsync(s.Revision,discard:true);CancelDraft();clipboardEditor=null;await RefreshAsync();Sheet.Focus();
  }

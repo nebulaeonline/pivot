@@ -133,7 +133,7 @@ impl Workbook {
     /// Explicit adjacent-column suggestion only; never changes the selected rectangle.
     pub fn sort_bounds(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         rectangle: Rectangle,
         cancel: &CancellationToken,
@@ -181,7 +181,7 @@ impl Workbook {
     }
     fn sort_permutation(
         &self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         r: Rectangle,
         keys: &[Key],
         work: &mut Work<'_>,
@@ -296,7 +296,7 @@ impl Workbook {
     }
     pub fn sort_rows(
         &mut self,
-        sheet: WorksheetId,
+        sheet: GridScopeId,
         expected: Expected,
         options: &Options,
         cancel: &CancellationToken,

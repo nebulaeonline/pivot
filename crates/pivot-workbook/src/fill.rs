@@ -36,6 +36,69 @@ fn poll(cancel: &CancellationToken) -> Result<()> {
     }
 }
 impl Workbook {
+    /// Trusted same-document copy; never transports native clipboard authority.
+    pub fn copy_between_scopes(
+        &mut self,
+        expected: Expected,
+        source: GridScopeId,
+        rectangle: Rectangle,
+        destination: GridScopeId,
+        first: Position,
+        cancel: &CancellationToken,
+    ) -> Result<Expected> {
+        self.check(expected)?;
+        poll(cancel)?;
+        let source_view = self.request_view(source)?;
+        source_view.axes_at(rectangle.first)?;
+        source_view.axes_at(rectangle.last)?;
+        let height = rectangle
+            .last
+            .row
+            .checked_sub(rectangle.first.row)
+            .ok_or(Error::Position)?
+            + 1;
+        let width = rectangle
+            .last
+            .column
+            .checked_sub(rectangle.first.column)
+            .ok_or(Error::Position)?
+            + 1;
+        if u64::from(height) * u64::from(width) > 256 {
+            return Err(Error::Limit);
+        }
+        let _scratch = self
+            .persistent
+            .memory
+            .reserve(8 * 1024 * 1024)
+            .map_err(|_| Error::Limit)?;
+        let capture = source_view.capture_local(expected)?;
+        let mut target = self.request_view(destination)?;
+        let last = Position::new(
+            first.row.checked_add(height - 1).ok_or(Error::Position)?,
+            first.column.checked_add(width - 1).ok_or(Error::Position)?,
+        );
+        target.axes_at(first)?;
+        target.axes_at(last)?;
+        let mut work = Work::default();
+        let mut edits = Vec::new();
+        let mut styles = Vec::new();
+        for row in 0..height {
+            for column in 0..width {
+                poll(cancel)?;
+                let from =
+                    Position::new(rectangle.first.row + row, rectangle.first.column + column);
+                let at = Position::new(first.row + row, first.column + column);
+                edits.push(target.plan_duplicate(&capture, from, at, &mut work)?);
+                styles.push((at, source_view.style_at(source, from)?));
+            }
+        }
+        let answer =
+            persistent::apply_styled(&mut target, expected, &edits, &styles, cancel, true)?;
+        self.persistent = target.persistent;
+        self.core = target.core;
+        self.state = target.state;
+        Ok(answer)
+    }
     pub fn fill(
         &mut self,
         expected: Expected,
@@ -157,7 +220,7 @@ impl Workbook {
                 &text,
                 &bound,
                 &capture.pinned,
-                self.sheets(),
+                self.scopes(),
                 self.limits.source_bytes,
             )?;
             let effective = clipboard::references(&text)?
@@ -194,7 +257,7 @@ impl Workbook {
                 tokens,
             });
         }
-        let text = sheets::render_source(&text, &bound, self.sheets(), self.limits.source_bytes)?;
+        let text = sheets::render_source(&text, &bound, self.scopes(), self.limits.source_bytes)?;
         work.source(text.len())?;
         work.tokens += bound.len();
         work.check()?;
@@ -325,9 +388,9 @@ impl Workbook {
                     && tokens.len() == old_tokens.len()
                     && tokens.iter().zip(old_tokens).all(|(a, b)| match (a, b) {
                         (
-                            Token::QualifierAt { name, span },
+                            Token::QualifierAt { window, name, span },
                             Token::Qualifier { worksheet, span: s },
-                        ) => span == s && self.sheet_by_name(name) == Some(*worksheet),
+                        ) => span == s && self.scope_by_name(*window, name) == Some(*worksheet),
                         (Token::At(p), Token::Cell(id)) => {
                             capture
                                 .pinned

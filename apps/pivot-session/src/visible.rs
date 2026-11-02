@@ -38,16 +38,14 @@ impl Session {
     pub(super) fn visible_rows(
         &mut self,
         q: &wire::Request,
-    ) -> Result<(WorksheetId, Vec<u32>), String> {
+    ) -> Result<(GridScopeId, Vec<u32>), String> {
         if self.proof.is_some() {
             return Err("Visible commands require an ordinary worksheet".into());
         }
         if q.revision != self.revision || q.computational_state != self.computational_state {
             return Err("expected-state conflict".into());
         }
-        let sheet = WorksheetId::from_uuid(
-            Uuid::parse_str(&q.worksheet).map_err(|_| "worksheet ID required")?,
-        );
+        let sheet = request_scope(q)?;
         let book = self.book.as_ref().ok_or("create workbook first")?;
         self.filter.ensure(book, sheet, false)?;
         let mut state = wire::Response::default();
@@ -60,7 +58,7 @@ impl Session {
     fn visible_plan(
         &mut self,
         q: &wire::Request,
-    ) -> Result<(WorksheetId, Vec<u32>, Rectangle), String> {
+    ) -> Result<(GridScopeId, Vec<u32>, Rectangle), String> {
         validate_native_kind(q)?;
         let (sheet, visible) = self.visible_rows(q)?;
         let first = pos(q.first.as_ref())?;
@@ -177,6 +175,7 @@ impl Session {
                 )
                 .map_err(|e| e.to_string())?;
             r.worksheet = q.worksheet.clone();
+            r.window_scope = q.window_scope;
             r.visible_rows = rows;
             r.visible_first_column = first.column;
             r.visible_width = last.column - first.column + 1;
@@ -192,7 +191,7 @@ impl Session {
             let operation =
                 wire::Request::decode(q.filter_operation.as_slice()).map_err(|e| e.to_string())?;
             if operation.operation != O::PasteVisible as i32
-                || operation.worksheet != q.worksheet
+                || (operation.worksheet != q.worksheet || operation.window_scope != q.window_scope)
                 || operation.revision != q.revision
                 || operation.computational_state != q.computational_state
             {
@@ -215,6 +214,7 @@ impl Session {
             let ticket = Uuid::new_v4().to_string();
             r.filter_confirmation = ticket.clone();
             r.worksheet = q.worksheet.clone();
+            r.window_scope = q.window_scope;
             r.visible_rows = rows.clone();
             r.visible_first_column = rectangle.first.column;
             r.visible_width = rectangle.last.column - rectangle.first.column + 1;
@@ -264,6 +264,7 @@ impl Session {
         }
         r.revision = self.revision.clone();
         r.worksheet = q.worksheet.clone();
+        r.window_scope = q.window_scope;
         r.visible_rows = rows;
         r.visible_first_column = rectangle.first.column;
         r.visible_width = rectangle.last.column - rectangle.first.column + 1;

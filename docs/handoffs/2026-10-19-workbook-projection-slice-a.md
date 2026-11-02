@@ -76,7 +76,7 @@ than pretending omitted cells are empty.
 - [Trusted core transfer seam](../../crates/pivot-core/src/model/transfer.rs)
 - [Independent semantic/rollback tests](../../crates/pivot-workbook/tests/projection.rs)
 - [Small cost measurement harness](../../crates/pivot-workbook/tests/costs.rs)
-- [Updated project status](../STATUS-20261102.md)
+- [Updated project status](../STATUS.md)
 
 ## Verification evidence
 

@@ -10,7 +10,7 @@ Older execution proposals below are preserved design context, not active tasks.
 Their WB5 references describe the accepted research baseline. The separate spreadsheet
 aggregate-argument feature introduced WB6 and ADR-0024 now uses WB7; neither reopens
 history milestones or authorize a history experiment.
-See [current project direction](../STATUS-20261102.md).
+See [current project direction](../STATUS.md).
 
 Date: 2026-10-24. **G0 approved; G1 and feature-only G2 accepted/closed.
 G3 first baseline accepted; bounded verified-open 1K/10K research accepted; compact storage accepted; metadata/growth research

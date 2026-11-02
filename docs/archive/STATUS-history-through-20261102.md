@@ -1,10 +1,12 @@
-# Pivot implementation status
+# Pivot historical implementation status
 
-Date: 2026-11-02
+Archived: 2026-11-02. Historical milestone records retained from the status file;
+these entries describe their recorded milestones, not the current active scope.
+See [active milestone status](../STATUS.md).
 
 ## ADR-0041 — accepted and closed with Windows ARM64 qualification
 
-[Worksheet-Range Producers and Bound Grid Windows](adr/0041-worksheet-range-producers-and-bound-grid-windows.md)
+[Worksheet-Range Producers and Bound Grid Windows](../adr/0041-worksheet-range-producers-and-bound-grid-windows.md)
 implements live read-only worksheet projections and explicit-refresh immutable
 fixture snapshots within one canonical calculation graph. The four approved
 contract clarifications are implemented. WB15/private v15 are the sole current
@@ -25,9 +27,9 @@ NuGet DNS failure remain recorded. Fresh full AOT retries passed on both Windows
 targets. Native/local caches and verified duplicate publications were pruned after
 archival; final audits find no remaining native per-run compiler caches.
 
-See the [implementation handoff](handoffs/2026-11-02-bound-grid-windows.md),
-[measurements and qualification](performance/bound-grid-windows.md) and
-[code-size report](../artifacts/loc/ADR-0041/latest.md): 100,580 source lines with
+See the [implementation handoff](../handoffs/2026-11-02-bound-grid-windows.md),
+[measurements and qualification](../performance/bound-grid-windows.md) and
+[code-size report](../../artifacts/loc/ADR-0041/latest.md): 100,580 source lines with
 per-project breakdowns.
 
 The 2026-11-02 implementation review accepts and closes ADR-0041 with the unresolved
@@ -38,14 +40,15 @@ source-qualified six-target evidence, resource results, code-size reporting and
 verified retention are accepted. No further ADR-0041 validation or housekeeping
 acceptance is required. ADR-0023 remains parked at G3.
 
-Section geometry is the proposed next architectural scope; it has not started.
+The owner subsequently authorized ADR-0042 design; see the
+[active milestone status](../STATUS.md). ADR-0041 remains accepted and closed.
 
 ## ADR-0040 — accepted and closed with Windows ARM64 qualification
 
-[ADR-0040](adr/0040-unbound-grid-windows.md) details the first accepted ADR-0039 scope:
+[ADR-0040](../adr/0040-unbound-grid-windows.md) details the first accepted ADR-0039 scope:
 tagged Grid ownership, independent Window identity and references, transactional
 retirement, WB14/private v14 cuts and explicit native clipboard refusals.
-See the [design handoff](handoffs/2026-11-01-unbound-grid-windows-design.md).
+See the [design handoff](../handoffs/2026-11-01-unbound-grid-windows-design.md).
 The 2026-11-01 review approves the design with mandatory client-only scope selection,
 bounded scope views over one canonical calculation generation, and transactional
 aggregate axis/identity admission. All three are incorporated in the revised handoff,
@@ -58,9 +61,9 @@ targets passed managed/AOT GUI suites, totaling 12 suites and 48 zero-charge rep
 92 selected source hashes match. macOS x64 is Rosetta coverage. Five original
 headless runs passed; Windows ARM64's original cold worksheet timing failure remains
 Failed and unexplained, with a separate full retained-cache CI pass. See the
-[implementation handoff](handoffs/2026-11-01-unbound-grid-windows.md),
-[resource qualification](performance/unbound-grid-windows.md) and
-[implementation semantics](architecture/unbound-grid-windows.md).
+[implementation handoff](../handoffs/2026-11-01-unbound-grid-windows.md),
+[resource qualification](../performance/unbound-grid-windows.md) and
+[implementation semantics](../architecture/unbound-grid-windows.md).
 The original Windows ARM64 cold failure remains an unresolved reliability concern.
 No further ADR-0040 matrix or acceptance packet is required. ADR-0023 remains parked
 at G3. Documentation closeout is complete. ADR-0040 did not introduce producer bindings. Live worksheet and deterministic
@@ -70,12 +73,12 @@ remain later scopes.
 
 ## ADR-0039 — architecture accepted with three clarifications
 
-[Named Windows, data binding and document composition](adr/0039-named-windows-and-document-composition.md)
+[Named Windows, data binding and document composition](../adr/0039-named-windows-and-document-composition.md)
 defines stable independent Window scopes, Grid/Text content and bound/unbound
 ownership, coherent producer publication, explicit external refresh, source-authoritative
 formula references, section geometry, guarded Text conversion, document pagination,
 typed invocation and immutable headless rendering capture. See the
-[design handoff](handoffs/2026-11-01-named-windows-design.md).
+[design handoff](../handoffs/2026-11-01-named-windows-design.md).
 ADR-0039 itself records the architecture decision, without feature implementation
 or PDF backend selection. Its unbound Grid and producer-binding scopes are now
 implemented and accepted under ADR-0040 and ADR-0041 respectively. The 2026-11-01 review accepts the architecture subject to
@@ -90,7 +93,7 @@ cold-build qualification; no historical result is reclassified by this design.
 ## Current direction — spreadsheet features
 
 **Current disposition and standing milestone cadence (2026-10-31).**
-[ADR-0032: Worksheet sorting](adr/0032-worksheet-sorting.md) is accepted and closed
+[ADR-0032: Worksheet sorting](../adr/0032-worksheet-sorting.md) is accepted and closed
 by parent implementation review. Stable multi-key identity-preserving row-segment
 sorting, fixed rectangular range geometry, snapshot typed keys, exact leading-zero
 Strings, sortable completed errors, atomic operational refusal, both formatting
@@ -105,7 +108,7 @@ remain unchanged. All six targets passed headless CI and managed/Native AOT GUI
 acceptance: 48 clean graphical application reports, zero final runtime charges and
 no surviving owned processes. Final local CI passed 13/13, all-feature Rust tests
 passed 471 and strict Clippy passed. See the
-[accepted implementation handoff](handoffs/2026-10-31-worksheet-sorting.md).
+[accepted implementation handoff](../handoffs/2026-10-31-worksheet-sorting.md).
 
 Preserve the accepted source qualification: native headless runs precede final C#
 dialog corrections, which passed subsequent local CI and six-target managed/AOT
@@ -132,9 +135,9 @@ Follow this sequence for each milestone:
 8. Begin the next ADR's design work.
 
 **ADR-0033: Worksheet Filtering — accepted and closed (2026-10-31).**
-See the [ADR](adr/0033-worksheet-filtering.md),
-[implementation handoff](handoffs/2026-10-31-worksheet-filtering.md) and
-[implementation semantics](architecture/worksheet-filtering.md).
+See the [ADR](../adr/0033-worksheet-filtering.md),
+[implementation handoff](../handoffs/2026-10-31-worksheet-filtering.md) and
+[implementation semantics](../architecture/worksheet-filtering.md).
 Persisted typed definitions derive whole-row visibility without deleting, moving
 or rebinding cells. Exact-operation confirmations retain full rectangular effects.
 Structural NeedsReview persists transactionally; operational suspension is transient.
@@ -149,7 +152,7 @@ final viewport serialization corrections; Linux x64 headless, final local CI 13/
 and all final GUI suites contain them. The fixes preserve exact submitted decimal
 parts and independent editable errors, including invalid formulas and deleted
 references. Original failures remain separate from successful retries.
-Milestone reporting now includes the per-project [LoC breakdown](code-size.md).
+Milestone reporting now includes the per-project [LoC breakdown](../code-size.md).
 End-of-batch archive verification and cache cleanup follow the retention policy.
 
 The Windows VMs report matching VS 17.14.44 / MSVC 19.44.35229 profiles. ROBPC's
@@ -168,19 +171,19 @@ required. Preserve original failures and successful recoveries separately.
 **Completed milestone — ADR-0034: Visible-Only Operations on Filtered Data
 (accepted and closed by parent implementation review, 2026-10-31).**
 The owner committed ADR-0033 (`196dfd2`) and explicitly authorized design work.
-See the [accepted design ADR](adr/0034-visible-only-operations.md) and
-[parent design handoff](handoffs/2026-10-31-visible-only-operations-design.md).
+See the [accepted design ADR](../adr/0034-visible-only-operations.md) and
+[parent design handoff](../handoffs/2026-10-31-visible-only-operations-design.md).
 The parent approves independent Copy Visible Cells and Paste into Visible Rows, exact count/
 width matching, geometric translation from actual per-row origins, a bounded CB6
 image and private v12. WB12/hosted v1 and ordinary CB5/full-rectangle operations stay
 intact. Clear/Fill and arbitrary multi-area selection are deferred. This is an
 accepted design with owner-authorized implementation now complete. The explicit
 commands, CB6 source origins, private v12, atomic mapped writes and destination
-review are implemented. See [implementation semantics](architecture/visible-clipboard.md).
+review are implemented. See [implementation semantics](../architecture/visible-clipboard.md).
 Local 13-step CI, 488 all-feature Rust tests and strict Clippy pass. All six targets
 passed headless and attended managed/AOT GUI checks (48 application reports, zero
 final charges and no owned survivors); macOS x64 runs under Rosetta. See the
-[implementation handoff](handoffs/2026-10-31-visible-only-operations.md) for source
+[implementation handoff](../handoffs/2026-10-31-visible-only-operations.md) for source
 qualifications, receipts, resource observations, cleanup and per-project LoC.
 The parent accepts the implementation, formatting corrections and submitted evidence,
 including source qualifications, Rosetta coverage, observed timing maxima, archival
@@ -196,8 +199,8 @@ ticket. Canonical hidden Blank-anchor demand remains permitted reference behavio
 
 **Completed milestone — ADR-0035: Visible-Only Clear and Fill (accepted and closed by parent implementation review, 2026-10-31).**
 The owner authorized design after ADR-0034 closeout. See the
-[design-approved ADR](adr/0035-visible-only-clear-and-fill.md) and
-[parent design handoff](handoffs/2026-10-31-visible-only-clear-and-fill-design.md).
+[design-approved ADR](../adr/0035-visible-only-clear-and-fill.md) and
+[parent design handoff](../handoffs/2026-10-31-visible-only-clear-and-fill-design.md).
 The parent approves three Clear modes (Contents, Built-in Formatting, Both), immutable visible-edge
 Fill in four directions, exact actual-row review, one-use tickets and atomic mapped
 writes. Approved limits are 4,096 addressed slots for Clear and 256 including sources
@@ -215,7 +218,7 @@ application reports, zero final charges and no owned survivors. All new native
 resource corpora pass unchanged gates;
 source hashes, original failures and verified cleanup receipts are retained.
 Code size is 88,600 lines across 383 source files, +1,420 versus ADR-0034.
-See the [implementation handoff](handoffs/2026-10-31-visible-only-clear-and-fill.md)
+See the [implementation handoff](../handoffs/2026-10-31-visible-only-clear-and-fill.md)
 for receipt selection, source qualifications, resource/LoC tables and retention.
 The parent accepts all three clarifications, the shared batch reservation correction,
 unchanged budgets, source qualifications, Rosetta coverage, observed maxima/charged
@@ -224,9 +227,9 @@ reconciliation packet or Native AOT rerun is required. ADR-0023 stays parked at 
 
 **ADR-0036: Exact, Conservation-Preserving Allocation — accepted and closed (2026-10-31).**
 The owner authorized implementation after parent design approval with three clarifications.
-See the [ADR](adr/0036-exact-conservation-preserving-allocation.md),
-[implementation handoff](handoffs/2026-10-31-exact-allocation.md) and
-[semantics](architecture/allocation.md). Four strict Decimal arguments, explicit precision,
+See the [ADR](../adr/0036-exact-conservation-preserving-allocation.md),
+[implementation handoff](../handoffs/2026-10-31-exact-allocation.md) and
+[semantics](../architecture/allocation.md). Four strict Decimal arguments, explicit precision,
 one-based u32 indices, deterministic residuals, fixed 192-bit arithmetic and group-wide
 exact-SUM admission are implemented. Actual production SUM passed in different orders;
 complete/consistent index membership remains the user's explicit responsibility.
@@ -249,9 +252,9 @@ The owner subsequently authorized ADR-0037 design, as recorded below. ADR-0036
 implementation remains closed; its recorded validation and source qualifications are unchanged.
 
 **ADR-0037: Weighted, Conservation-Preserving Allocation — accepted and closed (2026-11-01).**
-See the [ADR](adr/0037-weighted-conservation-preserving-allocation.md),
-[implementation review](handoffs/2026-11-01-weighted-allocation.md) and
-[semantics](architecture/weighted-allocation.md). ALLOCATEWEIGHTED provides exact
+See the [ADR](../adr/0037-weighted-conservation-preserving-allocation.md),
+[implementation review](../handoffs/2026-11-01-weighted-allocation.md) and
+[semantics](../architecture/weighted-allocation.md). ALLOCATEWEIGHTED provides exact
 settlement for 1..64 ordered scalar weights, strict Decimal operands and required
 precision. The four requirements are implemented: explicit ordinal association,
 final-award-only group representation and actual SUM, fully metered/cancellable scratch
@@ -279,8 +282,8 @@ failure/retry distinction, selected-file source qualification and diagnostic cod
 ADR-0023 remains parked at G3.
 
 **ADR-0038: Range-Based Weighted Allocation — accepted and closed with qualification (2026-11-01).**
-See the [ADR](adr/0038-range-based-weighted-allocation.md) and
-[design review](handoffs/2026-11-01-range-based-weighted-allocation-design.md).
+See the [ADR](../adr/0038-range-based-weighted-allocation.md) and
+[design review](../handoffs/2026-11-01-range-based-weighted-allocation-design.md).
 ALLOCATEWEIGHTEDRANGE(total,index,places,range) uses one literal row/column range of
 1..64 physical positions, strict Decimal weights and explicit index/precision. Blank
 retains its position and causes TypeMismatch; zero is explicit, visibility irrelevant.
@@ -303,11 +306,11 @@ All six targets require headless, managed GUI and Native AOT qualification, with
 x64 identified as Rosetta. ROBPC headless CI passed 13/13 and all-feature tests passed
 525. All six targets have passing headless CI evidence, with Windows ARM64 explicitly
 qualified as retained-build-cache CI after three preserved cold-build structural timing
-failures. Their cause remains unexplained; see the [qualification](performance/range-weighted-allocation.md).
+failures. Their cause remains unexplained; see the [qualification](../performance/range-weighted-allocation.md).
 All six targets passed managed/AOT GUI: 12 suites and 48 zero-charge graphical reports,
 including macOS x64 under Rosetta. Selected implementation/test sources match. Verified
 archival and native/local cache cleanup are complete. See the
-[implementation handoff](handoffs/2026-11-01-range-based-weighted-allocation.md).
+[implementation handoff](../handoffs/2026-11-01-range-based-weighted-allocation.md).
 Licensing, keyed groups, arrays/spills, repair, fairness state, visible-only
 allocation and history remain excluded; ADR-0023 stays parked at G3.
 
@@ -317,8 +320,8 @@ qualifying public-interest use, with paid commercial/government-administrative u
 Government-owned education and noncommercial public research remain free; government
 administration gets preferential pricing rather than an exemption. Shared engine,
 SDK, Avalonia adapter, pivotd and REPL remain Apache-2.0. See the
-[licensing proposal](proposals/desktop-licensing.md) and
-[custom license draft](proposals/desktop-license-draft.md). Unmodified PolyForm's
+[licensing proposal](../proposals/desktop-licensing.md) and
+[custom license draft](../proposals/desktop-license-draft.md). Unmodified PolyForm's
 government exemption conflicts with this policy. Existing Apache grants remain intact;
 no operative license or packaging changes have been made. Review the custom text and
 adoption boundary before applying it. No licensing-enforcement feature is assigned.
@@ -347,12 +350,12 @@ rectangles, e.g. `=SUM(A1:A10,C1:C10,5)`. Copy/fill translates all reference axe
 Save/reopen preserves bound identities. AVERAGE rounds once across each call's
 numeric inputs, and nested calls remain scalar results. That milestone introduced WB6 for persisted call-control tokens; ADR-0024 now
 supersedes it with WB7. No migration reader was added.
-[Feature handoff and regression evidence](handoffs/2026-10-28-multi-argument-aggregates.md) ·
-[Aggregate semantics](architecture/spreadsheet-aggregates.md).
+[Feature handoff and regression evidence](../handoffs/2026-10-28-multi-argument-aggregates.md) ·
+[Aggregate semantics](../architecture/spreadsheet-aggregates.md).
 The feature uses existing desktop authoring; no new GUI interaction is required.
 
 **Multiple worksheets: ADR-0024 accepted and closed by parent review (2026-10-28).**
-[ADR-0024](adr/0024-multiple-worksheets.md) implements Add/Rename/switchable tabs,
+[ADR-0024](../adr/0024-multiple-worksheets.md) implements Add/Rename/switchable tabs,
 qualified scalar and single-sheet rectangular references, one shared calculation
 graph, sheet-scoped commands, and complete Save/reopen. Deletion/reordering/duplicate
 sheets, external links and history integration are deferred. Parent approved the 16-sheet ceiling and
@@ -363,12 +366,12 @@ automated actual-window suites also passed on all three targets, including works
 controls, edit-on-switch, effective formula rendering, per-sheet view state and
 Save/reopen. Each target reported four successful application runs, zero remaining
 charges and no surviving owned processes.
-[Implementation handoff and validation evidence](handoffs/2026-10-28-multiple-worksheets.md).
+[Implementation handoff and validation evidence](../handoffs/2026-10-28-multiple-worksheets.md).
 Parent accepted the implementation and supplied evidence; no additional qualification
 round or reconciliation packet is required. Preserve the original failed reports.
 
 **Typed spreadsheet values: ADR-0025 accepted and closed by parent review (2026-10-28).** The parent follow-up
-separates definition, value type and display metadata. [Accepted ADR-0025](adr/0025-typed-spreadsheet-values.md)
+separates definition, value type and display metadata. [Accepted ADR-0025](../adr/0025-typed-spreadsheet-values.md)
 defines Decimal96/Boolean/String, Blank/errors, coercion/comparison, short circuit,
 IF/AND/OR/NOT, LEN/MID and concatenation, as one bounded implementation milestone.
 Integer-valued results remain Decimal96 for this milestone; first-class Integer and
@@ -385,13 +388,13 @@ regression. All 356 implementation inputs match. Managed desktop suites passed o
 all three targets; native Mac ARM64 AOT publish/execution passed without warnings.
 GUI/AOT used the prepared source preceding one final Rust-only admission-order fix;
 that fix passed the final native headless and local all-feature runs.
-[Single implementation handoff and source-qualified evidence](handoffs/2026-10-28-typed-spreadsheet-values.md).
+[Single implementation handoff and source-qualified evidence](../handoffs/2026-10-28-typed-spreadsheet-values.md).
 Parent explicitly accepts this source qualification: final Rust is headless-qualified
 on all three platforms; the earlier GUI/AOT runs are not graphical execution of the
 final Rust binary. No additional validation or reconciliation packet is required.
 ADR-0023 remains parked at G3.
 
-**Basic formatting: [ADR-0026](adr/0026-basic-cell-formatting.md) accepted and closed
+**Basic formatting: [ADR-0026](../adr/0026-basic-cell-formatting.md) accepted and closed
 by parent implementation review (2026-10-28).**
 Native Windows x64/Linux x64/macOS ARM64 headless CI passed 13/13 each; 161
 workbook/document all-feature tests, strict Clippy and session checks passed.
@@ -405,7 +408,7 @@ of retained artifacts, unchanged binary hashes, zero charges and process cleanup
 No GUI rerun or relabeling of the original failed gate is claimed.
 Product code matches the headless-tested source; subsequent differences are desktop
 automation/verifier corrections and a focused verifier test. Exact evidence and
-qualifications are in the [single implementation handoff](handoffs/2026-10-28-basic-cell-formatting.md).
+qualifications are in the [single implementation handoff](../handoffs/2026-10-28-basic-cell-formatting.md).
 Parent accepts this evidence and the explicit AOT qualification. The original runner
 outcome is not reclassified; earlier desktop failures and corrections remain preserved.
 No additional qualification, reconciliation or acceptance packet is required.
@@ -419,7 +422,7 @@ Exact rendering covers all seven rounding modes and maximum-value percentages
 without intermediate overflow or calculated-value mutation. At that milestone the representations were WB9/private v7/CB4; ADR-0030 below
 supersedes native/session encoding while retaining CB4.
 
-**Calculation rounding: [ADR-0027](adr/0027-calculation-rounding-functions.md)
+**Calculation rounding: [ADR-0027](../adr/0027-calculation-rounding-functions.md)
 accepted and closed by parent review (2026-10-29).** ROUND uses nearest
 ties away, ROUNDUP away from zero and ROUNDDOWN toward zero; negative integer digits
 round left of the decimal point. Exact checked Decimal96 results remain independent
@@ -429,13 +432,13 @@ on Windows x64/Linux x64/macOS ARM64, with all
 .NET session/error/capture/clipboard/Save-reopen checks passed. Ubuntu recovered from
 native disk exhaustion on the same frozen source; its original failed setup receipt
 remains separate. Interaction/transport are unchanged; no attended GUI/AOT round
-was assigned. [Single implementation handoff](handoffs/2026-10-29-calculation-rounding.md).
+was assigned. [Single implementation handoff](../handoffs/2026-10-29-calculation-rounding.md).
 Parent accepts this evidence and the frozen-source recovery without reclassifying
 the original Ubuntu failure. No additional GUI/AOT, migration, platform qualification
 or reconciliation round is required.
 
 Owner also authorized workspace cleanup and historical archival. The
-[artifact retention policy](artifact-retention.md) defines at most two completed run
+[artifact retention policy](../artifact-retention.md) defines at most two completed run
 product sets per RID/suite, disposable historical build caches, verified report ZIPs,
 and milestone/weekly maintenance. Source and live configuration are protected;
 archival does not change original validation outcomes or reopen closed gates.
@@ -456,7 +459,7 @@ The working tree was clean at resumption.
 explicit parsing/type choices, predictable UTF-8, correct quotation/escaping and
 export of calculated values. The current 1,024 live-cell limit is visible and
 excessive imports are rejected atomically; no capacity increase was included.
-[Accepted ADR-0028](adr/0028-csv-import-export.md) now records the bounded CSV
+[Accepted ADR-0028](../adr/0028-csv-import-export.md) now records the bounded CSV
 design: new-workbook import, explicit text/typed modes, strict UTF-8 and comma
 syntax, atomic admission and snapshot-based calculated-value export. Owner/parent
 clarifications preserve leading-zero integer identifiers by default, use quotation
@@ -476,13 +479,13 @@ before replacement; an uncertain outcome after a replacement attempt must be
 reported explicitly without claiming success, rollback or unchanged destination.
 No file-broker rewrite is assigned. Retain original failure evidence and follow
 the accepted artifact-retention policy.
-[Single implementation handoff and validation evidence](handoffs/2026-10-29-csv-import-export.md).
+[Single implementation handoff and validation evidence](../handoffs/2026-10-29-csv-import-export.md).
 At this milestone, row/column insertion/deletion and sorting/filtering remained
 roadmap suggestions. ADR-0031 subsequently delivered structural editing; ADR-0032
 sorting design is now assigned but held as described above.
 ADR-0023 remains parked at G3.
 
-**Production workbook capacity: [ADR-0029](adr/0029-production-workbook-capacity.md)
+**Production workbook capacity: [ADR-0029](../adr/0029-production-workbook-capacity.md)
 accepted and closed by parent implementation review (2026-10-29).**
 Current source enables 65,536 positioned cells workbook-wide, 262,144 allocated
 identities, 65,536 worksheet rows × 1,024 columns, CSV 1,048,576 fields/16 MiB and
@@ -513,7 +516,7 @@ text/Boolean round trips, identity exhaustion and real .NET/Rust session regress
 Final local workspace all-feature regression passed 445 test executions; strict
 Clippy passed. Desktop application sources are unchanged by the final corrections;
 their native persistence validation is headless, separately identified from GUI evidence.
-[Single implementation handoff and evidence](handoffs/2026-10-29-production-workbook-capacity.md).
+[Single implementation handoff and evidence](../handoffs/2026-10-29-production-workbook-capacity.md).
 Parent accepts the supplied evidence, final correction scope and separately reported
 identity-memory cost. No additional GUI/AOT qualification or reconciliation packet
 is required. Short target-local attended launchers are the approved standing workflow.
@@ -521,7 +524,7 @@ ADR-0028 evidence retains its
 original frozen-source scope; ADR-0029 supersedes its capacity policy only.
 ADR-0023 remains parked at G3.
 
-**Region formatting — [ADR-0030](adr/0030-region-formatting.md) accepted and closed by parent implementation review (2026-10-29).**
+**Region formatting — [ADR-0030](../adr/0030-region-formatting.md) accepted and closed by parent implementation review (2026-10-29).**
 Latest successful action wins per chosen property throughout the selection, including
 prior individual exceptions. Sparse disjoint property regions replace per-position
 styles, with 65,536 regions and an 8 MiB style/index budget. Whole-row/column headers,
@@ -540,7 +543,7 @@ zero final runtime charges and no owned survivors. All 387 original inputs match
 in all nine source copies. A final benchmark-only extension separately passed all
 three native targets with fully fragmented Save/reopen and geometric Apply p95;
 application/library sources are unchanged. Original failures and source scopes remain
-recorded. [Single implementation handoff and measurements](handoffs/2026-10-29-region-formatting.md).
+recorded. [Single implementation handoff and measurements](../handoffs/2026-10-29-region-formatting.md).
 Parent accepts the normalization correction, resource results, source-qualified
 benchmark-only extension and all supplied validation. No additional validation,
 acceptance packet, reconciliation or AOT rerun is required. Preserve the original
@@ -576,7 +579,7 @@ The compact corpus retained about 251.2 MiB with four old roots and peaked at ab
 489.36 MiB through Save/reopen, within unchanged 256/512 MiB objectives. Structural
 command maxima are single observations, not percentiles; macOS x64 is Rosetta,
 not native Intel coverage. Original failures and successful recoveries remain separate.
-[Accepted implementation handoff and evidence](handoffs/2026-10-30-row-column-structure.md).
+[Accepted implementation handoff and evidence](../handoffs/2026-10-30-row-column-structure.md).
 
 WB11-only, private v9 and CB5 are accepted; obsolete readers and migrations are not
 required. No further validation cycle, reconciliation packet or AOT run is required.
@@ -599,7 +602,7 @@ G3 is now parked; parent previously accepted the physical accounting, scalable a
 and readiness assessment. Engine/VFS and small-bound admission qualification are
 accepted. The authorized one-shot 32K pilot has returned a failed/stopped packet;
 the workstream is now suspended rather than assigned another correction cycle.**
-[32K pilot results, failure diagnosis and remaining gates](handoffs/2026-10-27-g3-32k-control-pilot-results.md).
+[32K pilot results, failure diagnosis and remaining gates](../handoffs/2026-10-27-g3-32k-control-pilot-results.md).
 Windows/Ubuntu retained all 32,768 controls plus seed (853/851 leaves), passed native
 audit and seed reconstruction, then failed the final accounting file-set guard.
 Mac stopped on peer failure at 18,595 controls. Copy diagnosis reproduces creation
@@ -609,13 +612,13 @@ Original attempts remain failed/stopped, with no replay or reclassification.
 Final native reopen/lookup gates were not reached. The Windows per-publication RSS
 sampler also retains ctypes types; measured process growth includes observer cost.
 No three-platform 32K acceptance, capacity increase or production adoption is claimed.
-[Pilot/measurement contract](architecture/history-32k-control-pilot.md).
-[Engine acceptance and exact 32K authorization](handoffs/2026-10-27-g3-engine-acceptance-32k-authorization.md).
+[Pilot/measurement contract](../architecture/history-32k-control-pilot.md).
+[Engine acceptance and exact 32K authorization](../handoffs/2026-10-27-g3-engine-acceptance-32k-authorization.md).
 That single-attempt authorization is consumed on Windows NTFS, Ubuntu ext4 and Mac
 APFS. The fixed engine and **1,024/24/60/8** profile were retained. Stop for review;
 **65K, 4,096-leaf enablement and full 100K G2 remain unauthorized.**
-[Fixed-engine/admission results and scaling decision](handoffs/2026-10-27-g3-engine-admission-results.md) ·
-[Implementation and measurement contract](architecture/history-engine-qualification.md).
+[Fixed-engine/admission results and scaling decision](../handoffs/2026-10-27-g3-engine-admission-results.md) ·
+[Implementation and measurement contract](../architecture/history-engine-qualification.md).
 All three native targets use the same verified official SQLite 3.51.3 source,
 including the documented WAL-reset fix, through the actual instrumented connection.
 VFS delegates are win32/unix. Pre-write index staging, bootstrap admission, native
@@ -631,16 +634,16 @@ durability are not claimed. The separate 32K control pilot returned the failed/s
 approved larger profile. No expanded run, production selection or installed-runtime
 upgrade occurred during qualification. Its review is now accepted; the separate
 32K-only assignment is consumed; no retry is authorized.
-[Acceptance and exact qualification assignment](handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
+[Acceptance and exact qualification assignment](../handoffs/2026-10-27-g3-accounting-acceptance-engine-qualification.md).
 Stop storage optimization; 20% is an optimization aspiration, not an acceptance gate.
 Qualify a fixed actual SQLite build/VFS and WAL-reset correction, instrument the actual
 connection, and implement pre-write planning/admission within the unchanged 1,024-leaf
 profile. Test resource failures, pinned WAL/readers and crash/reopen at small bounds.
 That bounded implementation is accepted. The later 32K-only authorization is linked
 above; 65K remains unauthorized.
-[Assessment, readiness comparison and stopping boundary](handoffs/2026-10-27-g3-storage-admission-assessment.md) ·
-[Exact storage accounting](architecture/history-storage-accounting.md) ·
-[Proposed admission bounds](architecture/history-scalable-admission-proposal.md).
+[Assessment, readiness comparison and stopping boundary](../handoffs/2026-10-27-g3-storage-admission-assessment.md) ·
+[Exact storage accounting](../architecture/history-storage-accounting.md) ·
+[Proposed admission bounds](../architecture/history-scalable-admission-proposal.md).
 Read-only native collection matches every dbstat object on Mac/Ubuntu and preserves
 source DB/WAL hashes and canonical receipts on all three targets. The unchanged
 schema's serialized records alone cost about **41.21% beyond compressed payload**,
@@ -652,7 +655,7 @@ run. Native resource admission, actual SQLite/VFS/sync qualification and WAL/cac
 instrumentation remain before stronger scalability/backend claims. The assessment's
 review is complete; the new bounded qualification assignment is
 recorded above. No production engine selection or codec round is authorized.
-[Acceptance, revised objective and exact next scope](handoffs/2026-10-27-g3-hierarchy-dictionary-acceptance.md).
+[Acceptance, revised objective and exact next scope](../handoffs/2026-10-27-g3-hierarchy-dictionary-acceptance.md).
 The 20% metadata figure is now an unproven research aspiration, not a mandatory
 engineering gate. Assess indispensable bytes versus duplicate/index/page costs and
 predictable growth. Document larger admission bounds and worst-case costs before
@@ -672,8 +675,8 @@ remains and full 100K G2 work is not authorized.
 Native Windows NTFS, Ubuntu ext4 and Mac APFS qualification: **249 passes, three
 explicit skips**. Broader overhead remains **57.8–58.2%** of compressed payload;
 the 20% aspiration remains unmet and complete production feasibility remains open.
-[Hierarchy/normalization results](handoffs/2026-10-27-g3-hierarchy-normalization-results.md) ·
-[Experimental contract](architecture/history-hierarchy-normalization-experiment.md).
+[Hierarchy/normalization results](../handoffs/2026-10-27-g3-hierarchy-normalization-results.md) ·
+[Experimental contract](../architecture/history-hierarchy-normalization-experiment.md).
 
 The owner subsequently authorized a separate trained-dictionary zstd investigation.
 One frozen 1K training corpus and identical dictionaries were tested on all native
@@ -682,8 +685,8 @@ complete audit/reconstruction. Dictionaries reduce payload bytes but yield only 
 1% total-size savings in the best dictionary case; plain zstd-9 is slightly smaller.
 Normalized receipts do not benefit, and the 20% metadata goal remains unmet. The
 unchanged zlib baseline retains its own evidence; no production codec is selected.
-[Dictionary results and limits](handoffs/2026-10-27-g3-dictionary-results.md) ·
-[Dictionary/corpus contract](architecture/history-dictionary-experiment.md).
+[Dictionary results and limits](../handoffs/2026-10-27-g3-dictionary-results.md) ·
+[Dictionary/corpus contract](../architecture/history-dictionary-experiment.md).
 G1/G2 and six-RID execution acceptance remain closed; G4–G7 remain gated.
 
 Parent review **accepted and closed six-RID headless CI, managed GUI and
@@ -698,8 +701,8 @@ Evidence under `artifacts/validation-matrix/`:
 - Five AOT passes plus original ARM64 failure: `20261027T025246Z-b82c5b95/`.
 - Accepted Windows ARM64 AOT pass: `20261027T144914Z-cab4acb5/`.
 
-[Final acceptance](handoffs/2026-10-27-six-rid-validation-acceptance.md) ·
-[Open Windows clipboard reliability issue](issues/0001-windows-clipboard-paste-reliability.md).
+[Final acceptance](../handoffs/2026-10-27-six-rid-validation-acceptance.md) ·
+[Open Windows clipboard reliability issue](../issues/0001-windows-clipboard-paste-reliability.md).
 No further confirmation runs are required. The validator must continue failing
 actual failed assertions. Retain metadata-only diagnostics and explicit missing-
 cell failures without suppression or added retries.
@@ -726,9 +729,9 @@ ordinary WB5 export/reopen is 7,365 bytes at 1K and 7,367 bytes at 10K for the s
 baseline example finishes with zero charge on every platform; production code is
 unchanged.
 
-[Byte accounting, comparison and evidence](handoffs/2026-10-27-g3-storage-efficiency-results.md) ·
-[Compact representation and integrity boundary](architecture/history-compact-storage-experiment.md) ·
-[Storage-efficiency assignment](handoffs/2026-10-27-g3-storage-efficiency-reset.md).
+[Byte accounting, comparison and evidence](../handoffs/2026-10-27-g3-storage-efficiency-results.md) ·
+[Compact representation and integrity boundary](../architecture/history-compact-storage-experiment.md) ·
+[Storage-efficiency assignment](../handoffs/2026-10-27-g3-storage-efficiency-reset.md).
 The owner identified `J:\coding\dotZstd` as an existing .NET zstd wrapper; Rust
 zstd is another future option. This slice uses zlib 6 only as a research baseline;
 no production codec or dependency is selected.
@@ -747,10 +750,10 @@ target, and the bounded flat directory still has linear decode/rewrite cost.
 The authorized hierarchical directory and receipt-normalization investigation is now
 accepted, as reported at the top of this document. Its zlib-6
 baseline is unchanged by the separate owner-authorized dictionary comparison.
-[Acceptance, next assignment and stop conditions](handoffs/2026-10-27-g3-layout-growth-acceptance.md) ·
-[Results, limits and native evidence](handoffs/2026-10-27-g3-layout-growth-results.md) ·
-[Layout and split contract](architecture/history-layout-growth-experiment.md) ·
-[Accepted assignment](handoffs/2026-10-27-g3-compact-storage-acceptance.md).
+[Acceptance, next assignment and stop conditions](../handoffs/2026-10-27-g3-layout-growth-acceptance.md) ·
+[Results, limits and native evidence](../handoffs/2026-10-27-g3-layout-growth-results.md) ·
+[Layout and split contract](../architecture/history-layout-growth-experiment.md) ·
+[Accepted assignment](../handoffs/2026-10-27-g3-compact-storage-acceptance.md).
 No full 100K run, production backend/index choice,
 retention/GC, witness, coordinator, format migration or Undo/Redo integration.
 G1/G2 and six-RID execution validation remain accepted/closed; clipboard ISSUE-0001
@@ -762,7 +765,7 @@ open gates or a G3 scheduling hold.
 **Six-RID headless validation accepted and closed by parent review: 78/78 gates.**
 Unified result: `artifacts/validation-matrix/20261026T002242Z-f76230c2/`.
 All Windows/Ubuntu targets ran in their VMs, with native Mac ARM64 and Rosetta x64;
-ROBPC remained controller-only. [Implementation and review handoff](handoffs/2026-10-25-runtime-shutdown-and-six-rid-validation.md).
+ROBPC remained controller-only. [Implementation and review handoff](../handoffs/2026-10-25-runtime-shutdown-and-six-rid-validation.md).
 
 Fixed task-ticket release ordering before lane completion; finish and original
 assertions remain unchanged. Rust cancellation setup now uses a batch, and client
@@ -780,7 +783,7 @@ matrix used its original global-two invocation; scheduler verification is separa
 
 Parent accepted the shutdown ordering correction, both cancellation test fixes,
 private Linux x64 SDK selection and scheduling policy. No further headless
-acceptance run is required. See [closure and GUI/AOT scope](handoffs/2026-10-25-six-rid-headless-closure.md).
+acceptance run is required. See [closure and GUI/AOT scope](../handoffs/2026-10-25-six-rid-headless-closure.md).
 
 Next authorized work is practical managed-GUI integration, then Native AOT actual
 publish-and-execute through the existing profiles. Preserve original functional
@@ -795,7 +798,7 @@ the current results above supersede them without changing original evidence.
 Parent review accepted and closed both Windows VM SSH integration and native
 headless validation. Five designated RIDs are accepted at 13/13 gates each; no
 additional Windows connectivity qualification is required. See the
-[five-RID acceptance and next scope](handoffs/2026-10-25-five-rid-headless-acceptance.md).
+[five-RID acceptance and next scope](../handoffs/2026-10-25-five-rid-headless-acceptance.md).
 
 Next work: diagnose the existing Linux ARM64 runtime-finish failure with focused
 native tests, preserving the original exit 101 and assertion. After a justified
@@ -803,7 +806,7 @@ correction and targeted verification, run Linux ARM64 full CI, then one unified
 six-target headless matrix. GUI/Native AOT integration follows headless completion;
 no new six-RID GUI/AOT coverage is claimed. G1/G2 closed; G3 held.
 
-[Both Windows guests passed native headless CI, 13/13 each](handoffs/2026-10-25-windows-ssh-automation.md).
+[Both Windows guests passed native headless CI, 13/13 each](../handoffs/2026-10-25-windows-ssh-automation.md).
 Five designated RIDs now have passing headless evidence; Linux ARM64 retains its
 original Rust failure. No ROBPC/WSL diagnostic result is counted toward this matrix.
 
@@ -847,40 +850,40 @@ read/execute. It collects service/event diagnostics before configuration rollbac
 Syntax and in-memory ACL construction checked; corrected guest execution pending. Linux ARM64 runtime-finish diagnosis
 remains authorized, preserving the original failed CI and its assertion. G3 held.
 
-[Mac x64 Rust/tool orchestration](handoffs/2026-10-25-mac-x64-toolchain.md):
+[Mac x64 Rust/tool orchestration](../handoffs/2026-10-25-mac-x64-toolchain.md):
 x64 Rust installed; ARM64 default retained. Native ARM64 Python controls verified
 x64 Rust/.NET tools under Rosetta. All 13 existing headless CI gates passed on
 APFS; the built Rust executable is confirmed Mach-O x86_64. The initial linker
 setup failure is preserved. Eleven focused runner checks pass.
 
-[Native Mac ARM64 CI](handoffs/2026-10-25-mac-ssh-automation.md) also passed all 13
+[Native Mac ARM64 CI](../handoffs/2026-10-25-mac-ssh-automation.md) also passed all 13
 gates. SSH deployment and automatic report retrieval work with Remote Login Full
 Disk Access off. No x64 Python installation is needed.
 
-[Ubuntu VM SSH automation](handoffs/2026-10-25-ubuntu-ssh-automation.md): Hyper-V
+[Ubuntu VM SSH automation](../handoffs/2026-10-25-ubuntu-ssh-automation.md): Hyper-V
 x64 passed all 13 gates; UTM ARM64 reached an actual Rust cancellation-test failure
 at runtime.finish. Its Failed result remains preserved without a retry or product
 change. Local Windows x64 and WSL x64 full headless CI passed as development diagnostics.
 Windows guest SSH setup is underway as recorded above. No GUI/AOT acceptance is claimed for these new runs. G3 remains held.
 
-**Current direction: [validation infrastructure reset](handoffs/2026-10-25-validation-infrastructure-reset.md).**
+**Current direction: [validation infrastructure reset](../handoffs/2026-10-25-validation-infrastructure-reset.md).**
 Owner/parent supersede the forensic qualification and per-run approval workflow.
 Build practical six-RID automation using unchanged existing test assertions,
 ordinary revisions/logs, trusted development VMs and explicit GUI consent. Unrelated
 /proc churn is diagnostic; actual assertion/resource/owned-process failures still
 fail. Preserve all historical Blocked reports below without reclassification.
-[Unified runner](validation.md) is implemented and its first practical execution
+[Unified runner](../validation.md) is implemented and its first practical execution
 completed. Earlier one-attempt/packet/forensic requirements below are historical,
 not current development policy. G3 remains held; no product changes.
 
-[First practical six-RID execution report](handoffs/2026-10-25-six-rid-first-practical-run.md):
+[First practical six-RID execution report](../handoffs/2026-10-25-six-rid-first-practical-run.md):
 Windows x64 and Linux x64/WSL each pass all 13 existing headless CI gates through
 the new orchestrator; seven focused tests pass. Four remote ARM64/macOS targets
 are explicitly NotConfigured. No new GUI/AOT run. Remote endpoints/authentication,
 Mac x64 execution and actual remote trials remain setup work; no SSH service was
 enabled.
 
-[Third Ubuntu attempt overall Blocked/2](handoffs/2026-10-25-ubuntu-third-managed-result.md).
+[Third Ubuntu attempt overall Blocked/2](../handoffs/2026-10-25-ubuntu-third-managed-result.md).
 Runner exit0, direct main/peer/child identities, four managed X11/zero-charge reports,
 WB5/source/context and final empty scope verify. Diagnostics retain 121 unresolved
 observations: 108 before binding, 13 after; 120 ENOENT and one main environ denial.
@@ -889,14 +892,14 @@ overlapping nested hashes and transfer digests verify. Third authority consumed;
 no retry/code repair. Parent contract/lifecycle direction next; no guest action.
 Earlier third-run-pending notes superseded. Qualification open; G3 held/unstarted.
 
-[Third, lifecycle-corrected Ubuntu confirmation prepared](handoffs/2026-10-25-ubuntu-lifecycle-attended-confirmation.md).
+[Third, lifecycle-corrected Ubuntu confirmation prepared](../handoffs/2026-10-25-ubuntu-lifecycle-attended-confirmation.md).
 Final exact-packet/delta reconciliation passes. New short shared-script command
 uses fresh ext4 input and third distinct exclusive receipt, preserving both previous
 attempts. Fresh live-context/owner CONFIRM/separate GUI consent remain mandatory.
 Third run pending; no GUI/build ran in preparation. Stop after first outcome; no
 retry. Overall GUI open; G3 held/unstarted.
 
-[Parent accepts lifecycle correction](handoffs/2026-10-25-ubuntu-lifecycle-correction-acceptance.md).
+[Parent accepts lifecycle correction](../handoffs/2026-10-25-ubuntu-lifecycle-correction-acceptance.md).
 Non-GUI gate closed; one new owner-attended Ubuntu managed-GUI confirmation is
 authorized after final exact-packet/live-context verification. Prepare a third,
 distinct attempt receipt and short shared script; fresh CONFIRM/separate GUI consent
@@ -904,7 +907,7 @@ required. No third run has occurred. Preserve both prior Blocked outcomes; no re
 Overall GUI open; Ubuntu AOT/unattended unapproved; G3 held/unstarted. Earlier
 pending-correction-review notes below are superseded.
 
-[Ubuntu lifecycle correction ready for review](handoffs/2026-10-25-ubuntu-lifecycle-correction.md).
+[Ubuntu lifecycle correction ready for review](../handoffs/2026-10-25-ubuntu-lifecycle-correction.md).
 Early-pinned outer lifecycle covers selection/cwd/initial/full recheck windows;
 precise stage/operation/identity/errno diagnostics preserve unresolved failures.
 New immutable packet: 546 sources/273 inputs/ten payloads, observer/doc changes
@@ -913,14 +916,14 @@ three Linux-only skips. Real non-GUI Python-child pidfd fixture exercised on WSL
 Both old Blocked runs preserved; no GUI/build/new positive command. Parent review
 next; no guest action requested. G3 held/unstarted.
 
-[Parent accepts second-run direct identities/application evidence; overall Blocked retained](handoffs/2026-10-25-ubuntu-confirmation-lifecycle-review.md).
+[Parent accepts second-run direct identities/application evidence; overall Blocked retained](../handoffs/2026-10-25-ubuntu-confirmation-lifecycle-review.md).
 Next authorized scope: bounded non-GUI observer lifecycle/read-order investigation,
 precise failure-stage diagnostics and potential correction with focused tests/new
 immutable packet. Both Ubuntu GUI authorizations consumed; no new positive command
 or execution. Preserve four original disappearance errors and both Blocked outcomes.
 Earlier confirmation-review-pending notes superseded. G3 held/unstarted.
 
-[Ubuntu corrected confirmation: overall Blocked/2](handoffs/2026-10-25-ubuntu-observer-confirmation-result.md).
+[Ubuntu corrected confirmation: overall Blocked/2](../handoffs/2026-10-25-ubuntu-observer-confirmation-result.md).
 Original runner exit0 and full runtime identity correlation now verify, including
 direct main/three peers/canonical DLL/cwd and matching Rust children. Four X11/
 zero-charge reports, WB5/source/context integrity and empty final scope pass.
@@ -929,14 +932,14 @@ exit events do not erase them. Thirty capture/28 overlapping nested hashes verif
 New authority consumed; no retry or code repair. Parent direction next; earlier
 confirmation-pending notes superseded. Qualification open; G3 held/unstarted.
 
-[New Ubuntu observer-corrected confirmation prepared](handoffs/2026-10-25-ubuntu-observer-attended-confirmation.md).
+[New Ubuntu observer-corrected confirmation prepared](../handoffs/2026-10-25-ubuntu-observer-attended-confirmation.md).
 Final read-only candidate integrity/delta checks pass. New short shared script uses
 fresh native ext4 import and a distinct exclusive attempt receipt; first attempt
 and evidence remain untouched. Fresh current-context, owner CONFIRM and separate
 GUI consent remain required. Confirmation pending; no GUI/build ran in preparation.
 Stop after first outcome; no replay. G3 held/unstarted.
 
-[Parent accepts observer correction](handoffs/2026-10-25-ubuntu-observer-correction-acceptance.md).
+[Parent accepts observer correction](../handoffs/2026-10-25-ubuntu-observer-correction-acceptance.md).
 Non-GUI correction gate is closed. One newly authorized attended Ubuntu managed-GUI
 confirmation may be prepared after final read-only packet reconciliation, with a
 distinct one-attempt receipt and fresh current-context/owner/GUI consent checks.
@@ -944,7 +947,7 @@ No confirmation has run. First Blocked result and its consumed authority remain
 separate. Overall GUI qualification open; Ubuntu AOT/unattended unapproved;
 G3 held/unstarted. Earlier correction-review-pending notes below are superseded.
 
-[Ubuntu observer correction ready for parent review](handoffs/2026-10-25-ubuntu-observer-cwd-correction.md).
+[Ubuntu observer correction ready for parent review](../handoffs/2026-10-25-ubuntu-observer-cwd-correction.md).
 Actual target-cwd/canonical DLL resolution and bracketed pinned process observation
 address both observer failure modes; build actors retain direct identity/ancestry/
 cgroup and wrapper context without unnecessary display-environment reads. New
@@ -953,7 +956,7 @@ pass, Windows 35 pass/two Linux-only skips. Exact observer/test/doc delta verifi
 No GUI/build/new positive command or guest retry. Original Blocked/2 preserved;
 qualification open, further execution requires parent approval. G3 held/unstarted.
 
-[Parent accepts Ubuntu actual application evidence, retains Blocked/2](handoffs/2026-10-25-ubuntu-first-managed-review.md).
+[Parent accepts Ubuntu actual application evidence, retains Blocked/2](../handoffs/2026-10-25-ubuntu-first-managed-review.md).
 Functional/backend/zero-charge/WB5/context/final-snapshot evidence is accepted within
 scope; full qualification remains open. Next authorized work is narrowly scoped
 non-GUI observer investigation/correction for relative main DLL/cwd identification
@@ -961,7 +964,7 @@ and compiler environ-read failure, with focused tests and a new immutable candid
 for review. No GUI replay/new positive command; original authority consumed.
 Earlier pending first-run-review notes are superseded. G3 held/unstarted.
 
-[First Ubuntu attended GUI attempt: overall Blocked/2](handoffs/2026-10-25-ubuntu-first-managed-result.md).
+[First Ubuntu attended GUI attempt: overall Blocked/2](../handoffs/2026-10-25-ubuntu-first-managed-result.md).
 Original UI runner exited 0; four actual managed X11 backend reports/zero charges,
 WB5/source integrity, continuity and final empty scoped snapshot verify. Observer
 retains one Rust environ permission failure and missing main direct identity;
@@ -970,14 +973,14 @@ separate identical report export verify. Authorization consumed; no retry or cod
 change. Parent direction next; earlier execution-pending notes superseded.
 Ubuntu GUI remains open; AOT/unattended unapproved; G3 held/unstarted.
 
-[One Ubuntu attended managed-GUI attempt prepared](handoffs/2026-10-25-ubuntu-attended-managed-attempt.md).
+[One Ubuntu attended managed-GUI attempt prepared](../handoffs/2026-10-25-ubuntu-attended-managed-attempt.md).
 Final read-only accepted packet/delta verification passes. Short shared-script
 command performs pinned native ext4 import and exclusive one-attempt reservation,
 then the fixed launcher with fresh CONFIRM and separate original GUI consent.
 Execution pending; no GUI/build occurred during command preparation. Stop after
 first outcome and return evidence; no retry. G3 held/unstarted.
 
-[Parent accepts Ubuntu enabled candidate](handoffs/2026-10-25-ubuntu-enabled-candidate-acceptance.md).
+[Parent accepts Ubuntu enabled candidate](../handoffs/2026-10-25-ubuntu-enabled-candidate-acceptance.md).
 Preparation gate is closed. One owner-attended managed-GUI attempt is authorized
 after final read-only packet/current-context checks, fresh owner CONFIRM and separate
 original live GUI consent. Command preparation is authorized; no positive attempt
@@ -985,14 +988,14 @@ has run. Stop after first outcome, with copy-only transfer recovery and no repla
 Earlier pending-candidate-review notes below are superseded. Actual GUI acceptance
 remains open; Ubuntu AOT/unattended not approved; G3 held/unstarted.
 
-[Ubuntu enabled candidate ready for parent review](handoffs/2026-10-25-ubuntu-enabled-candidate.md).
+[Ubuntu enabled candidate ready for parent review](../handoffs/2026-10-25-ubuntu-enabled-candidate.md).
 Exact one-line positive-flag delta independently verifies against accepted disabled
 snapshot: same 544 sources/271 inputs/ten payloads. Twenty-six frozen non-GUI checks
 pass on Windows and Linux/WSL. Working-tree gate stays false; no positive command,
 GUI/build or new guest run. Fixed one-run command design is proposed, not issued.
 Separate parent execution approval remains required; G3 held/unstarted.
 
-[Parent accepts Ubuntu disabled operational implementation](handoffs/2026-10-25-ubuntu-disabled-implementation-acceptance.md).
+[Parent accepts Ubuntu disabled operational implementation](../handoffs/2026-10-25-ubuntu-disabled-implementation-acceptance.md).
 Implementation/observer correction and actual guest non-GUI validation are closed;
 no repeat needed. Next authorized scope is one immutable enabled candidate with
 only reviewed flag/necessary launch-packaging delta and non-GUI refusal checks.
@@ -1000,7 +1003,7 @@ Working-tree positive path stays disabled. No positive Ubuntu command or GUI/AOT
 execution before separate review. Earlier pending implementation-review notes below
 are superseded. Windows/Ubuntu headless closed; G3 held and unstarted.
 
-[Ubuntu disabled implementation/native results ready for parent review](handoffs/2026-10-25-ubuntu-implementation-review-submission.md).
+[Ubuntu disabled implementation/native results ready for parent review](../handoffs/2026-10-25-ubuntu-implementation-review-submission.md).
 Corrected actual guest non-GUI adapters verify; 24 frozen tests pass, seven origin
 hashes and transfer digests match, source unchanged, context verified before/after.
 Snapshot includes checker, not post-GUI survivors; three preexisting nonactor
@@ -1009,7 +1012,7 @@ disabled correction packet: 544 sources/271 inputs/ten payloads. No Ubuntu GUI,
 AOT/build or positive command. Earlier guest-results-pending notes are superseded.
 No further guest run requested; parent implementation review next. G3 held.
 
-[Ubuntu observer scope correction](handoffs/2026-10-25-ubuntu-observer-scope-correction.md):
+[Ubuntu observer scope correction](../handoffs/2026-10-25-ubuntu-observer-scope-correction.md):
 first actual adapter run remains Blocked on unrelated preexisting service executable
 permissions and checker ancestry beyond its own root. Guest tests/context/tools
 passed; original hashes verify. A new immutable disabled correction packet and
@@ -1017,7 +1020,7 @@ passed; original hashes verify. A new immutable disabled correction packet and
 pending. No GUI/build/elevation or isolation change. Earlier pending first-run
 notes below retain historical context. Positive gate false; G3 held.
 
-[Ubuntu disabled operational implementation](handoffs/2026-10-25-ubuntu-disabled-implementation.md)
+[Ubuntu disabled operational implementation](../handoffs/2026-10-25-ubuntu-disabled-implementation.md)
 is frozen: live Linux preflight, scoped process identity/cleanup, fixed original
 runner, terminal recording and native export. Positive flag stays false. Final
 packet has 544 sources/271 inputs/ten payloads; 22 frozen non-GUI host tests and
@@ -1025,7 +1028,7 @@ packet has 544 sources/271 inputs/ten payloads; 22 frozen non-GUI host tests and
 short shared-script command is provided. No positive GUI/AOT command or execution.
 Earlier prototype-only implementation notes below are superseded; G3 held.
 
-[Parent accepts Ubuntu session evidence and disabled contract](handoffs/2026-10-25-ubuntu-disabled-contract-acceptance.md).
+[Parent accepts Ubuntu session evidence and disabled contract](../handoffs/2026-10-25-ubuntu-disabled-contract-acceptance.md).
 That preparation gate is closed. Next authorized scope: fixed Linux managed-GUI
 wrapper, live preflight, process observation, native export and non-GUI validation,
 then a new immutable disabled implementation packet for review. Positive Ubuntu
@@ -1033,7 +1036,7 @@ GUI/AOT remains unauthorized; no positive command. Preserve terminal/logind and
 owner-attested VM-binding distinctions. Earlier pending review notes below are
 superseded. Windows gates/Ubuntu headless closed; G3 held.
 
-[Ubuntu session evidence and disabled proposal](handoffs/2026-10-25-ubuntu-session-and-disabled-proposal.md)
+[Ubuntu session evidence and disabled proposal](../handoffs/2026-10-25-ubuntu-session-and-disabled-proposal.md)
 are ready for parent review. Actual user display session 2/seat0 correlate; terminal
 itself remains outside a known logind session. Native ext4 reports and transfer
 hashes verify. DMI UUID/serial permission denial and unproven Avalonia backend remain
@@ -1043,13 +1046,13 @@ Live Linux runner supervision/export remain proposed, not execution-ready.
 No Ubuntu GUI/AOT/build ran; no positive command. Earlier collection-pending notes
 below are superseded. Windows/Ubuntu headless accepted gates unchanged; G3 held.
 
-[Ubuntu x64 read-only session preparation](handoffs/2026-10-25-ubuntu-gui-session-preparation.md)
+[Ubuntu x64 read-only session preparation](../handoffs/2026-10-25-ubuntu-gui-session-preparation.md)
 has a frozen collector and short shared-script launch command. Three pure non-GUI
 checks pass. Actual guest session/seat results are pending; fixed disabled GUI
 runner and review packet will follow their review. No Ubuntu GUI/AOT/build ran.
 Accepted Windows and Ubuntu headless gates remain closed; G3 held.
 
-[Parent accepts and closes Windows x64 Native AOT](handoffs/2026-10-25-windows-native-aot-acceptance.md).
+[Parent accepts and closes Windows x64 Native AOT](../handoffs/2026-10-25-windows-native-aot-acceptance.md).
 Windows x64 headless, attended managed GUI and attended Native AOT gates are all
 accepted/closed. Preserve unresolved nonblocking publish diagnostics; no rerun.
 Next authorized scope is Ubuntu x64 non-GUI session/seat inspection, fixed managed
@@ -1058,7 +1061,7 @@ GUI/AOT activation is authorized. Long Ubuntu commands must be shared-storage
 scripts with short launch instructions. Earlier pending acceptance notes below
 are superseded. G3 remains held.
 
-[Windows x64 Native AOT attempt completed Passed/0](handoffs/2026-10-25-windows-native-aot-result.md),
+[Windows x64 Native AOT attempt completed Passed/0](../handoffs/2026-10-25-windows-native-aot-result.md),
 independently reconciled and ready for final parent acceptance. Real warning-free
 publish, native main/three peers, four backend/session/zero-charge identities,
 WB5/source integrity, boot continuity and empty strict survivor snapshot verify.
@@ -1068,13 +1071,13 @@ successful native generation/execution; handoff flags these explicitly.
 One-attempt authorization consumed; no retry. Earlier execution-pending notes below
 are superseded. Windows managed/headless closed; G3 held.
 
-[One attended Windows Native AOT attempt](handoffs/2026-10-25-windows-aot-attended-attempt.md)
+[One attended Windows Native AOT attempt](../handoffs/2026-10-25-windows-aot-attended-attempt.md)
 is prepared. Final read-only reconciliation passes against the exact accepted
 packet; the fixed owner command retains current-condition CONFIRM, original
 separate GUI consent and a local accidental-replay guard. Execution is pending;
 no native publish or GUI ran during preparation. Stop after the first outcome.
 
-[Parent accepts Windows AOT prerequisites and enabled packet](handoffs/2026-10-25-windows-aot-candidate-acceptance.md).
+[Parent accepts Windows AOT prerequisites and enabled packet](../handoffs/2026-10-25-windows-aot-candidate-acceptance.md).
 Both preparation gates are closed. One owner-attended Pivot-Win11-x64 Native AOT
 publish-and-execute attempt is authorized after final read-only packet/current
 guest verification, owner CONFIRM and separate original GUI consent. No positive
@@ -1082,7 +1085,7 @@ attempt has run. Stop after the first outcome and return evidence for final revi
 no automatic retry. Earlier pending-review statements below are superseded.
 Windows managed/headless gates remain closed; G3 held.
 
-[Windows AOT guest prerequisites and enabled candidate](handoffs/2026-10-25-windows-aot-guest-prerequisites-and-candidate.md)
+[Windows AOT guest prerequisites and enabled candidate](../handoffs/2026-10-25-windows-aot-guest-prerequisites-and-candidate.md)
 are ready for parent review. Actual Windows guest prerequisites, source/context
 and returned hashes verify. Candidate preserves 537 sources/265 inputs/15 files
 with only the reviewed AOT false-to-true source change; eleven non-GUI checks pass.
@@ -1090,7 +1093,7 @@ No publish or GUI execution occurred. Positive AOT command remains withheld pend
 separate parent review. Earlier collector-pending notes below are superseded.
 G3 remains held.
 
-[Windows guest AOT prerequisite collector](handoffs/2026-10-25-windows-aot-prerequisite-collection.md)
+[Windows guest AOT prerequisite collector](../handoffs/2026-10-25-windows-aot-prerequisite-collection.md)
 is frozen and ready for one owner-run read-only collection. Three mocked non-GUI
 tests pass; actual guest qualification is pending. No publish or GUI ran. After
 guest evidence, prepare the enabled candidate for separate parent review; no
@@ -1103,103 +1106,103 @@ Strict scoped survivor snapshot is empty.** Boot/context continuity and source
 integrity verify, as do 31 outer hashes/25 overlapping nested entries and transfer
 digests. No exclusion, extra cleanup wait, kill or automatic retry. **Parent accepts
 and closes Windows Hyper-V x64 owner-attended managed-GUI qualification.**
-[Final acceptance and bounded Native AOT preparation scope](handoffs/2026-10-25-windows-managed-final-acceptance.md).
+[Final acceptance and bounded Native AOT preparation scope](../handoffs/2026-10-25-windows-managed-final-acceptance.md).
 Next authorized work is Windows Native AOT design/non-GUI preparation and a frozen
 disabled packet for review; no positive AOT run or further managed rerun is approved.
 Unattended authority remains disabled; G3 held. Historical pending/open statements
 below retain their original stage context and are superseded by this closure.
-[Windows Native AOT design and disabled preparation packet](handoffs/2026-10-25-windows-native-aot-preparation.md)
+[Windows Native AOT design and disabled preparation packet](../handoffs/2026-10-25-windows-native-aot-preparation.md)
 are ready for review. Nine frozen non-GUI checks and a real disabled-positive
 refusal pass; host tool metadata verifies without qualifying the guest. Candidate
 has 537 sources/265 inputs/15 files, all prior source unchanged and AOT flag false.
 No native publish, AOT GUI, managed rerun or full CI repeat occurred.
-[Parent accepts/closes disabled AOT preparation](handoffs/2026-10-25-windows-aot-preparation-acceptance.md).
+[Parent accepts/closes disabled AOT preparation](../handoffs/2026-10-25-windows-aot-preparation-acceptance.md).
 Next authorized work is one actual guest prerequisite collector and, after its
 results, an enabled immutable candidate with exact delta/negative checks. Positive
 publish/execution still requires separate review; no positive command authorized.
-[Successful confirmation and final review packet](handoffs/2026-10-25-windows-managed-confirmation-pass.md).
+[Successful confirmation and final review packet](../handoffs/2026-10-25-windows-managed-confirmation-pass.md).
 The prior collector-blocked run is preserved separately:
 Parent accepts functional/backend/continuity evidence; overall Blocked/2 is retained.
-[Collector investigation and conditional wrapper-only correction authorized](handoffs/2026-10-25-managed-cleanup-investigation-direction.md).
+[Collector investigation and conditional wrapper-only correction authorized](../handoffs/2026-10-25-managed-cleanup-investigation-direction.md).
 Next is a non-GUI guest build with scoped PID/start/lifetime observations and
 opt-out evaluation; no new managed confirmation is authorized.
-[Scoped non-GUI collector build experiment](handoffs/2026-10-25-avalonia-collector-build-experiment.md)
+[Scoped non-GUI collector build experiment](../handoffs/2026-10-25-avalonia-collector-build-experiment.md)
 is prepared with five passing plumbing checks and immutable input verification.
 Actual guest build/process evidence is pending; wrapper/environment policy remains
 unchanged outside the experiment. No GUI run or clipboard check is requested.
-[Actual guest build and private wrapper opt-out correction](handoffs/2026-10-25-scoped-avalonia-optout-correction.md)
+[Actual guest build and private wrapper opt-out correction](../handoffs/2026-10-25-scoped-avalonia-optout-correction.md)
 are ready for parent review. Guest build is warning-free; 62 process records show
 no collector through a 15.814-second post-build interval, with native/transfer
 hashes verified. Scoped correction and caller-environment restoration tests pass;
 533-source/262-input candidate passes 22 applicable frozen checks. Strict cleanup
 and prior Blocked outcomes remain unchanged; no new GUI run is authorized.
-[Parent closes scoped correction gate and authorizes one new attended confirmation](handoffs/2026-10-25-scoped-optout-acceptance.md).
+[Parent closes scoped correction gate and authorizes one new attended confirmation](../handoffs/2026-10-25-scoped-optout-acceptance.md).
 Final candidate reconciliation precedes that run; not yet executed. Overall managed
 acceptance remains open for unchanged strict cleanup evidence; Native AOT still gated.
-[Final scoped-opt-out verification and one-run instructions](handoffs/2026-10-25-scoped-optout-confirmation-instructions.md)
+[Final scoped-opt-out verification and one-run instructions](../handoffs/2026-10-25-scoped-optout-confirmation-instructions.md)
 are ready. Twelve files/533 sources/262 inputs and the exact reviewed delta verify
 without test replay. Current guest conditions and both separate owner responses
 remain runtime requirements; the newly authorized run has not executed yet.
 That new authorization is now consumed by the Passed confirmation recorded at the
 top of this status. No further execution is authorized pending parent acceptance.
-[Latest confirmation and survivor evidence](handoffs/2026-10-25-boot-corrected-managed-confirmation-results.md).
+[Latest confirmation and survivor evidence](../handoffs/2026-10-25-boot-corrected-managed-confirmation-results.md).
 The earlier diagnostic-blocked run is retained separately:
-[First managed result and evidence](handoffs/2026-10-25-windows-managed-first-run.md).
+[First managed result and evidence](../handoffs/2026-10-25-windows-managed-first-run.md).
 One-run authorization is consumed. Native AOT stays gated, unattended authority
 disabled and G3 held. The following links retain the qualification/approval history.
-[Parent accepted functional execution; narrow diagnostic correction authorized](handoffs/2026-10-25-windows-managed-functional-acceptance.md).
+[Parent accepted functional execution; narrow diagnostic correction authorized](../handoffs/2026-10-25-windows-managed-functional-acceptance.md).
 Overall managed acceptance remains Blocked/2. Next authorized work is live peer
 backend capture, non-GUI regression/build validation and a new immutable packet;
 another positive GUI run requires separate review and approval.
-[Peer backend correction and immutable confirmation candidate](handoffs/2026-10-25-peer-backend-correction.md)
+[Peer backend correction and immutable confirmation candidate](../handoffs/2026-10-25-peer-backend-correction.md)
 are ready for review: one live capture plus existing-handler serialization, actual
 non-GUI C# lifecycle regression, thirteen preflight tests and warning-free build.
 Candidate hashes verify 530 source files/259 inputs with only the production
 diagnostic change and added test. No positive confirmation execution authorized.
-[Parent correction acceptance and one new attended confirmation authorization](handoffs/2026-10-25-peer-backend-correction-acceptance.md).
+[Parent correction acceptance and one new attended confirmation authorization](../handoffs/2026-10-25-peer-backend-correction-acceptance.md).
 Correction gate is closed. One managed confirmation is now authorized after final
 candidate verification under unchanged guest conditions; not yet executed. First
 run remains Blocked/2 and Native AOT remains separately gated.
-[Final packet verification and one-run confirmation command](handoffs/2026-10-25-windows-managed-confirmation-instructions.md)
+[Final packet verification and one-run confirmation command](../handoffs/2026-10-25-windows-managed-confirmation-instructions.md)
 are ready. Exact candidate hashes/delta rechecked without replaying tests; actual
 guest binding is still checked at invocation. Confirmation not yet executed.
 The first confirmation attempt is now Blocked/2 before GUI startup: the exact
 boot timestamp string differs by 1.179 ms while session 1 and WinSta0/Default are
 unchanged. This does not establish a reboot. No retry; the overly precise boot
 binding needs review. Owner-reported blank screens remain undiagnosed.
-[Confirmation timestamp refusal and evidence](handoffs/2026-10-25-windows-confirmation-timestamp-block.md).
-[Parent accepts refusal; bounded read-only boot-identity investigation authorized](handoffs/2026-10-25-boot-identity-investigation-direction.md).
+[Confirmation timestamp refusal and evidence](../handoffs/2026-10-25-windows-confirmation-timestamp-block.md).
+[Parent accepts refusal; bounded read-only boot-identity investigation authorized](../handoffs/2026-10-25-boot-identity-investigation-direction.md).
 Investigate documented stable boot measurements and supported comparison semantics;
 no deliberate reboot/settings change or new GUI attempt. Blank-screen reliability
 is separate and unresolved. Return contract/correction evidence for review.
-[Boot-identity research and read-only guest collection](handoffs/2026-10-25-windows-boot-identity-research.md)
+[Boot-identity research and read-only guest collection](../handoffs/2026-10-25-windows-boot-identity-research.md)
 record documented event/uptime candidates and six host samples. Guest measurements
 are pending; no comparison tolerance or guard correction is selected/implemented.
 No new GUI command, reboot, integration change or clipboard recheck.
-[Guest boot evidence and offline continuity proposal](handoffs/2026-10-25-windows-boot-continuity-proposal.md)
+[Guest boot evidence and offline continuity proposal](../handoffs/2026-10-25-windows-boot-continuity-proposal.md)
 now verify six guest samples with a stable provider-bound startup-event anchor and
 increasing uptime. Seven offline measured/synthetic tests pass for a corroborated
 comparison proposal; budgets require review. Production guard is unchanged and
 no new packet or positive execution is authorized.
-[Parent accepts research and authorizes bounded guard integration](handoffs/2026-10-25-boot-continuity-implementation-direction.md).
+[Parent accepts research and authorizes bounded guard integration](../handoffs/2026-10-25-boot-continuity-implementation-direction.md).
 The 100 ms CIM and two-second elapsed-difference budgets are approved as initial
 Pivot policy, with distinct query-local and cross-observation checks. Next is
 real-adapter non-GUI implementation/validation and a new candidate for review;
 no further positive execution is authorized.
-[Boot guard implementation, immutable candidate and read-only adapter check](handoffs/2026-10-25-boot-continuity-guard-implementation.md)
+[Boot guard implementation, immutable candidate and read-only adapter check](../handoffs/2026-10-25-boot-continuity-guard-implementation.md)
 are prepared. Eight new comparator tests, thirteen preflight tests, lifecycle
 regression and warning-free build pass; 21 applicable frozen tests verify. Host
 adapters behave as expected; actual guest production-adapter results are pending.
 No new GUI command or positive execution permission.
-[Actual production-adapter guest results](handoffs/2026-10-25-boot-guard-guest-adapter-results.md)
+[Actual production-adapter guest results](../handoffs/2026-10-25-boot-guard-guest-adapter-results.md)
 complete this implementation packet for parent review: all six samples/24
 comparisons verify, independently recomputed; five helper hashes and native/
 transfer digests match. Session 1/WinSta0/Default and reviewed event anchor hold.
 Max query/cross discrepancies are about 21.6/16.9 ms, within policy. No GUI retry.
-[Parent closes boot-continuity gate and authorizes one new attended managed confirmation](handoffs/2026-10-25-boot-continuity-guard-acceptance.md).
+[Parent closes boot-continuity gate and authorizes one new attended managed confirmation](../handoffs/2026-10-25-boot-continuity-guard-acceptance.md).
 Final read-only candidate/delta verification precedes the run; not yet executed.
 Native AOT remains gated and prior Blocked outcomes remain original.
-[Final integrity verification and boot-corrected one-run instructions](handoffs/2026-10-25-boot-guard-managed-confirmation-instructions.md)
+[Final integrity verification and boot-corrected one-run instructions](../handoffs/2026-10-25-boot-guard-managed-confirmation-instructions.md)
 are ready. Eleven packet files/533 sources/262 inputs and exact reviewed delta
 verify without rerunning tests. The new attended confirmation has not yet executed;
 current guest continuity and separate owner responses remain runtime requirements.
@@ -1225,62 +1228,62 @@ Contributor headless CI remains VM-independent. Local desktop/AOT acceptance nee
 interactive consent; direct self-checks need a live consent permit before Avalonia
 startup. Unattended isolation remains NotConfigured pending host/guest/sentinel
 verification. No VM dispatch, provisioning or full Pivot acceptance on the new guests.
-[Guest qualification workflow, actual blockers and three separate states](handoffs/2026-10-24-guest-qualification.md).
-[Collector preparation acceptance and shared-drive layout](handoffs/2026-10-24-guest-collector-preparation-acceptance.md).
+[Guest qualification workflow, actual blockers and three separate states](../handoffs/2026-10-24-guest-qualification.md).
+[Collector preparation acceptance and shared-drive layout](../handoffs/2026-10-24-guest-collector-preparation-acceptance.md).
 Guest J: (Windows SMB) and /mnt/j (Linux CIFS) map the host J: root for deliberate
 source/evidence exchange only. Builds/probes/original evidence require guest-local
 NTFS/Linux storage; share presence is not GUI isolation proof.
 Installed, headless-qualified and GUI-isolation-approved are independent; no guest
 is GUI-approved. Both Hyper-V x64 guests are now headless-qualified; UTM ARM64
 qualification remains pending.
-[Headless qualification acceptance and next CI boundary](handoffs/2026-10-24-x64-headless-qualification-acceptance.md).
-[Frozen guest-local headless CI instructions](handoffs/2026-10-24-hyperv-headless-ci-instructions.md).
-[Actual Hyper-V guest CI evidence](handoffs/2026-10-24-hyperv-headless-ci-validation.md).
-[Guest CI acceptance and separate GUI-isolation boundary](handoffs/2026-10-24-hyperv-headless-ci-acceptance.md).
-[Per-guest GUI-isolation inspection instructions](handoffs/2026-10-24-hyperv-gui-isolation-qualification.md).
-[First returned GUI-session metadata review](handoffs/2026-10-24-hyperv-gui-session-review.md).
-[Parent acceptance of preliminary session evidence](handoffs/2026-10-24-hyperv-gui-session-acceptance.md).
-[Owner clipboard results and per-guest qualification review packet](handoffs/2026-10-24-hyperv-gui-isolation-results.md).
-[Observed isolation acceptance and gated activation-design scope](handoffs/2026-10-25-hyperv-isolation-acceptance.md).
-[Parent scope reduction: Windows attended preflight](handoffs/2026-10-25-attended-guest-preflight-direction.md)
+[Headless qualification acceptance and next CI boundary](../handoffs/2026-10-24-x64-headless-qualification-acceptance.md).
+[Frozen guest-local headless CI instructions](../handoffs/2026-10-24-hyperv-headless-ci-instructions.md).
+[Actual Hyper-V guest CI evidence](../handoffs/2026-10-24-hyperv-headless-ci-validation.md).
+[Guest CI acceptance and separate GUI-isolation boundary](../handoffs/2026-10-24-hyperv-headless-ci-acceptance.md).
+[Per-guest GUI-isolation inspection instructions](../handoffs/2026-10-24-hyperv-gui-isolation-qualification.md).
+[First returned GUI-session metadata review](../handoffs/2026-10-24-hyperv-gui-session-review.md).
+[Parent acceptance of preliminary session evidence](../handoffs/2026-10-24-hyperv-gui-session-acceptance.md).
+[Owner clipboard results and per-guest qualification review packet](../handoffs/2026-10-24-hyperv-gui-isolation-results.md).
+[Observed isolation acceptance and gated activation-design scope](../handoffs/2026-10-25-hyperv-isolation-acceptance.md).
+[Parent scope reduction: Windows attended preflight](../handoffs/2026-10-25-attended-guest-preflight-direction.md)
 authorizes bounded implementation and non-GUI tests using existing interactive
 consent, then parent review before positive GUI execution. The second capability
 protocol/revocation design is deferred; no unattended authority is enabled.
-[Windows attended preflight implementation](handoffs/2026-10-25-windows-attended-preflight-implementation.md)
+[Windows attended preflight implementation](../handoffs/2026-10-25-windows-attended-preflight-implementation.md)
 is accepted/closed with non-GUI tests; the original preflight packet stays disabled.
-[Acceptance and next packet/actual-guest preflight gate](handoffs/2026-10-25-windows-preflight-acceptance.md).
+[Acceptance and next packet/actual-guest preflight gate](../handoffs/2026-10-25-windows-preflight-acceptance.md).
 Frozen packet preparation and non-GUI preflight inside the actual Windows VM are
 authorized; current guest evidence and packet review precede any positive-path enabling.
-[Frozen Windows non-GUI preflight packet and owner command](handoffs/2026-10-25-windows-guest-preflight-packet.md).
+[Frozen Windows non-GUI preflight packet and owner command](../handoffs/2026-10-25-windows-guest-preflight-packet.md).
 Actual Windows guest preflight passed; its native report was recovered and
 hash-verified without a rerun after a bootstrap parser defect left the first
 export Blocked. Original outcome/packet are preserved. Current boot/session differ
 from the historical clipboard capture; owner CONFIRM and that limitation are
 disclosed for review. This original preflight gate performed no GUI execution.
-[Guest preflight results and reconciliation](handoffs/2026-10-25-windows-guest-preflight-results.md).
-[Actual guest preflight accepted/closed; managed packet preparation authorized](handoffs/2026-10-25-windows-guest-preflight-acceptance.md).
+[Guest preflight results and reconciliation](../handoffs/2026-10-25-windows-guest-preflight-results.md).
+[Actual guest preflight accepted/closed; managed packet preparation authorized](../handoffs/2026-10-25-windows-guest-preflight-acceptance.md).
 The subsequent corrected-exporter packet and negative tests are complete; the fresh
 owner-authorized Windows clipboard observation was accepted before the first run.
-[Managed packet preparation and proposed enabling diff](handoffs/2026-10-25-windows-managed-packet-preparation.md)
+[Managed packet preparation and proposed enabling diff](../handoffs/2026-10-25-windows-managed-packet-preparation.md)
 now record the fresh Windows owner-reported clipboard pass and unchanged settings,
 disabled review path, corrected exporter and non-GUI validation. Preparation was
 accepted; that review packet remains unchanged and grants no unattended authority.
-[Parent acceptance closes preparation and conditionally authorizes one attended managed run](handoffs/2026-10-25-windows-managed-preparation-acceptance.md).
+[Parent acceptance closes preparation and conditionally authorizes one attended managed run](../handoffs/2026-10-25-windows-managed-preparation-acceptance.md).
 The separate enabled source snapshot passed exact hash/delta and negative checks,
 then the owner executed the single managed run. Disabled packet remains unchanged;
 Native AOT remains separately gated.
-[Verified enabled packet and one-run owner instructions](handoffs/2026-10-25-windows-managed-execution-packet.md).
+[Verified enabled packet and one-run owner instructions](../handoffs/2026-10-25-windows-managed-execution-packet.md).
 The new snapshot differs from the accepted disabled packet only by the reviewed
 approval toggle. Its 529 source/258 input hashes, twelve applicable non-GUI tests
 and two real noninteractive refusals verify. The authorized first run is now
 recorded above with successful UI assertions and an overall diagnostic Blocked result.
-[First x64 guest evidence review and follow-up](handoffs/2026-10-24-x64-guest-evidence-review.md)
+[First x64 guest evidence review and follow-up](../handoffs/2026-10-24-x64-guest-evidence-review.md)
 retains the Windows Blocked candidate and .NET first-run certificate side effect;
 full guest headless CI now passes as linked above; no GUI acceptance is claimed.
-[Contributor testing](testing.md), [policy and transitive audit](architecture/validation-execution-safety.md).
-[Safety acceptance and next qualification boundary](handoffs/2026-10-24-execution-safety-acceptance.md).
-[Implementation and safety evidence](handoffs/2026-10-24-execution-safety.md).
-[Mac safety reconciliation](handoffs/2026-10-24-macos-execution-safety-validation.md)
+[Contributor testing](../testing.md), [policy and transitive audit](../architecture/validation-execution-safety.md).
+[Safety acceptance and next qualification boundary](../handoffs/2026-10-24-execution-safety-acceptance.md).
+[Implementation and safety evidence](../handoffs/2026-10-24-execution-safety.md).
+[Mac safety reconciliation](../handoffs/2026-10-24-macos-execution-safety-validation.md)
 verifies 366 returned hashes and 247 inputs; shared documentation drift matches the
 recorded G2 acceptance update, with no tested code changes. All three platforms pass
 13 headless steps and nine safety tests each; no guest/GUI acceptance is claimed.
@@ -1289,13 +1292,13 @@ UTM `Pivot-Win11-arm64` / `Pivot-Ubuntu-arm64`. Names are inventory, not validat
 isolation or native architecture evidence. History G2 is accepted/closed; G3 is held, not started, during this infrastructure detour.
 
 Latest accepted milestone: **ADR-0023 G2 mutation-local authoritative records — accepted and closed (2026-10-24)**.
-[G2 acceptance and G3 scheduling hold](handoffs/2026-10-24-g2-acceptance-g3-held.md).
+[G2 acceptance and G3 scheduling hold](../handoffs/2026-10-24-g2-acceptance-g3-held.md).
 G1 ordinary native Save promotion remains accepted/closed.
-[G1 closure and bounded G2 authorization](handoffs/2026-10-24-g1-closure-g2-authorization.md).
+[G1 closure and bounded G2 authorization](../handoffs/2026-10-24-g1-closure-g2-authorization.md).
 
 Previous accepted application milestone: **Four-Direction Rectangular Fill; ADR-0022 closed (2026-10-23)**.
-[Final implementation acceptance](handoffs/2026-10-23-four-direction-fill-final-review.md),
-[implementation and three-platform evidence](handoffs/2026-10-23-four-direction-fill-implementation.md).
+[Final implementation acceptance](../handoffs/2026-10-23-four-direction-fill-final-review.md),
+[implementation and three-platform evidence](../handoffs/2026-10-23-four-direction-fill-implementation.md).
 Four-direction source-edge Fill, typed identity/no-op semantics, atomicity and the
 focused staged cycle validator are accepted. Windows 346/362 and Linux/Mac 347/363
 Rust tests pass, with managed/Native AOT execution, twelve fields and zero-charge
@@ -1305,38 +1308,38 @@ accepted/closed; its earlier evidence limitations remain historical.
 
 **Open reliability issue:** intermittent Windows ClipboardChecklistAsync null
 destination after paste. The unchanged rerun passed; the cause remains unresolved.
-[Failure evidence and recurrence diagnostics](handoffs/2026-10-22-worksheet-structured-binding-implementation-review.md#open-reliability-issue--windows-clipboard-checklist).
-[G1 promotion attempt history](handoffs/2026-10-24-historical-save-g1-promotion.md)
+[Failure evidence and recurrence diagnostics](../handoffs/2026-10-22-worksheet-structured-binding-implementation-review.md#open-reliability-issue--windows-clipboard-checklist).
+[G1 promotion attempt history](../handoffs/2026-10-24-historical-save-g1-promotion.md)
 retains a Linux managed Fill selection/scroll failure and a Windows Native AOT
 unsupported-copy clipboard assertion failure. Final unchanged-source runs passed;
 causes remain unresolved and distinct from the older null-destination issue.
 G2 also retains a separate Linux Rust clipboard-test shutdown assertion failure:
 `runtime.finish().is_ok()`. An unchanged-source targeted rerun and final hardened-
-source full gates passed; the cause is unresolved. [G2 evidence/qualification](handoffs/2026-10-24-mutation-local-records-g2.md).
+source full gates passed; the cause is unresolved. [G2 evidence/qualification](../handoffs/2026-10-24-mutation-local-records-g2.md).
 Do not weaken tests or redesign the clipboard speculatively. Existing WSLg startup,
 mounted-filesystem Save uncertainty and historical Linux timing issues remain separate.
 
 History workstream: **ADR-0023 feasibility accepted/closed; G0 approved; G1 and G2 accepted/closed. G3 bounded indexed-store feasibility is parked by owner/parent direction (2026-10-28); its first baseline is accepted and its bounded verified-open 1K/10K result and failure-admission correction are accepted; compact-storage research is accepted; page-layout/metadata and authenticated-growth research is accepted; hierarchical authentication/receipt normalization and owner-authorized dictionary research are accepted; physical accounting/admission proposal and readiness comparison are accepted; engine/VFS and small-bound admission qualification are accepted; the one-shot 32K packet failed/stopped (Windows/Ubuntu published 32K then failed accounting; Mac stopped at 18,595), with final native reopen/lookup gates unreached and no replay authorized; 20% is only an optimization aspiration and expanded control workloads require separate authorization; no complete feasibility or production adoption approval. G4–G7 and production Undo/Redo remain gated**.
-[G2 implementation, ownership, coverage and measurements](handoffs/2026-10-24-mutation-local-records-g2.md).
-[Native Mac G2 validation instructions](handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
+[G2 implementation, ownership, coverage and measurements](../handoffs/2026-10-24-mutation-local-records-g2.md).
+[Native Mac G2 validation instructions](../handoffs/2026-10-24-macos-mutation-local-records-g2-instructions.md).
 G2 final Rust default/all-feature totals: **Windows 347/401, native Linux and Mac 348/402 each**.
 Format and strict default/all-feature lint pass. **135 fresh-process zero-charge
 samples** measure staging, guarded in-memory publication and the independent full
 oracle separately. The **173-input** G2 source is validated on all three platforms;
 Mac reconciliation verifies 483 frozen source entries and 85 returned evidence hashes.
-[Fresh native Mac G2 reconciliation](handoffs/2026-10-24-macos-mutation-local-records-g2-validation.md). No default mutation or persisted journal integration.
+[Fresh native Mac G2 reconciliation](../handoffs/2026-10-24-macos-mutation-local-records-g2-validation.md). No default mutation or persisted journal integration.
 Existing-input/scalar changes emit three records independent of sampled root size;
 range-formula validation and the existing large range/ledger reservations remain
 explicit costs. G2 includes deterministic original-state coalescing, source/ledger
 validation, local reservation publication, full-checkpoint reconstruction oracles,
 failed/no-op/stale/cancellation/admission isolation and concurrent capture proofs.
-[G1 acceptance, unresolved reliability observations and exact G2 scope](handoffs/2026-10-24-g1-closure-g2-authorization.md).
-[Ordinary Save promotion and final validation packet](handoffs/2026-10-24-historical-save-g1-promotion.md).
-[Final Mac reconciliation and G1 closure recommendation](handoffs/2026-10-24-macos-g1-promotion-validation.md).
-[Internal acceptance and ordinary Save promotion authorization](handoffs/2026-10-24-historical-save-g1-internal-review.md).
-[Accepted internal G1 implementation](handoffs/2026-10-24-historical-native-save-g1.md).
-[macOS/APFS validation and independent evidence review](handoffs/2026-10-24-macos-historical-save-g1-validation.md).
-[G0 acceptance, G1 authorization and promotion requirements](handoffs/2026-10-24-history-readiness-g1-authorization.md).
+[G1 acceptance, unresolved reliability observations and exact G2 scope](../handoffs/2026-10-24-g1-closure-g2-authorization.md).
+[Ordinary Save promotion and final validation packet](../handoffs/2026-10-24-historical-save-g1-promotion.md).
+[Final Mac reconciliation and G1 closure recommendation](../handoffs/2026-10-24-macos-g1-promotion-validation.md).
+[Internal acceptance and ordinary Save promotion authorization](../handoffs/2026-10-24-historical-save-g1-internal-review.md).
+[Accepted internal G1 implementation](../handoffs/2026-10-24-historical-native-save-g1.md).
+[macOS/APFS validation and independent evidence review](../handoffs/2026-10-24-macos-historical-save-g1-validation.md).
+[G0 acceptance, G1 authorization and promotion requirements](../handoffs/2026-10-24-history-readiness-g1-authorization.md).
 Accepted internal-correction evidence: Windows default/all-feature Rust tests **346/389**; native Linux and Mac: **347/390**
 each. Strict lint/format pass on all three. Release matrices: **207 cases and 2,652
 original hashes** in total. Mac verification checks 1,097 returned evidence hashes,
@@ -1357,7 +1360,7 @@ changes or capability expansion. Generic full-ledger transfer remains strict. Pr
 ContentStateId, lifetime ledger, runtime IDs, Redo/cursor and calculation captures.
 Ordinary Save promotion has passed the required managed/session/desktop Save/Open
 and actual AOT gates on Windows, native Linux and Mac ARM64/APFS; G1 is closed.
-[Production-readiness design packet and proposed gates](handoffs/2026-10-23-history-production-readiness-design.md).
+[Production-readiness design packet and proposed gates](../handoffs/2026-10-23-history-production-readiness-design.md).
 Recommend validated current-root WB5 projection with full live/history ledger and
 Redo preserved, atomic durable indexing, mutation-local records and explicit
 witness/resource/reclamation contracts. SQLite is an evaluation candidate only.
@@ -1365,7 +1368,7 @@ The accepted feature-only correction is now promoted into ordinary native export
 the research association and real Rust session call the same ordinary exporter.
 Generic full-ledger transfer stays strict. No production history integration,
 protocol change, capability expansion, format cut or quota increase was added.
-[Final feasibility acceptance and next design gate](handoffs/2026-10-23-disk-history-final-feasibility-review.md).
+[Final feasibility acceptance and next design gate](../handoffs/2026-10-23-disk-history-final-feasibility-review.md).
 Historical-state Save promotion is accepted and closed. G2 now produces typed
 stable-key authoritative changes during private mutation, coalesced against the
 original transaction state and verified against an independent full checkpoint.
@@ -1375,25 +1378,25 @@ identity, captures, Redo and lifetime reservations. G2 measurements must separat
 mutation-local and full-oracle work, scratch admission, peak ownership and cleanup.
 No default mutation promotion, persisted journal replacement, backend, witness,
 coordinator, protocol or desktop history integration is authorized.
-[Stage 4 association, save/retention evidence and remaining limits](handoffs/2026-10-23-history-association-stage4.md).
+[Stage 4 association, save/retention evidence and remaining limits](../handoffs/2026-10-23-history-association-stage4.md).
 Windows/Linux/Mac: 69 cases each (207 total), 2,652 original hashes; Rust suites
 346/382, 347/383 and 347/383, with strict lint passing on all three.
-[Native APFS evidence and independent verification](handoffs/2026-10-23-macos-history-association-validation.md)
+[Native APFS evidence and independent verification](../handoffs/2026-10-23-macos-history-association-validation.md)
 confirm 1,092 evidence hashes, 166 build inputs and 462 copied source hashes
 (461 frozen files plus the ignored GPT baseline). On that original Stage 4 source, new exports of older historical
 roots with later identity floors rejected; prepared exports survived later Undo/Clear.
 G1 supersedes that native-export limitation only in the explicit experimental seam;
 original evidence and strict generic-transfer rejection remain intact.
-[Stage 3 acceptance and Stage 4 safeguards](handoffs/2026-10-23-history-durability-stage3-review.md).
-[Stage 3 decision protocol, fault/restart evidence and limitations](handoffs/2026-10-23-history-durability-stage3.md).
+[Stage 3 acceptance and Stage 4 safeguards](../handoffs/2026-10-23-history-durability-stage3-review.md).
+[Stage 3 decision protocol, fault/restart evidence and limitations](../handoffs/2026-10-23-history-durability-stage3.md).
 366 scenarios passed across Windows/Linux, including parent-killed workers, ambiguous
 outcomes, atomic branch/cursor decisions, corrupt-payload rejection and acknowledged
 restart controls. Rust default/all-feature suites: Windows 346/380, Linux 347/381;
 strict lint passes. Full export, research reconstruction and linear disk-ID lookup
 remain costs; physical power-loss and general filesystem durability remain unproven. Stage 3 alone did not
 establish file association.
-[Stage 2 acceptance and Stage 3 safeguards](handoffs/2026-10-23-history-representation-stage2-review.md).
-[Stage 2 comparison, evidence and bounded adaptive checkpoint experiment](handoffs/2026-10-23-history-representation-stage2.md).
+[Stage 2 acceptance and Stage 3 safeguards](../handoffs/2026-10-23-history-representation-stage2-review.md).
+[Stage 2 comparison, evidence and bounded adaptive checkpoint experiment](../handoffs/2026-10-23-history-representation-stage2.md).
 100 baseline/final-policy runs passed; cache counts/capacities remain fixed from
 1,000 to 10,000 edits. Windows 346/378 and Linux 347/379 Rust suites and strict lint
 pass; 792 original sample hashes verified.
@@ -1401,12 +1404,12 @@ Checkpoint plus canonical-record deltas are accepted as the preferred Stage 3 ca
 intervals and the additional adaptive byte/work thresholds are experimental.
 Stage 2 alone establishes neither durable transaction recovery nor production
 container or Undo/Redo integration.
-[Acceptance and Stage 2 resource-accounting qualifications](handoffs/2026-10-23-cold-history-stage1-review.md).
-[Cold reconstruction, identity/capture proofs and validation](handoffs/2026-10-23-cold-history-restoration-stage1.md).
-[Parent inventory acceptance and next gate](handoffs/2026-10-23-cold-history-inventory-review.md).
-[Architecture approval and experiment authorization](handoffs/2026-10-23-tiered-history-design-review.md).
-[Parent cold-identity clarification](handoffs/2026-10-23-cold-history-identity-review.md).
-[Cold-state inventory and executable boundary probes](architecture/cold-history-state-inventory.md).
+[Acceptance and Stage 2 resource-accounting qualifications](../handoffs/2026-10-23-cold-history-stage1-review.md).
+[Cold reconstruction, identity/capture proofs and validation](../handoffs/2026-10-23-cold-history-restoration-stage1.md).
+[Parent inventory acceptance and next gate](../handoffs/2026-10-23-cold-history-inventory-review.md).
+[Architecture approval and experiment authorization](../handoffs/2026-10-23-tiered-history-design-review.md).
+[Parent cold-identity clarification](../handoffs/2026-10-23-cold-history-identity-review.md).
+[Cold-state inventory and executable boundary probes](../architecture/cold-history-state-inventory.md).
 Windows/Linux probes distinguish portable UUIDs from process-local runtime NodeIds;
 separate processes legitimately reuse the same numeric model/node pair. Portable
 transfer is not a history capsule and rejects an older root with a later allocation
@@ -1429,11 +1432,11 @@ is a separate prerequisite for removing experimental workbook limits; no quota i
 recycling or rebasing is authorized. The three cold-restoration proofs above are
 accepted as the semantic foundation for representation comparison. Portable transfer
 remains unchanged. Durable fault/recovery and association remain later gates.
-[Parent acceptance and superseding direction](handoffs/2026-10-23-undo-redo-feasibility-review.md),
-[accepted executable foundation and evidence](handoffs/2026-10-23-undo-redo-feasibility.md),
-[revised ADR-0023](adr/0023-document-transaction-history.md),
-[review packet](handoffs/2026-10-23-undo-redo-design.md),
-[bounded disk-history feasibility plan](architecture/disk-history-feasibility-plan.md).
+[Parent acceptance and superseding direction](../handoffs/2026-10-23-undo-redo-feasibility-review.md),
+[accepted executable foundation and evidence](../handoffs/2026-10-23-undo-redo-feasibility.md),
+[revised ADR-0023](../adr/0023-document-transaction-history.md),
+[review packet](../handoffs/2026-10-23-undo-redo-design.md),
+[bounded disk-history feasibility plan](../architecture/disk-history-feasibility-plan.md).
 The accepted feature-only foundation restores historical roots under fresh authority,
 retains lifetime identity floors and isolates existing calculation captures, including
 invalid/cyclic drafts. Its original receipt records Windows 346/367 and Linux 347/368
@@ -1469,18 +1472,18 @@ SIMD, format changes or irreversible history compaction begin here. ADR-0022 rem
 accepted and closed.
 
 Accepted preceding milestone: **Bounded Structured-Result and Presentation-Projection Proof — accepted; workstream closed**.
-[Acceptance and scope closure](handoffs/2026-10-22-structured-results-projection-implementation-review.md),
-[implementation and three-platform evidence](handoffs/2026-10-21-structured-results-projection-implementation.md).
+[Acceptance and scope closure](../handoffs/2026-10-22-structured-results-projection-implementation-review.md),
+[implementation and three-platform evidence](../handoffs/2026-10-21-structured-results-projection-implementation.md).
 
 Accepted preceding milestone: **Bounded Document-Owned Worksheet Text — accepted; workstream closed**.
-[Acceptance and scope closure](handoffs/2026-10-21-worksheet-text-implementation-review.md),
-[implementation/evidence](handoffs/2026-10-21-worksheet-text-implementation.md).
+[Acceptance and scope closure](../handoffs/2026-10-21-worksheet-text-implementation-review.md),
+[implementation/evidence](../handoffs/2026-10-21-worksheet-text-implementation.md).
 
 Accepted preceding milestone: **Native AOT Publish-and-Execute Validation — accepted; workstream closed**.
 Windows x64, Linux x64 and native macOS ARM64 publish and execute without warnings.
 Managed CI remains available; shared Windows/WSLg clipboard serialization is complete.
-[Acceptance and next design scope](handoffs/2026-10-20-native-aot-review.md),
-[implementation and evidence](handoffs/2026-10-20-native-aot-baseline.md).
+[Acceptance and next design scope](../handoffs/2026-10-20-native-aot-review.md),
+[implementation and evidence](../handoffs/2026-10-20-native-aot-baseline.md).
 
 Accepted milestone evidence: **bounded document-owned worksheet text**. ADR-0018 is accepted
 with clarifications; implementation is in place. Final Windows/Linux full CI
@@ -1497,15 +1500,15 @@ single-line text and WB4/private version cuts are approved. Rejected Open must
 preserve the live workbook/revision/dirty state. The narrow nonnumeric marker
 satisfied the design stop condition without a general value-system redesign.
 Projections/connectors remain outside this closed scope.
-[Implementation and evidence](handoffs/2026-10-21-worksheet-text-implementation.md),
-[Mac APFS validation packet](handoffs/2026-10-21-macos-worksheet-text-instructions.md),
-[accepted ADR-0018](adr/0018-document-owned-worksheet-text.md),
-[review decision and stop conditions](handoffs/2026-10-20-worksheet-text-design-review.md).
+[Implementation and evidence](../handoffs/2026-10-21-worksheet-text-implementation.md),
+[Mac APFS validation packet](../handoffs/2026-10-21-macos-worksheet-text-instructions.md),
+[accepted ADR-0018](../adr/0018-document-owned-worksheet-text.md),
+[review decision and stop conditions](../handoffs/2026-10-20-worksheet-text-design-review.md).
 
 Accepted preceding milestone: **Bounded Rectangular Clipboard, Formula Copy, WB3 and Desktop Acceptance Automation — accepted; workstream closed**.
-[ADR-0017](adr/0017-rectangular-clipboard-and-formula-copy.md),
-[implementation/evidence/optional inspection](handoffs/2026-10-20-rectangular-clipboard.md),
-[fresh Mac/APFS packet](handoffs/2026-10-20-macos-rectangular-clipboard-instructions.md).
+[ADR-0017](../adr/0017-rectangular-clipboard-and-formula-copy.md),
+[implementation/evidence/optional inspection](../handoffs/2026-10-20-rectangular-clipboard.md),
+[fresh Mac/APFS packet](../handoffs/2026-10-20-macos-rectangular-clipboard-instructions.md).
 Rust now supplies bounded typed native copy, effective-binding scalar/SUM translation,
 dollar-axis syntax, exact external TSV and one atomic paste within 256 slots.
 Desktop clipboard transport highlights successful destinations; editor paste stays
@@ -1515,7 +1518,7 @@ resubmission. Frozen hosted v1 and capacity limits remain unchanged.
 Windows/Linux full CI (309/310 default Rust tests), strict all-feature lint and
 325/326 all-feature tests pass. Final actual-window and C#–Rust boundary workflows
 pass with zero-charge close for the clipboard foundation. The owner subsequently requested
-[automated desktop acceptance](handoffs/2026-10-20-desktop-acceptance-automation.md):
+[automated desktop acceptance](../handoffs/2026-10-20-desktop-acceptance-automation.md):
 `python scripts/ci.py --desktop` now covers the five groups, cross-process native
 clipboard and real close choices. Plain inline-editor arrows commit/move; modified
 arrows and formula-bar arrows retain text editing. Final Windows/WSLg acceptance
@@ -1527,17 +1530,17 @@ this doc update; all 173 build/test inputs match, with 391 returned reports veri
 by the transfer record. No Mac fixes or reruns. Routine manual replay is optional;
 physical input/native pickers are not inferred. The parent review received 2026-10-20
 accepts the implementation separately from the earlier design acceptance and closes
-the milestone. [Implementation acceptance and scope closure](handoffs/2026-10-20-rectangular-clipboard-implementation-review.md).
-[Parent review packet](handoffs/2026-10-20-rectangular-clipboard-review-packet.md),
-[native Mac report](../artifacts/macos-validation-20261020T235001Z/REPORT.md).
+the milestone. [Implementation acceptance and scope closure](../handoffs/2026-10-20-rectangular-clipboard-implementation-review.md).
+[Parent review packet](../handoffs/2026-10-20-rectangular-clipboard-review-packet.md),
+[native Mac report](../../artifacts/macos-validation-20261020T235001Z/REPORT.md).
 
 Accepted preceding milestone: **Rectangular Worksheet Selection and Navigation — accepted; workstream closed**.
 Anchor/active/extent live only in C# UI state. Drag and Shift extension, bounded
 keyboard navigation, auto-scroll and active/region/inactive visuals are implemented.
 Selection-only checks leave Rust revisions/dirty state unchanged and create no
 computational selections or worksheet content. Editing/clipboard still target the
-active cell only. [Interaction specification and checks](handoffs/2026-10-20-rectangular-selection.md),
-[fresh APFS packet](handoffs/2026-10-20-macos-rectangular-selection-instructions.md).
+active cell only. [Interaction specification and checks](../handoffs/2026-10-20-rectangular-selection.md),
+[fresh APFS packet](../handoffs/2026-10-20-macos-rectangular-selection-instructions.md).
 Windows/Linux/native Mac full CI (290/291/291 default Rust tests) and actual-window
 checks pass with zero-charge cleanup. Mac strict all-feature lint and 307 all-feature
 tests pass. All 327 Mac copied source hashes and 168 reference build inputs match;
@@ -1545,12 +1548,12 @@ tests pass. All 327 Mac copied source hashes and 168 reference build inputs matc
 manual tests pass on all three platforms. Rectangular cut/copy/paste is deliberately
 not implemented; selection/navigation and active-cell operations are the current
 scope. The parent review received 2026-10-20 accepts the implementation.
-[Acceptance and next design scope](handoffs/2026-10-20-rectangular-selection-review.md).
+[Acceptance and next design scope](../handoffs/2026-10-20-rectangular-selection-review.md).
 
 Accepted milestone evidence: **Native AOT Publish-and-Execute Validation** on Windows
 x64, Linux x64 and macOS ARM64. The parent direction review prioritizes a native
 publish/run baseline, then worksheet text, then structured-result/projection design.
-[Direction and bounded next scope](handoffs/2026-10-20-native-aot-next-scope.md).
+[Direction and bounded next scope](../handoffs/2026-10-20-native-aot-next-scope.md).
 Implementation is in place. Native Windows x64 and Linux x64 publish/run gates pass
 without warnings, including all desktop/peer workflows and zero-charge shutdown.
 Ordinary Windows/Linux full CI also passes. Fresh native Mac/APFS managed CI,
@@ -1559,8 +1562,8 @@ publish/run now pass without warnings or product fixes/gate reruns. Main and all
 three native peers pass with zero charge. All 349 copied source hashes and 178
 build/test inputs match; 426 returned files are present. Cross-platform evidence
 was accepted by the parent review received 2026-10-20; the milestone is closed.
-[Implementation and evidence](handoffs/2026-10-20-native-aot-baseline.md),
-[Mac APFS validation instructions](handoffs/2026-10-20-macos-native-aot-instructions.md).
+[Implementation and evidence](../handoffs/2026-10-20-native-aot-baseline.md),
+[Mac APFS validation instructions](../handoffs/2026-10-20-macos-native-aot-instructions.md).
 Retain ordinary CI and the separate Rust child; no installer, graph redesign or data feature work.
 Dynamic producers/results/projections remain distinct, screen addressing belongs to
 presentation, refresh stays separate from recalculation, and concrete `#` syntax
@@ -1574,15 +1577,15 @@ Accepted preceding milestone: **Direct single-cell paste commit — accepted; wo
 Grid paste submits immediately through Rust and retains selection; editor/formula-bar
 paste remains uncommitted text insertion. Invalid numbers/conflicts retain a
 correctable draft; late/cancelled clipboard reads do not overwrite newer state.
-[Implementation and checks](handoffs/2026-10-20-direct-single-cell-paste.md),
-[fresh APFS packet](handoffs/2026-10-20-macos-direct-paste-instructions.md).
+[Implementation and checks](../handoffs/2026-10-20-direct-single-cell-paste.md),
+[fresh APFS packet](../handoffs/2026-10-20-macos-direct-paste-instructions.md).
 Windows/Linux/native Mac full CI (290/291/291 default Rust tests) and actual-window
 checks pass with zero-charge cleanup. Mac strict all-feature lint and 307 all-feature
 tests pass. All 324 copied Mac source hashes and 168 build inputs match; 367 returned
 reports are transfer-verified, with no fixes/reruns. The user confirms manual
 functionality across all three platforms works as intended. Broader paste features
 remain future scope. The parent review received 2026-10-20 accepts this correction.
-[Acceptance and next scope](handoffs/2026-10-20-direct-paste-review.md). No engine,
+[Acceptance and next scope](../handoffs/2026-10-20-direct-paste-review.md). No engine,
 protocol, WB2 or capacity changes are included.
 
 The accepted review selected **Rectangular Worksheet Selection and Navigation** next.
@@ -1590,8 +1593,8 @@ The user authorized implementation; see current work above. Multi-cell clipboard
 copy/fill and reference translation remain outside this scope.
 
 Accepted preceding milestone: **In-place worksheet editing — accepted; workstream closed**.
-[Review packet](handoffs/2026-10-20-in-place-editing-review-packet.md),
-[implementation and checks](handoffs/2026-10-20-in-place-editing.md).
+[Review packet](../handoffs/2026-10-20-in-place-editing-review-packet.md),
+[implementation and checks](../handoffs/2026-10-20-in-place-editing.md).
 The editor, synchronized formula bar, clipboard commands and focus/caret feedback
 are implemented. Windows/WSLg window checks and the fresh native Mac automated
 run pass; Mac has 291 default / 307 all-feature tests, 320 matching source hashes,
@@ -1601,15 +1604,15 @@ copy/paste shortcuts work. The earlier failed outcome and the report’s origina
 pending status remain historical evidence; clipboard usability is not yet complete.
 
 The parent review received 2026-10-20 accepts the editor/clipboard/focus milestone.
-[Acceptance and next scope](handoffs/2026-10-20-in-place-editing-review.md).
+[Acceptance and next scope](../handoffs/2026-10-20-in-place-editing-review.md).
 The recommended next assignment is direct single-cell paste commit: selected-grid
 paste submits one checked Rust edit immediately; active-editor paste remains text
 insertion. No engine, protocol, WB2 or capacity changes are requested. The user subsequently authorized implementation; see the current-work entry above.
 
 Accepted preceding milestone: **First-Class Ranges and SUM — Slice C accepted; workstream closed**.
-[Implementation and exact quotas](handoffs/2026-10-20-ranges-and-sum-slice-c.md),
-[validation evidence](handoffs/2026-10-20-ranges-validation.md),
-[native APFS packet](handoffs/2026-10-20-macos-ranges-instructions.md).
+[Implementation and exact quotas](../handoffs/2026-10-20-ranges-and-sum-slice-c.md),
+[validation evidence](../handoffs/2026-10-20-ranges-validation.md),
+[native APFS packet](../handoffs/2026-10-20-macos-ranges-instructions.md).
 Canonical sparse selections, row-major checked SUM and PIVOTWB2 are implemented.
 WB1 is explicitly unsupported; frozen hosted v1 rejects selection capability.
 Windows manual native-dialog checks passed per the user. Native macOS APFS full
@@ -1617,18 +1620,18 @@ validation and all six user-confirmed manual checklist groups pass. Full
 Windows/Linux/macOS CI (290/291/291 default, 306/307/307 all-feature), strict lint
 and actual-window checks pass with zero-charge cleanup. All 318 Mac copied source
 hashes and 168 build inputs match; no product fixes or validation reruns were needed.
-[Native report](../artifacts/macos-validation-20261020T130207Z/REPORT.md).
+[Native report](../../artifacts/macos-validation-20261020T130207Z/REPORT.md).
 The user confirmed WSLg Save-on-close passes on local WSL2 storage and an untouched
 workbook closes without prompting. WSLg Windows-volume Save-on-close reported
 installation uncertainty; that mounted-path limitation and the historical native
 abort remain unresolved.
 The parent review received 2026-10-20 accepts the implementation separately from
-the ADR-0016 design. [Acceptance record](handoffs/2026-10-20-ranges-and-sum-review.md).
+the ADR-0016 design. [Acceptance record](../handoffs/2026-10-20-ranges-and-sum-review.md).
 The user authorized focused in-place worksheet editing after discussing scope.
 
 Accepted preceding milestone: **Native Workbook Persistence and Application Lifecycle — Slice B**.
-[ADR-0015](adr/0015-native-workbook-documents.md) and the
-[implementation handoff](handoffs/2026-10-20-workbook-persistence-slice-b.md) describe
+[ADR-0015](../adr/0015-native-workbook-documents.md) and the
+[implementation handoff](../handoffs/2026-10-20-workbook-persistence-slice-b.md) describe
 native workbook files, validated stable-identity restoration, safe staged Save,
 external conflicts, exact saved-generation acknowledgement and Avalonia file actions.
 The document codec is separate from the storage-independent workbook; the canonical
@@ -1640,17 +1643,17 @@ pickers and dirty-close dialog choices remain untested manually. Slice B and
 ADR-0015 are accepted by the parent review received 2026-10-20. The next assignment
 is First-Class Ranges and SUM — Spreadsheet Semantics Slice C, beginning with an
 explicit range-semantics decision before permanent representation.
-[Review decision and next scope](handoffs/2026-10-20-workbook-persistence-review.md).
-[Native report](../artifacts/macos-validation-20261020T111827Z/REPORT.md).
+[Review decision and next scope](../handoffs/2026-10-20-workbook-persistence-review.md).
+[Native report](../../artifacts/macos-validation-20261020T111827Z/REPORT.md).
 
 Accepted preceding milestone: **Runnable Application — C# Session and Worksheet Slice A**.
 A real Avalonia worksheet edits an owned Rust Workbook through asynchronous framed
 Protobuf pipes. Numeric/formula entry, clear/move, bounded scrolling, readable draft
 errors, exact revision/generation tracking and orderly session disposal are implemented.
 The backend retains production limits; no C# evaluator, file container or new engine
-is introduced. [ADR-0014](adr/0014-application-session-and-worksheet.md),
-[run/verification handoff](handoffs/2026-10-19-application-worksheet-slice-a.md),
-[native APFS packet](handoffs/2026-10-19-macos-application-slice-a-instructions.md).
+is introduced. [ADR-0014](../adr/0014-application-session-and-worksheet.md),
+[run/verification handoff](../handoffs/2026-10-19-application-worksheet-slice-a.md),
+[native APFS packet](../handoffs/2026-10-19-macos-application-slice-a-instructions.md).
 Windows/isolated Linux full CI passes (275/276 default Rust tests, 291/292 all-feature),
 .NET Release and real boundary tests. Final application checks include queue-byte
 admission, exact input, stale-display conflicts, viewport bounds, cancellation and
@@ -1666,27 +1669,27 @@ actual Avalonia execution now pass from a source-matched internal APFS copy, wit
 276 default / 292 all-feature Rust tests, six .NET projects and zero final Rust charge.
 No fixes or reruns were needed. Boundary p95 edit/viewport/calculation is
 0.117/0.220/0.119 ms; eight UI observations span 39.45–108.56 ms.
-[Native report](../artifacts/macos-validation-20261020T101213Z/REPORT.md).
+[Native report](../../artifacts/macos-validation-20261020T101213Z/REPORT.md).
 Slice A and ADR-0014 are accepted by the parent review received 2026-10-20.
 Next assignment: Native Workbook Persistence and Application Lifecycle — Slice B.
-See the [review decision and scope](handoffs/2026-10-20-application-slice-a-review.md).
+See the [review decision and scope](../handoffs/2026-10-20-application-slice-a-review.md).
 
 Accepted preceding milestone: **Canonical Engine Consolidation** implements the owner direction
-in [ADR-0013](adr/0013-canonical-engine-consolidation.md). WorkingModel and Workbook
+in [ADR-0013](../adr/0013-canonical-engine-consolidation.md). WorkingModel and Workbook
 now always use persistent storage. Convenience constructors share the lazy runtime;
 new_in retains application ownership. Reference backends/constructors, activation,
 selector enums/features and obsolete comparison prototypes are removed. Host,
 document/storage and daemon paths use the same canonical graph; codecs and product
-caps are unchanged. See [architecture](architecture/canonical-engine-consolidation.md),
-[evidence](performance/canonical-engine-consolidation.md) and
-[review handoff](handoffs/2026-10-19-canonical-engine-consolidation.md).
+caps are unchanged. See [architecture](../architecture/canonical-engine-consolidation.md),
+[evidence](../performance/canonical-engine-consolidation.md) and
+[review handoff](../handoffs/2026-10-19-canonical-engine-consolidation.md).
 
 Windows/isolated WSL2 Linux/native macOS CI passes 275/276/276 default tests and
 291/292/292 all-feature tests, strict lint, .NET/parity and actual IPC. All 99 matrix children pass correctness,
 resource guards and zero final charges. Existing construction/bulk targets pass;
 one Linux 1K-start fan-out viewport p95 misses 5 ms at 5.343 ms. Its single matched
 repeat passes at 3.381 ms; preserve the original miss as a review limitation.
-The [fresh native APFS report](../artifacts/macos-validation-20261020T015824Z/REPORT.md)
+The [fresh native APFS report](../../artifacts/macos-validation-20261020T015824Z/REPORT.md)
 passes 33 cases and all native targets, with all 280 copied source hashes matching
 before documentation edits and no fixes/reruns. All eight pressure samples were
 normal; completed-child high-water is not live RSS guarding. Including the Linux
@@ -1700,10 +1703,10 @@ is implemented with Windows/Linux/native macOS validation complete. A bounded pr
 owned candidate nodes while preserving shared roots, admission and atomic rollback.
 Production Workbook remains reference; explicit new_in remains the application-owned
 runtime path. ADR-0012 is Accepted. See the
-[readiness architecture/compatibility matrix](architecture/persistent-workbook-readiness.md),
-[matched profile/evidence](performance/persistent-workbook-readiness.md),
-[handoff](handoffs/2026-10-19-persistent-workbook-readiness.md) and
-[fresh native APFS packet](handoffs/2026-10-19-macos-persistent-workbook-readiness-instructions.md).
+[readiness architecture/compatibility matrix](../architecture/persistent-workbook-readiness.md),
+[matched profile/evidence](../performance/persistent-workbook-readiness.md),
+[handoff](../handoffs/2026-10-19-persistent-workbook-readiness.md) and
+[fresh native APFS packet](../handoffs/2026-10-19-macos-persistent-workbook-readiness-instructions.md).
 Full default CI passes (251/252/252 tests), all-feature regression passes 300/301/301,
 fallback 21 each and workbook-only 49 each. All 234 matched ordinary/profile/core
 children pass with identical 68 source hashes and zero final charges. At 100K,
@@ -1712,7 +1715,7 @@ traffic falls from 1.492 GB to 651 MB. Retained/peak memory is substantially unc
 Core name/page work explains much of the remaining reference gap. Existing interactive
 and bulk investigation budgets pass. Recommend explicit new_in for the next bounded
 application/session slice after review; keep new reference.
-The [fresh native report](../artifacts/macos-validation-20261020T010244Z/REPORT.md)
+The [fresh native report](../../artifacts/macos-validation-20261020T010244Z/REPORT.md)
 validates all 296 copied source hashes on internal APFS. All 78 native cases pass;
 52 pressure samples were normal and completed-child high-water peaked at 1,418.8 MiB.
 This does not establish a capacity increase; native live RSS guarding remains unavailable.
@@ -1723,10 +1726,10 @@ is implemented behind `pivot-workbook/persistent-core`; production Workbook rema
 reference. Canonical core batches reserve identities/resources, bind final names,
 publish atomically and dispatch once. Persistent workbook edits retain sparse
 stable identity and pinned S/T metadata with bounded rectangle reads. See
-[ADR-0012](adr/0012-bulk-mutation-and-persistent-workbook.md),
-[architecture](architecture/persistent-workbook-bulk.md),
-[evidence](performance/persistent-workbook-bulk.md) and
-[handoff](handoffs/2026-10-19-persistent-workbook-bulk.md).
+[ADR-0012](../adr/0012-bulk-mutation-and-persistent-workbook.md),
+[architecture](../architecture/persistent-workbook-bulk.md),
+[evidence](../performance/persistent-workbook-bulk.md) and
+[handoff](../handoffs/2026-10-19-persistent-workbook-bulk.md).
 Full default CI passes on Windows/Linux/native macOS (248/249/249 Rust tests),
 with all-feature regression 296/297/297, fallback 21 each and workbook-only 48 each.
 All 335 Release/diagnostic children pass with zero final domain charges; native
@@ -1734,7 +1737,7 @@ validation used a fresh internal APFS copy and all 290 source hashes matched bef
 this documentation update. Core batching improves roughly 5–9x Windows / 21–25x
 Linux / 4.5–5.3x macOS over individual persistent edits. Native 100K workbook
 population is 1.14–1.40 s, still slower than optimized reference. The
-[native report](../artifacts/macos-validation-20261019T220845Z/REPORT.md) records
+[native report](../../artifacts/macos-validation-20261019T220845Z/REPORT.md) records
 warning-level memory pressure and sampled RSS only, not native child high-water.
 Foundation accepted by the parent; production workbook selection stays reference.
 
@@ -1745,9 +1748,9 @@ and an explicit runtime with aggregate admission and deterministic shutdown.
 Reference fallback is explicit. Host, storage, workbook, legacy import and daemon
 constructors deliberately retain their reference paths; frozen formats and limits
 are unchanged. That transition is accepted. See
-[ADR-0011](adr/0011-standalone-persistent-default.md),
-[constructor/lifecycle policy](architecture/standalone-default-transition.md) and
-[handoff](handoffs/2026-10-19-standalone-default-transition.md).
+[ADR-0011](../adr/0011-standalone-persistent-default.md),
+[constructor/lifecycle policy](../architecture/standalone-default-transition.md) and
+[handoff](../handoffs/2026-10-19-standalone-default-transition.md).
 Native macOS transition validation also passed from a fresh APFS copy. At transition review,
 Windows/Linux/macOS default counts were 241/242/242 and combined counts 264/265/265;
 all ninety transition Release processes passed. Parent acceptance is recorded in ADR-0011. That earlier native run predates bulk; current bulk validation is recorded above.
@@ -1890,15 +1893,15 @@ preserves ADR-0006/0007/0008 history. Further hosted persistence is deferred:
 SQLite ownership feasibility, schema/migrations, durable commit coordination,
 cross-restart receipts and PostgreSQL/MySQL adapters are not the next work.
 
-[Accepted ADR-0009](adr/0009-portable-documents-and-local-lifecycle.md) defines
+[Accepted ADR-0009](../adr/0009-portable-documents-and-local-lifecycle.md) defines
 ordinary model documents and local New/Open/Edit/Calculate/Save/Save As/Close
 behavior. Document Foundation Slice A now implements hosting-free graph payloads
 and thin one-graph in-memory sessions in pivot-storage. Sessions reuse core staging,
 binding, validated import and evaluation, with no hosted registration, publication,
 store/epoch identities or receipts. Immutable export/restore, independent copies,
 exact values, invalid drafts, stale-token checks and saved checkpoints are tested.
-See [implementation details](architecture/document-foundation.md) and the
-[Slice A review handoff](handoffs/2026-10-18-document-foundation-slice-a.md).
+See [implementation details](../architecture/document-foundation.md) and the
+[Slice A review handoff](../handoffs/2026-10-18-document-foundation-slice-a.md).
 
 The Slice A suite had 167 Rust tests, including 13 new document integration tests and
 one new hosted resource-budget compatibility test. Full Windows CI and WSL Linux
@@ -1910,9 +1913,9 @@ verifies installed content and only then acknowledges the exact export. Fault te
 cover conflicts, failed/uncertain saves, reconciliation and S/T dirty-state behavior.
 Independent-process tests create, reopen, calculate/invoke, edit/save, copy and reopen
 models without hosting. The core and frozen hosted storage-v1 fixtures are unchanged.
-See the [experimental envelope](architecture/experimental-document-format.md),
-[broker and limits](architecture/experimental-file-broker.md) and
-[Slice B handoff](handoffs/2026-10-19-document-foundation-slice-b.md).
+See the [experimental envelope](../architecture/experimental-document-format.md),
+[broker and limits](../architecture/experimental-file-broker.md) and
+[Slice B handoff](../handoffs/2026-10-19-document-foundation-slice-b.md).
 
 Slice B passes full Windows CI (185 Rust tests) and available WSL Linux checks
 (186 tests, including Unix-only permissions/alias coverage) plus actual IPC/REPL.
@@ -1926,7 +1929,7 @@ not the native document format.
 ## Workbook projection and current performance gate
 
 The parent review accepts ADR-0010's structural architecture while reserving
-spreadsheet compatibility semantics. [ADR-0010](adr/0010-workbook-projection-and-spreadsheet-semantics.md)
+spreadsheet compatibility semantics. [ADR-0010](../adr/0010-workbook-projection-and-spreadsheet-semantics.md)
 now distinguishes accepted boundaries from future cut/copy/delete, range affinity,
 blank/text/aggregate and shared-writable-node policies. No Excel compatibility claim
 or production workbook format is made.
@@ -1939,8 +1942,8 @@ captures and basic bounded rectangular reads. The trusted resolved-token seam in
 the core transfer module shares existing token/dependency validation and evaluator;
 it does not parse fabricated identifiers or introduce a second expression engine.
 
-See [implementation and small costs](architecture/workbook-projection-foundation.md)
-and [Slice A handoff](handoffs/2026-10-19-workbook-projection-slice-a.md).
+See [implementation and small costs](../architecture/workbook-projection-foundation.md)
+and [Slice A handoff](../handoffs/2026-10-19-workbook-projection-slice-a.md).
 Full Windows CI passes 200 Rust tests, .NET/parity and actual IPC/REPL regressions.
 Available WSL Linux checks passed 201 tests and real IPC at Slice A submission.
 The later Slice B macOS run covers these regressions too. Tiny debug-profile
@@ -1956,26 +1959,26 @@ transaction/candidate provenance. Malformed/out-of-bounds drafts are diagnosable
 non-executable; hard failures roll back the batch. Moves and coordinate reuse do
 not rebind formulas; explicit resubmission does.
 
-See [grammar and implementation](architecture/spreadsheet-scalar-formulas.md) and
-[Slice B handoff](handoffs/2026-10-19-spreadsheet-formulas-slice-b.md) for current
+See [grammar and implementation](../architecture/spreadsheet-scalar-formulas.md) and
+[Slice B handoff](../handoffs/2026-10-19-spreadsheet-formulas-slice-b.md) for current
 verification and costs. Full Windows CI passes 209 Rust tests plus .NET/parity/IPC;
 available WSL2 checks pass 210 Rust tests plus IPC. Native macOS ARM64 now passes
 full CI with 210 Rust tests, .NET Release, both parity suites and actual IPC/REPL.
 At Slice B validation, the working tree matched all 215 Mac source hashes;
 builds and .NET outputs stayed on local APFS, with reports copied back to SMB.
-See the [macOS review](handoffs/2026-10-19-macos-validation.md).
+See the [macOS review](../handoffs/2026-10-19-macos-validation.md).
 The parent review accepted Slice B and replaced the following C# priority with a
 mandatory graph/workbook performance-feasibility gate. The opt-in research harness
 now compares optimized baseline and shared-topology/input-overlay behavior at
-1K/10K/100K cells; see the [feasibility assessment](architecture/graph-workbook-scaling-feasibility.md)
-and [research handoff](handoffs/2026-10-19-scaling-feasibility.md). Its recommendation
+1K/10K/100K cells; see the [feasibility assessment](../architecture/graph-workbook-scaling-feasibility.md)
+and [research handoff](../handoffs/2026-10-19-scaling-feasibility.md). Its recommendation
 is B: viable with architectural restructuring, not production adoption of the
 prototype. Default behavior and small-model production limits remain unchanged.
 The parent accepted assessment B and authorized the bounded Structural Mutation
 Feasibility slice. A separate opt-in paged core and fixed-projection workbook
 adapter now test localized formula/dependency edits and coherent immutable captures.
-See the [representation comparison](architecture/structural-mutation-feasibility.md)
-and [structural handoff](handoffs/2026-10-19-structural-mutation-feasibility.md).
+See the [representation comparison](../architecture/structural-mutation-feasibility.md)
+and [structural handoff](../handoffs/2026-10-19-structural-mutation-feasibility.md).
 Matched end-to-end timings include the baseline's deferred validation. Baseline
 and prototype memory workloads run in separate guarded processes. No production
 replacement is adopted. The parent accepted the structural research and authorized
@@ -1983,8 +1986,8 @@ Production Graph Representation - Compatibility Foundation. That opt-in slice no
 uses persistent name/reverse-edge indexes, supports ports/invocation and invalid
 restoration, shares accepted binding/validation rules, charges unique core storage
 and candidate work, and provides bounded off-thread reclamation.
-See the [compatibility design](architecture/persistent-core-compatibility-foundation.md)
-and [foundation handoff](handoffs/2026-10-19-compatibility-foundation.md) for matched
+See the [compatibility design](../architecture/persistent-core-compatibility-foundation.md)
+and [foundation handoff](../handoffs/2026-10-19-compatibility-foundation.md) for matched
 Release results, 32-generation retention, 1M repeats and remaining blockers.
 That foundation recommended focused integration work on revisions/diagnostics,
 allocation ownership, ports and workbook coverage. The parent accepted it and
@@ -2013,8 +2016,8 @@ parity/real IPC CI and all thirty Release benchmark processes. All copied source
 hashes matched before this documentation update; no product changes were needed.
 All review targets passed and final domain charges were zero. The runner does not
 support macOS RSS; separate sparse native samples do not establish child high-water
-marks. See the [native report](../artifacts/macos-validation-20261019T182116Z/REPORT.md)
-and [Stage 2 performance addendum](performance/controlled-core-integration-stage2.md).
+marks. See the [native report](../../artifacts/macos-validation-20261019T182116Z/REPORT.md)
+and [Stage 2 performance addendum](../performance/controlled-core-integration-stage2.md).
 
 Standalone transition final Windows/Linux results: full default CI passed (241/242 tests), combined regression passed 264/265, reference-only core passed 21 on both, all strict lint configurations passed and all sixty verified Release children passed the interactive targets. Native macOS transition subsequently passed (242 default, 265 combined and 21 fallback tests, full CI and thirty more Release children); see the transition handoff for current three-platform results and the retained bulk-construction tradeoff.
 
@@ -2031,4 +2034,4 @@ monitoring is sampled evidence only. All three-platform validation gates are now
 satisfied for parent review; no downstream backend migration is included.
 
 Parent implementation review: [computational implementation acceptable; final
-acceptance deferred pending WB5-only correction and fresh three-platform gates](handoffs/2026-10-22-spreadsheet-aggregate-implementation-review.md).
+acceptance deferred pending WB5-only correction and fresh three-platform gates](../handoffs/2026-10-22-spreadsheet-aggregate-implementation-review.md).

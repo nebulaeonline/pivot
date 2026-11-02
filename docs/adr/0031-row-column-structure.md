@@ -40,7 +40,7 @@ validation must include Windows x64, Linux x64, Windows ARM64, Linux ARM64,
 macOS ARM64 and macOS x64 under Rosetta, using normal attended consent and short
 local launchers. Follow the
 design → parent review → authorized implementation → parent comments → docs →
-commit/push → explicit owner go-ahead cadence in [STATUS](../STATUS-20261102.md).
+commit/push → explicit owner go-ahead cadence in [STATUS](../STATUS.md).
 
 ## Context and scope
 

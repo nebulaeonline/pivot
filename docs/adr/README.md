@@ -207,3 +207,13 @@ follow below. ADR-0023 remains parked at G3.
   alongside a separate full retained-cache headless pass. Recovered wrapper/DNS
   failures and their complete passing retries remain distinct. See the
   [implementation handoff](../handoffs/2026-11-02-bound-grid-windows.md).
+
+- [ADR-0042: Section Breaks and Local Grid Geometry](0042-section-breaks-and-local-grid-geometry.md)
+  — Design accepted by final review (2026-11-02), including all three required
+  clarifications. Implementation not authorized. Independent width/height partitions,
+  either-boundary whole-section selection, one bounded mapping, complete overlap
+  validation, authored-axis transforms, positional bound-view presentation and
+  coherent filtered viewports. Concrete invoice/one-boundary selection examples;
+  ordinary-layout usability is a promotion gate. WB16/private v16 are proposed.
+  No feature implementation or platform qualification. See the
+  [design handoff](../handoffs/2026-11-02-section-grid-geometry-design.md).

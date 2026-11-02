@@ -1,7 +1,10 @@
 # Section geometry, Text and document composition
 
 Status: **Architecture accepted with clarifications under [ADR-0039](../adr/0039-named-windows-and-document-composition.md), 2026-11-01**.
-This is a design contract, not implemented behavior.
+This is the overall design contract, not implemented Text/page behavior.
+[ADR-0042](../adr/0042-section-breaks-and-local-grid-geometry.md) defines the accepted detailed
+section-geometry slice and [map/selection contract](section-grid-geometry.md); it has
+no feature implementation or platform qualification.
 
 ## Section geometry
 
@@ -27,17 +30,27 @@ The mandatory qualification set includes an invoice header with narrow metadata
 columns, wide line-item descriptions, different totals/payment-information geometry,
 interacting horizontal and vertical section boundaries, and selection/hit testing
 across gaps and seams. Frequent refusal of ordinary invoice layouts requires revisiting
-the geometry model; user workarounds do not satisfy this gate. These cases have not
-been executed by the architecture milestone.
+the geometry model; user workarounds do not satisfy this gate. These cases were not
+executed by the architecture milestone. ADR-0042 includes a concrete arithmetic
+example and requires zero unexpected ordinary-invoice workflow refusals before
+implementation promotion; arithmetic alone is not usability qualification.
 
 Viewport, selection and renderer share this mapping. Hit testing uses half-open
 cell interiors (right/bottom edge belongs to the next interior); gaps return no cell.
-A logical rectangle remains a logical rectangle, but its highlight may be a union
-of physical spans, never a fabricated bounding-box selection. Keyboard navigation
-uses logical axes. Scrolling retains a logical anchor plus within-cell offset.
+Either orientation alone creates sections. With only horizontal breaks, sections
+span the scope width; with only vertical breaks, they span its height; with both,
+sections are derived intersections. ADR-0042 specifies cell selection within one
+section and expansion to whole touched sections when **either** boundary is crossed.
+Existing computational rectangles retain their exact logical membership. Selection
+highlights may be unions of physical spans, never fabricated physical bounding-box
+selections. Keyboard navigation uses logical axes. Scrolling retains a logical
+anchor plus within-cell offset.
 Range calculation and formatting use logical coordinates, not painted boundaries.
 
-Breaks are stable boundary metadata immediately before a surviving axis identity.
+For authored worksheet/unbound axes, breaks are stable boundary metadata immediately
+before a surviving axis identity. ADR-0042 proposes separately tagged positional
+geometry for bound views, with no producer/reference authority; that distinction
+requires design review.
 Insertion at that boundary belongs to the preceding band; the boundary remains before
 the original following axis. Insertion inside a band inherits that band. Deleting the
 following axis moves the break to the next surviving axis; coincident breaks coalesce

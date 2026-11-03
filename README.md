@@ -30,6 +30,13 @@ also be used directly through Rust crate APIs, independently of a workbook or GU
 
 ## The spreadsheet desktop
 
+[ADR-0043](docs/adr/0043-section-local-headings-and-axis-selection.md) defines
+section-local row/column headings and selection, with one master toggle to hide
+interior headings for an unobstructed document view. The design is accepted
+(2026-11-03); implementation awaits separate owner authorization. The
+[design handoff](docs/handoffs/2026-11-03-section-local-headings-design.md)
+records the accepted decisions. No feature implementation is included.
+
 [ADR-0042](docs/adr/0042-section-breaks-and-local-grid-geometry.md) implements Section
 Breaks and local Grid geometry: either boundary type creates sections, and crossing
 either expands cell selection to whole touched sections. Its invoice-layout design

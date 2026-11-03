@@ -8,8 +8,10 @@ are implemented, accepted and closed under
 the unresolved Windows ARM64 cold-run qualification retained. The combined authority
 example, refresh transition matrix, native validation gate and ownership/charge
 ledger remain implementation contracts. Production database connectors, Text and
-section geometry remain unimplemented. The accepted geometry design contract is
-[ADR-0042](../adr/0042-section-breaks-and-local-grid-geometry.md), design only.
+section geometry are outside ADR-0041. Section geometry implementation and qualification
+are accepted and closed under [ADR-0042](../adr/0042-section-breaks-and-local-grid-geometry.md)
+by parent implementation review, 2026-11-03, with existing qualifications retained. See its
+[implementation handoff](../handoffs/2026-11-03-section-grid-geometry.md).
 
 The first detailed scope is [ADR-0040](../adr/0040-unbound-grid-windows.md), accepted
 and closed with its unresolved Windows ARM64 cold-run qualification retained.

@@ -1,6 +1,11 @@
 //! Production bound-source checkpoints; node counts include consumers and leaves.
 use pivot_core::model::integration::IntegrationRuntime;
-use pivot_workbook::{csv, producers::*, *};
+use pivot_workbook::{
+    csv,
+    geometry::{CellRect, Command, DEFAULT_WIDTH, SizeRun},
+    producers::*,
+    *,
+};
 use pivot_workbook_document::Document;
 use std::{error::Error, time::Instant};
 fn ms(t: Instant) -> f64 {
@@ -58,6 +63,88 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
         ],
     )?;
     assert_eq!(b.stats().live_nodes, count as usize);
+    let scope = window.into();
+    let geometry_before = memory.stats().charged;
+    for index in 0..62 {
+        b.create_grid_window(
+            b.expected(),
+            &format!("Empty {index}"),
+            MAX_ROWS,
+            MAX_COLUMNS,
+        )?;
+    }
+    assert_eq!(b.windows().filter(|w| !w.retired).count(), 64);
+    assert_eq!(b.stats().live_nodes, count as usize);
+    b.edit_geometry(
+        scope,
+        b.expected(),
+        &[
+            Command::AddBreak {
+                horizontal: true,
+                before: 5,
+            },
+            Command::AddBreak {
+                horizontal: false,
+                before: 2,
+            },
+        ],
+        &Default::default(),
+    )?;
+    let geometry_old = b.capture_scope(scope, b.expected())?;
+    let old_map = geometry_old.geometry_map(None, &Default::default())?;
+    let map_start = Instant::now();
+    b.edit_geometry(
+        scope,
+        b.expected(),
+        &[Command::SetProfile {
+            horizontal: true,
+            at: 1,
+            sizes: vec![
+                SizeRun {
+                    first: 1,
+                    last: 1,
+                    size: 160 * 64,
+                },
+                SizeRun {
+                    first: 2,
+                    last: MAX_COLUMNS,
+                    size: DEFAULT_WIDTH,
+                },
+            ],
+        }],
+        &Default::default(),
+    )?;
+    let geometry_edit_ms = ms(map_start);
+    let geometry_new = b.capture_scope(scope, b.expected())?;
+    let new_map = geometry_new.geometry_map(None, &Default::default())?;
+    let page = new_map
+        .viewport_page(
+            CellRect {
+                left: 0,
+                top: 0,
+                right: 640 * 64,
+                bottom: 390 * 64,
+            },
+            0,
+            &memory,
+            &Default::default(),
+        )
+        .map_err(|e| format!("{e:?}"))?;
+    assert_eq!(page.cells.len(), 20);
+    assert_eq!(
+        old_map.cell_rect(p(1)).ok_or("old geometry cell")?.right,
+        DEFAULT_WIDTH
+    );
+    assert_eq!(
+        new_map.cell_rect(p(1)).ok_or("new geometry cell")?.right,
+        160 * 64
+    );
+    let _buffer = memory
+        .reserve(8 * 1024 * 1024)
+        .map_err(|_| "viewport buffer admission")?;
+    let geometry_retained_charge = memory.stats().charged;
+    drop((_buffer, page, new_map, old_map, geometry_new, geometry_old));
+    let geometry_steady_charge = memory.stats().charged;
     let old = b.capture_local(b.expected())?;
     let outputs = [
         old.cell_at(p(count - 2)).ok_or("sum")?,
@@ -113,7 +200,7 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
     let reopen_ms = ms(start);
     let peak = memory.stats().peak;
     println!(
-        "{{\"count\":{count},\"edit_ms\":{edit_ms},\"calculate_ms\":{calculate_ms},\"viewport_ms\":{viewport_ms},\"refresh_ms\":{refresh_ms},\"save_ms\":{save_ms},\"reopen_ms\":{reopen_ms},\"steady_charge\":{steady},\"peak_charge\":{peak}}}"
+        "{{\"geometry_before_charge\":{geometry_before},\"geometry_retained_charge\":{geometry_retained_charge},\"geometry_steady_charge\":{geometry_steady_charge},\"geometry_edit_ms\":{geometry_edit_ms},\"empty_windows\":62,\"count\":{count},\"edit_ms\":{edit_ms},\"calculate_ms\":{calculate_ms},\"viewport_ms\":{viewport_ms},\"refresh_ms\":{refresh_ms},\"save_ms\":{save_ms},\"reopen_ms\":{reopen_ms},\"steady_charge\":{steady},\"peak_charge\":{peak}}}"
     );
     drop((old, edited, opened, saved, b));
     rt.finish().map_err(|_| "retained runtime")?;

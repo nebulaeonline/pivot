@@ -358,6 +358,12 @@ impl Workbook {
                 visibility = Some(self.filter_visibility_for(sheet, expected, Some(d), cancel)?);
             }
         }
+        if let Some(map) = &visibility
+            && self.persistent.geometry.contains_key(&sheet)
+        {
+            self.capture_scope(sheet, expected)?
+                .geometry_map(Some(map.rows()), cancel)?;
+        }
         if self.filter(sheet)? == candidate.as_ref() {
             return Ok((expected, visibility));
         }

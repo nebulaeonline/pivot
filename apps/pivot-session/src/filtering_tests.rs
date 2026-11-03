@@ -2,7 +2,7 @@ use super::*;
 use pivot_workbook::filtering::{Condition, Definition, Literal, Operator, Predicate};
 fn request(s: &Session, op: wire::request::Operation) -> wire::Request {
     wire::Request {
-        version: 15,
+        version: 16,
         operation: op as i32,
         revision: s.revision.clone(),
         worksheet: s

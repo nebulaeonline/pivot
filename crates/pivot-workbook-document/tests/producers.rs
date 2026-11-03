@@ -70,7 +70,7 @@ fn wb15_restores_complete_bound_authority_and_disconnected_data() {
     let rt = IntegrationRuntime::standalone().unwrap();
     let b = setup(&rt);
     let saved = Document::export_document(&b, b.expected()).unwrap();
-    assert!(saved.bytes.starts_with(b"PIVOTWB15"));
+    assert!(saved.bytes.starts_with(b"PIVOTWB16"));
     let (mut reopened, _) = Document::open_document(&saved.bytes, Limits::default(), &rt).unwrap();
     let capture = reopened.capture_local(reopened.expected()).unwrap();
     let outputs = [10, 11, 12].map(|r| capture.cell_at(Position::new(r, 1)).unwrap());

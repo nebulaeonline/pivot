@@ -36,24 +36,27 @@ public sealed partial class WorksheetView : Control
     public Cell? CellAt(Position at) => cells.GetValueOrDefault((at.Row, at.Column));
     public uint FirstRow { get; private set; } = 1;
     public uint FirstColumn { get; private set; } = 1;
-    public int VisibleRows => Math.Clamp((int)(Bounds.Height / HeightPerCell) - 1, 1, Math.Min(Rows,RowLimit));
+    public int VisibleRows => GeometryMode ? Math.Clamp(geometryViewport?.Frame.Geometry?.Headers.Count(h=>!h.Column)??1,1,RowLimit)
+        : Math.Clamp((int)(Bounds.Height / HeightPerCell) - 1, 1, Math.Min(Rows,RowLimit));
+    public int VisibleColumns => GeometryMode ? Math.Clamp(geometryViewport?.Frame.Geometry?.Headers.Count(h=>h.Column)??1,1,ColumnLimit) : Math.Min(Columns,ColumnLimit);
     private Position active = new() { Row=1, Column=1 }, anchor = new() { Row=1, Column=1 };
     private Position? structuralFocus;
     public Position Selected => (structuralFocus??active).Clone();
     public Position SelectionActive=>active.Clone();
     public Position? SelectionFocus=>structuralFocus?.Clone();
     public Position Anchor => anchor.Clone();
-    public Position SelectionFirst => new() { Row=Math.Min(anchor.Row,active.Row), Column=Math.Min(anchor.Column,active.Column) };
-    public Position SelectionLast => new() { Row=Math.Max(anchor.Row,active.Row), Column=Math.Max(anchor.Column,active.Column) };
-    public bool HasRegion => anchor.Row!=active.Row || anchor.Column!=active.Column;
+    public Position SelectionFirst => GeometryMode && sectionSelection?.EffectiveFirst is { } first ? first.Clone() : RequestedFirst;
+    public Position SelectionLast => GeometryMode && sectionSelection?.EffectiveLast is { } last ? last.Clone() : RequestedLast;
+    public bool HasRegion => !SelectionFirst.Equals(SelectionLast);
     private readonly DispatcherTimer dragTimer = new() { Interval=TimeSpan.FromMilliseconds(75) };
     private IPointer? dragPointer;
     private Point dragPoint;
+    private Point? releasedDragPoint;
     private bool dragReady, selectionPending;
     private long gesture;
     private Position previousAnchor = new() { Row=1,Column=1 }, previousActive = new() { Row=1,Column=1 };
     private Position? previousStructuralFocus;
-    public bool IsSelecting => dragPointer is not null;
+    public bool IsSelecting => dragPointer is not null||dividerDrag is not null;
     public bool IsSelectionPending => selectionPending;
     public event Action? ViewportChanged;
     public event Action? SelectionChanged;
@@ -74,6 +77,7 @@ public sealed partial class WorksheetView : Control
         dragTimer.Tick += (_, _) => UpdateDrag();
         DetachedFromVisualTree += (_, _) => EndPointerSelection(false);
         SizeChanged += (_, _) => {
+            if(GeometryMode){GeometryInputReady=false;ViewportChanged?.Invoke();return;}
             FirstRow = Math.Min(FirstRow, Math.Max(TotalVisualRows,(uint)VisibleRows) + 1 - (uint)VisibleRows);
             cells.Clear();styles.Clear(); ViewportChanged?.Invoke();
         };
@@ -84,11 +88,16 @@ public sealed partial class WorksheetView : Control
     {
         paint?.TrySetCanceled(); paint = new(TaskCreationOptions.RunContinuationsAsynchronously);
         paintStart = Stopwatch.GetTimestamp(); awaitingPaint = true;
-        cells.Clear();styles.Clear(); foreach (var cell in values) cells[(cell.At.Row, cell.At.Column)] = cell;
+        cells.Clear();styles.Clear(); foreach (var cell in values) {if(GeometryMode&&cell.CellId.Length==0&&cell.Projected is null&&cell.ContentCase==Cell.ContentOneofCase.Blank)continue;cells[(cell.At.Row, cell.At.Column)] = cell;}
         InvalidateVisual();
     }
     public void Scroll(int rows, int columns = 0)
     {
+        if(GeometryMode){
+            uint row=StepVisibleRow(FirstRow,rows),column=(uint)Math.Clamp((int)FirstColumn+columns,1,ColumnLimit);
+            if(row==FirstRow&&column==FirstColumn)return;
+            FirstRow=row;FirstColumn=column;GeometryInputReady=false;ViewportChanged?.Invoke();return;
+        }
         uint r = (uint)Math.Clamp((int)FirstRow + rows, 1, Math.Max((int)TotalVisualRows,VisibleRows) + 1 - VisibleRows);
         uint c = (uint)Math.Clamp((int)FirstColumn + columns, 1, Math.Max(1,ColumnLimit+1-Columns));
         if (r == FirstRow && c == FirstColumn) return;
@@ -97,11 +106,13 @@ public sealed partial class WorksheetView : Control
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);
+        if(GeometryMode&&e.KeyModifiers.HasFlag(KeyModifiers.Control)){SetGeometryZoom(Math.Clamp(GeometryZoomPercent+(e.Delta.Y>0?10:-10),25,3200));e.Handled=true;return;}
         if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) Scroll(0, e.Delta.Y > 0 ? -3 : 3);
         else Scroll(e.Delta.Y > 0 ? -3 : 3);
         e.Handled = true;
     }
     private Position? PositionAt(Point point) {
+        if(GeometryMode)return GeometryPositionAt(point);
         int index=(int)Math.Floor(point.Y/HeightPerCell)-1;
         uint row;
         if(ProjectionFrame is not null){var mapped=MappedRow(index);if(mapped is null || mapped.Kind!=0)return null;row=mapped.OrdinaryRow;}
@@ -112,8 +123,13 @@ public sealed partial class WorksheetView : Control
     {
         base.OnPointerPressed(e);
         var point=e.GetPosition(this);
+        if(GeometryMode&&e.GetCurrentPoint(this).Properties.IsLeftButtonPressed&&BeginGeometryDivider(e,point)){e.Handled=true;return;}
+        if(GeometryMode&&e.GetCurrentPoint(this).Properties.IsLeftButtonPressed&&(point.X<Header||point.Y<HeightPerCell)){
+            EndPointerSelection(false);long geometryHeaderGesture=++gesture;
+            if(await GeometryHeaderPressed(point,e.KeyModifiers.HasFlag(KeyModifiers.Shift),()=>geometryHeaderGesture==gesture)){e.Handled=true;return;}
+        }
         if(e.GetCurrentPoint(this).Properties.IsLeftButtonPressed&&FilterHeaderClick(point)){e.Handled=true;return;}
-        if(e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && ProjectionFrame is null && point.X>=0 && point.Y>=0 && point.X<Header+Math.Min(Columns,ColumnLimit)*WidthPerCell && point.Y<(VisibleRows+1)*HeightPerCell && (point.X<Header || point.Y<HeightPerCell)) {
+        if(e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && !GeometryMode && ProjectionFrame is null && point.X>=0 && point.Y>=0 && point.X<Header+Math.Min(Columns,ColumnLimit)*WidthPerCell && point.Y<(VisibleRows+1)*HeightPerCell && (point.X<Header || point.Y<HeightPerCell)) {
             EndPointerSelection(false);e.Handled=true;
             long headerGesture=++gesture;
             bool rows=point.X<Header,columns=point.Y<HeightPerCell;
@@ -132,8 +148,8 @@ public sealed partial class WorksheetView : Control
             Select(new Position{Row=lastRow,Column=lastColumn},true);
             Focus();return;
         }
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || point.X<Header || point.X>=Header+Math.Min(Columns,ColumnLimit)*WidthPerCell
-            || point.Y<HeightPerCell || point.Y>=(VisibleRows+1)*HeightPerCell) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || point.X<Header || point.X>=(GeometryMode?Bounds.Width:Header+Math.Min(Columns,ColumnLimit)*WidthPerCell)
+            || point.Y<HeightPerCell || point.Y>=(GeometryMode?Bounds.Height:(VisibleRows+1)*HeightPerCell)) return;
         if(ProjectionTargetAt(point) is { } projected){EndPointerSelection(false);e.Handled=true;if(ProjectionRequested is not null)await ProjectionRequested(projected);return;}
         var ordinary=PositionAt(point);if(ordinary is null)return;
         EndPointerSelection(false);
@@ -146,30 +162,55 @@ public sealed partial class WorksheetView : Control
         selectionPending=true;
         bool accepted=SelectionRequested is not null && await SelectionRequested(ordinary,extend,doubleClick,()=>gesture==current);
         if(gesture==current) selectionPending=false;
-        if (gesture!=current || dragPointer!=e.Pointer) return;
+        if (gesture!=current) return;
+        if (dragPointer!=e.Pointer) {
+            // A quick drag may release while the canonical section selection is
+            // still resolving. Keep its final point, without restarting capture.
+            var releasedPoint=releasedDragPoint;releasedDragPoint=null;
+            if(accepted&&!doubleClick&&releasedPoint is { } finalPoint){
+                dragPoint=finalPoint;UpdateDragPoint();
+            }
+            return;
+        }
         if (!accepted || doubleClick) { EndPointerSelection(false); return; }
         dragReady=true; UpdateDrag(); dragTimer.Start();
     }
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if(MoveGeometryDivider(e)){e.Handled=true;return;}
         if (dragPointer!=e.Pointer) return;
         dragPoint=e.GetPosition(this); if(dragReady) UpdateDrag(); e.Handled=true;
     }
-    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    protected override async void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        if(await FinishGeometryDivider(e)){e.Handled=true;return;}
         if (dragPointer!=e.Pointer || e.InitialPressMouseButton!=MouseButton.Left) return;
         dragPoint=e.GetPosition(this); if(dragReady) UpdateDrag();
+        if(!dragReady&&selectionPending)releasedDragPoint=dragPoint;
         EndPointerSelection(false,true); e.Handled=true;
     }
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
-        base.OnPointerCaptureLost(e); if(dragPointer is not null) EndPointerSelection(false);
+        base.OnPointerCaptureLost(e);if(dividerDrag is not null)CancelGeometryDivider(); if(dragPointer is not null) EndPointerSelection(false);
     }
     private void UpdateDrag()
     {
         if (!dragReady || dragPointer is null) return;
+        UpdateDragPoint();
+    }
+    private void UpdateDragPoint()
+    {
+        if(GeometryMode){
+            if(!GeometryInputReady)return;
+            var point=new Point(Math.Clamp(dragPoint.X,Header,Math.Max(Header,Bounds.Width-1)),Math.Clamp(dragPoint.Y,HeightPerCell,Math.Max(HeightPerCell,Bounds.Height-1)));
+            if(GeometryPositionAt(point) is { } position)Select(position,true);
+            // Resolve against the complete frame before scrolling invalidates it.
+            // The next timer tick uses the newly published frame to extend again.
+            Scroll(dragPoint.Y<HeightPerCell?-1:dragPoint.Y>=Bounds.Height?1:0,dragPoint.X<Header?-1:dragPoint.X>=Bounds.Width?1:0);
+            return;
+        }
         int rows=dragPoint.Y<HeightPerCell ? -1 : dragPoint.Y>=(VisibleRows+1)*HeightPerCell ? 1 : 0;
         int columns=dragPoint.X<Header ? -1 : dragPoint.X>=Header+Math.Min(Columns,ColumnLimit)*WidthPerCell ? 1 : 0;
         Scroll(rows,columns);
@@ -180,15 +221,16 @@ public sealed partial class WorksheetView : Control
     }
     public void EndPointerSelection(bool cancel, bool allowPending=false)
     {
+        CancelGeometryDivider();
         var pointer=dragPointer; bool restore=cancel && (pointer is not null || selectionPending);
         dragPointer=null; dragReady=false; dragTimer.Stop();
-        if(!allowPending) { ++gesture; selectionPending=false; }
+        if(!allowPending) { ++gesture; selectionPending=false; releasedDragPoint=null; }
         pointer?.Capture(null);
-        if(restore) { anchor=previousAnchor.Clone(); active=previousActive.Clone();structuralFocus=previousStructuralFocus?.Clone(); InvalidateVisual(); SelectionChanged?.Invoke(); Reveal(Selected); }
+        if(restore) { anchor=previousAnchor.Clone(); active=previousActive.Clone();structuralFocus=previousStructuralFocus?.Clone();QueueSectionResolution(); InvalidateVisual(); SelectionChanged?.Invoke(); Reveal(Selected); }
     }
     public void SelectStructuralBand(Position first,Position last,Position focus) {
         if(first.Row<1||first.Column<1||last.Row>RowLimit||last.Column>ColumnLimit||first.Row>last.Row||first.Column>last.Column||focus.Row<first.Row||focus.Row>last.Row||focus.Column<first.Column||focus.Column>last.Column)throw new ArgumentOutOfRangeException(nameof(focus));
-        anchor=first.Clone();active=last.Clone();structuralFocus=focus.Clone();InvalidateVisual();SelectionChanged?.Invoke();
+        anchor=first.Clone();active=last.Clone();structuralFocus=focus.Clone();SelectionNeedsReview=false;QueueSectionResolution();InvalidateVisual();SelectionChanged?.Invoke();
     }
     public void Select(Position at, bool extend=false)
     {
@@ -197,18 +239,25 @@ public sealed partial class WorksheetView : Control
         if(ProjectedSelection is not null){ProjectedSelection=null;MissingProjectedRecord=false;ProjectedSelectionChanged?.Invoke();}
         if(!extend) anchor=at.Clone();
         if(active.Row==at.Row && active.Column==at.Column && extend && !hadStructuralFocus) return;
-        active=at.Clone(); InvalidateVisual(); SelectionChanged?.Invoke();
+        active=at.Clone();SelectionNeedsReview=false;QueueSectionResolution(); InvalidateVisual(); SelectionChanged?.Invoke();
     }
-    public Rect CellBounds(Position at) => new(Header + ((int)at.Column - FirstColumn) * WidthPerCell,
+    public Rect CellBounds(Position at) => GeometryMode ? geometryCells.TryGetValue((at.Row,at.Column),out var cell)?GeometryBounds(cell):default : new(Header + ((int)at.Column - FirstColumn) * WidthPerCell,
         (1 + OrdinaryIndex(at.Row)) * HeightPerCell, WidthPerCell, HeightPerCell);
-    public bool IsVisibleCell(Position at) => OrdinaryIndex(at.Row)>=0 && OrdinaryIndex(at.Row)<VisibleRows
+    public bool IsVisibleCell(Position at) => GeometryMode ? GeometryInputReady&&geometryCells.TryGetValue((at.Row,at.Column),out var cell)&&GeometryBounds(cell).Intersects(new Rect(Header,HeightPerCell,Math.Max(0,Bounds.Width-Header),Math.Max(0,Bounds.Height-HeightPerCell))) : OrdinaryIndex(at.Row)>=0 && OrdinaryIndex(at.Row)<VisibleRows
         && at.Column >= FirstColumn && at.Column < FirstColumn + Columns;
-    public void Reveal(Position at) => Scroll(
+    public void Reveal(Position at) {
+        if(GeometryMode){
+            if(geometryCells.ContainsKey((at.Row,at.Column)))return;
+            FirstRow=at.Row;FirstColumn=at.Column;GeometryInputReady=false;ViewportChanged?.Invoke();return;
+        }
+        Scroll(
         VisualRow(at.Row) < FirstRow ? (int)VisualRow(at.Row) - (int)FirstRow : VisualRow(at.Row) >= FirstRow + VisibleRows ? (int)VisualRow(at.Row) - (int)FirstRow - VisibleRows + 1 : 0,
         at.Column < FirstColumn ? (int)at.Column - (int)FirstColumn : at.Column >= FirstColumn + Columns ? (int)at.Column - (int)FirstColumn - Columns + 1 : 0);
+    }
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        if(GeometryMode){RenderGeometry(context);if(awaitingPaint){awaitingPaint=false;paint?.TrySetResult(Stopwatch.GetElapsedTime(paintStart));}return;}
         var border = new Pen(Brushes.LightGray, 1);
         context.FillRectangle(Brushes.White, new Rect(Bounds.Size));
         var first=SelectionFirst; var last=SelectionLast;var focused=Selected;

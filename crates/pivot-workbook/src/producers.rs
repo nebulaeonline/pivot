@@ -1,6 +1,7 @@
 //! Producer authority and immutable payloads. Reads never execute a provider.
 pub mod codec;
 use super::*;
+use pivot_core::model::integration::CancellationToken;
 use pivot_core::model::integration::resources::Charge;
 use pivot_core::model::integration::resources::{Footprint, Memory, Shared};
 use sha2::{Digest, Sha256};
@@ -1233,6 +1234,8 @@ pub enum Source {
 pub struct Producer {
     pub id: ProducerId,
     pub configuration: u64,
+    /// Presentation-only order epoch; does not qualify references or calculations.
+    pub layout_order: u64,
     pub retired: bool,
     pub source: Source,
 }
@@ -1278,6 +1281,8 @@ pub enum SourceRecord {
 pub struct ProducerRecord {
     pub id: ProducerId,
     pub configuration: u64,
+    /// Presentation-only order epoch; does not qualify references or calculations.
+    pub layout_order: u64,
     pub retired: bool,
     pub source: SourceRecord,
 }
@@ -1308,6 +1313,7 @@ impl Image {
                 .map(|p| ProducerRecord {
                     id: p.id,
                     configuration: p.configuration,
+                    layout_order: p.layout_order,
                     retired: p.retired,
                     source: match &p.source {
                         Source::Worksheet {
@@ -1519,6 +1525,7 @@ impl Image {
             producers.push(Producer {
                 id: p.id,
                 configuration: p.configuration,
+                layout_order: p.layout_order,
                 retired: p.retired,
                 source,
             });
@@ -2188,6 +2195,16 @@ impl Workbook {
         let mut candidate = self.request_view(self.worksheet)?;
         let id = candidate.create_grid_window(expected, name, rows, columns)?;
         candidate.apply_scope(id.into(), candidate.expected(), &edits)?;
+        if candidate.persistent.geometry.contains_key(&window.into()) {
+            let mut data = candidate
+                .core
+                .stage_resource(&candidate.persistent)
+                .map_err(graph_error)?;
+            data.detach_geometry(window.into(), id.into(), cancel)?;
+            data.check_geometry_limits(candidate.limits)?;
+            candidate.persistent = data.freeze();
+            candidate.state = candidate.state.checked_add(1).ok_or(Error::Exhausted)?;
+        }
         for cell in &frame.cells {
             if cell.style == formatting::Style::default() {
                 continue;
@@ -2355,6 +2372,7 @@ impl Workbook {
         directory.producers.push(Producer {
             id,
             configuration: 1,
+            layout_order: 0,
             retired: false,
             source: Source::Fixture {
                 fixture,
@@ -2413,6 +2431,7 @@ impl Workbook {
         directory.producers.push(Producer {
             id,
             configuration: 1,
+            layout_order: 0,
             retired: false,
             source: Source::Worksheet {
                 worksheet,
@@ -2715,4 +2734,157 @@ impl CalculationCapture {
         );
         Ok(())
     }
+}
+
+/// Bounded presentation work: axis search levels and SHA-256 input blocks.
+pub(crate) fn layout_work(data: &persistent::Data, scope: GridScopeId) -> Result<usize> {
+    let Some(directory) = &data.producers else {
+        return Ok(0);
+    };
+    let Some(binding) = directory.binding(scope) else {
+        return Ok(0);
+    };
+    let producer = directory.producer(binding.producer)?;
+    Ok(128
+        + match &producer.source {
+            Source::Fixture {
+                schema, selected, ..
+            } => {
+                schema
+                    .fields
+                    .iter()
+                    .map(|f| f.label.len().div_ceil(64) + 2)
+                    .sum::<usize>()
+                    + selected.as_ref().map_or(0, |snapshot| {
+                        snapshot
+                            .rows
+                            .iter()
+                            .map(|r| r.key.len().div_ceil(64) + 2)
+                            .sum()
+                    })
+            }
+            Source::Worksheet {
+                worksheet,
+                rectangle,
+                ..
+            } => {
+                let Some(rect) = rectangle else {
+                    return Ok(128);
+                };
+                let axes = data
+                    .sheets
+                    .as_ref()
+                    .and_then(|d| d.0.iter().find(|s| s.id == GridScopeId::from(*worksheet)))
+                    .ok_or(Error::InvalidTarget)?;
+                let visits = |axis: &crate::axes::Axis| {
+                    let n = axis.layout.as_ref().map_or(1, |p| p.runs.len());
+                    (usize::BITS - n.leading_zeros()) as usize + 2
+                };
+                (rect.last.row - rect.first.row + 1) as usize * visits(&axes.rows)
+                    + (rect.last.column - rect.first.column + 1) as usize * visits(&axes.columns)
+            }
+        })
+}
+/// Stream a presentation identity without values, refresh attempts or generation IDs.
+/// Storage remains constant; source dimensions/keys are already independently bounded.
+pub(crate) fn layout_stamp(
+    data: &persistent::Data,
+    scope: GridScopeId,
+    cancel: &CancellationToken,
+) -> Result<Option<[u8; 32]>> {
+    let Some(directory) = &data.producers else {
+        return Ok(None);
+    };
+    let Some(binding) = directory.binding(scope) else {
+        return Ok(None);
+    };
+    let producer = directory.producer(binding.producer)?;
+    let mut hash = Sha256::new();
+    hash.update(b"Pivot positional layout v1");
+    hash.update(producer.id.0.as_bytes());
+    hash.update(producer.configuration.to_le_bytes());
+    hash.update(producer.layout_order.to_le_bytes());
+    match &producer.source {
+        Source::Fixture {
+            schema, selected, ..
+        } => {
+            hash.update([1]);
+            hash.update(schema.id.0.as_bytes());
+            for field in &schema.fields {
+                hash.update(field.id.0.as_bytes());
+                hash.update((field.label.len() as u64).to_le_bytes());
+                hash.update(field.label.as_bytes());
+                hash.update([field.kind as u8, u8::from(field.nullable)]);
+            }
+            hash.update([u8::from(selected.is_some())]);
+            if let Some(snapshot) = selected {
+                for row in &snapshot.rows {
+                    if cancel.is_cancelled() {
+                        return Err(Error::Graph("cancelled layout identity".into()));
+                    }
+                    hash.update((row.key.len() as u64).to_le_bytes());
+                    hash.update(row.key.as_bytes());
+                }
+            }
+        }
+        Source::Worksheet {
+            worksheet,
+            rectangle,
+            ..
+        } => {
+            hash.update([0]);
+            hash.update(worksheet.uuid().as_bytes());
+            hash.update([u8::from(rectangle.is_some())]);
+            if let Some(rect) = rectangle {
+                let axes = data
+                    .sheets
+                    .as_ref()
+                    .and_then(|d| d.0.iter().find(|s| s.id == GridScopeId::from(*worksheet)))
+                    .ok_or(Error::InvalidTarget)?;
+                for (axis, first, last) in [
+                    (&axes.rows, rect.first.row, rect.last.row),
+                    (&axes.columns, rect.first.column, rect.last.column),
+                ] {
+                    hash.update((last - first + 1).to_le_bytes());
+                    for rank in first..=last {
+                        if cancel.is_cancelled() {
+                            return Err(Error::Graph("cancelled layout identity".into()));
+                        }
+                        let id = axis.at(rank)?;
+                        hash.update(id.namespace.as_bytes());
+                        hash.update(id.sequence.to_le_bytes());
+                    }
+                }
+            }
+        }
+    }
+    Ok(Some(hash.finalize().into()))
+}
+/// A worksheet sort changes record order while authored axis identities remain stable.
+pub(crate) fn note_layout_sort(
+    data: &mut persistent::Data,
+    scope: GridScopeId,
+    rectangle: Rectangle,
+) -> Result<()> {
+    let Some(old) = &data.producers else {
+        return Ok(());
+    };
+    let affected = |producer: &Producer| {
+        matches!(producer.source, Source::Worksheet { worksheet, rectangle: Some(r), .. }
+        if !producer.retired && GridScopeId::from(worksheet)==scope && r.first.row<=rectangle.last.row && r.last.row>=rectangle.first.row && r.first.column<=rectangle.last.column && r.last.column>=rectangle.first.column)
+    };
+    if !old.producers.iter().any(affected) {
+        return Ok(());
+    }
+    let mut directory = (**old).clone();
+    for producer in &mut directory.producers {
+        if affected(producer) {
+            producer.layout_order = producer
+                .layout_order
+                .checked_add(1)
+                .ok_or(Error::Exhausted)?;
+        }
+    }
+    data.producers = Some(data.memory.alloc(directory).map_err(|_| Error::Limit)?);
+    Ok(())
 }

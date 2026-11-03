@@ -19,6 +19,9 @@ mod csv;
 mod filtering;
 #[cfg(test)]
 mod filtering_tests;
+mod geometry;
+#[cfg(test)]
+mod geometry_tests;
 mod projections;
 mod structured;
 mod visible;
@@ -29,6 +32,8 @@ mod visible_tests;
 const MAX_FRAME: usize = 1_048_576;
 const MAX_CELLS: usize = 256;
 struct Capture {
+    _presentation: pivot_core::model::integration::resources::Charge,
+    geometry: Option<geometry::Lease>,
     scope: GridScopeId,
     computational_state: String,
     proof: Option<pivot_workbook::projection::Capture>,
@@ -228,12 +233,23 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 15 {
+        if q.version != 16 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
+        if matches!(
+            operation,
+            Op::GeometryEdit | Op::GeometryMap | Op::GeometrySelection
+        ) {
+            return self.handle_geometry(q, r, operation);
+        }
         if self.handle_bound(q, r, operation)? {
             return Ok(());
+        }
+        if matches!(operation, Op::ProofStart | Op::BindingStart)
+            && self.book.as_ref().is_some_and(Workbook::has_geometry_state)
+        {
+            return Err("Section geometry is ordinary presentation state; experimental proof conversion is unavailable.".into());
         }
         if matches!(operation, Op::ProofStart | Op::BindingStart)
             && self
@@ -543,6 +559,8 @@ impl Session {
         let sheet = if matches!(
             operation,
             Op::Fill
+                | Op::ClearRegion
+                | Op::MoveRegion
                 | Op::Structure
                 | Op::Sort
                 | Op::SortBounds
@@ -577,6 +595,48 @@ impl Session {
         };
         match operation {
             Op::ListSheets | Op::ListWindows => (),
+            Op::ClearRegion | Op::MoveRegion => {
+                let source = Rectangle {
+                    first: pos(q.first.as_ref())?,
+                    last: pos(q.last.as_ref())?,
+                };
+                let before = book.expected();
+                if operation == Op::MoveRegion {
+                    book.move_region_sheet(
+                        sheet.unwrap(),
+                        before,
+                        source,
+                        pos(q.destination_first.as_ref())?,
+                        &Default::default(),
+                    )
+                } else {
+                    book.clear_region_sheet(
+                        sheet.unwrap(),
+                        before,
+                        source,
+                        match wire::request::ClearMode::try_from(q.clear_mode)
+                            .map_err(|_| "invalid clear mode")?
+                        {
+                            wire::request::ClearMode::Contents => {
+                                pivot_workbook::visible_edit::ClearMode::Contents
+                            }
+                            wire::request::ClearMode::Formatting => {
+                                pivot_workbook::visible_edit::ClearMode::Formatting
+                            }
+                            wire::request::ClearMode::Both => {
+                                pivot_workbook::visible_edit::ClearMode::Both
+                            }
+                            _ => return Err("clear mode required".into()),
+                        },
+                        &Default::default(),
+                    )
+                }
+                .map_err(|e| e.to_string())?;
+                if book.expected() != before {
+                    self.revision = Uuid::new_v4().to_string();
+                }
+                r.revision = self.revision.clone();
+            }
             Op::CreateWindow => {
                 let id = book
                     .create_grid_window(
@@ -1186,6 +1246,14 @@ impl Session {
                 self.captures.insert(
                     id.clone(),
                     Capture {
+                        _presentation: self
+                            .runtime
+                            .as_ref()
+                            .ok_or("missing runtime")?
+                            .memory()
+                            .reserve(std::mem::size_of::<Capture>() + 16384)
+                            .map_err(|_| "capture presentation admission")?,
+                        geometry: None,
                         scope: sheet.unwrap(),
                         computational_state: self.computational_state.clone(),
                         proof: self
@@ -1299,7 +1367,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 15,
+            version: 16,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -1321,6 +1389,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let presentation_lease = if matches!(
             wire::request::Operation::try_from(q.operation),
             Ok(wire::request::Operation::Read
+                | wire::request::Operation::GeometryEdit
+                | wire::request::Operation::GeometryMap
+                | wire::request::Operation::GeometrySelection
                 | wire::request::Operation::Calculate
                 | wire::request::Operation::ReadStyles
                 | wire::request::Operation::ReadFiltered
@@ -1502,6 +1573,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             && matches!(
                 wire::request::Operation::try_from(q.operation),
                 Ok(wire::request::Operation::Read
+                    | wire::request::Operation::GeometryEdit
+                    | wire::request::Operation::GeometryMap
+                    | wire::request::Operation::GeometrySelection
                     | wire::request::Operation::ReadStyles
                     | wire::request::Operation::ReadFiltered
                     | wire::request::Operation::Calculate
@@ -1514,6 +1588,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     | wire::request::Operation::GetFilter)
             )
         {
+            r.geometry = None;
+            r.geometry_profiles.clear();
             r.cells.clear();
             r.styles.clear();
             r.filter_definition = None;
@@ -1543,7 +1619,7 @@ mod protocol_version_tests {
     #[test]
     fn incompatible_peers_reject_before_creating_state() {
         let mut session = Session::default();
-        for version in 0..15 {
+        for version in 0..16 {
             let request = wire::Request {
                 version,
                 operation: wire::request::Operation::Create as i32,

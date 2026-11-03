@@ -1,7 +1,13 @@
 # ADR-0042: Section Breaks and Local Grid Geometry
 
 Date: 2026-11-02.
-Status: **Design accepted by final review, 2026-11-02. No feature implementation authorized or performed.**
+Status: **Implemented, accepted and closed by parent implementation review, 2026-11-03. Design accepted by final review, 2026-11-02.**
+
+See the [implementation handoff](../handoffs/2026-11-03-section-grid-geometry.md)
+for source-qualified six-target evidence, full versus focused headless coverage,
+resource observations and retained timing qualifications. The review accepts the
+two final source snapshots and full/focused headless qualification distinction;
+no further validation is required for closeout.
 
 ## Purpose and decision
 
@@ -37,13 +43,14 @@ review decisions and qualification gates.
 
 ## Current implementation seams
 
-`Pivot.Avalonia/WorksheetView.cs` currently assumes 94-DIP columns and 26-DIP rows
-in drawing, hit testing, headers, scrolling, editor placement and selection borders.
-`WorksheetFiltering.cs` maps one visible-row order for those uniform cells. Replacing
-only `CellBounds` would leave conflicting maps; all these consumers must move together.
+`Pivot.Avalonia/WorksheetView.cs` and `WorksheetGeometry.cs` now consume captured
+canonical Rust rectangles for drawing, hit testing, headers, scrolling, editor
+placement and selection borders. The earlier uniform 94-DIP column/26-DIP row
+assumptions have been replaced across these consumers. Filtered presentation uses
+the same qualified geometry rather than an independent uniform-cell map.
 
 `pivot-workbook/src/axes.rs` supplies compact, non-reused authored axis identities.
-`structure.rs` already stages structural edits; geometry transforms join that
+`structure.rs` stages structural edits; geometry transforms join that
 candidate. Formatting remains its independent spatial property layer. Bound Grid
 locations retain the ADR-0041 producer/item/field/capture qualification and own no
 editable cell identities. No new evaluator or copied bound-value cache is introduced.
@@ -253,8 +260,8 @@ One geometry root/visibility combination produces one charged immutable map; no
 value cache or independent Window calculation revision is added. Existing four
 ordinary session captures also bound viewport leases, not four additional leases.
 
-Propose WB16-only persistence and private session v16, finalized by codec audit
-before implementation qualification. Persist scope-owned bands/profiles, sizes,
+WB16-only persistence and private session v16 are implemented and codec-audited.
+Persistence stores scope-owned bands/profiles, sizes,
 anchor kinds, defaults, allocation floors and dormant bound ordinal metadata.
 Validate axis ownership, order, unique IDs, dimensions, profile ownership, positivity,
 overflow, topology, disjoint interiors and budgets before installing the candidate.
@@ -328,8 +335,8 @@ remain unresolved; later passes or toolchain updates do not reclassify them.
 
 ## Exclusions
 
-No feature or platform execution accompanies this design. No Text conversion,
+This milestone includes no Text conversion,
 Window placements, merge cells, page breaks, text autofit/wrapping engine, renderer
 or PDF backend, SQL/network provider, invocation API, licensing change or history
-integration. No implementation or geometry-performance result is claimed. Design
-approval and separate owner authorization are required before feature work.
+integration. Implementation evidence and geometry resource observations are recorded
+in the implementation handoff; the accepted design boundaries remain unchanged.

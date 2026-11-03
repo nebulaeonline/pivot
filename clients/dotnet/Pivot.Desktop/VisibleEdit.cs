@@ -14,6 +14,7 @@ public partial class MainWindow {
  private async void FillVisibleClick(object? sender,RoutedEventArgs args){if(sender is MenuItem item&&Enum.TryParse<Request.Types.FillDirection>(item.Tag?.ToString(),out var direction))await EditVisibleAsync(Request.Types.ClearMode.ClearUnspecified,direction);}
  private async Task EditVisibleAsync(Request.Types.ClearMode mode,Request.Types.FillDirection direction){
   if(!CanFill||session!.FilterStatus is not (0 or 1)){StatusLabel.Text="Visible Clear/Fill needs a qualified ordinary selection with no active edit or pending operation.";return;}
+  using var section=(await BeginSectionCommandAsync())?.Invoke();if(section is null)return;
   var s=session;var first=Sheet.SelectionFirst.Clone();var last=Sheet.SelectionLast.Clone();string expected=displayedRevision;
   editing=true;SetEditing(false);++clipboardRequest;refresh?.Cancel();++displayRequest;
   try{

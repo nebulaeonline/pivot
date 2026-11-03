@@ -255,6 +255,7 @@ impl Workbook {
                 .retired = true;
             let mut candidate = self.request_view(self.worksheet)?;
             candidate.publish_sheets(scopes)?;
+            candidate.retire_geometry(scope)?;
             if cancel.is_cancelled() {
                 return Err(Error::Graph("cancelled".into()));
             }
@@ -287,6 +288,7 @@ impl Workbook {
         candidate
             .publish_sheets(scopes)
             .map_err(|e| Error::Graph(format!("window directory retirement: {e}")))?;
+        candidate.retire_geometry(scope)?;
         if cancel.is_cancelled() {
             return Err(Error::Graph("cancelled".into()));
         }

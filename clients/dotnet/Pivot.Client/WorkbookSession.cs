@@ -219,9 +219,10 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             ObjectDisposedException.ThrowIf(closed, this);
             ObjectDisposedException.ThrowIf(Volatile.Read(ref closing) != 0 && request.Operation != Request.Types.Operation.Close, this);
             cancellation.ThrowIfCancellationRequested();
+            await ValidateSelectionDispatchAsync(request,cancellation).ConfigureAwait(false);
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 15; request.Id = ++sequence;
+            request.Version = 16; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -245,8 +246,9 @@ public sealed partial class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 15 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 16 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
                 foreach(var cell in response.Cells) ValidateResult(cell);
+                if(response.Geometry?.ActiveCell is { } active)ValidateResult(active);
             }
             catch (Exception e) when (e is IOException or OperationCanceledException or InvalidProtocolBufferException) {
                 closed = true; StopChild();
@@ -256,9 +258,11 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             LastCompletedRequestId = response.Id;
             LastRustExecutionNs = response.ExecutionNs;
             LastRustSerializationNs = response.SerializationNs;
-            if (request.Operation is not (Request.Types.Operation.Calculate or Request.Types.Operation.Release or Request.Types.Operation.ProofEvaluate))
+            if (request.Operation is not (Request.Types.Operation.Calculate or Request.Types.Operation.Release or Request.Types.Operation.ProofEvaluate or Request.Types.Operation.GeometryMap or Request.Types.Operation.GeometrySelection))
                 Volatile.Write(ref revision, response.Revision);
-            FilterSummary=response.FilterSummary?.Clone();FilterStatus=response.FilterStatus;FilterGeneration=response.FilterGeneration;FilterError=response.FilterError;
+            if(request.Operation is not (Request.Types.Operation.GeometryMap or Request.Types.Operation.GeometrySelection) || (request.Worksheet==WorksheetId && request.WindowScope==IsWindowScope && response.Revision==Revision)) {
+                FilterSummary=response.FilterSummary?.Clone();FilterStatus=response.FilterStatus;FilterGeneration=response.FilterGeneration;FilterError=response.FilterError;
+            }
             IsProjectionProof=response.ProofMode;IsBindingProof=response.BindingMode;ComputationalState=response.ComputationalState;ProofEpoch=response.ProofEpoch;ProofPresentation=response.ProofPresentation;
             bool documentChanged=DocumentId!=response.DocumentId || (response.Error.Length==0 && request.Operation is (Request.Types.Operation.Create or Request.Types.Operation.New or Request.Types.Operation.Open or Request.Types.Operation.CloseDocument));
             if(documentChanged)DocumentGeneration++;

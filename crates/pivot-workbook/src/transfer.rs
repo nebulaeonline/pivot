@@ -24,6 +24,7 @@ pub struct SheetRecord {
     pub column_axis: AxisImage,
 }
 pub struct PortableWorkbook {
+    pub geometry: Vec<geometry::GeometryImage>,
     pub producers: producers::Image,
     pub filters: Vec<(GridScopeId, filtering::Definition)>,
     pub styles: Vec<formatting::Region>,
@@ -83,6 +84,156 @@ pub fn validate_sheet_directory(sheets: &[SheetRecord], limits: Limits) -> Resul
     Ok(())
 }
 impl Workbook {
+    /// Whole logical source rectangle, bounded by the existing edit quota. Blank
+    /// positions move their appearance without manufacturing cell identities.
+    pub fn move_region_sheet(
+        &mut self,
+        sheet: GridScopeId,
+        expected: Expected,
+        source: Rectangle,
+        destination: Position,
+        cancel: &CancellationToken,
+    ) -> Result<Expected> {
+        self.mutate_sheet(sheet, |book| {
+            book.check(expected)?;
+            if cancel.is_cancelled() {
+                return Err(Error::Graph("cancelled region move".into()));
+            }
+            if source.first.row == 0
+                || source.first.column == 0
+                || source.first.row > source.last.row
+                || source.first.column > source.last.column
+            {
+                return Err(Error::Position);
+            }
+            let rows = source.last.row - source.first.row + 1;
+            let columns = source.last.column - source.first.column + 1;
+            if u64::from(rows) * u64::from(columns) > book.limits.edits as u64 {
+                return Err(Error::Limit);
+            }
+            let target = Rectangle {
+                first: destination,
+                last: Position::new(
+                    destination
+                        .row
+                        .checked_add(rows - 1)
+                        .ok_or(Error::Position)?,
+                    destination
+                        .column
+                        .checked_add(columns - 1)
+                        .ok_or(Error::Position)?,
+                ),
+            };
+            book.axes_at(source.first)?;
+            book.axes_at(source.last)?;
+            book.axes_at(target.first)?;
+            book.axes_at(target.last)?;
+            if destination == source.first {
+                return Ok(expected);
+            }
+            let _scratch = book
+                .persistent
+                .memory
+                .reserve(
+                    book.stats()
+                        .estimated_owned_bytes
+                        .saturating_mul(2)
+                        .saturating_add(rows as usize * columns as usize * 1024 + 4096),
+                )
+                .map_err(|_| Error::Limit)?;
+            let mut cells = book.read(expected, source, book.limits.edits)?.cells;
+            let within = |p: Position| {
+                p.row >= source.first.row
+                    && p.row <= source.last.row
+                    && p.column >= source.first.column
+                    && p.column <= source.last.column
+            };
+            if book
+                .read(expected, target, book.limits.edits)?
+                .cells
+                .iter()
+                .any(|c| !within(c.position))
+            {
+                return Err(Error::Occupied);
+            }
+            let dr = i64::from(destination.row) - i64::from(source.first.row);
+            let dc = i64::from(destination.column) - i64::from(source.first.column);
+            cells.sort_by_key(|c| {
+                (
+                    if dr > 0 {
+                        -(i64::from(c.position.row))
+                    } else {
+                        i64::from(c.position.row)
+                    },
+                    if dc > 0 {
+                        -(i64::from(c.position.column))
+                    } else {
+                        i64::from(c.position.column)
+                    },
+                )
+            });
+            let edits: Vec<_> = cells
+                .iter()
+                .map(|c| Edit::Move {
+                    from: c.position,
+                    to: Position::new(
+                        (i64::from(c.position.row) + dr) as u32,
+                        (i64::from(c.position.column) + dc) as u32,
+                    ),
+                })
+                .collect();
+            let original = book.style_viewport(sheet, source)?;
+            let mut styles: Vec<_> = original
+                .iter()
+                .map(|(p, _)| (*p, formatting::Style::default()))
+                .collect();
+            styles.extend(original.iter().map(|(p, s)| {
+                (
+                    Position::new(
+                        (i64::from(p.row) + dr) as u32,
+                        (i64::from(p.column) + dc) as u32,
+                    ),
+                    *s,
+                )
+            }));
+            persistent::apply_styled(book, expected, &edits, &styles, cancel, false)
+        })
+    }
+    pub fn clear_region_sheet(
+        &mut self,
+        sheet: GridScopeId,
+        expected: Expected,
+        area: Rectangle,
+        mode: visible_edit::ClearMode,
+        cancel: &CancellationToken,
+    ) -> Result<Expected> {
+        self.check(expected)?;
+        if area.first.row == 0
+            || area.first.column == 0
+            || area.first.row > area.last.row
+            || area.first.column > area.last.column
+        {
+            return Err(Error::Position);
+        }
+        let rows = area.last.row - area.first.row + 1;
+        if u64::from(rows) * u64::from(area.last.column - area.first.column + 1) > 4096 {
+            return Err(Error::Limit);
+        }
+        let _charge = self
+            .persistent
+            .memory
+            .reserve(rows as usize * 4 + 1024)
+            .map_err(|_| Error::Limit)?;
+        let rows: Vec<_> = (area.first.row..=area.last.row).collect();
+        self.clear_visible_sheet(
+            sheet,
+            expected,
+            &rows,
+            (area.first.column, area.last.column),
+            mode,
+            cancel,
+        )
+    }
     pub fn export_portable(&self, expected: Expected) -> Result<PortableWorkbook> {
         self.export_content(expected, None)
     }
@@ -191,6 +342,7 @@ impl Workbook {
             })
             .collect();
         Ok(PortableWorkbook {
+            geometry: self.geometry_images().collect(),
             producers: producers::Image::from_data(data, data.records.len()),
             filters: self.filters().map(|(id, d)| (id, d.clone())).collect(),
             styles: self.regions().collect(),
@@ -684,6 +836,7 @@ impl Workbook {
         }
         let sheet_ids: BTreeSet<_> = image.sheets.iter().map(|s| s.id).collect();
         image.producers.restore_directory(&mut data, limits)?;
+        data.restore_geometry(&image.geometry, limits, &CancellationToken::default())?;
         for &(sheet, style) in &image.style_defaults {
             if !sheet_ids.contains(&sheet) {
                 return Err(Error::InvalidTarget);

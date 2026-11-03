@@ -82,6 +82,7 @@ public partial class MainWindow {
         if(session is null||editing||fileAction||shuttingDown||Sheet.IsSelecting||Sheet.ProjectedSelection is not null)return;
         if(formatRevision!=session.Revision) {StatusLabel.Text="Reload the format pane after workbook changes.";return;}
         if(!await CommitAsync())return;
+        using var section=(await BeginSectionCommandAsync())?.Invoke();if(section is null)return;
         // Committing a draft changes the revision; retain explicit field choices but bind to this exact state.
         if(formatFirst is null||formatLast is null||formatWorksheet!=session.WorksheetId||!Same(formatFirst,Sheet.SelectionFirst)||!Same(formatLast,Sheet.SelectionLast)) {StatusLabel.Text="Reload the format pane for the current selection.";return;}
         if(inherit && formatTarget.SelectedIndex==1){StatusLabel.Text="Worksheet defaults cannot inherit from themselves.";return;}

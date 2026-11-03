@@ -28,6 +28,22 @@
             <MenuItem x:Name="InsertColumnsItem" Header="Insert columns left" Click="InsertColumnsClick" />
             <MenuItem x:Name="DeleteColumnsItem" Header="Delete entire columns" Click="DeleteColumnsClick" />
             <Separator />
+            <MenuItem Header="Section geometry…" Click="GeometryClick" />
+            <MenuItem Header="Grid zoom">
+              <MenuItem x:Name="GeometryZoom25" Header="25%" Tag="25" Click="GeometryZoomClick" />
+              <MenuItem x:Name="GeometryZoom50" Header="50%" Tag="50" Click="GeometryZoomClick" />
+              <MenuItem x:Name="GeometryZoom75" Header="75%" Tag="75" Click="GeometryZoomClick" />
+              <MenuItem x:Name="GeometryZoom100" Header="100%" Tag="100" Click="GeometryZoomClick" />
+              <MenuItem x:Name="GeometryZoom125" Header="125%" Tag="125" Click="GeometryZoomClick" />
+              <MenuItem x:Name="GeometryZoom200" Header="200%" Tag="200" Click="GeometryZoomClick" />
+              <MenuItem x:Name="GeometryZoom400" Header="400%" Tag="400" Click="GeometryZoomClick" />
+              <MenuItem x:Name="GeometryZoom800" Header="800%" Tag="800" Click="GeometryZoomClick" />
+              <MenuItem x:Name="GeometryZoom1600" Header="1600%" Tag="1600" Click="GeometryZoomClick" />
+              <MenuItem x:Name="GeometryZoom3200" Header="3200%" Tag="3200" Click="GeometryZoomClick" />
+            </MenuItem>
+
+            <MenuItem Header="Select row(s) across the whole scope" Click="WholeScopeRowsClick" />
+            <MenuItem Header="Select column(s) across the whole scope" Click="WholeScopeColumnsClick" />
             <MenuItem x:Name="SortItem" Header="_Sort selected range…" Click="SortClick" />
             <MenuItem x:Name="CopyVisibleItem" Header="Copy Visible Cells" Click="CopyVisibleClick" />
             <MenuItem x:Name="PasteVisibleItem" Header="Paste into Visible Rows…" Click="PasteVisibleClick" />
@@ -80,6 +96,14 @@
           <Button Content="Review filter…" Click="FilterClick" />
           <Button x:Name="ReapplyFilterButton" Content="Reapply" Click="ReapplyFilterClick" />
           <Button x:Name="ClearFilterButton" Content="Clear Filter" Click="ClearFilterClick" />
+        </StackPanel>
+      </StackPanel>
+      <StackPanel x:Name="GeometryLayoutBar" IsVisible="False" Spacing="5">
+        <TextBlock x:Name="GeometryLayoutStatus" TextWrapping="Wrap" />
+        <StackPanel x:Name="GeometryLayoutReviewActions" IsVisible="False" Orientation="Horizontal" Spacing="8">
+          <Button Content="Review positional geometry…" Click="GeometryClick" />
+          <Button Content="Keep positional settings" Click="KeepGeometryLayoutClick" />
+          <Button Content="Reset positional geometry" Click="ResetGeometryLayoutClick" />
         </StackPanel>
       </StackPanel>
       <TextBlock Text="Pivot" FontSize="22" FontWeight="Bold" />

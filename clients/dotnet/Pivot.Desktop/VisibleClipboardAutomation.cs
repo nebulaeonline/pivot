@@ -27,8 +27,18 @@ public partial class MainWindow {
   var frame=await s.ReadAsync(P(9,4),P(12,5));AutomationCheck(frame.Cells.Single(c=>c.At.Row==12&&c.At.Column==5).Formula=="=D9","actual source-row formula origin survives gaps");AutomationCheck(frame.Cells.Single(c=>c.At.Row==11&&c.At.Column==4).Equals(hidden),"hidden destination unchanged");AutomationCheck(frame.Cells.Single(c=>c.At.Row==10&&c.At.Column==4).Text=="001234"&&Sheet.Selected.Row==10&&Sheet.Selected.Column==4&&!Sheet.HasRegion,"exact String and original single anchor retained");
   revision=s.Revision;paste=ClipboardAsync(true,visible:true);window=await Review(paste);await Clipboard!.SetTextAsync("replacement during review");Choice(window,true).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await paste;AutomationCheck(s.Revision==revision&&draftCell is null,"clipboard replacement cancels visible paste without draft fallback");
   var valid=await s.CopyBlockAsync(s.Revision,P(10,4),P(10,5));var forged=new DataTransferItem();forged.Set(VisibleBlockFormat,new byte[]{1});forged.Set(CellBlockFormat,valid.Clipboard.ToByteArray());forged.SetText("99");var transfer=new DataTransfer();transfer.Add(forged);await Clipboard.SetDataAsync(transfer);await ClipboardAsync(true);AutomationCheck(s.Revision==revision&&draftCell is null,"malformed preferred CB6 cannot fall through to CB5 or TSV");
-  await s.SetFilterAsync(s.Revision,null);await s.ApplyAsync(s.Revision,[new Edit{At=P(70),Text="001234\tline\nnext"}]);await RefreshAsync();await SelectAsync(P(70));await ClipboardAsync(false,visible:true);
-  using(var data=await Clipboard.TryGetDataAsync())AutomationCheck(data?.Contains(VisibleBlockFormat)==true&&!data.Contains(DataFormat.Text),"separator-containing String publishes native-only CB6");
+  await s.SetFilterAsync(s.Revision,null);await s.ApplyAsync(s.Revision,[new Edit{At=P(70),Text="001234\tline\nnext"}]);await RefreshAsync();
+  AutomationCheck(await SelectAsync(P(70)),"native-only source selection accepted");await Ready();
+  string copyPhase="not started";await ClipboardAsync(false,visible:true,diagnose:phase=>copyPhase=phase);
+  AutomationCheck(copyPhase=="native copy published",$"native-only copy completed publication; phase={copyPhase}; frame={frameReady}; qualified={displayedRevision==s.Revision}; status={StatusLabel.Text}");
+  // Observe native publication with bounded reads, without repeating the copy.
+  var publication=global::System.Diagnostics.Stopwatch.StartNew();bool hasNative=false,hasText=false,hasOrdinary=false;
+  do {
+   using(var data=await Clipboard.TryGetDataAsync()){hasNative=data?.Contains(VisibleBlockFormat)==true;hasText=data?.Contains(DataFormat.Text)==true;hasOrdinary=data?.Contains(CellBlockFormat)==true;}
+   if(hasNative&&!hasText&&!hasOrdinary)break;
+   await Task.Delay(20);
+  }while(publication.Elapsed<TimeSpan.FromSeconds(1));
+  AutomationCheck(hasNative&&!hasText&&!hasOrdinary,$"separator-containing String publishes native-only CB6; cb6={hasNative}; text={hasText}; cb5={hasOrdinary}; phase={copyPhase}");
   await SelectAsync(P(71));await Ready();paste=ClipboardAsync(true,visible:true);window=await Review(paste);Choice(window,true).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await paste;AutomationCheck((await s.ReadAsync(P(71),P(71))).Cells.Single().Text=="001234\tline\nnext","native-only exact String roundtrip");
   AutomationImage(Path.ChangeExtension(report,"visible-clipboard.png"));await s.NewAsync(s.Revision,discard:true);CancelDraft();clipboardEditor=null;await RefreshAsync();Sheet.Focus();
  }

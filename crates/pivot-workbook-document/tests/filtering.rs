@@ -35,7 +35,7 @@ fn wb12_preserves_typed_definition_needs_review_and_exact_text_while_wb11_is_ref
         .unwrap();
     let id = b.cell_at(p(1)).unwrap();
     let saved = Document::export_document(&b, b.expected()).unwrap();
-    assert!(saved.bytes.starts_with(b"PIVOTWB15"));
+    assert!(saved.bytes.starts_with(b"PIVOTWB16"));
     let reopened = Document::open_document(&saved.bytes, Limits::default(), &rt)
         .unwrap()
         .0;

@@ -210,10 +210,14 @@ follow below. ADR-0023 remains parked at G3.
 
 - [ADR-0042: Section Breaks and Local Grid Geometry](0042-section-breaks-and-local-grid-geometry.md)
   — Design accepted by final review (2026-11-02), including all three required
-  clarifications. Implementation not authorized. Independent width/height partitions,
+  clarifications. Implemented, accepted and closed by parent implementation review
+  (2026-11-03), with existing qualifications retained; no further validation required.
+  Independent width/height partitions,
   either-boundary whole-section selection, one bounded mapping, complete overlap
   validation, authored-axis transforms, positional bound-view presentation and
   coherent filtered viewports. Concrete invoice/one-boundary selection examples;
-  ordinary-layout usability is a promotion gate. WB16/private v16 are proposed.
-  No feature implementation or platform qualification. See the
+  ordinary-layout usability is a promotion gate. WB16/private v16 are implemented.
+  Six-target managed/AOT GUI evidence and full/focused headless source lineage are
+  recorded in the [implementation handoff](../handoffs/2026-11-03-section-grid-geometry.md).
+  Original cold timing qualifications remain unresolved. See the
   [design handoff](../handoffs/2026-11-02-section-grid-geometry-design.md).

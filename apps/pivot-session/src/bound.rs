@@ -107,7 +107,7 @@ pub(super) fn window_info(book: &Workbook, s: &pivot_workbook::SheetInfo) -> wir
     }
     out
 }
-fn emit_frame(
+pub(super) fn emit_frame(
     r: &mut wire::Response,
     frame: producers::ProjectedFrame,
     capture: &CalculationCapture,

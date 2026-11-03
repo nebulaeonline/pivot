@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Pivot.Client;
 using Pivot.Protocol.Application.V1;
 namespace Pivot.Desktop;
@@ -31,8 +32,8 @@ public partial class MainWindow
         await SelectAsync(AutomationPosition(1,1));await SelectAsync(AutomationPosition(2,3),true);await ClipboardAsync(false);
         await SelectAsync(AutomationPosition(5,1));await ClipboardAsync(true);
         AutomationCheck(Sheet.CellAt(AutomationPosition(5,2))!.Text=="001.20" && Sheet.CellAt(AutomationPosition(5,3))!.Text=="'Hello","Mixed native rectangle preserves text");
-        await SelectAsync(AutomationPosition(8,1));await ClipboardAsync(true,()=>Task.FromResult<string?>("'001.20\t''Hello\t'=A1"));
-        AutomationCheck(Sheet.CellAt(AutomationPosition(8,3))!.Text=="=A1","External TSV explicit text escapes");
+        await SelectAsync(AutomationPosition(8,1));await Clipboard!.SetTextAsync("'001.20\t''Hello\t'=A1");await ClipboardAsync(true);
+        AutomationCheck(Sheet.CellAt(AutomationPosition(8,3)) is {Text:"=A1"},"External TSV explicit text escapes");
         await SelectAsync(AutomationPosition(8,1));BeginCellEdit(false);CellEditor.Text="'Updated label";
         AutomationCheck(await CommitAsync(),"Edit existing text");
         string root=Environment.GetEnvironmentVariable("PIVOT_FILE_TEST_ROOT") ?? Path.GetTempPath();Directory.CreateDirectory(root);

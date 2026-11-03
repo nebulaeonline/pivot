@@ -15,6 +15,9 @@
   <Folder Name="/tests/execution-safety/">
     <Project Path="tests/execution-safety/PolicyProbe.csproj" />
   </Folder>
+  <Folder Name="/tests/geometry-ui/">
+    <Project Path="tests/geometry-ui/GeometryUi.csproj" />
+  </Folder>
   <Folder Name="/tests/protocol-parity/">
     <Project Path="tests/protocol-parity/ProtocolParity.csproj" />
   </Folder>

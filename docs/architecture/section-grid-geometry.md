@@ -1,7 +1,8 @@
 # Section Grid geometry and selection contract
 
 Status: **Design accepted under [ADR-0042](../adr/0042-section-breaks-and-local-grid-geometry.md),
-2026-11-02. Design only; no implemented map or platform qualification.**
+2026-11-02. Implemented, accepted and closed by parent implementation review, 2026-11-03, with existing qualifications retained.**
+See the [implementation evidence and qualifications](../handoffs/2026-11-03-section-grid-geometry.md).
 This specializes the accepted [composition architecture](document-composition.md).
 ADR-0042 is authoritative for this slice; it does not implement later Text/page work.
 
@@ -72,7 +73,7 @@ for every coordinate. New scope-owned metadata IDs count against aggregate ident
 admission and cannot manufacture a separate per-profile allowance.
 
 A bound Window instead uses explicitly tagged positional ordinals within the finite
-maximum Grid envelope. This is a proposed specialization of the general stable-axis
+maximum Grid envelope. This specializes the general stable-axis
 rule: a projection has no editable authored axes. Local width/height settings and
 breaks follow display positions, **not records or fields**. Source reorder or column
 insertion may therefore change which field occupies a locally sized position. Show
@@ -246,7 +247,7 @@ in their preview. Existing hidden-row tickets and exact paste/operation shapes r
 
 ## Persistence and aggregate ownership
 
-Proposed WB16/private v16 are audited cuts, not implemented versions. Save stores
+WB16/private v16 are the implemented audited cuts for this milestone. Save stores
 source-independent presentation roots, scope-qualified profile/band IDs, anchor kind,
 ordered starts, positive size runs/defaults and allocation floors. Bound ordinals
 cannot masquerade as authored axes or producer references. Imported caches/tiles,

@@ -17,6 +17,7 @@ public partial class MainWindow {
  private async void FillClick(object? sender,RoutedEventArgs e){if(sender is MenuItem item && Enum.TryParse<Request.Types.FillDirection>(item.Tag?.ToString(),out var direction))await FillAsync(direction);}
  private async Task FillAsync(Request.Types.FillDirection direction){
   if(!CanFill){StatusLabel.Text="Finish or cancel editing, dragging or pending work before Fill on ordinary cells.";return;}
+  using var section=(await BeginSectionCommandAsync())?.Invoke();if(section is null)return;
   var s=session!;var first=Sheet.SelectionFirst.Clone();var last=Sheet.SelectionLast.Clone();string expected=displayedRevision;
   editing=true;SetEditing(false);++clipboardRequest;refresh?.Cancel();++displayRequest;
   try{

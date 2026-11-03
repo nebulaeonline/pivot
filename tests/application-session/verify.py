@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import os
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -25,6 +26,7 @@ failure=subprocess.run(['dotnet','tests/application-session/bin/Release/net10.0/
 if failure.returncode!=1 or not failure.stderr.strip() or 'Unhandled exception' in failure.stderr or 'PASS' in failure.stdout:
     raise AssertionError('Headless failure was not reported through the controlled console boundary')
 subprocess.run(['dotnet','tests/application-session/bin/Release/net10.0/ApplicationSession.dll',str(binary),str(args.output_dir/'results.json')], cwd=ROOT, check=True, timeout=180)
+subprocess.run([sys.executable,str(ROOT/'tests/geometry-ui/verify.py'),'--session',str(binary),'--output-dir',str(args.output_dir/'geometry-ui')],cwd=ROOT,check=True,timeout=180)
 subprocess.run(['cargo','build','--locked','--release','-p','pivot-workbook-document','--example','capacity','--example','capacity_graphs','--example','regions','--example','structure','--example','sorting','--example','filtering','--example','visible_clipboard','--example','visible_edit','--example','allocation','--example','weighted','--example','weighted_range','--example','windows','--example','bound'],cwd=ROOT,check=True)
 examples=Path(metadata['target_directory'])/'release/examples'
 suffix='.exe' if os.name=='nt' else ''

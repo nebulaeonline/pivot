@@ -34,7 +34,8 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const MAX_BYTES: usize = 64 * 1024 * 1024;
-const MAGIC: &[u8; 9] = b"PIVOTWB15";
+const MAGIC: &[u8; 9] = b"PIVOTWB16";
+mod geometry_codec;
 fn malformed() -> Error {
     Error::Graph("malformed workbook document".into())
 }
@@ -590,6 +591,9 @@ impl Document {
         .map_err(graph_error)?;
         let mut w = Writer(vec![]);
         w.bytes(&producers::codec::encode(&projection.producers)?);
+        let mut geometry = Writer(Vec::new());
+        geometry.geometry(&projection.geometry);
+        w.bytes(&geometry.0);
         w.scope(projection.worksheet);
         w.id(projection.rows);
         w.n(projection.row_count.into());
@@ -792,7 +796,7 @@ impl Document {
                 .map(|b| *b as char)
                 .collect();
             return Err(Error::Graph(format!(
-                "unsupported native workbook version WB{version}; WB15 required"
+                "unsupported native workbook version WB{version}; WB16 required"
             )));
         }
         if bytes.len() < 49 || !bytes.starts_with(MAGIC) {
@@ -813,6 +817,19 @@ impl Document {
             .reserve(producer_bytes.len().saturating_mul(8))
             .map_err(|_| Error::Limit)?;
         let producers = producers::codec::decode(producer_bytes)?;
+        let geometry_bytes = r.bytes(8 * 1024 * 1024)?;
+        let _geometry_decode_charge = runtime
+            .memory()
+            .reserve(geometry_bytes.len().saturating_mul(8))
+            .map_err(|_| Error::Limit)?;
+        let mut geometry_reader = Reader {
+            bytes: geometry_bytes,
+            at: 0,
+        };
+        let geometry = geometry_reader.geometry()?;
+        if geometry_reader.at != geometry_bytes.len() {
+            return Err(malformed());
+        }
         let worksheet = r.scope()?;
         let rows = Axis {
             namespace: r.id()?,
@@ -1656,6 +1673,7 @@ impl Document {
             .collect();
         let book = Workbook::restore_portable(
             PortableWorkbook {
+                geometry,
                 producers,
                 filters,
                 styles,

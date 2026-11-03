@@ -39,7 +39,7 @@ fn wb12_allocation_roundtrip_and_moved_blank_anchors_remain_outside_range_member
             )
             .unwrap();
             let export = Document::export_document(&b, b.expected()).unwrap();
-            assert_eq!(&export.bytes[..9], b"PIVOTWB15");
+            assert_eq!(&export.bytes[..9], b"PIVOTWB16");
             let (opened, _) =
                 Document::open_document(&export.bytes, Limits::default(), &rt).unwrap();
             let c = opened.capture_local(opened.expected()).unwrap();

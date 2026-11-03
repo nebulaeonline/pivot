@@ -4,7 +4,9 @@ Status: **Architecture accepted with clarifications under [ADR-0039](../adr/0039
 This is the overall design contract, not implemented Text/page behavior.
 [ADR-0042](../adr/0042-section-breaks-and-local-grid-geometry.md) defines the accepted detailed
 section-geometry slice and [map/selection contract](section-grid-geometry.md); it has
-no feature implementation or platform qualification.
+implementation accepted and closed by parent review on 2026-11-03. See the
+[implementation handoff](../handoffs/2026-11-03-section-grid-geometry.md) for source
+lineage and retained timing qualifications.
 
 ## Section geometry
 
@@ -48,7 +50,7 @@ anchor plus within-cell offset.
 Range calculation and formatting use logical coordinates, not painted boundaries.
 
 For authored worksheet/unbound axes, breaks are stable boundary metadata immediately
-before a surviving axis identity. ADR-0042 proposes separately tagged positional
+before a surviving axis identity. ADR-0042 implements separately tagged positional
 geometry for bound views, with no producer/reference authority; that distinction
 requires design review.
 Insertion at that boundary belongs to the preceding band; the boundary remains before

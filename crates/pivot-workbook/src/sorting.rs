@@ -455,6 +455,7 @@ impl Workbook {
             core.apply_batch(batch, cancel).map_err(graph_error)?;
         }
         work.add(0)?;
+        crate::producers::note_layout_sort(&mut data, sheet, r)?;
         crate::producers::maintain_guards(&mut core, &mut data, cancel)?;
         crate::windows::validate_scope_graph(&core, &data, cancel)?;
         self.core = core;

@@ -45,6 +45,7 @@ ENTRY_POINTS = {
     'scripts/research_history_acknowledgments.py': (ExecutionClass.HEADLESS,),
     'scripts/research_history_association.py': (ExecutionClass.HEADLESS, ExecutionClass.FIXTURE_FAULT),
     'scripts/research_mutation_records.py': (ExecutionClass.HEADLESS, ExecutionClass.FIXTURE_FAULT),
+    'tests/geometry-ui/verify.py': (ExecutionClass.HEADLESS,),
     'tests/application-session/verify.py': (ExecutionClass.HEADLESS, ExecutionClass.FIXTURE_FAULT),
     'tests/application-session/ui_smoke.py': (ExecutionClass.HEADLESS, ExecutionClass.GUI),
     'tests/application-session/test_desktop_lock.py': (ExecutionClass.HEADLESS,),

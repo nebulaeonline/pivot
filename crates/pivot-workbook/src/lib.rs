@@ -18,6 +18,7 @@ pub const MAX_COLUMNS: u32 = 1024;
 mod fill;
 pub mod filtering;
 pub mod formatting;
+pub mod geometry;
 #[cfg(feature = "history-experiment")]
 pub mod history_experiment;
 mod persistent;
@@ -917,6 +918,74 @@ pub struct Calculation {
     pub values: Vec<(CellRef, std::result::Result<PivotDecimal, CellError>)>,
 }
 impl CalculationCapture {
+    /// Read a definition from the same immutable roots used for evaluation and
+    /// geometry. Bound locations must use project_window instead of authored IDs.
+    pub fn captured_cell(&self, position: Position) -> Result<Option<CellView>> {
+        let sheet = self
+            .pinned
+            .sheets
+            .as_ref()
+            .and_then(|d| d.0.iter().find(|s| s.id == self.worksheet && !s.retired))
+            .ok_or(Error::InvalidTarget)?;
+        sheet.rows.at(position.row)?;
+        sheet.columns.at(position.column)?;
+        if self
+            .pinned
+            .producers
+            .as_ref()
+            .is_some_and(|d| d.binding(self.worksheet).is_some())
+        {
+            return Err(Error::InvalidTarget);
+        }
+        let Some(reference) = self.cell_at(position) else {
+            return Ok(None);
+        };
+        let record = self
+            .pinned
+            .records
+            .get(&reference.cell)
+            .ok_or(Error::InvalidTarget)?;
+        if record.worksheet != self.worksheet || record.position != Some(position) {
+            return Err(Error::InvalidTarget);
+        }
+        let node = self
+            .pinned
+            .bindings
+            .get(&reference.cell)
+            .ok_or(Error::InvalidTarget)?
+            .portable;
+        Ok(Some(CellView {
+            reference,
+            node,
+            position,
+            content: record.content.clone().unwrap_or(Content::Blank),
+        }))
+    }
+    pub fn captured_formula(&self, cell: CellRef) -> Result<Option<String>> {
+        let record = self
+            .pinned
+            .records
+            .get(&cell.cell)
+            .ok_or(Error::InvalidTarget)?;
+        if record.worksheet != cell.worksheet {
+            return Err(Error::InvalidTarget);
+        }
+        let _scratch = self.pinned.memory.reserve(8192).map_err(|_| Error::Limit)?;
+        let directory = &self.pinned.sheets.as_ref().ok_or(Error::InvalidTarget)?.0;
+        match &record.content {
+            Some(Content::TextFormula(f)) if f.diagnostic.is_some() => {
+                Ok(Some(f.original_source.clone()))
+            }
+            Some(Content::TextFormula(f)) => {
+                structure::render(&f.original_source, &f.tokens, &self.pinned, directory, 4096)
+                    .map(|v| Some(v.0))
+            }
+            Some(Content::Formula { source, tokens }) => {
+                structure::render(source, tokens, &self.pinned, directory, 4096).map(|v| Some(v.0))
+            }
+            _ => Ok(None),
+        }
+    }
     pub fn expected(&self) -> Expected {
         self.expected
     }

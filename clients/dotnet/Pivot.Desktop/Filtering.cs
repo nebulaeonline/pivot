@@ -108,8 +108,8 @@ public partial class MainWindow {
  private void ShowFilterStatus(Response frame){
   filterViewPending=frame.FilterStatus is 3 or 4;filterPublicationDeferred=false;
   FilterBar.IsVisible=frame.FilterSummary is not null;
-  FilterStatusLabel.Text=frame.FilterStatus switch{1 when frame.FilterSummary is { } definition=>$"Filter {SortDialog.RangeText(definition.First,definition.Last)}: {frame.FilterShownDataRows:N0} of {frame.FilterTotalDataRows:N0} data rows shown",2=>"Filter needs range/key review after a structural edit; all rows shown.",3=>"Refreshing filter; all rows shown. Bulk actions unavailable.",4=>"Filter suspended; all rows shown. "+frame.FilterError+" Reapply or Clear Filter.",_=>""};
+  FilterStatusLabel.Text=frame.FilterStatus switch{1 when frame.FilterSummary is { } definition=>$"Filter {SortDialog.RangeText(definition.First,definition.Last)}: {frame.FilterShownDataRows:N0} of {frame.FilterTotalDataRows:N0} data rows shown",2=>frame.FilterError.Length==0?"Filter needs range/key review after a structural edit; all rows shown.":"Filter geometry needs review; all rows shown. "+frame.FilterError,3=>"Refreshing filter; all rows shown. Bulk actions unavailable.",4=>"Filter suspended; all rows shown. "+frame.FilterError+" Reapply or Clear Filter.",_=>""};
   SetEditing(session is not null&&session.DocumentId.Length!=0&&!editing);
-  ReapplyFilterButton.IsEnabled=frame.FilterStatus is 1 or 4;ClearFilterButton.IsEnabled=frame.FilterSummary is not null;
+  ReapplyFilterButton.IsEnabled=frame.FilterStatus is 1 or 4||(frame.FilterStatus==2&&frame.FilterError.Length>0);ClearFilterButton.IsEnabled=frame.FilterSummary is not null;
  }
 }

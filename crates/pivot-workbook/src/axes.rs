@@ -67,6 +67,24 @@ impl PartialEq for Axis {
 }
 impl Eq for Axis {}
 impl Axis {
+    /// Resolve a stable identity through compact runs without materializing axes.
+    pub(crate) fn rank(&self, id: AxisId) -> Result<u32> {
+        if id.namespace != self.namespace {
+            return Err(Error::InvalidTarget);
+        }
+        if let Some(layout) = &self.layout {
+            let mut start = 1;
+            for run in &layout.runs {
+                if id.sequence >= run.first && id.sequence - run.first < run.count {
+                    return Ok(start + id.sequence - run.first);
+                }
+                start += run.count;
+            }
+        } else if id.sequence > 0 && id.sequence <= self.length {
+            return Ok(id.sequence);
+        }
+        Err(Error::InvalidTarget)
+    }
     pub fn at(&self, position: u32) -> Result<AxisId> {
         if position == 0 || position > self.length {
             return Err(Error::Position);

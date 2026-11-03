@@ -6,10 +6,11 @@ public sealed partial class WorksheetView {
  private uint[]? filterRows;
  private string filterGeneration="";
  public FilterSummary? FilterSummary {get;private set;}
- public bool HasVisibleRows=>filterRows is null||filterRows.Length!=0;
+ public bool HasVisibleRows=>GeometryMode?geometryViewport is {IsDisposed:false}&&geometryViewport.Frame.Geometry.Rows>0&&(filterRows is null||filterRows.Length!=0):filterRows is null||filterRows.Length!=0;
  public bool HasFilterMap=>filterRows is not null;
  public event Action<uint>? FilterColumnRequested;
  public uint? WorksheetRowAt(int offset){
+  if(GeometryMode)return HasVisibleRows?StepVisibleRow(FirstRow,offset):null;
   if(filterRows is null)return (uint)Math.Clamp((int)FirstRow+offset,1,RowLimit);
   long index=(long)FirstRow-1+offset;return index>=0&&index<filterRows.Length?filterRows[index]:null;
  }
@@ -21,7 +22,7 @@ public sealed partial class WorksheetView {
  }
  public uint StepVisibleRow(uint row,int delta){
   if(filterRows is null)return (uint)Math.Clamp((long)row+delta,1,RowLimit);
-  if(filterRows.Length==0)return 1;int index=Array.BinarySearch(filterRows,row);if(index<0)index=~index;
+  if(filterRows.Length==0)return 1;int index=Array.BinarySearch(filterRows,row);if(index<0){index=~index;if(delta>0)--delta;}
   return filterRows[Math.Clamp((long)index+delta,0,filterRows.Length-1)];
  }
  public uint HiddenRows(uint first,uint last){
@@ -31,8 +32,20 @@ public sealed partial class WorksheetView {
   return last-first+1-(uint)(hi-lo);
  }
  private int FilterIndex(uint row){if(filterRows is null)return (int)row-(int)FirstRow;int index=Array.BinarySearch(filterRows,row);return index<0?-1:index-(int)FirstRow+1;}
- private uint FilterVisualRow(uint row){if(filterRows is null)return row;int index=Array.BinarySearch(filterRows,row);return (uint)((index<0?~index:index)+1);}
+ private uint FilterVisualRow(uint row){if(GeometryMode)return row;if(filterRows is null)return row;int index=Array.BinarySearch(filterRows,row);return (uint)((index<0?~index:index)+1);}
  public void ClearFilterFrame(){filterRows=null;FilterSummary=null;filterGeneration="";}
+ private void SetGeometryMask(Response response){
+  var geometry=response.Geometry;
+  if(geometry.VisibleMask.Length!=8192||geometry.Rows>RowLimit||geometry.Columns>ColumnLimit||geometry.FilterStatus>4)throw new InvalidDataException("Invalid captured geometry visibility.");
+  FilterSummary=geometry.FilterSummary?.Clone();filterGeneration=geometry.VisibilityStamp;
+  if(geometry.FilterStatus==1){
+   var visible=new List<uint>();for(uint row=1;row<=geometry.Rows;row++)if((geometry.VisibleMask.Span[(int)(row-1)/8]&(1<<((int)(row-1)%8)))!=0)visible.Add(row);
+   filterRows=visible.ToArray();
+  } else {
+   for(uint row=1;row<=geometry.Rows;row++)if((geometry.VisibleMask.Span[(int)(row-1)/8]&(1<<((int)(row-1)%8)))==0)throw new InvalidDataException("Suspended geometry must show current unfiltered rows.");
+   filterRows=geometry.Rows==0?Array.Empty<uint>():null;
+  }
+ }
  public void SetFilterFrame(Response response){
   if(response.FilterVisibleMask.Length!=8192)throw new InvalidDataException("Invalid filter row mask.");
   if(response.FilterStatus>4||(response.FilterStatus==0)!=(response.FilterSummary is null))throw new InvalidDataException("Invalid filter presentation state.");
@@ -53,6 +66,11 @@ public sealed partial class WorksheetView {
  }
  private bool FilterHeaderClick(Point point){
   if(FilterSummary is not {ExcludeHeader:true,NeedsReview:false,First:{ } first}||point.X<Header||point.Y<HeightPerCell)return false;
+  if(GeometryMode){
+   var at=GeometryPositionAt(point);if(at is null||at.Row!=first.Row||at.Column<first.Column||at.Column>FilterSummary.Last.Column||!geometryCells.TryGetValue((at.Row,at.Column),out var cell))return false;
+   var rectangle=GeometryBounds(cell);if(rectangle.Width<24||rectangle.Height<14||point.X<rectangle.Right-18)return false;
+   FilterColumnRequested?.Invoke(at.Column);return true;
+  }
   int offset=(int)Math.Floor(point.Y/HeightPerCell)-1;uint? row=WorksheetRowAt(offset);
   uint column=FirstColumn+(uint)((point.X-Header)/WidthPerCell);
   if(row!=first.Row||column<first.Column||column>FilterSummary.Last.Column||(point.X-Header)%WidthPerCell<WidthPerCell-18)return false;

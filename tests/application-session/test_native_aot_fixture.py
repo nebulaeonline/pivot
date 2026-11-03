@@ -9,11 +9,11 @@ from verify_native_aot import verify_workbook_fixture
 class WorkbookFixtureTests(unittest.TestCase):
     def fixture(self):
         payload=b'independent fixture payload'
-        return b'PIVOTWB15'+len(payload).to_bytes(8,'little')+hashlib.sha256(payload).digest()+payload
+        return b'PIVOTWB16'+len(payload).to_bytes(8,'little')+hashlib.sha256(payload).digest()+payload
     def test_current_format(self):
         verify_workbook_fixture(self.fixture())
     def test_obsolete_formats(self):
-        for version in range(1,15):
+        for version in range(1,16):
             with self.subTest(version=version),self.assertRaises(RuntimeError):
                 verify_workbook_fixture(b'PIVOTWB'+str(version).encode()+self.fixture()[9:])
     def test_corrupt_and_truncated_envelopes(self):

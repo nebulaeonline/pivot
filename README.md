@@ -30,12 +30,14 @@ also be used directly through Rust crate APIs, independently of a workbook or GU
 
 ## The spreadsheet desktop
 
-[ADR-0042](docs/adr/0042-section-breaks-and-local-grid-geometry.md) proposes Section
+[ADR-0042](docs/adr/0042-section-breaks-and-local-grid-geometry.md) implements Section
 Breaks and local Grid geometry: either boundary type creates sections, and crossing
 either expands cell selection to whole touched sections. Its invoice-layout design
-has final design acceptance (2026-11-02), including all three required clarifications;
-feature implementation is not authorized. See the
-[design handoff](docs/handoffs/2026-11-02-section-grid-geometry-design.md).
+has final design acceptance (2026-11-02), including all three required clarifications.
+Implementation is accepted and closed by parent review (2026-11-03).
+All six targets have passing managed/AOT GUI evidence, with headless source lineage
+and timing qualifications recorded in the
+[implementation handoff](docs/handoffs/2026-11-03-section-grid-geometry.md).
 
 Worksheet-range producers and read-only bound Grid Windows are implemented under
 [ADR-0041](docs/adr/0041-worksheet-range-producers-and-bound-grid-windows.md).

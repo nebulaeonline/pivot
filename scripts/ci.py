@@ -22,6 +22,8 @@ def run_step(name, command, output):
         # No shell interpolation; arguments and paths remain separate.
         with log.open("w", encoding="utf-8") as stream:
             environment = desktop_environment() if name == "desktop-ui" else headless_environment()
+            environment['AVALONIA_TELEMETRY_OPTOUT'] = '1'
+            environment['DOTNET_CLI_TELEMETRY_OPTOUT'] = '1'
             process = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT, text=True,
                                        encoding="utf-8", errors="replace")

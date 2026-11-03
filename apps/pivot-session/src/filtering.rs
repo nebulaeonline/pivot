@@ -6,6 +6,7 @@ pub(super) struct Presentation {
     map: Option<Visibility>,
     pub(super) generation: String,
     failures: BTreeMap<GridScopeId, String>,
+    geometry_suspensions: BTreeMap<GridScopeId, String>,
     session: Option<Uuid>,
     job: Option<FilterJob>,
     status_charge: Option<pivot_core::model::integration::resources::Charge>,
@@ -30,6 +31,8 @@ pub(super) fn is_bulk(op: wire::request::Operation) -> bool {
     matches!(
         op,
         O::Apply
+            | O::ClearRegion
+            | O::MoveRegion
             | O::CopyBlock
             | O::PasteBlock
             | O::Fill
@@ -141,7 +144,34 @@ fn footprints(
                 vec![r]
             }
         }
-        O::Fill | O::Format | O::CopyBlock | O::ExportCsv => vec![rectangle()?],
+        O::MoveRegion => {
+            let source = rectangle()?;
+            let target = pos(q.destination_first.as_ref())?;
+            let rows = source
+                .last
+                .row
+                .checked_sub(source.first.row)
+                .ok_or("invalid move rows")?;
+            let columns = source
+                .last
+                .column
+                .checked_sub(source.first.column)
+                .ok_or("invalid move columns")?;
+            vec![
+                source,
+                Rectangle {
+                    first: target,
+                    last: Position::new(
+                        target.row.checked_add(rows).ok_or("move row overflow")?,
+                        target
+                            .column
+                            .checked_add(columns)
+                            .ok_or("move column overflow")?,
+                    ),
+                },
+            ]
+        }
+        O::Fill | O::Format | O::ClearRegion | O::CopyBlock | O::ExportCsv => vec![rectangle()?],
         _ => return Err("not a filtered bulk operation".into()),
     };
     for r in &out {
@@ -173,6 +203,9 @@ impl Session {
             .iter()
             .all(|r| r.last.row < first || r.first.row > definition.rectangle.last.row)
         {
+            return Ok((rects, 0));
+        }
+        if self.filter.geometry_suspensions.contains_key(&sheet) {
             return Ok((rects, 0));
         }
         if self.filter.failures.contains_key(&sheet) {
@@ -342,14 +375,14 @@ impl Presentation {
             }
         }
     }
-    fn budget_status(
+    pub(super) fn budget_status(
         &mut self,
         memory: &pivot_core::model::integration::resources::Memory,
     ) -> Result<(), String> {
         if self.status_charge.is_none() {
             self.status_charge = Some(
                 memory
-                    .reserve(16 * (4096 + 256) + 4096)
+                    .reserve(80 * (4096 + 512) + 4096)
                     .map_err(|_| "filter status admission")?,
             );
         }
@@ -358,6 +391,37 @@ impl Presentation {
     fn reset(&mut self) {
         self.map = None;
         self.generation = Uuid::new_v4().to_string();
+    }
+    pub(super) fn suspend_geometry(
+        &mut self,
+        book: &Workbook,
+        sheet: GridScopeId,
+        error: String,
+    ) -> Result<(), String> {
+        if self.status_charge.is_none() {
+            return Err("filter status admission missing".into());
+        }
+        if self.failures.len() + self.geometry_suspensions.len() >= 80 {
+            let live: std::collections::BTreeSet<_> = book
+                .scopes()
+                .iter()
+                .filter(|s| !s.retired)
+                .map(|s| s.id)
+                .collect();
+            self.failures.retain(|id, _| live.contains(id));
+            self.geometry_suspensions.retain(|id, _| live.contains(id));
+        }
+        self.failures.remove(&sheet);
+        if self.geometry_suspensions.len() + self.failures.len() >= 80
+            && !self.geometry_suspensions.contains_key(&sheet)
+        {
+            return Err("filter status admission exhausted".into());
+        }
+        self.job = None;
+        self.reset();
+        self.geometry_suspensions
+            .insert(sheet, bounded_error(error));
+        Ok(())
     }
     pub(super) fn ensure(
         &mut self,
@@ -370,12 +434,17 @@ impl Presentation {
             self.job = None;
             self.reset();
             self.failures.clear();
+            self.geometry_suspensions.clear();
             self.session = Some(expected.session);
         }
         if retry {
             self.failures.remove(&sheet);
+            self.geometry_suspensions.remove(&sheet);
             self.job = None;
             self.reset();
+        }
+        if self.geometry_suspensions.contains_key(&sheet) {
+            return Ok(());
         }
         if self.failures.contains_key(&sheet) {
             return Ok(());
@@ -402,6 +471,16 @@ impl Presentation {
                         match result {
                             Ok(mut map) => {
                                 map.expected = expected;
+                                if book.has_geometry_state()
+                                    && let Err(error) =
+                                        book.capture_scope(sheet, expected).and_then(|capture| {
+                                            capture
+                                                .geometry_map(Some(map.rows()), &Default::default())
+                                        })
+                                {
+                                    self.suspend_geometry(book, sheet, bounded_error(error))?;
+                                    return Ok(());
+                                }
                                 self.map = Some(map);
                                 self.generation = Uuid::new_v4().to_string();
                             }
@@ -478,6 +557,7 @@ impl Presentation {
     }
     pub(super) fn rows(&self, book: &Workbook, sheet: GridScopeId) -> Result<Vec<u32>, String> {
         if !self.failures.contains_key(&sheet)
+            && !self.geometry_suspensions.contains_key(&sheet)
             && let Some(map) = &self.map
             && map.worksheet == sheet
             && map.expected == book.expected()
@@ -509,6 +589,12 @@ impl Presentation {
         r.filter_generation = self.generation.clone();
         r.filter_status = if definition.is_none() {
             0
+        } else if let Some(error) = self.geometry_suspensions.get(&sheet) {
+            r.filter_error = error.clone();
+            if let Some(summary) = &mut r.filter_summary {
+                summary.needs_review = true;
+            }
+            2
         } else if definition.is_some_and(|d| d.needs_review) {
             2
         } else if let Some(e) = self.failures.get(&sheet) {
@@ -693,6 +779,7 @@ impl Session {
                 self.revision = Uuid::new_v4().to_string();
             }
             self.filter.failures.remove(&sheet);
+            self.filter.geometry_suspensions.remove(&sheet);
             self.filter.reset();
             self.filter.session = Some(book.expected().session);
             self.filter.map = candidate;

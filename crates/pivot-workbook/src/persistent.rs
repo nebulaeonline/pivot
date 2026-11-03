@@ -18,6 +18,7 @@ pub(super) struct Data {
     pub(crate) adapter: Option<Shared<structured::Adapter>>,
     annotations: Index<CellId, structured::StructuredContent>,
     pub(super) styles: formatting::Store,
+    pub(crate) geometry: Index<GridScopeId, Shared<geometry::stored::Root>>,
     pub(super) filters: Index<GridScopeId, Shared<filtering::Definition>>,
     pub(super) positions: Index<sheets::SheetPosition, CellId>,
     pub(super) sheets: Option<Shared<sheets::Directory>>,
@@ -112,6 +113,7 @@ impl Data {
             annotations: Index::new(memory.clone()),
             sheets: None,
             styles: formatting::Store::new(memory.clone()),
+            geometry: Index::new(memory.clone()),
             filters: Index::new(memory.clone()),
             positions: Index::new(memory.clone()),
             records: Index::new(memory.clone()),
@@ -149,6 +151,7 @@ impl Data {
             allocated_nodes: self.records.len()
                 + self.guards.len()
                 + self.outputs.len()
+                + self.geometry_identities()
                 + self
                     .producers
                     .as_ref()
@@ -172,6 +175,7 @@ impl Data {
                     .sum::<usize>()
                 + self.producers.as_ref().map_or(0, |p| p.owned_bytes())
                 + self.styles.bytes()
+                + self.geometry_bytes()
                 + self
                     .filters
                     .iter()

@@ -169,6 +169,7 @@ impl Workbook {
         budget: Arc<projection::Budget>,
     ) -> Result<()> {
         if self.scopes().len() != 1
+            || !self.persistent.geometry.is_empty()
             || !self.producers().is_empty()
             || self.is_structured_proof()
             || producer.is_nil()

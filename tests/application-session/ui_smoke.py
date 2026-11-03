@@ -48,6 +48,7 @@ try:
 
         if not report.get("spreadsheet_aggregates", "").startswith("passed:"): raise SystemExit("Spreadsheet aggregate acceptance missing")
 
+        if not report.get("section_geometry", "").startswith("passed:"): raise SystemExit("Section geometry acceptance missing")
         if not report.get("bound", "").startswith("passed:"): raise SystemExit("Bound Window acceptance missing")
         if not report.get("windows", "").startswith("passed:"): raise SystemExit("Window acceptance missing")
         if not report.get("structure", "").startswith("passed:"): raise SystemExit("Structural acceptance missing")

@@ -129,6 +129,7 @@ pub fn encode(image: &Image) -> Result<Vec<u8>> {
     for p in &image.producers {
         w.id(p.id.0);
         w.n(p.configuration);
+        w.n(p.layout_order);
         w.n(u64::from(p.retired));
         match &p.source {
             SourceRecord::Worksheet {
@@ -264,6 +265,7 @@ pub fn decode(bytes: &[u8]) -> Result<Image> {
     for _ in 0..r.count(262_144)? {
         let id = ProducerId(r.id()?);
         let configuration = r.n()?;
+        let layout_order = r.n()?;
         let retired = r.flag()?;
         let source = match r.n()? {
             0 => SourceRecord::Worksheet {
@@ -362,6 +364,7 @@ pub fn decode(bytes: &[u8]) -> Result<Image> {
         producers.push(ProducerRecord {
             id,
             configuration,
+            layout_order,
             retired,
             source,
         });

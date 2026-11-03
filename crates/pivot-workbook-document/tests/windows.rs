@@ -40,7 +40,7 @@ fn scope_tags_axis_runs_and_deleted_window_faults_round_trip() {
     )
     .unwrap();
     let export = Document::export_document(&b, b.expected()).unwrap();
-    assert_eq!(&export.bytes[..9], b"PIVOTWB15");
+    assert_eq!(&export.bytes[..9], b"PIVOTWB16");
     let (mut reopened, _) = Document::open_document(&export.bytes, Limits::default(), &rt).unwrap();
     assert_eq!(
         reopened.axes_at_sheet(scope, Position::new(6, 1)).unwrap(),

@@ -19,6 +19,12 @@ safety tests below. Building the desktop project does not launch it. Each CI run
 has a unique report directory under `artifacts/ci`; inspect its `summary.json`.
 Missing build tools remain genuine prerequisites, independent of VM availability.
 
+The application-session gate also runs `tests/geometry-ui/verify.py`. That harness
+initializes only Avalonia's virtual headless platform, exercises the Desktop's real
+section editor controls, and checks complete invoice construction and revision
+sequences. It creates no native windows and uses no OS input or system clipboard.
+Its evidence supplements the separately attended managed/AOT GUI qualification.
+
 ## Deliberate local desktop tests
 
 Choose platform coverage from the changed behavior and architecture exposure;
@@ -145,6 +151,13 @@ consent bypass is authorized. Preserve original failures and archive/verify befo
 pruning each completed validation batch; refresh per-project cloc at milestone close.
 
 ## Artifact retention
+
+ADR-0042 qualification is recorded in the
+[implementation handoff](handoffs/2026-11-03-section-grid-geometry.md): six-target
+managed/AOT graphical passes, the full headless baseline, focused native UI checks
+after the production publication fix, and the final test-only source amendment are
+identified separately. macOS x64 is Rosetta evidence. Original failures remain
+preserved; later passes do not resolve earlier cold timing qualifications.
 
 Follow [build output and validation artifact retention](artifact-retention.md):
 keep at most two completed run product sets per RID/suite, discard historical

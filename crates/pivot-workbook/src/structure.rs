@@ -888,7 +888,8 @@ impl Workbook {
             || !formulas.is_empty()
             || !reframes.is_empty()
             || !producer_reframes.is_empty()
-            || style_changed;
+            || style_changed
+            || self.persistent.geometry.contains_key(&sheet);
         // Preserve the accepted empty-worksheet no-op policy. Window axes are
         // first-class identities even when there are no authored cells.
         if !content_changed && !sheet.is_window() {
@@ -917,6 +918,8 @@ impl Workbook {
         )?;
         *axis = axis.changed(change, &data.memory)?;
         data.install_sheets(directory)?;
+        data.transform_geometry(&self.persistent, sheet, change, cancel)?;
+        data.check_geometry_limits(self.limits)?;
         crate::producers::sync_dimensions(&mut data)?;
         let next = self.state.checked_add(1).ok_or(Error::Exhausted)?;
         data.review_filter_after_structure(sheet)?;

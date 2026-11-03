@@ -40,7 +40,7 @@ impl Workbook {
         self.core.history_metrics().map_err(graph_error)
     }
     pub fn history_weight(&self) -> Result<usize> {
-        if !self.producers().is_empty() {
+        if !self.producers().is_empty() || !self.persistent.geometry.is_empty() {
             return Err(Error::InvalidTarget);
         }
         // Content Move/Fill now produce explicit built-in style snapshots. This

@@ -14,12 +14,13 @@ public sealed partial class WorkbookSession {
  public Task<Response> ValidateFilterAsync(string expected,FilterDefinition definition,CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ValidateFilter,Revision=expected,FilterDefinition=definition.Clone()},cancellation);
  public Task<Response> ReapplyFilterAsync(CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ReapplyFilter,Revision=Revision},cancellation);
  public Task<Response> ReadFilteredAsync(uint firstVisible,uint count,uint firstColumn,uint lastColumn,CancellationToken cancellation=default)=>CallAsync(new Request{Operation=Request.Types.Operation.ReadFiltered,Revision=Revision,First=new Position{Row=1,Column=firstColumn},Last=new Position{Row=1,Column=lastColumn},FilterFirstVisible=firstVisible,FilterRowCount=count},cancellation);
- private static bool FilterBulk(Request.Types.Operation op)=>op is Request.Types.Operation.Apply or Request.Types.Operation.CopyBlock or Request.Types.Operation.PasteBlock or Request.Types.Operation.Fill or Request.Types.Operation.Format or Request.Types.Operation.Sort or Request.Types.Operation.Structure or Request.Types.Operation.ExportCsv;
+ private static bool FilterBulk(Request.Types.Operation op)=>op is Request.Types.Operation.Apply or Request.Types.Operation.ClearRegion or Request.Types.Operation.MoveRegion or Request.Types.Operation.CopyBlock or Request.Types.Operation.PasteBlock or Request.Types.Operation.Fill or Request.Types.Operation.Format or Request.Types.Operation.Sort or Request.Types.Operation.Structure or Request.Types.Operation.ExportCsv;
  private async Task<Response> CallAsync(Request request,CancellationToken cancellation){
   // Capture the exact logical operation before previewing it or awaiting a modal decision.
   request=request.Clone();if(request.Worksheet.Length==0){request.Worksheet=WorksheetId;request.WindowScope=IsWindowScope;}
   if(request.Revision.Length==0)request.Revision=Revision;
   if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
+  if(SelectionOperation(request.Operation)&&selectionInvocation.Value is { } invocation&&!await invocation.Authorize(request.Clone(),cancellation).ConfigureAwait(false))throw new OperationCanceledException("Expanded section operation cancelled.",cancellation);
   if(request.Operation is Request.Types.Operation.ClearVisible or Request.Types.Operation.FillVisible)return await ConfirmAndEditVisibleAsync(request,cancellation).ConfigureAwait(false);
   if(request.Operation==Request.Types.Operation.PasteVisible)return await ConfirmAndPasteVisibleAsync(request,cancellation).ConfigureAwait(false);
   bool singleEdit=request.Operation==Request.Types.Operation.Apply&&request.Edits.Count==1&&request.Edits[0].ActionCase!=Edit.ActionOneofCase.MoveTo;

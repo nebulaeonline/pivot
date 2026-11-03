@@ -7,6 +7,7 @@ using Pivot.Protocol.Application.V1;
 try
 {
 await ClipboardReadChecks.Run();
+if(args.Length==3&&args[0]=="--geometry-checks"){await GeometryChecks.Run(args[1],args[2]);Console.WriteLine("Geometry session checks passed.");return;}
 if(args.Length==3&&args[0]=="--bound-checks"){await BoundChecks.Run(args[1],args[2]);Console.WriteLine("Bound producer session checks passed.");return;}
 if(args.Length==3&&args[0]=="--window-checks"){await WindowChecks.Run(args[1],args[2]);Console.WriteLine("Window session checks passed.");return;}
 if(args.Length==3&&args[0]=="--weighted-checks"){await WeightedChecks.Run(args[1],args[2]);Console.WriteLine("Weighted session checks: PASS");return;}
@@ -47,6 +48,7 @@ static async Task CancelledAfterDispatch(WorkbookSession session, Func<Cancellat
 await FilteringChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await WindowChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await BoundChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
+await GeometryChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await VisibleEditChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await VisibleClipboardChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());
 await CapacityChecks.Run(args[0],args.Length>1 ? Path.GetDirectoryName(Path.GetFullPath(args[1]))! : Path.GetTempPath());

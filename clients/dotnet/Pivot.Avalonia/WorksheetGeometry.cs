@@ -39,6 +39,21 @@ public sealed partial class WorksheetView
     public Position RequestedLast=>new(){Row=Math.Max(anchor.Row,active.Row),Column=Math.Max(anchor.Column,active.Column)};
     public string SectionSelectionError=>selectionError;
     public Func<GeometryViewport,Position,Position,Task<GeometryFrame>>? ResolveSectionSelection {get;set;}
+    public void CancelHeadingGesture(){EndPointerSelection(false);CancelGeometryDivider();}
+    public async Task<bool> SelectLocalHeadingAsync(GeometryViewport owner,GeometryLocalHeader header,bool extend,bool corner=false)
+    {
+        if(owner!=geometryViewport||owner.IsDisposed||!GeometryInputReady||!GeometryHeaderInputReady)return false;
+        EndPointerSelection(false);long token=++gesture;
+        var first=header.SectionFirst.Clone();var last=header.SectionLast.Clone();
+        if(!corner){
+            if(header.Column){first.Column=last.Column=header.Index;if(extend){first.Row=Math.Min(first.Row,Anchor.Row);last.Row=Math.Max(last.Row,Anchor.Row);first.Column=Math.Min(Anchor.Column,header.Index);last.Column=Math.Max(Anchor.Column,header.Index);}}
+            else{first.Row=last.Row=header.Index;if(extend){first.Column=Math.Min(first.Column,Anchor.Column);last.Column=Math.Max(last.Column,Anchor.Column);first.Row=Math.Min(Anchor.Row,header.Index);last.Row=Math.Max(Anchor.Row,header.Index);}}
+        }
+        var focus=header.Column?new Position{Row=header.SectionFirst.Row,Column=header.Index}:new Position{Row=header.Index,Column=header.SectionFirst.Column};
+        bool Current()=>token==gesture&&owner==geometryViewport&&!owner.IsDisposed&&GeometryInputReady&&GeometryHeaderInputReady;
+        if(SelectionRequested is null||!await SelectionRequested(focus,false,false,Current)||!Current())return false;
+        SelectStructuralBand(first,last,focus);Focus();return true;
+    }
     public void SetGeometryZoom(int percent)
     {
         if(percent is <25 or >3200)throw new ArgumentOutOfRangeException(nameof(percent));
@@ -246,7 +261,8 @@ public sealed partial class WorksheetView
             var header=GeometryHeaderBounds(mapped);
             context.DrawRectangle(Brushes.WhiteSmoke,border,header);
             string text=columns?Address(new Position{Row=1,Column=mapped.Index}).TrimEnd('1'):mapped.Index.ToString(CultureInfo.InvariantCulture);
-            using(context.PushClip(header))context.DrawText(new FormattedText(text,CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Inter"),12,Brushes.SlateGray),header.TopLeft+new Vector(4,3));
+            var label=new FormattedText(text,CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Inter"),12,Brushes.SlateGray);
+            using(context.PushClip(header))context.DrawText(label,new Point(header.Left+(header.Width-label.Width)/2,header.Top+(header.Height-label.Height)/2));
         }
     }
 }

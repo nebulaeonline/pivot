@@ -68,8 +68,12 @@ def declare_execution(path):
 
 def desktop_environment():
     """Retain live authority but never inherit stale self-check/peer activation."""
-    return {k: v for k, v in os.environ.items()
-            if not k.startswith('PIVOT_UI_')}
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith('PIVOT_UI_')}
+    # Isolated DOTNET_CLI_HOME values must not accumulate per-run tools paths in
+    # the Windows user's persistent PATH during SDK first-use initialization.
+    env['DOTNET_ADD_GLOBAL_TOOLS_TO_PATH'] = '0'
+    return env
 
 
 def headless_environment():

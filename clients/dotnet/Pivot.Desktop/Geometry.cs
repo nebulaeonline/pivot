@@ -26,7 +26,7 @@ public partial class MainWindow
     }
     private async Task ReleaseGeometryViewAsync(bool loading=false)
     {
-        var old=geometryView;geometryView=null;GeometryLayoutBar.IsVisible=false;if(Sheet.GeometryMode)Sheet.SetGeometryViewport(null);if(loading)Sheet.EnterGeometryMode();if(old is not null)await old.DisposeAsync();
+        var old=geometryView;geometryView=null;ClearInteriorHeadings();GeometryLayoutBar.IsVisible=false;if(Sheet.GeometryMode)Sheet.SetGeometryViewport(null);if(loading)Sheet.EnterGeometryMode();if(old is not null)await old.DisposeAsync();
     }
     private async Task RefreshGeometryAsync(bool keepReady=false)
     {
@@ -56,7 +56,7 @@ public partial class MainWindow
             frameReady=true;displayedRevision=frame.Revision;displayedGeneration=frame.Generation;
             // Publish frame-dependent controls in the same UI turn as the cells.
             // Cleanup and section resolution can yield or be superseded.
-            ShowFilterStatus(frame);ShowGeometryLayout(frame);
+            ShowFilterStatus(frame);ShowGeometryLayout(frame);PublishInteriorHeadings();
             if(previous is not null)await previous.DisposeAsync();
             await Sheet.EnsureSectionSelectionAsync();
             if(request!=displayRequest||owner!=session||geometryView?.Frame!=frame)return;

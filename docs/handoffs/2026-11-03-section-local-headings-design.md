@@ -1,10 +1,14 @@
 # ADR-0043 — section-local headings design handoff
 
 Date: 2026-11-03.
-Disposition: **Design accepted by parent review, 2026-11-03. Implementation awaits separate owner authorization.**
+Disposition: **Design accepted by parent review, 2026-11-03. Owner subsequently authorized implementation; implementation and qualification accepted and milestone closed by parent review, 2026-11-03, with timing qualifications retained.**
+
+The [implementation handoff](2026-11-03-section-local-headings.md) records the final
+disposition and qualification. This file preserves the accepted design decisions.
 
 The review accepts the design without mandatory architectural corrections or
-another review cycle. No implementation authorization is implied.
+another review cycle. The owner supplied implementation authorization separately
+after design acceptance.
 
 [ADR-0043](../adr/0043-section-local-headings-and-axis-selection.md) addresses
 discoverability and local row/column selection after accepted ADR-0042.
@@ -67,5 +71,5 @@ separate implementation authorization. macOS x64 is Rosetta. Existing Windows
 ARM64 cold timing failures remain unresolved; ADR-0023 remains parked at G3.
 
 ADR-0042 remains accepted and closed. No next feature beyond this design is
-authorized. No further design review is required; await separate owner implementation
-consent. Attended GUI evidence remains required and cannot be replaced by virtual tests.
+authorized. No further design review is required; implementation is now separately
+authorized. Attended GUI evidence remains required and cannot be replaced by virtual tests.

@@ -223,11 +223,14 @@ follow below. ADR-0023 remains parked at G3.
   [design handoff](../handoffs/2026-11-02-section-grid-geometry-design.md).
 
 - [ADR-0043: Section-Local Headings and Axis Selection](0043-section-local-headings-and-axis-selection.md)
-  — Design accepted by parent review (2026-11-03); implementation awaits separate
-  owner authorization. No further design review is required.
+  — Implemented, accepted and closed by parent implementation review (2026-11-03),
+  with Windows x64 cold sparse-sort and historical Windows ARM64 cold structural
+  timing qualifications retained.
+  All six targets passed final managed/AOT GUI suites, including rendered light/dark
+  contrast checks. See the [implementation handoff](../handoffs/2026-11-03-section-local-headings.md).
   Interior section row/column headings, exact local-axis selection, canonical
   either-boundary closure and one master Show interior headings toggle. View chrome
-  does not change document geometry or selection authority. No implementation or
-  platform qualification. See the
+  does not change document geometry or selection authority. Private session v17;
+  WB16, hosted v1 and CB5/CB6 unchanged. No further validation required. See the
   [design handoff](../handoffs/2026-11-03-section-local-headings-design.md) and
   [interaction contract](../architecture/section-local-headings.md).

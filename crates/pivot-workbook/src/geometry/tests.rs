@@ -118,6 +118,80 @@ fn invoice_map_and_both_single_boundary_closures() {
         assert_eq!(map.hit(r.left, r.top), Some(p));
         assert_eq!(map.hit(r.right - 1, r.bottom - 1), Some(p));
     }
+    {
+        let headings = map
+            .local_headers(
+                CellRect {
+                    left: 0,
+                    top: 0,
+                    right: 576 * 64,
+                    bottom: 648 * 64,
+                },
+                &memory,
+                &cancel,
+            )
+            .unwrap();
+        assert!(!headings.items.is_empty());
+        let mut unique = std::collections::BTreeSet::new();
+        for h in &headings.items {
+            assert!(unique.insert((
+                h.section.first.row,
+                h.section.first.column,
+                h.column,
+                h.index
+            )));
+            let row_start = if h.section.first.row < 5 {
+                1
+            } else if h.section.first.row < 29 {
+                5
+            } else {
+                29
+            };
+            let row_end = if row_start == 1 {
+                4
+            } else if row_start == 5 {
+                28
+            } else {
+                36
+            };
+            let col_start = if h.section.first.column < 7 { 1 } else { 7 };
+            assert_eq!(
+                h.section,
+                rect(
+                    row_start,
+                    col_start,
+                    row_end,
+                    if col_start == 1 { 6 } else { 8 }
+                )
+            );
+            let at = if h.column {
+                Position::new(row_start, h.index)
+            } else {
+                Position::new(h.index, col_start)
+            };
+            let r = map.cell_rect(at).unwrap();
+            assert_eq!(
+                (h.first, h.last, h.edge),
+                if h.column {
+                    (r.left, r.right, r.top)
+                } else {
+                    (r.top, r.bottom, r.left)
+                }
+            );
+        }
+        assert!(
+            headings
+                .items
+                .iter()
+                .any(|h| h.column && h.index == 3 && h.section == rect(5, 1, 28, 6))
+        );
+        assert!(
+            headings
+                .items
+                .iter()
+                .any(|h| !h.column && h.index == 10 && h.section == rect(5, 7, 28, 8))
+        );
+    }
     drop(map);
     assert_eq!(memory.stats().charged, 0);
     let map = Map::build(36, 8, &horizontal, &vertical[..1], None, &memory, &cancel).unwrap();
@@ -496,4 +570,32 @@ fn rulers_keep_active_profiles_outside_view_and_through_hidden_sections() {
         map.scroll_anchor(Position::new(1, 2)),
         Some(Position::new(3, 2))
     );
+    let local = map
+        .local_headers(
+            CellRect {
+                top: 0,
+                bottom: 128,
+                ..view
+            },
+            &memory,
+            &cancel,
+        )
+        .unwrap();
+    assert!(local.items.iter().all(|h| h.section.first.row == 3));
+    assert!(
+        local
+            .items
+            .iter()
+            .filter(|h| !h.column)
+            .all(|h| h.index >= 3)
+    );
+    assert!(local.items.iter().filter(|h| h.column).all(|h| h.edge == 0));
+    let charged = memory.stats().charged;
+    let stopped = CancellationToken::default();
+    stopped.cancel();
+    assert!(matches!(
+        map.local_headers(view, &memory, &stopped),
+        Err(MapError::Cancelled)
+    ));
+    assert_eq!(memory.stats().charged, charged);
 }

@@ -33,9 +33,11 @@ also be used directly through Rust crate APIs, independently of a workbook or GU
 [ADR-0043](docs/adr/0043-section-local-headings-and-axis-selection.md) defines
 section-local row/column headings and selection, with one master toggle to hide
 interior headings for an unobstructed document view. The design is accepted
-(2026-11-03); implementation awaits separate owner authorization. The
-[design handoff](docs/handoffs/2026-11-03-section-local-headings-design.md)
-records the accepted decisions. No feature implementation is included.
+(2026-11-03). Implementation and qualification are accepted by parent review; the
+milestone is closed with its recorded timing qualifications retained. All six targets passed managed/AOT GUI suites, including rendered
+light/dark heading checks. See the
+[implementation handoff](docs/handoffs/2026-11-03-section-local-headings.md) for source
+lineage, retained timing qualifications, code-size reporting and cleanup.
 
 [ADR-0042](docs/adr/0042-section-breaks-and-local-grid-geometry.md) implements Section
 Breaks and local Grid geometry: either boundary type creates sections, and crossing

@@ -92,6 +92,19 @@ pub struct Headers {
     pub items: Vec<Header>,
     _charge: Charge,
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LocalHeader {
+    pub column: bool,
+    pub index: u32,
+    pub first: i64,
+    pub last: i64,
+    pub edge: i64,
+    pub section: Rectangle,
+}
+pub struct LocalHeaders {
+    pub items: Vec<LocalHeader>,
+    _charge: Charge,
+}
 pub struct ViewportPage {
     pub cells: Vec<LocatedRect>,
     pub total: usize,
@@ -308,6 +321,89 @@ impl Map {
             }
         }
         Ok(Headers {
+            items,
+            _charge: charge,
+        })
+    }
+    /// Local headings are derived only from the bounded visible page. The section
+    /// edge comes from this map, including hidden-row compaction and stepped seams.
+    pub fn local_headers(
+        &self,
+        view: CellRect,
+        memory: &Memory,
+        cancel: &CancellationToken,
+    ) -> MapResult<LocalHeaders> {
+        let charge = memory
+            .reserve(
+                8192 * (std::mem::size_of::<LocalHeader>() + 64)
+                    + 4096 * std::mem::size_of::<LocatedRect>(),
+            )
+            .map_err(|_| MapError::Limit)?;
+        let mut cells = Vec::new();
+        let mut after = 0;
+        loop {
+            let page = self.viewport_page(view, after, memory, cancel)?;
+            cells.extend_from_slice(&page.cells);
+            match page.next {
+                Some(next) => after = next,
+                None => break,
+            }
+        }
+        let mut items = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        let mut work = Work {
+            remaining: MAX_WORK,
+            cancel,
+        };
+        for cell in &cells {
+            work.tick(1)?;
+            if cancel.is_cancelled() {
+                return Err(MapError::Cancelled);
+            }
+            // Section bounds are independent of the stored cell contents.
+            let hi = self.horizontal.partition_point(|r| *r <= cell.position.row) - 1;
+            let vi = self
+                .vertical
+                .partition_point(|c| *c <= cell.position.column)
+                - 1;
+            let bounds = Rectangle {
+                first: Position::new(self.horizontal[hi], self.vertical[vi]),
+                last: Position::new(
+                    self.horizontal.get(hi + 1).map_or(self.rows, |r| r - 1),
+                    self.vertical.get(vi + 1).map_or(self.columns, |c| c - 1),
+                ),
+            };
+            let leading = self.scroll_anchor(bounds.first).ok_or(MapError::Invalid)?;
+            if leading.row > bounds.last.row {
+                continue;
+            }
+            for column in [true, false] {
+                let index = if column {
+                    cell.position.column
+                } else {
+                    cell.position.row
+                };
+                if !seen.insert((hi, vi, column, index)) {
+                    continue;
+                }
+                let at = if column {
+                    Position::new(leading.row, index)
+                } else {
+                    Position::new(index, bounds.first.column)
+                };
+                work.tick(self.tiles.len())?;
+                let rect = self.cell_rect(at).ok_or(MapError::Invalid)?;
+                items.push(LocalHeader {
+                    column,
+                    index,
+                    first: if column { rect.left } else { rect.top },
+                    last: if column { rect.right } else { rect.bottom },
+                    edge: if column { rect.top } else { rect.left },
+                    section: bounds,
+                });
+            }
+        }
+        Ok(LocalHeaders {
             items,
             _charge: charge,
         })

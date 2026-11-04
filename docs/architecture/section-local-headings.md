@@ -1,6 +1,6 @@
 # Section-local heading interaction contract
 
-Status: **Design accepted by parent review under [ADR-0043](../adr/0043-section-local-headings-and-axis-selection.md), 2026-11-03. Implementation awaits separate owner authorization.**
+Status: **Design accepted by parent review under [ADR-0043](../adr/0043-section-local-headings-and-axis-selection.md), 2026-11-03. Implemented, accepted and closed by parent implementation review, with recorded timing qualifications retained.**
 
 This supplements the accepted [canonical geometry contract](section-grid-geometry.md).
 ADR-0042 remains closed. The accepted design adds discoverable section-local editor
@@ -84,7 +84,12 @@ allocate cell identities for headings or create a second retained capture pool.
 Density reduction must remain explicit and preserve section identity. Deferred
 responses cannot republish hidden chrome or restore a cancelled gesture.
 
-The implementation codec audit must identify whether existing private v16 heading
-descriptors cover all visible local segments. Reuse them if sufficient; otherwise
-make a coordinated private v17 cut, without changing WB16 or hosted v1/CB5/CB6.
-No format/protocol change or platform qualification accompanies this proposal.
+The implementation codec audit found that private v16's active-section rulers did
+not describe the required multi-section edges and full local bounds. Private v17
+implements those descriptors; WB16, hosted v1 and CB5/CB6 remain unchanged. Final platform
+qualification is recorded in the [implementation handoff](../handoffs/2026-11-03-section-local-headings.md).
+
+Interior controls use explicit worksheet-compatible background, foreground and
+border colors. Inheriting a dark application foreground against the fixed light
+worksheet is insufficient. Rendered glyph/background checks qualify light and dark
+themes in the virtual sequence and all final attended managed/AOT suites.

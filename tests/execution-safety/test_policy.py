@@ -74,7 +74,7 @@ class PolicyTests(unittest.TestCase):
     def test_headless_environment_removes_automation_and_authority(self):
         os.environ.update({policy.PERMIT:'fake', 'PIVOT_UI_PEER_REPORT':'fake',
                            'PIVOT_UI_SMOKE_REPORT':'fake', 'PATH':'keep'})
-        self.assertEqual(policy.headless_environment(), {'PATH':'keep'})
+        self.assertEqual(policy.headless_environment(), {'PATH':'keep', 'DOTNET_ADD_GLOBAL_TOOLS_TO_PATH':'0'})
 
     def test_malformed_permits_fail_closed(self):
         for permit in ['', 'yes', 'true', '0:'+'a'*64, '999999:'+'a'*64,

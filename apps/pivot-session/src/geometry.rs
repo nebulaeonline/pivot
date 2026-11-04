@@ -465,6 +465,32 @@ impl Session {
                 bottom: view.bottom,
             });
             if q.geometry_after == 0 {
+                let local = map
+                    .local_headers(view, &memory, &Default::default())
+                    .map_err(|e| {
+                        format!(
+                            "Section heading viewport refused ({e:?}); zoom in or reduce the view"
+                        )
+                    })?;
+                frame.local_headers = local
+                    .items
+                    .iter()
+                    .map(|h| wire::GeometryLocalHeader {
+                        column: h.column,
+                        index: h.index,
+                        first: h.first,
+                        last: h.last,
+                        edge: h.edge,
+                        section_first: Some(wire::Position {
+                            row: h.section.first.row,
+                            column: h.section.first.column,
+                        }),
+                        section_last: Some(wire::Position {
+                            row: h.section.last.row,
+                            column: h.section.last.column,
+                        }),
+                    })
+                    .collect();
                 let active = q
                     .geometry_active
                     .as_ref()
@@ -506,6 +532,11 @@ impl Session {
                             .iter()
                             .map(|h| h.encoded_len() * 4 + 128)
                             .sum::<usize>()
+                            + frame
+                                .local_headers
+                                .iter()
+                                .map(|h| h.encoded_len() * 4 + 128)
+                                .sum::<usize>()
                             + frame
                                 .active_cell
                                 .as_ref()

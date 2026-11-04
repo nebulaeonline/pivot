@@ -293,7 +293,8 @@ public sealed partial class WorksheetView : Control
                 align=content.Error.Length>0?1:content.Result?.KindCase==TypedValue.KindOneofCase.Decimal?3:content.Result?.KindCase==TypedValue.KindOneofCase.Boolean?2:1;
             double contentWidth=rect.Width-(filterHeader?18:0);
             double left=align==3?Math.Max(x+5,x+contentWidth-5-formatted.Width):align==2?Math.Max(x+5,x+(contentWidth-formatted.Width)/2):x+5;
-            using (context.PushClip(new Rect(rect.X,rect.Y,contentWidth,rect.Height).Deflate(3))) context.DrawText(formatted,new Point(left,y+4));
+            if(row<0||col<0)using(context.PushClip(rect))context.DrawText(formatted,new Point(rect.Left+(rect.Width-formatted.Width)/2,rect.Top+(rect.Height-formatted.Height)/2));
+            else using (context.PushClip(new Rect(rect.X,rect.Y,contentWidth,rect.Height).Deflate(3))) context.DrawText(formatted,new Point(left,y+4));
             if(filterHeader){var mark=new FormattedText("\u25be",CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Inter"),12,FilterSummary!.Columns.Contains(c)?Brushes.SlateBlue:Brushes.Gray);context.DrawText(mark,new Point(rect.Right-16,rect.Y+4));}
         }
         if(HasRegion && ProjectionFrame is null && !HasFilterMap) {

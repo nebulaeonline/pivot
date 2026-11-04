@@ -108,6 +108,15 @@ public sealed partial class WorkbookSession
                     frame.FilterVisibleMask=geometry.VisibleMask;frame.FilterSummary=geometry.FilterSummary?.Clone();
                     frame.FilterShownDataRows=geometry.FilterShownDataRows;frame.FilterTotalDataRows=geometry.FilterTotalDataRows;
                     payload=checked(payload+geometry.Headers.Sum(h=>h.CalculateSize()*4L+128)+((geometry.ActiveCell?.CalculateSize()??0)*4L+512));
+                    if(geometry.LocalHeaders.Count>8192)throw new IOException("Too many section-local headings.");
+                    payload=checked(payload+geometry.LocalHeaders.Sum(h=>h.CalculateSize()*4L+128));
+                    foreach(var h in geometry.LocalHeaders){
+                        if(h.SectionFirst is null||h.SectionLast is null||h.Index==0||h.First<0||h.Last<=h.First||h.Edge<0
+                            ||h.SectionFirst.Row==0||h.SectionFirst.Column==0||h.SectionLast.Row<h.SectionFirst.Row||h.SectionLast.Column<h.SectionFirst.Column
+                            ||h.SectionLast.Row>geometry.Rows||h.SectionLast.Column>geometry.Columns
+                            ||h.Index<(h.Column?h.SectionFirst.Column:h.SectionFirst.Row)||h.Index>(h.Column?h.SectionLast.Column:h.SectionLast.Row))
+                            throw new IOException("Invalid section-local heading.");
+                    }
                     frame.FilterStatus=geometry.FilterStatus;frame.FilterError=geometry.FilterError;frame.FilterGeneration=geometry.VisibilityStamp;
                 } else if(total!=geometry.Total||!frame.Geometry.Viewport.Equals(geometry.Viewport)
                     ||!frame.Geometry.HorizontalStarts.SequenceEqual(geometry.HorizontalStarts)

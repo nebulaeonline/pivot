@@ -2,7 +2,7 @@ use super::*;
 use wire::request::Operation as O;
 fn request(s: &Session, op: O) -> wire::Request {
     wire::Request {
-        version: 16,
+        version: 17,
         operation: op as i32,
         revision: s.revision.clone(),
         computational_state: s.computational_state.clone(),

@@ -1,7 +1,7 @@
 use super::*;
 fn request(s: &Session, op: wire::request::Operation) -> wire::Request {
     wire::Request {
-        version: 16,
+        version: 17,
         operation: op as i32,
         revision: s.revision.clone(),
         worksheet: s
@@ -61,6 +61,28 @@ fn geometry_uses_canonical_capture_scope_and_joint_four_lease_ceiling() {
     let frame = call(&mut s, q.clone()).unwrap().geometry.unwrap();
     assert_eq!(frame.total, 200);
     assert_eq!(frame.cells.len(), 200);
+    let section_column = frame
+        .local_headers
+        .iter()
+        .find(|h| {
+            h.column
+                && h.index == 3
+                && h.section_first
+                    .as_ref()
+                    .is_some_and(|p| p.row == 5 && p.column == 1)
+        })
+        .unwrap();
+    assert_eq!(section_column.edge, 1248 * 4);
+    assert_eq!(section_column.section_last.as_ref().unwrap().row, 65536);
+    assert_eq!(section_column.section_last.as_ref().unwrap().column, 1024);
+    assert_eq!(
+        frame
+            .local_headers
+            .iter()
+            .filter(|h| h.column && h.index == 3)
+            .count(),
+        2
+    );
     assert!(s.captures[&new].geometry.is_some());
     q.geometry_viewport.as_mut().unwrap().right += 1;
     assert!(call(&mut s, q).is_err());

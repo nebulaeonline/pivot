@@ -29,6 +29,8 @@
             <MenuItem x:Name="DeleteColumnsItem" Header="Delete entire columns" Click="DeleteColumnsClick" />
             <Separator />
             <MenuItem Header="Section geometry…" Click="GeometryClick" />
+            <MenuItem x:Name="InteriorHeadingsToggle" Header="Show interior headings" ToggleType="CheckBox" IsChecked="True" Click="InteriorHeadingsClick" />
+            <MenuItem x:Name="InteriorSectionMenu" Header="Section selection" />
             <MenuItem Header="Grid zoom">
               <MenuItem x:Name="GeometryZoom25" Header="25%" Tag="25" Click="GeometryZoomClick" />
               <MenuItem x:Name="GeometryZoom50" Header="50%" Tag="50" Click="GeometryZoomClick" />
@@ -141,6 +143,7 @@
       </Grid>
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="↑ Rows" Click="UpClick" /><Button Content="↓ Rows" Click="DownClick" />
+        <CheckBox x:Name="InteriorHeadingsButton" Content="Interior headings" IsChecked="True" Click="InteriorHeadingsClick" />
         <Button Content="← Columns" Click="LeftClick" /><Button Content="→ Columns" Click="RightClick" />
         <TextBox x:Name="MoveTarget" Width="100" PlaceholderText="Move to B22" />
         <Button x:Name="MoveButton" Content="Move selected" Click="MoveClick" />
@@ -156,6 +159,7 @@
     </StackPanel>
     <Grid VerticalAlignment="Top">
       <sheet:WorksheetView x:Name="Sheet" />
+      <Canvas x:Name="InteriorHeadingLayer" ClipToBounds="True" />
       <Canvas x:Name="EditorLayer" IsHitTestVisible="False">
         <TextBox x:Name="CellEditor" IsVisible="False" MaxLength="4096" Padding="3,1"
                  MinHeight="26" FontSize="13" />

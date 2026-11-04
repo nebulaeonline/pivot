@@ -233,7 +233,7 @@ impl Session {
     }
     fn handle(&mut self, q: &wire::Request, r: &mut wire::Response) -> Result<(), String> {
         use wire::request::Operation as Op;
-        if q.version != 16 {
+        if q.version != 17 {
             return Err("unsupported application version".into());
         }
         let operation = Op::try_from(q.operation).map_err(|_| "unknown operation")?;
@@ -1367,7 +1367,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         input.read_exact(&mut bytes)?;
         let q = wire::Request::decode(bytes.as_slice())?;
         let mut r = wire::Response {
-            version: 16,
+            version: 17,
             id: q.id,
             revision: session.revision.clone(),
             ..Default::default()
@@ -1619,7 +1619,7 @@ mod protocol_version_tests {
     #[test]
     fn incompatible_peers_reject_before_creating_state() {
         let mut session = Session::default();
-        for version in 0..16 {
+        for version in 0..17 {
             let request = wire::Request {
                 version,
                 operation: wire::request::Operation::Create as i32,

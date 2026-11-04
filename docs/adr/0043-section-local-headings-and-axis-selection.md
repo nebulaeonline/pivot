@@ -1,7 +1,15 @@
 # ADR-0043: Section-Local Headings and Axis Selection
 
 Date: 2026-11-03.
-Status: **Design accepted by parent review, 2026-11-03. Implementation awaits separate owner authorization; no feature implementation or platform qualification.**
+Status: **Design accepted by parent review, 2026-11-03. Implemented, accepted and closed by parent implementation review, with recorded timing qualifications retained.**
+
+Implementation codec audit: private v16 provides only active-section outer ruler
+descriptors. Section-local headings require explicit edge coordinates and full
+section bounds for multiple visible sections. Use coordinated private session v17;
+WB16, hosted v1 and CB5/CB6 remain unchanged. See the
+[implementation handoff](../handoffs/2026-11-03-section-local-headings.md) for final
+source-qualified twelve-suite GUI evidence, full/focused headless lineage, the
+dark-theme correction, preserved timing qualifications and verified retention.
 
 The review accepts the design without mandatory architectural corrections or
 another design review. Implementation must keep heading-divider targets distinct
@@ -179,7 +187,7 @@ used region. Selecting a local row/column never shrinks its extent because cells
 are Blank, filtered or offscreen. Oversized operations still refuse under existing
 limits. Turning headings off preserves every selection above exactly.
 
-## Implementation qualification required after separate authorization
+## Implementation qualification
 
 1. Independent descriptor/hit-target tests verify both single-boundary layouts,
    combined partitions, nonuniform and stepped profiles, clipping, actual scope
@@ -204,10 +212,13 @@ limits. Turning headings off preserves every selection above exactly.
    terminal consent and short launchers. Archive/verify before cache pruning and
    refresh the per-project cloc report at milestone close.
 
-No implementation, resource measurement, accessibility execution or platform test
-is claimed by this design. Existing timing qualifications remain unresolved and
-ADR-0023 stays parked at G3. Parent design acceptance requires no further design
-review. Separate owner implementation authorization is required before feature work.
+The design was implemented under separate owner authorization. Qualification
+results and their limits are recorded in the implementation handoff; they do not
+claim exhaustive human usability or screen-reader certification. Existing timing
+qualifications remain unresolved and ADR-0023 stays parked at G3. Parent implementation review accepts this qualification and closes the milestone;
+no additional implementation corrections or platform reruns are required. The
+Windows x64 cold sparse-sort failure and historical Windows ARM64 cold structural
+timing failures remain unresolved.
 
 ## Exclusions
 

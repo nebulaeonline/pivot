@@ -222,7 +222,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
             await ValidateSelectionDispatchAsync(request,cancellation).ConfigureAwait(false);
             if(request.Operation==Request.Types.Operation.Capture) request.ProofEpoch=ProofEpoch;
             if(request.ComputationalState.Length==0)request.ComputationalState=ComputationalState;
-            request.Version = 16; request.Id = ++sequence;
+            request.Version = 17; request.Id = ++sequence;
             if (request.Revision.Length == 0) request.Revision = Revision;
             var serialization = Stopwatch.StartNew();
             if (request.CalculateSize() is <= 0 or > MaximumFrame) throw new WorkbookSessionException("Request exceeds session frame limit.");
@@ -246,7 +246,7 @@ public sealed partial class WorkbookSession : IAsyncDisposable
                 var decode = Stopwatch.StartNew();
                 response = Response.Parser.ParseFrom(payload);
                 LastClientDeserialization = decode.Elapsed;
-                if (response.Version != 16 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
+                if (response.Version != 17 || response.Id != request.Id) throw new IOException("Mismatched Pivot response.");
                 foreach(var cell in response.Cells) ValidateResult(cell);
                 if(response.Geometry?.ActiveCell is { } active)ValidateResult(active);
             }

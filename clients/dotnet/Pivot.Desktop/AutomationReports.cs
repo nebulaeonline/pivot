@@ -26,6 +26,7 @@ internal sealed class DesktopReport
     public string? rectangular_fill {get;init;}
     public string? multiple_worksheets {get;init;}
     public string section_geometry {get;init;} = "";
+    public string section_headings {get;init;} = "";
     public string bound {get;init;} = "";
     public string windows {get;init;} = "";
     public string? structure {get;init;}

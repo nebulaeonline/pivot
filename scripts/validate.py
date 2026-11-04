@@ -114,6 +114,7 @@ def environment(work,target_rid=None,dotnet_root=None):
   'TMPDIR':'tmp','TEMP':'tmp','TMP':'tmp','PIVOT_FILE_TEST_ROOT':'fixtures'}.items():
   p=work/name;p.mkdir(exist_ok=True);env[key]=str(p)
  env.update(AVALONIA_TELEMETRY_OPTOUT='1',DOTNET_CLI_TELEMETRY_OPTOUT='1',
+  DOTNET_ADD_GLOBAL_TOOLS_TO_PATH='0',
   DOTNET_GENERATE_ASPNET_CERTIFICATE='false',DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE='true',RUSTUP_AUTO_INSTALL='0')
  return env
 def command_for(suite,output):

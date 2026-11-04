@@ -152,6 +152,14 @@ pruning each completed validation batch; refresh per-project cloc at milestone c
 
 ## Artifact retention
 
+ADR-0043's [implementation handoff](handoffs/2026-11-03-section-local-headings.md)
+records all six final managed/AOT GUI pairs, 952-file executed source verification,
+light/dark rendered-glyph checks and the full/focused headless source lineage.
+Control existence and successful event dispatch alone do not qualify visible
+headings: preserve the dark-theme regression that fails on the original styling.
+All final suites pass with zero charges and owned-process cleanup. Earlier passing
+receipts with the visual defect and original timing failures retain their outcomes.
+
 ADR-0042 qualification is recorded in the
 [implementation handoff](handoffs/2026-11-03-section-grid-geometry.md): six-target
 managed/AOT graphical passes, the full headless baseline, focused native UI checks

@@ -79,6 +79,7 @@ public partial class MainWindow
                 Check(mapped.Single(c=>c.At.Equals(P(1,7))).Rectangle.Left==480*64,"Aligned vertical seam");
                 Check(capture.Frame.Cells.Single(c=>c.At.Equals(P(1))).Result.Text=="000042"&&capture.Frame.Cells.Single(c=>c.At.Equals(P(2))).Result.Text=="001234","Invoice geometry preserves leading-zero Strings");
             }
+            await InteriorHeadingsAutomationAsync(output);
             dialog=await Open();Size(dialog,true,5,2,2,52,paired:true);await Apply(dialog,"revise existing table divider using balanced adjacent sizes");
             await SelectAsync(P(5,2));await RefreshAsync();await AutomationWaitForGeometryFrameAsync();
             var divider=sheet.CellBounds(P(5,2));var pointer=new Pointer(994,PointerType.Mouse,true);

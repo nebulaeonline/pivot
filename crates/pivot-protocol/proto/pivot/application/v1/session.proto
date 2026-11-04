@@ -302,7 +302,10 @@ message GeometryFrame {
  GeometryRect viewport = 13; uint32 rows = 14; uint32 columns = 15; bool positional = 16;
  bytes visible_mask = 17; FilterSummary filter_summary = 18; uint32 filter_status = 19; string filter_error = 20; string visibility_stamp = 21;
  Position scroll_anchor = 22; repeated GeometryHeader headers = 23; Cell active_cell = 24; bytes active_style = 25; bytes layout_stamp = 26; bool layout_needs_review = 27; uint32 filter_shown_data_rows = 28; uint32 filter_total_data_rows = 29;
+ repeated GeometryLocalHeader local_headers = 30;
 }
+
+message GeometryLocalHeader { bool column = 1; uint32 index = 2; sint64 first = 3; sint64 last = 4; sint64 edge = 5; Position section_first = 6; Position section_last = 7; }
 
 message GeometryHeader { bool column = 1; uint32 index = 2; sint64 first = 3; sint64 last = 4; uint32 section_first = 5; uint32 section_last = 6; }
 
